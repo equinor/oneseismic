@@ -178,10 +178,11 @@ int main( int args, char** argv ) {
         std::ofstream fs{ fname, std::ios_base::binary };
         if (!fs) {
             std::cerr << "unable to open file " << fname
-                      << ". non-existent directory?\n";
+                      << ". non-existent directory?\n"
+                      ;
             std::exit( EXIT_FAILURE );
         }
-        for (auto sample : v) fs << sample;
+        fs.write( (const char*) v.data(), sizeof(float) * v.size() );
     }
 
     const auto fname = outdir + cfg.basename + ".manifest";
