@@ -12,6 +12,8 @@ target_include_directories(json INTERFACE external/nlohmann)
 add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
+add_subdirectory(external/mio)
+
 if (NOT MSVC)
     # assuming gcc-style options
     # add warnings in debug mode
