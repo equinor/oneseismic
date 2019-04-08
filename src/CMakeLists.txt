@@ -42,6 +42,9 @@ target_link_libraries(generate json clara)
 add_executable(stitch stitch.cpp)
 target_link_libraries(stitch json clara mio)
 
+add_executable(verifyer verifyer.cpp)
+target_link_libraries(verifyer json clara)
+
 add_executable(check_shatters check_shatters.cpp)
 target_link_libraries(check_shatters json clara segyio
                       ${OpenMP_EXE_LINKER_FLAGS} ${OpenMP_CXX_FLAGS})
@@ -49,3 +52,6 @@ target_compile_options(check_shatters PRIVATE ${OpenMP_CXX_FLAGS})
 
 add_executable(shatter shatter)
 target_link_libraries(shatter json clara segyio)
+
+add_executable(generate_surfaces generate_surfaces.cpp)
+target_link_libraries(generate_surfaces clara)

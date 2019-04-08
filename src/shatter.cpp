@@ -25,7 +25,7 @@ struct config {
     int ys = 0;
     int zs = 0;
     int xlbyte = 193;
-    int ilbyte = 187;
+    int ilbyte = 189;
 
     clara::Parser cli() {
         using namespace clara;

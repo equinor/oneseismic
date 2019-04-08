@@ -165,14 +165,16 @@ int main( int args, char** argv ) {
     for (std::size_t y = 0; y < num_fragments.y; ++y)
     for (std::size_t z = 0; z < num_fragments.z; ++z)
     {
-        dimension local { x, y, z };
+        dimension local { x * cfg.fragment_xs,
+                          y * cfg.fragment_ys,
+                          z * cfg.fragment_zs };
         auto v = fragment( local, local_len, global_len );
 
         const std::string fname = outdir
                                 + cfg.basename
-                                + "-" + std::to_string( x )
-                                + "-" + std::to_string( y )
-                                + "-" + std::to_string( z )
+                                + "-" + std::to_string( x * cfg.fragment_xs )
+                                + "-" + std::to_string( y * cfg.fragment_ys )
+                                + "-" + std::to_string( z * cfg.fragment_zs )
                                 + ".f32"
                                 ;
         std::ofstream fs{ fname, std::ios_base::binary };

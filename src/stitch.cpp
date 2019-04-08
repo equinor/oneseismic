@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <cerrno>
-#include <cstdlib>
+#include <cstdint>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -23,6 +23,7 @@ struct config {
     std::string bin;
     std::string manifest;
     std::string surface;
+    std::string input_dir = "./";
     bool timing = false;
 
     clara::Parser cli() {
@@ -31,11 +32,11 @@ struct config {
         return ExeName( bin )
             | Arg( manifest, "manifest" )
                  ( "Manifest" )
-            | Arg( surface, "surface" )
-                 ( "Surface" )
             | Opt( timing )
                  ( "Writing timing report" )
                  ["--time"]["-t"]
+            | Opt( input_dir, "Input directory" )
+                 ["--input-dir"]["-i"]
             | Help( this->help )
         ;
     }
@@ -59,29 +60,6 @@ void throw_errno() {
     throw std::system_error( std::make_error_code( errc ) );
 }
 
-std::vector< point > readsurface( const std::string& path ) {
-    mio::mmap_source file( path );
-
-    if (file.size() % (sizeof(int) * 3) != 0)
-        throw std::runtime_error( "truncated surface" );
-
-    const int elems = file.size() / (sizeof(int) * 3);
-    std::vector< point > xs;
-    xs.reserve( elems );
-
-    const char* itr = static_cast< const char* >( file.data() );
-    for (int i = 0; i < elems; ++i) {
-        point p;
-        std::memcpy( &p.x, itr + 0, 4 );
-        std::memcpy( &p.y, itr + 4, 4 );
-        std::memcpy( &p.z, itr + 8, 4 );
-        itr += 12;
-        xs.push_back( p );
-    }
-
-    return xs;
-}
-
 std::map< point, std::vector< int > > bin( point fragment_size,
                                            point cube_size,
                                            const std::vector< point >& xs ) {
@@ -103,7 +81,12 @@ std::map< point, std::vector< int > > bin( point fragment_size,
                 + local.y *  fragment_size.z
                 + local.z
                 ;
-        ret[root].push_back(pos);
+
+        auto itr = ret.find(root);
+        if (itr == ret.end()) {
+          itr = ret.emplace(root, std::vector<int>{}).first;
+        }
+        itr->second.push_back(pos);
     }
 
     for (auto& kv : ret)
@@ -132,7 +115,7 @@ int main( int args, char** argv ) {
     }
 
     json manifest;
-    std::ifstream( cfg.manifest ) >> manifest;
+    std::ifstream( cfg.input_dir + "/" + cfg.manifest ) >> manifest;
 
     point fragment_size {
         manifest["fragment-xs"].get< int >(),
@@ -148,7 +131,16 @@ int main( int args, char** argv ) {
 
     auto start_time = std::chrono::system_clock::now();
 
-    const auto surface = readsurface( cfg.surface );
+    json meta;
+    std::cin >> meta;
+    std::cout << meta;
+    int size = meta["size"];
+
+    std::vector< point > surface( size );
+
+    std::cin.read((char*)&surface[0], sizeof(point) * size);
+
+    std::cout.sync_with_stdio(false);
     auto surface_time = std::chrono::system_clock::now();
 
     const auto bins = bin( fragment_size, cube_size, surface );
@@ -169,21 +161,33 @@ int main( int args, char** argv ) {
                                + "-" + std::to_string( key.z )
                                + ".f32"
                                ;
-        mio::mmap_source file( path );
+        mio::mmap_source file( cfg.input_dir + "/" + path );
 
         const char* ptr = static_cast< const char* >( file.data() );
 
-        std::vector< float > xs;
-        xs.reserve( val.size() );
         for (const auto& off : val) {
             float f;
             std::memcpy( &f, ptr + off * 4, 4 );
-            xs.push_back( f );
-        }
 
-        std::string outpath = "/data/js/out-" + path;
-        std::ofstream ofs( outpath, std::ios::binary );
-        ofs.write( (char*)xs.data(), xs.size() * sizeof(float));
+            std::uint64_t x = key.x + off / (fragment_size.y * fragment_size.z);
+            std::uint64_t y = key.y
+                            + (off % (fragment_size.y * fragment_size.z))
+                              / fragment_size.z;
+            std::uint64_t z = key.z
+                            + (off % (fragment_size.y * fragment_size.z))
+                              % fragment_size.z;
+
+            std::uint64_t global_offset = x * (cube_size.y * cube_size.z)
+                                        + y *  cube_size.z
+                                        + z
+                                        ;
+
+            #pragma omp critical
+            {
+            std::cout.write((char*)&global_offset, sizeof(std::uint64_t));
+            std::cout.write((char*)&f, sizeof(float));
+            }
+        }
         }
     }
 
@@ -198,11 +202,17 @@ int main( int args, char** argv ) {
         auto read =  duration_cast< milliseconds >(end_time - bin_time);
         auto total = duration_cast< milliseconds >(end_time - start_time);
 
-        std::cout << "Timing report: \n"
-                  << "Parsing surface: "    << surf.count()  << "ms\n"
-                  << "Binning surface: "    << bin.count()   << "ms\n"
-                  << "Reading surface: "    << read.count()  << "ms\n"
-                  << "Total elapsed time: " << total.count() << "ms\n"
+        std::ofstream out( "./time", std::ofstream::app );
+
+        out << "Fragment size: "
+            << "x: "   << fragment_size.x
+            << ", y: " << fragment_size.y
+            << ", z: " << fragment_size.z << "\n"
+
+            << "Parsing surface: "    << surf.count()  << "ms\n"
+            << "Binning surface: "    << bin.count()   << "ms\n"
+            << "Reading surface: "    << read.count()  << "ms\n"
+            << "Total elapsed time: " << total.count() << "ms\n\n"
         ;
     }
 }
