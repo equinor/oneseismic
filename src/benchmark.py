@@ -17,19 +17,21 @@ def run_benchmark(dims, base_dir, generator_path,
                        .format(generator_path, cubes_dir, *dims)
         os.system(generate_cmd)
 
+        for srfc in os.listdir(surface_dir):
+            surface_path = os.path.join(surface_dir, srfc)
+            verify_cmd = '{0} shatter.manifest -i {1} < {2} | {3} shatter.manifest {2} -i {1} ' \
+                         .format(stitch_path, cubes_dir, surface_path, verifyer_path)
+
+            if os.system(verify_cmd) != 0:
+                print("Verify failed!")
+                return
+
         for i in range(10):
             for srfc in os.listdir(surface_dir):
                 surface_path = os.path.join(surface_dir, srfc)
 
                 stitch_cmd = '{} shatter.manifest -t -i {} < {} > /dev/null' \
                              .format(stitch_path, cubes_dir, surface_path)
-
-                verify_cmd = '{0} shatter.manifest -i {1} < {2} | {3} shatter.manifest {2} -i {1} ' \
-                             .format(stitch_path, cubes_dir, surface_path, verifyer_path)
-
-                if os.system(verify_cmd) != 0:
-                    print("Verify failed!")
-                    return
 
                 os.system(stitch_cmd)
 
