@@ -35,4 +35,6 @@ if __name__ == '__main__':
 
     for r in results:
         a = np.array(results[r])
-        print('{}: avg: {}ms, max: {}ms'.format(r, int(a.mean()), max(a)))
+        report = '{}: avg: {}ms, std: {}ms, min: {}ms, max: {}ms' \
+                 .format(r, int(a.mean()), int(a.std()), min(a), max(a))
+        print(report)
