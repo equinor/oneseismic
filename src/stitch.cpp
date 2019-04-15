@@ -13,6 +13,8 @@
 #include <clara/clara.hpp>
 #include <mio/mio.hpp>
 
+#include <seismic-cloud/seismic-cloud.hpp>
+
 using json = nlohmann::json;
 
 namespace {
@@ -42,36 +44,23 @@ struct config {
     }
 };
 
-struct point {
-    int x;
-    int y;
-    int z;
-
-    bool operator < ( const point& rhs ) const noexcept (true) {
-        if (this->x < rhs.x) return true;
-        if (this->y < rhs.y) return true;
-        if (this->z < rhs.z) return true;
-        return false;
-    }
-};
-
 void throw_errno() {
     auto errc = static_cast< std::errc >( errno );
     throw std::system_error( std::make_error_code( errc ) );
 }
 
-std::map< point, std::vector< int > > bin( point fragment_size,
-                                           point cube_size,
-                                           const std::vector< point >& xs ) {
-    std::map< point, std::vector< int > > ret;
+std::map< sc::point, std::vector< int > > bin( sc::point fragment_size,
+                                               sc::point cube_size,
+                                               const std::vector< sc::point >& xs ) {
+    std::map< sc::point, std::vector< int > > ret;
     for (const auto& p : xs) {
-        point root {
+        sc::point root {
             (p.x / fragment_size.x) * fragment_size.x,
             (p.y / fragment_size.y) * fragment_size.y,
             (p.z / fragment_size.z) * fragment_size.z,
         };
 
-        point local = {
+        sc::point local = {
             p.x % fragment_size.x,
             p.y % fragment_size.y,
             p.z % fragment_size.z,
@@ -117,13 +106,13 @@ int main( int args, char** argv ) {
     json manifest;
     std::ifstream( cfg.input_dir + "/" + cfg.manifest ) >> manifest;
 
-    point fragment_size {
+    sc::point fragment_size {
         manifest["fragment-xs"].get< int >(),
         manifest["fragment-ys"].get< int >(),
         manifest["fragment-zs"].get< int >(),
     };
 
-    point cube_size {
+    sc::point cube_size {
         manifest["cube-xs"].get< int >(),
         manifest["cube-ys"].get< int >(),
         manifest["cube-zs"].get< int >(),
@@ -136,9 +125,26 @@ int main( int args, char** argv ) {
     std::cout << meta;
     int size = meta["size"];
 
-    std::vector< point > surface( size );
+    std::vector< sc::point > surface( size );
 
-    std::cin.read((char*)&surface[0], sizeof(point) * size);
+    auto points = std::vector< char >(size * sizeof(std::int32_t) * 3);
+    std::cin.read(points.data(), points.size());
+
+    [&surface] (char* ptr) {
+        for (auto& p : surface) {
+            std::int32_t x, y, z;
+            std::memcpy(&x, ptr, sizeof(x));
+            ptr += sizeof(x);
+            std::memcpy(&y, ptr, sizeof(y));
+            ptr += sizeof(y);
+            std::memcpy(&z, ptr, sizeof(z));
+            ptr += sizeof(z);
+
+            p.x = x;
+            p.y = y;
+            p.z = z;
+        }
+    }(points.data());
 
     std::cout.sync_with_stdio(false);
     auto surface_time = std::chrono::system_clock::now();

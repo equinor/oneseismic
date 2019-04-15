@@ -41,6 +41,9 @@ target_link_libraries(generate json clara)
 
 add_executable(stitch stitch.cpp)
 target_link_libraries(stitch json clara mio)
+target_include_directories(stitch
+    PRIVATE include
+)
 
 add_executable(verifyer verifyer.cpp)
 target_link_libraries(verifyer json clara)
