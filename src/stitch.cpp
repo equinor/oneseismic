@@ -9,6 +9,7 @@
 #include <system_error>
 #include <vector>
 
+#include <omp.h>
 #include <nlohmann/json.hpp>
 #include <clara/clara.hpp>
 #include <mio/mio.hpp>
