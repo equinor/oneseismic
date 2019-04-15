@@ -40,12 +40,22 @@ add_executable(generate generate.cpp)
 target_link_libraries(generate json clara)
 
 add_executable(stitch stitch.cpp)
-target_link_libraries(stitch json clara mio)
+target_link_libraries(stitch
+    PRIVATE json
+            clara
+            mio
+            ${OpenMP_EXE_LINKER_FLAGS}
+            ${OpenMP_CXX_FLAGS}
+)
 target_include_directories(stitch
     PRIVATE include
 )
 target_compile_definitions(stitch
     PRIVATE _GLIBCXX_PARALLEL
+)
+target_compile_options(stitch
+    PUBLIC ${OpenMP_CXX_FLAGS}
+
 )
 
 add_executable(verifyer verifyer.cpp)
