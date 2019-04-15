@@ -44,6 +44,9 @@ target_link_libraries(stitch json clara mio)
 target_include_directories(stitch
     PRIVATE include
 )
+target_compile_definitions(stitch
+    PRIVATE _GLIBCXX_PARALLEL
+)
 
 add_executable(verifyer verifyer.cpp)
 target_link_libraries(verifyer json clara)
