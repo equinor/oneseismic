@@ -154,7 +154,7 @@ int main( int args, char** argv ) {
     auto bin_time = std::chrono::system_clock::now();
 
     decltype (bins.begin()) itr;
-    #pragma omp parallel for
+    #pragma omp parallel
     #pragma omp single nowait
     {
     for (itr = bins.begin(); itr != bins.end(); ++itr) {
