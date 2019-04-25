@@ -80,8 +80,8 @@ target_link_libraries(generate_surfaces clara)
 
 add_subdirectory(external/catch2)
 
-add_executable(tests tests/testsuite.cpp)
-target_include_directories(tests PRIVATE src)
+add_executable(tests tests/testsuite.cpp tests/seismic-cloud.cpp)
+target_include_directories(tests PRIVATE include)
 target_link_libraries(tests catch2)
 
 add_test(NAME test COMMAND tests)
