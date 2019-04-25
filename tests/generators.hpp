@@ -2,16 +2,17 @@
 
 #include <catch/catch.hpp>
 
-struct PointGenerator : Catch::Generators::IGenerator< sc::point > {
+template < typename T >
+struct IjkGenerator : Catch::Generators::IGenerator< T > {
 
     std::minstd_rand m_rand;
     std::uniform_int_distribution< std::size_t > x_range;
     std::uniform_int_distribution< std::size_t > y_range;
     std::uniform_int_distribution< std::size_t > z_range;
 
-    sc::point p;
+    T p;
 
-    PointGenerator():
+    IjkGenerator():
         m_rand( std::random_device{}() ),
         x_range(),
         y_range(),
@@ -20,9 +21,7 @@ struct PointGenerator : Catch::Generators::IGenerator< sc::point > {
         next();
     }
 
-    PointGenerator( std::size_t x_max,
-                    std::size_t y_max,
-                    std::size_t z_max ):
+    IjkGenerator(std::size_t x_max, std::size_t y_max, std::size_t z_max) :
         m_rand( std::random_device{}() ),
         x_range( 0, x_max ),
         y_range( 0, y_max ),
@@ -36,33 +35,35 @@ struct PointGenerator : Catch::Generators::IGenerator< sc::point > {
         return true;
     }
 
-    sc::point const& get() const {
+    T const& get() const {
         return p;
     }
 };
 
+using PointGenerator = IjkGenerator< sc::point >;
 using PointGeneratorWrapper = Catch::Generators::GeneratorWrapper< sc::point >;
 
 PointGeneratorWrapper random_points() {
-  using Catch::Generators::IGenerator;
-  return PointGeneratorWrapper( std::make_unique< PointGenerator >() );
+    return PointGeneratorWrapper(std::make_unique< PointGenerator >());
 }
 
 PointGeneratorWrapper random_points( std::size_t x_max,
                                      std::size_t y_max,
                                      std::size_t z_max ) {
-    using Catch::Generators::IGenerator;
-    return PointGeneratorWrapper(std::make_unique< PointGenerator >( x_max,
-                                                                     y_max,
-                                                                     z_max ));
+    auto gen = std::make_unique< PointGenerator >(x_max, y_max, z_max);
+    return PointGeneratorWrapper(std::move(gen));
 }
 
-PointGeneratorWrapper random_dimensions() {
-    return random_points();
+using DimensionGenerator = IjkGenerator< sc::dimension >;
+using DimensionGeneratorWrapper = Catch::Generators::GeneratorWrapper< sc::dimension >;
+
+DimensionGeneratorWrapper random_dimensions() {
+    return DimensionGeneratorWrapper(std::make_unique< DimensionGenerator >());
 }
 
-PointGeneratorWrapper random_dimensions( std::size_t x_max,
-                                         std::size_t y_max,
-                                         std::size_t z_max ) {
-    return random_points( x_max, y_max, z_max );
+DimensionGeneratorWrapper random_dimensions(std::size_t x_max,
+                                            std::size_t y_max,
+                                            std::size_t z_max) {
+    auto gen = std::make_unique< DimensionGenerator >(x_max, y_max, z_max);
+    return DimensionGeneratorWrapper(std::move(gen));
 }

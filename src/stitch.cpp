@@ -50,8 +50,8 @@ void throw_errno() {
     throw std::system_error( std::make_error_code( errc ) );
 }
 
-std::map< sc::point, std::vector< int > > bin( sc::point fragment_size,
-                                               sc::point cube_size,
+std::map< sc::point, std::vector< int > > bin( sc::dimension fragment_size,
+                                               sc::dimension cube_size,
                                                const std::vector< sc::point >& xs ) {
     std::map< sc::point, std::vector< int > > ret;
     for (const auto& p : xs) {
@@ -94,13 +94,13 @@ int main( int args, char** argv ) {
     json manifest;
     std::ifstream( cfg.input_dir + "/" + cfg.manifest ) >> manifest;
 
-    sc::point fragment_size {
+    sc::dimension fragment_size {
         manifest["fragment-xs"].get< int >(),
         manifest["fragment-ys"].get< int >(),
         manifest["fragment-zs"].get< int >(),
     };
 
-    sc::point cube_size {
+    sc::dimension cube_size {
         manifest["cube-xs"].get< int >(),
         manifest["cube-ys"].get< int >(),
         manifest["cube-zs"].get< int >(),

@@ -3,31 +3,46 @@
 
 namespace sc {
 
-struct point {
+struct ijk {
+    ijk() = default;
+
+    ijk(std::size_t x, std::size_t y, std::size_t z) :
+        x(x), y(y), z(z) {}
+
     std::size_t x;
     std::size_t y;
     std::size_t z;
 
-    bool operator < (const point& rhs) const noexcept (true) {
+    bool operator < (const ijk& rhs) const noexcept (true) {
         if (this->x < rhs.x) return true;
         if (this->y < rhs.y) return true;
         if (this->z < rhs.z) return true;
         return false;
     }
 
-    bool operator == (const point& rhs) const noexcept (true) {
+    bool operator == (const ijk& rhs) const noexcept (true) {
         return this->x == rhs.x
            and this->y == rhs.y
            and this->z == rhs.z;
     }
 };
 
+struct dimension : public ijk {
+    using ijk::ijk;
+    using ijk::operator ==;
+    using ijk::operator <;
+};
+
+struct point : public ijk {
+    using ijk::ijk;
+    using ijk::operator ==;
+    using ijk::operator <;
+};
+
 std::ostream& operator << (std::ostream& o, const point& rhs) {
     o << "(" << rhs.x << ", " << rhs.y << ", " << rhs.z << ")";
     return o;
 }
-
-using dimension = point;
 
 point global_to_local( point global, dimension fragment_size ) {
     return {
