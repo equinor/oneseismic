@@ -112,13 +112,13 @@ int main( int args, char** argv ) {
     const auto crosslinecount = cube.crosslinecount();
     const auto samplecount    = cube.samplecount();
 
-    sc::dimension num_fragments {
-        int( std::ceil( double(inlinecount)    / cfg.xs ) ),
-        int( std::ceil( double(crosslinecount) / cfg.ys ) ),
-        int( std::ceil( double(samplecount)    / cfg.zs ) ),
+    auto num_fragments = sc::dimension {
+        std::size_t( std::ceil( double(inlinecount)    / cfg.xs ) ),
+        std::size_t( std::ceil( double(crosslinecount) / cfg.ys ) ),
+        std::size_t( std::ceil( double(samplecount)    / cfg.zs ) ),
     };
 
-    auto corners = cartesian( num_fragments, { cfg.xs, cfg.ys } );
+    auto corners = cartesian( num_fragments, { cfg.xs, cfg.ys, 0 } );
 
     for (const auto& corner : corners) {
         const auto max_x = corner.first  + cfg.xs;
