@@ -55,22 +55,9 @@ std::map< sc::point, std::vector< int > > bin( sc::point fragment_size,
                                                const std::vector< sc::point >& xs ) {
     std::map< sc::point, std::vector< int > > ret;
     for (const auto& p : xs) {
-        sc::point root {
-            (p.x / fragment_size.x) * fragment_size.x,
-            (p.y / fragment_size.y) * fragment_size.y,
-            (p.z / fragment_size.z) * fragment_size.z,
-        };
-
-        sc::point local = {
-            p.x % fragment_size.x,
-            p.y % fragment_size.y,
-            p.z % fragment_size.z,
-        };
-
-        int pos = local.x * (fragment_size.y * fragment_size.z)
-                + local.y *  fragment_size.z
-                + local.z
-                ;
+        sc::point root = sc::global_to_root( p, fragment_size );
+        sc::point local = sc::global_to_local( p, fragment_size );
+        int pos = sc::point_to_offset( local, fragment_size );
 
         auto itr = ret.find(root);
         if (itr == ret.end()) {
@@ -176,18 +163,8 @@ int main( int args, char** argv ) {
             float f;
             std::memcpy( &f, ptr + off * 4, 4 );
 
-            std::uint64_t x = key.x + off / (fragment_size.y * fragment_size.z);
-            std::uint64_t y = key.y
-                            + (off % (fragment_size.y * fragment_size.z))
-                              / fragment_size.z;
-            std::uint64_t z = key.z
-                            + (off % (fragment_size.y * fragment_size.z))
-                              % fragment_size.z;
-
-            std::uint64_t global_offset = x * (cube_size.y * cube_size.z)
-                                        + y *  cube_size.z
-                                        + z
-                                        ;
+            std::uint64_t global_offset =
+                sc::local_to_global( off, fragment_size, cube_size, key );
 
             #pragma omp critical
             {

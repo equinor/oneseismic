@@ -37,6 +37,9 @@ endif ()
 set(CMAKE_CXX_STANDARD 14)
 
 add_executable(generate src/generate.cpp)
+target_include_directories(generate
+    PRIVATE include
+)
 target_link_libraries(generate json clara)
 
 add_executable(stitch src/stitch.cpp)
@@ -67,6 +70,9 @@ target_link_libraries(check_shatters json clara segyio
 target_compile_options(check_shatters PRIVATE ${OpenMP_CXX_FLAGS})
 
 add_executable(shatter src/shatter.cpp)
+target_include_directories(shatter
+    PRIVATE include
+)
 target_link_libraries(shatter json clara segyio)
 
 add_executable(generate_surfaces src/generate_surfaces.cpp)
@@ -74,8 +80,8 @@ target_link_libraries(generate_surfaces clara)
 
 add_subdirectory(external/catch2)
 
-add_executable(tests tests/testsuite.cpp)
-target_include_directories(tests PRIVATE src)
+add_executable(tests tests/testsuite.cpp tests/seismic-cloud.cpp)
+target_include_directories(tests PRIVATE include)
 target_link_libraries(tests catch2)
 
 add_test(NAME test COMMAND tests)
