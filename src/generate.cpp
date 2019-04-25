@@ -8,6 +8,8 @@
 #include <nlohmann/json.hpp>
 #include <clara/clara.hpp>
 
+#include <seismic-cloud/seismic-cloud.hpp>
+
 using json = nlohmann::json;
 
 namespace {
@@ -72,15 +74,9 @@ struct config {
     }
 };
 
-struct dimension {
-    std::size_t x;
-    std::size_t y;
-    std::size_t z;
-};
-
-std::vector< float > fragment( dimension local,
-                               dimension local_len,
-                               dimension global_len) {
+std::vector< float > fragment( sc::point local,
+                               sc::dimension local_len,
+                               sc::dimension global_len) {
     std::vector< float > out;
     out.reserve( local_len.x * local_len.y * local_len.z );
 
@@ -139,19 +135,19 @@ int main( int args, char** argv ) {
 
     manifest["basename"] = cfg.basename;
 
-    dimension num_fragments {
+    sc::dimension num_fragments {
         std::size_t( std::ceil( double(cfg.xs) / cfg.fragment_xs ) ),
         std::size_t( std::ceil( double(cfg.ys) / cfg.fragment_ys ) ),
         std::size_t( std::ceil( double(cfg.zs) / cfg.fragment_zs ) ),
     };
 
-    dimension global_len {
+    sc::dimension global_len {
         std::size_t( cfg.xs ),
         std::size_t( cfg.ys ),
         std::size_t( cfg.zs ),
     };
 
-    dimension local_len {
+    sc::dimension local_len {
         std::size_t( cfg.fragment_xs ),
         std::size_t( cfg.fragment_ys ),
         std::size_t( cfg.fragment_zs ),
@@ -165,7 +161,7 @@ int main( int args, char** argv ) {
     for (std::size_t y = 0; y < num_fragments.y; ++y)
     for (std::size_t z = 0; z < num_fragments.z; ++z)
     {
-        dimension local { x * cfg.fragment_xs,
+        sc::point local { x * cfg.fragment_xs,
                           y * cfg.fragment_ys,
                           z * cfg.fragment_zs };
         auto v = fragment( local, local_len, global_len );

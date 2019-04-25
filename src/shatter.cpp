@@ -10,6 +10,8 @@
 #include <clara/clara.hpp>
 #include <segyio/segyio.hpp>
 
+#include <seismic-cloud/seismic-cloud.hpp>
+
 using json = nlohmann::json;
 
 namespace {
@@ -51,17 +53,12 @@ struct config {
     }
 };
 
-struct dimension {
-    int x;
-    int y;
-    int z;
-};
-
 }
 
 using segy = segyio::basic_volume<>;
 
-std::vector< std::pair< int, int > > cartesian( dimension dim, dimension cubesize ) {
+std::vector< std::pair< int, int > > cartesian( sc::dimension dim,
+                                                sc::dimension cubesize ) {
     std::vector< std::pair< int, int > > cart;
 
     for (int x = 0; x < dim.x; ++x) {
@@ -115,7 +112,7 @@ int main( int args, char** argv ) {
     const auto crosslinecount = cube.crosslinecount();
     const auto samplecount    = cube.samplecount();
 
-    dimension num_fragments {
+    sc::dimension num_fragments {
         int( std::ceil( double(inlinecount)    / cfg.xs ) ),
         int( std::ceil( double(crosslinecount) / cfg.ys ) ),
         int( std::ceil( double(samplecount)    / cfg.zs ) ),
