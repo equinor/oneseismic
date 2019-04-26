@@ -1,0 +1,17 @@
+language: cpp
+os: linux
+sudo: required
+
+install:
+    - git clone https://github.com/statoil/segyio
+    - pushd segyio
+    - mkdir build
+    - cmake .. -DEXPERIMENTAL=ON
+    - sudo make install
+    - popd
+
+script:
+    - mkdir build
+    - pushd build
+    - cmake ..
+    - make test
