@@ -10,7 +10,15 @@ pool:
   vmImage: 'Ubuntu-16.04'
 
 steps:
-
+- script: |
+    git clone https://github.com/equinor/segyio
+    pushd segyio
+    mkdir build
+    cd build
+    cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON 
+    sudo make install
+    popd
+  displayName: 'Get segyio, then build'
 - script: |
     mkdir -p src/build
   displayName: 'Get dependencies, then build'
