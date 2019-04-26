@@ -21,10 +21,15 @@ steps:
   displayName: 'Get segyio, then build'
 - script: |
     mkdir -p src/build
+    
   displayName: 'Get dependencies, then build'
 - task: CMake@1
   inputs:
     cmakeArgs: '.. -DCMAKE_BUILD_TYPE=Release '
 - script: |
+    pushd src
+    pushd build
     make test
+    popd
+    popd
   displayName: 'Run test'
