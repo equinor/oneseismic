@@ -4,7 +4,6 @@ dist: xenial
 sudo: required
 
 install:
-    - sudo apt install g++-6
     - git clone https://github.com/statoil/segyio
     - pushd segyio
     - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
@@ -14,7 +13,7 @@ install:
     - popd
 
 script:
-    - g++ --version
+    - export CXX=/usr/bin/clang++
     - mkdir build
     - pushd build
     - cmake ..
