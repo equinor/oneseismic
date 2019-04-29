@@ -1,0 +1,21 @@
+language: cpp
+os: linux
+dist: xenial
+sudo: required
+compiler: clang
+
+install:
+    - git clone https://github.com/statoil/segyio
+    - pushd segyio
+    - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
+              -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF
+    - make
+    - sudo make install
+    - popd
+
+script:
+    - mkdir build
+    - pushd build
+    - cmake .. -DCMAKE_BUILD_TYPE=Release
+    - make
+    - ctest --output-on-failure

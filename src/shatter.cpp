@@ -23,9 +23,9 @@ struct config {
     std::string fname;
     std::string prefix = "shatter";
     std::string outputdir = "";
-    int xs = 0;
-    int ys = 0;
-    int zs = 0;
+    std::size_t xs = 0;
+    std::size_t ys = 0;
+    std::size_t zs = 0;
     int xlbyte = 193;
     int ilbyte = 189;
 
@@ -108,9 +108,9 @@ int main( int args, char** argv ) {
         throw std::invalid_argument( msg );
     }
 
-    const auto inlinecount    = cube.inlinecount();
-    const auto crosslinecount = cube.crosslinecount();
-    const auto samplecount    = cube.samplecount();
+    const std::size_t inlinecount    = cube.inlinecount();
+    const std::size_t crosslinecount = cube.crosslinecount();
+    const std::size_t samplecount    = cube.samplecount();
 
     auto num_fragments = sc::dimension {
         std::size_t( std::ceil( double(inlinecount)    / cfg.xs ) ),
