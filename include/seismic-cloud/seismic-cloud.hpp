@@ -61,7 +61,7 @@ point global_to_local( point global, dimension fragment_size ) {
     };
 }
 
-point local_to_global( point local, point root ) {
+point local_to_global( point local, point root ) noexcept (true) {
     return {
         local.x + root.x,
         local.y + root.y,

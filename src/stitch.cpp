@@ -209,18 +209,23 @@ int main( int args, char** argv ) {
 
         const char* ptr = static_cast< const char* >( file.data() );
 
+        const auto output_elem_size = sizeof(float) + sizeof(std::uint64_t);
+        const auto output_size = std::distance(bin.begin(), bin.end());
+        auto output = std::vector< char >(output_size);
+        void* out = output.data();
+
         for (const auto off : bin) {
-            float f;
-            std::memcpy( &f, ptr + off * 4, 4 );
+            const std::uint64_t global_offset =
+                sc::local_to_global(off, fragment_size, cube_size, key);
 
-            std::uint64_t global_offset =
-                sc::local_to_global( off, fragment_size, cube_size, key );
+            out = std::memcpy(out, &global_offset, sizeof(global_offset));
+            out = std::memcpy(out, ptr + off * 4, sizeof(float));
 
-            #pragma omp critical
-            {
-            std::cout.write((char*)&global_offset, sizeof(std::uint64_t));
-            std::cout.write((char*)&f, sizeof(float));
-            }
+        }
+
+        #pragma omp critical
+        {
+        std::cout.write(output.data(), output.size());
         }
     } // omp
 
