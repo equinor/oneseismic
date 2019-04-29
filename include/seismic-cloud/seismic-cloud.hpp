@@ -39,9 +39,8 @@ struct point : public ijk {
     using ijk::operator <;
 };
 
-std::ostream& operator << (std::ostream& o, const point& rhs) {
-    o << "(" << rhs.x << ", " << rhs.y << ", " << rhs.z << ")";
-    return o;
+std::ostream& operator << (std::ostream& o, const ijk& rhs) {
+    return o << "(" << rhs.x << ", " << rhs.y << ", " << rhs.z << ")";
 }
 
 point global_to_local( point global, dimension fragment_size ) {
