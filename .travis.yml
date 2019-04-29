@@ -1,14 +1,9 @@
 language: cpp
 os: linux
 sudo: required
-addons:
-    apt:
-        sources:
-            - ubuntu-toolchain-r-test
-        packages:
-            - g++-7
 
 install:
+    - sudo apt install g++-7
     - git clone https://github.com/statoil/segyio
     - pushd segyio
     - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
