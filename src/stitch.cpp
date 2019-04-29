@@ -95,15 +95,15 @@ int main( int args, char** argv ) {
     std::ifstream( cfg.input_dir + "/" + cfg.manifest ) >> manifest;
 
     sc::dimension fragment_size {
-        manifest["fragment-xs"].get< int >(),
-        manifest["fragment-ys"].get< int >(),
-        manifest["fragment-zs"].get< int >(),
+        manifest["fragment-xs"].get< std::size_t >(),
+        manifest["fragment-ys"].get< std::size_t >(),
+        manifest["fragment-zs"].get< std::size_t >(),
     };
 
     sc::dimension cube_size {
-        manifest["cube-xs"].get< int >(),
-        manifest["cube-ys"].get< int >(),
-        manifest["cube-zs"].get< int >(),
+        manifest["cube-xs"].get< std::size_t >(),
+        manifest["cube-ys"].get< std::size_t >(),
+        manifest["cube-zs"].get< std::size_t >(),
     };
 
     auto start_time = std::chrono::system_clock::now();
