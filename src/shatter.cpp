@@ -108,9 +108,9 @@ int main( int args, char** argv ) {
         throw std::invalid_argument( msg );
     }
 
-    const auto inlinecount    = std::size_t(cube.inlinecount());
-    const auto crosslinecount = std::size_t(cube.crosslinecount());
-    const auto samplecount    = std::size_t(cube.samplecount());
+    const auto inlinecount    = cube.inlinecount();
+    const auto crosslinecount = cube.crosslinecount();
+    const auto samplecount    = cube.samplecount();
 
     auto num_fragments = sc::dimension {
         std::size_t( std::ceil( double(inlinecount)    / cfg.xs ) ),
