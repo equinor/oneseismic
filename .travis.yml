@@ -1,9 +1,9 @@
 language: cpp
 os: linux
+dist: xenial
 sudo: required
 
 install:
-    - sudo apt install g++-7
     - git clone https://github.com/statoil/segyio
     - pushd segyio
     - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
