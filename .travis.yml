@@ -3,6 +3,10 @@ os: linux
 dist: xenial
 sudo: required
 
+before_install:
+    - export CXX=clang++
+    - export CC=clang
+
 install:
     - sudo apt update
     - sudo apt install libc++1
@@ -10,14 +14,15 @@ install:
     - pushd segyio
     - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
               -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF
+              -DCMAKE_CXX_FLAGS=-stdlib=libc++
     - make
     - sudo make install
     - popd
 
 script:
-    - export CXX=clang++
     - mkdir build
     - pushd build
-    - cmake ..
+    - cmake .. -DCMAKE_BUILD_TYPE=Release
+               -DCMAKE_CXX_FLAGS=-stdlib=libc++
     - make
     - make test
