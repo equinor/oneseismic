@@ -2,10 +2,7 @@ language: cpp
 os: linux
 dist: xenial
 sudo: required
-
-before_install:
-    - export CXX=clang++
-    - export CC=clang
+compiler: clang
 
 install:
     - sudo apt update
