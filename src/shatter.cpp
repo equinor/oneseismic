@@ -23,9 +23,9 @@ struct config {
     std::string fname;
     std::string prefix = "shatter";
     std::string outputdir = "";
-    int xs = 0;
-    int ys = 0;
-    int zs = 0;
+    std::size_t xs = 0;
+    std::size_t ys = 0;
+    std::size_t zs = 0;
     int xlbyte = 193;
     int ilbyte = 189;
 
