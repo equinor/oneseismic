@@ -1,0 +1,28 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+pool:
+  vmImage: 'Ubuntu-16.04'
+
+steps:
+- script: |
+    git clone https://github.com/equinor/segyio
+    pushd segyio
+    mkdir build
+    cd build
+    cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
+    sudo make install
+    popd
+  displayName: 'Get segyio, then build'
+- script: |
+    mkdir build
+    pushd build
+    cmake .. -DCMAKE_BUILD_TYPE=Release
+    make
+    ctest --output-on-failure
+  displayName: 'Build and test test'
