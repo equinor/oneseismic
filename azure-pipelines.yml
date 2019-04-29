@@ -15,7 +15,7 @@ steps:
     pushd segyio
     mkdir build
     cd build
-    cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON 
+    cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
     sudo make install
     popd
   displayName: 'Get segyio, then build'
@@ -26,6 +26,7 @@ steps:
 - task: CMake@1
   inputs:
     cmakeArgs: '.. -DCMAKE_BUILD_TYPE=Release '
+    cwd: src/build
 - script: |
     pushd src
     pushd build
