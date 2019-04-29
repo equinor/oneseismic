@@ -13,6 +13,7 @@ install:
     - popd
 
 script:
+    - ls -la /usr/include/c++
     - export CXX=clang++
     - mkdir build
     - pushd build
