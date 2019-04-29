@@ -50,24 +50,79 @@ void throw_errno() {
     throw std::system_error( std::make_error_code( errc ) );
 }
 
-std::map< sc::point, std::vector< int > > bin( sc::dimension fragment_size,
-                                               sc::dimension cube_size,
-                                               const std::vector< sc::point >& xs ) {
-    std::map< sc::point, std::vector< int > > ret;
+struct bins {
+    std::vector< sc::point > keys;
+    std::vector< std::size_t > itrs;
+    std::vector< std::size_t > data;
+
+    using iterator = decltype(data.cbegin());
+
+    struct bin {
+        sc::point key;
+        iterator first;
+        iterator last;
+
+        bin() = default;
+        bin(iterator fst, iterator lst) : first(fst), last(lst) {}
+
+        iterator begin() const noexcept (true) {
+            return this->first;
+        }
+
+        iterator end() const noexcept (true) {
+            return this->last;
+        }
+    };
+
+    bin at(std::size_t i) const noexcept (false) {
+        bin x;
+        x.first = this->data.begin() + this->itrs[i];
+        x.last  = this->data.begin() + this->itrs[i + 1];
+        x.key   = this->keys[i];
+        return x;
+    }
+};
+
+bins bin(sc::dimension fragment_size,
+         sc::dimension cube_size,
+         const std::vector< sc::point >& xs ) noexcept (false) {
+
+    using key = std::pair< sc::point, std::size_t >;
+    std::vector< key > points;
+    points.reserve(xs.size());
+
     for (const auto& p : xs) {
         sc::point root = sc::global_to_root( p, fragment_size );
         sc::point local = sc::global_to_local( p, fragment_size );
-        int pos = sc::point_to_offset( local, fragment_size );
-
-        auto itr = ret.find(root);
-        if (itr == ret.end()) {
-          itr = ret.emplace(root, std::vector<int>{}).first;
-        }
-        itr->second.push_back(pos);
+        auto pos = sc::point_to_offset( local, fragment_size );
+        points.emplace_back(root, pos);
     }
 
-    for (auto& kv : ret)
-        std::sort( kv.second.begin(), kv.second.end() );
+    std::sort(points.begin(), points.end());
+
+    bins ret;
+    ret.data.resize(points.size());
+
+    if (xs.empty()) return ret;
+
+    auto snd = [](const auto& x) noexcept (true) { return x.second; };
+    std::transform(points.begin(), points.end(), ret.data.begin(), snd);
+
+    auto prev = points.front().first;
+    std::size_t i = 0;
+    ret.itrs.push_back(i);
+    ret.keys.push_back(prev);
+    for (const auto& p : points) {
+        ++i;
+
+        if (p.first == prev) continue;
+
+        prev = p.first;
+        ret.itrs.push_back(i - 1);
+        ret.keys.push_back(prev);
+    }
+
+    ret.itrs.push_back(points.size());
 
     return ret;
 }
@@ -140,15 +195,10 @@ int main( int args, char** argv ) {
     const auto bins = bin( fragment_size, cube_size, surface );
     auto bin_time = std::chrono::system_clock::now();
 
-    decltype (bins.begin()) itr;
-    #pragma omp parallel
-    #pragma omp single nowait
-    {
-    for (itr = bins.begin(); itr != bins.end(); ++itr) {
-        #pragma omp task firstprivate(itr)
-        {
-        const auto& key = itr->first;
-        const auto& val = itr->second;
+    #pragma omp parallel for
+    for (std::size_t i = 0; i < bins.itrs.size(); ++i) {
+        const auto bin = bins.at(i);
+        const auto& key = bin.key;
         const std::string path = manifest["basename"].get< std::string >()
                                + "-" + std::to_string( key.x )
                                + "-" + std::to_string( key.y )
@@ -159,7 +209,7 @@ int main( int args, char** argv ) {
 
         const char* ptr = static_cast< const char* >( file.data() );
 
-        for (const auto& off : val) {
+        for (const auto off : bin) {
             float f;
             std::memcpy( &f, ptr + off * 4, 4 );
 
@@ -172,9 +222,6 @@ int main( int args, char** argv ) {
             std::cout.write((char*)&f, sizeof(float));
             }
         }
-        }
-    }
-
     } // omp
 
     auto end_time = std::chrono::system_clock::now();
