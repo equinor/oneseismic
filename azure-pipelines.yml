@@ -1,10 +1,6 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
   - master
+  - release
 
 pool:
   vmImage: 'Ubuntu-16.04'
@@ -15,32 +11,29 @@ steps:
       version: '1.12.4'
   - script: |
       git clone https://github.com/equinor/segyio
-      pushd segyio
-      mkdir build
-      cd build
+      mkdir -p segyio/build
+      cd segyio/build
       cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
       sudo make install
-      popd
     displayName: 'Get segyio, then build'
   - script: |
       mkdir build
-      pushd build
+      cd build
       cmake .. -DCMAKE_BUILD_TYPE=Release
+    displayName: 'Setup build environment'
+  - script: |
       make
-      popd
     displayName: 'Build sesmic-cloud'
+    workingDirectory: build
   - script: |
-      pushd build
       ctest --output-on-failure
-      popd
     displayName: 'Test sesmic-cloud'
+    workingDirectory: build
   - script: |
-      pushd api
-      go build 
-      popd
+      go build
     displayName: 'Build sesmic-cloud-api'
+    workingDirectory: api
   - script: |
-      pushd api
-      go test ./... 
-      popd
+      go test ./...
     displayName: 'Test sesmic-cloud-api'
+    workingDirectory: api
