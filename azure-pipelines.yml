@@ -37,3 +37,7 @@ steps:
       go test ./...
     displayName: 'Test sesmic-cloud-api'
     workingDirectory: api
+  - script: |
+      echo 'Deploy'
+    displayName: 'Deploy sesmic-cloud'
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
