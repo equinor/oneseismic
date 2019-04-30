@@ -4,43 +4,43 @@
 # https://aka.ms/yaml
 
 trigger:
-- master
+  - master
 
 pool:
   vmImage: 'Ubuntu-16.04'
 
 steps:
-- task: GoTool@0
-  inputs:
-    version: '1.12.4'
-- script: |
-    git clone https://github.com/equinor/segyio
-    pushd segyio
-    mkdir build
-    cd build
-    cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
-    sudo make install
-    popd
-  displayName: 'Get segyio, then build'
-- script: |
-    mkdir build
-    pushd build
-    cmake .. -DCMAKE_BUILD_TYPE=Release
-    make
-    popd
-  displayName: 'Build sesmic-cloud'
-- script: |
-    pushd build
-    ctest --output-on-failure
-    popd
-  displayName: 'Test sesmic-cloud'
-- script: |
-    pushd api
-    go build -o 
-    popd
-  displayName: 'Build sesmic-cloud-api'
-- script: |
-    pushd api
-    go test ./... 
-    popd
-  displayName: 'Test sesmic-cloud-api'
+  - task: GoTool@0
+    inputs:
+      version: '1.12.4'
+  - script: |
+      git clone https://github.com/equinor/segyio
+      pushd segyio
+      mkdir build
+      cd build
+      cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
+      sudo make install
+      popd
+    displayName: 'Get segyio, then build'
+  - script: |
+      mkdir build
+      pushd build
+      cmake .. -DCMAKE_BUILD_TYPE=Release
+      make
+      popd
+    displayName: 'Build sesmic-cloud'
+  - script: |
+      pushd build
+      ctest --output-on-failure
+      popd
+    displayName: 'Test sesmic-cloud'
+  - script: |
+      pushd api
+      go build 
+      popd
+    displayName: 'Build sesmic-cloud-api'
+  - script: |
+      pushd api
+      go test ./... 
+      popd
+    displayName: 'Test sesmic-cloud-api'
