@@ -52,5 +52,10 @@ func main() {
 		ctx.HTML("Hello world!")
 	})
 
+	app.Post( "/stitch/manifestid:string", func(ctx iris.Context) {
+		ctx.HTML("Hello world!")
+	})
+
+
 	app.Run(iris.Addr(":8080"))
 }

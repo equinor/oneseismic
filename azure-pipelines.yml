@@ -10,6 +10,9 @@ pool:
   vmImage: 'Ubuntu-16.04'
 
 steps:
+- task: GoTool@0
+  inputs:
+    version: '1.12.4'
 - script: |
     git clone https://github.com/equinor/segyio
     pushd segyio
@@ -24,5 +27,20 @@ steps:
     pushd build
     cmake .. -DCMAKE_BUILD_TYPE=Release
     make
+    popd
+  displayName: 'Build sesmic-cloud'
+- script: |
+    pushd build
     ctest --output-on-failure
-  displayName: 'Build and test test'
+    popd
+  displayName: 'Test sesmic-cloud'
+- script: |
+    pushd api
+    go build -o 
+    popd
+  displayName: 'Build sesmic-cloud-api'
+- script: |
+    pushd api
+    go test ./... 
+    popd
+  displayName: 'Test sesmic-cloud-api'
