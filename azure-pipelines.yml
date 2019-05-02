@@ -1,28 +1,43 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- master
+  - master
+  - release
 
 pool:
   vmImage: 'Ubuntu-16.04'
 
 steps:
-- script: |
-    git clone https://github.com/equinor/segyio
-    pushd segyio
-    mkdir build
-    cd build
-    cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
-    sudo make install
-    popd
-  displayName: 'Get segyio, then build'
-- script: |
-    mkdir build
-    pushd build
-    cmake .. -DCMAKE_BUILD_TYPE=Release
-    make
-    ctest --output-on-failure
-  displayName: 'Build and test test'
+  - task: GoTool@0
+    inputs:
+      version: '1.12.4'
+  - script: |
+      git clone https://github.com/equinor/segyio
+      mkdir -p segyio/build
+      cd segyio/build
+      cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
+      sudo make install
+    displayName: 'Get segyio, then build'
+  - script: |
+      mkdir build
+      cd build
+      cmake .. -DCMAKE_BUILD_TYPE=Release
+    displayName: 'Setup seismic-cloud'
+  - script: |
+      make
+    displayName: 'Build seismic-cloud'
+    workingDirectory: build
+  - script: |
+      ctest --output-on-failure
+    displayName: 'Test seismic-cloud'
+    workingDirectory: build
+  - script: |
+      go build
+    displayName: 'Build seismic-cloud-api'
+    workingDirectory: api
+  - script: |
+      go test ./...
+    displayName: 'Test seismic-cloud-api'
+    workingDirectory: api
+  - script: |
+      echo 'Deploy'
+    displayName: 'Deploy seismic-cloud'
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
