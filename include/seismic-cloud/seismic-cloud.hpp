@@ -3,43 +3,53 @@
 
 namespace sc {
 
-struct ijk {
-    ijk() = default;
+template < typename T >
+struct triple_comparison {
+    bool operator < (const T& rhs) const noexcept (true) {
+        const auto& self = *static_cast< const T* >(this);
+        if (self.x < rhs.x) return true;
+        if (self.x > rhs.x) return false;
+        if (self.y < rhs.y) return true;
+        if (self.y > rhs.y) return false;
+        if (self.z < rhs.z) return true;
+        if (self.z > rhs.z) return false;
+        return false;
+    }
 
-    ijk(std::size_t x, std::size_t y, std::size_t z) :
-        x(x), y(y), z(z) {}
+    bool operator == (const T& rhs) const noexcept (true) {
+        const auto& self = *static_cast< const T* >(this);
+        return self.x == rhs.x
+           and self.y == rhs.y
+           and self.z == rhs.z
+        ;
+    }
+};
 
+struct point : triple_comparison< point > {
     std::size_t x;
     std::size_t y;
     std::size_t z;
 
-    bool operator < (const ijk& rhs) const noexcept (true) {
-        if (this->x < rhs.x) return true;
-        if (this->y < rhs.y) return true;
-        if (this->z < rhs.z) return true;
-        return false;
-    }
-
-    bool operator == (const ijk& rhs) const noexcept (true) {
-        return this->x == rhs.x
-           and this->y == rhs.y
-           and this->z == rhs.z;
-    }
+    point() = default;
+    point(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
+        x(x), y(y), z(z) {}
 };
 
-struct dimension : public ijk {
-    using ijk::ijk;
-    using ijk::operator ==;
-    using ijk::operator <;
+struct dimension : triple_comparison< dimension > {
+    std::size_t x;
+    std::size_t y;
+    std::size_t z;
+
+    dimension() = default;
+    dimension(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
+        x(x), y(y), z(z) {}
 };
 
-struct point : public ijk {
-    using ijk::ijk;
-    using ijk::operator ==;
-    using ijk::operator <;
-};
+std::ostream& operator << (std::ostream& o, const point& rhs) {
+    return o << "(" << rhs.x << ", " << rhs.y << ", " << rhs.z << ")";
+}
 
-std::ostream& operator << (std::ostream& o, const ijk& rhs) {
+std::ostream& operator << (std::ostream& o, const dimension& rhs) {
     return o << "(" << rhs.x << ", " << rhs.y << ", " << rhs.z << ")";
 }
 
