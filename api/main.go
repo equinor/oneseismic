@@ -62,7 +62,7 @@ func main() {
 
 	app.Macros().Get("string").RegisterFunc("manifestID", manifestIDRegex.MatchString)
 	app.Post( "/stitch/{id:string manifestID() else 502}", func(ctx iris.Context) {
-		ctx.HTML("Hello world!")
+		ctx.HTML("Hello id: "+ctx.Params().Get("id"))
 	})
 
 
