@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"equinor/seismic-cloud/api/service"
 	"fmt"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -48,11 +49,19 @@ func main() {
 
 	app.Use(jwtHandler.Serve)
 
-	app.Handle("GET", "/", func(ctx iris.Context) {
+	app.Get("/", func(ctx iris.Context) {
 		ctx.HTML("Hello world!")
 	})
 
-	app.Post( "/stitch/manifestid:string", func(ctx iris.Context) {
+	manifestIDExpr := "^[a-zA-z0-9\\-]{1,40}$"
+	manifestIDRegex, err := regexp.Compile(manifestIDExpr)
+	if err != nil {
+		panic(err)
+	}
+
+
+	app.Macros().Get("string").RegisterFunc("manifestID", manifestIDRegex.MatchString)
+	app.Post( "/stitch/{id:string manifestID() else 502}", func(ctx iris.Context) {
 		ctx.HTML("Hello world!")
 	})
 
