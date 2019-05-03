@@ -281,3 +281,28 @@ SCENARIO( "Converting from local to global offset" ) {
         }
     }
 }
+
+TEST_CASE("Points are put in correct bins") {
+    const std::vector< sc::point > points{
+        { 1,   1,  1 },
+        { 2,   2,  2 },
+        { 11, 11, 11 },
+    };
+    const auto bins = bin(sc::dimension{10, 10, 10},
+                          sc::dimension{100, 100, 100},
+                          points);
+
+    CHECK(bins.keys.size() == 2);
+    CHECK(bins.keys[0] == sc::point{0, 0, 0});
+    CHECK(bins.keys[1] == sc::point{10, 10, 10});
+
+    CHECK(bins.itrs.size() == bins.keys.size() + 1);
+    CHECK(bins.itrs[0] == 0);
+    CHECK(bins.itrs[1] == 2);
+    CHECK(bins.itrs[2] == 3);
+
+    auto bin0 = bins.at(0);
+    CHECK( std::distance(bin0.begin(), bin0.end()) == 2);
+    CHECK(*bin0.begin() == 111);
+    CHECK(*std::next(bin0.begin()) == 222);
+}

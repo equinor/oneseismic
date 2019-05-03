@@ -9,7 +9,10 @@
 #include <system_error>
 #include <vector>
 
-#include <omp.h>
+#if defined(HAVE_OPENMP)
+    #include <omp.h>
+#endif
+
 #include <nlohmann/json.hpp>
 #include <clara/clara.hpp>
 #include <mio/mio.hpp>
@@ -48,28 +51,6 @@ struct config {
 void throw_errno() {
     auto errc = static_cast< std::errc >( errno );
     throw std::system_error( std::make_error_code( errc ) );
-}
-
-std::map< sc::point, std::vector< int > > bin( sc::dimension fragment_size,
-                                               sc::dimension cube_size,
-                                               const std::vector< sc::point >& xs ) {
-    std::map< sc::point, std::vector< int > > ret;
-    for (const auto& p : xs) {
-        sc::point root = sc::global_to_root( p, fragment_size );
-        sc::point local = sc::global_to_local( p, fragment_size );
-        int pos = sc::point_to_offset( local, fragment_size );
-
-        auto itr = ret.find(root);
-        if (itr == ret.end()) {
-          itr = ret.emplace(root, std::vector<int>{}).first;
-        }
-        itr->second.push_back(pos);
-    }
-
-    for (auto& kv : ret)
-        std::sort( kv.second.begin(), kv.second.end() );
-
-    return ret;
 }
 
 }
@@ -137,18 +118,13 @@ int main( int args, char** argv ) {
     std::cout.sync_with_stdio(false);
     auto surface_time = std::chrono::system_clock::now();
 
-    const auto bins = bin( fragment_size, cube_size, surface );
+    const auto bins = sc::bin(fragment_size, cube_size, surface);
     auto bin_time = std::chrono::system_clock::now();
 
-    decltype (bins.begin()) itr;
-    #pragma omp parallel
-    #pragma omp single nowait
-    {
-    for (itr = bins.begin(); itr != bins.end(); ++itr) {
-        #pragma omp task firstprivate(itr)
-        {
-        const auto& key = itr->first;
-        const auto& val = itr->second;
+    #pragma omp parallel for
+    for (std::size_t i = 0; i < bins.keys.size(); ++i) {
+        const auto bin = bins.at(i);
+        const auto& key = bin.key;
         const std::string path = manifest["basename"].get< std::string >()
                                + "-" + std::to_string( key.x )
                                + "-" + std::to_string( key.y )
@@ -157,24 +133,27 @@ int main( int args, char** argv ) {
                                ;
         mio::mmap_source file( cfg.input_dir + "/" + path );
 
-        const char* ptr = static_cast< const char* >( file.data() );
+        const auto output_elem_size = sizeof(float) + sizeof(std::uint64_t);
+        const auto output_elems = std::distance(bin.begin(), bin.end());
+        auto output = std::vector< char >(output_elems * output_elem_size);
 
-        for (const auto& off : val) {
-            float f;
-            std::memcpy( &f, ptr + off * 4, 4 );
+        char* out = output.data();
+        const char* in = static_cast< const char* >(file.data());
 
-            std::uint64_t global_offset =
-                sc::local_to_global( off, fragment_size, cube_size, key );
+        for (const auto off : bin) {
+            const std::uint64_t global_offset =
+                sc::local_to_global(off, fragment_size, cube_size, key);
 
-            #pragma omp critical
-            {
-            std::cout.write((char*)&global_offset, sizeof(std::uint64_t));
-            std::cout.write((char*)&f, sizeof(float));
-            }
+            std::memcpy(out, &global_offset, sizeof(global_offset));
+            out += sizeof(global_offset);
+            std::memcpy(out, in + off * 4, sizeof(float));
+            out += sizeof(float);
         }
-        }
-    }
 
+        #pragma omp critical
+        {
+        std::cout.write(output.data(), output.size());
+        }
     } // omp
 
     auto end_time = std::chrono::system_clock::now();
