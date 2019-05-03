@@ -50,83 +50,6 @@ void throw_errno() {
     throw std::system_error( std::make_error_code( errc ) );
 }
 
-struct bins {
-    std::vector< sc::point > keys;
-    std::vector< std::size_t > itrs;
-    std::vector< std::size_t > data;
-
-    using iterator = decltype(data.cbegin());
-
-    struct bin {
-        sc::point key;
-        iterator first;
-        iterator last;
-
-        bin() = default;
-        bin(iterator fst, iterator lst) : first(fst), last(lst) {}
-
-        iterator begin() const noexcept (true) {
-            return this->first;
-        }
-
-        iterator end() const noexcept (true) {
-            return this->last;
-        }
-    };
-
-    bin at(std::size_t i) const noexcept (false) {
-        bin x;
-        x.first = this->data.begin() + this->itrs[i];
-        x.last  = this->data.begin() + this->itrs[i + 1];
-        x.key   = this->keys[i];
-        return x;
-    }
-};
-
-bins bin(sc::dimension fragment_size,
-         sc::dimension cube_size,
-         const std::vector< sc::point >& xs ) noexcept (false) {
-
-    using key = std::pair< sc::point, std::size_t >;
-    std::vector< key > points;
-    points.reserve(xs.size());
-
-    for (const auto& p : xs) {
-        sc::point root = sc::global_to_root( p, fragment_size );
-        sc::point local = sc::global_to_local( p, fragment_size );
-        auto pos = sc::point_to_offset( local, fragment_size );
-        points.emplace_back(root, pos);
-    }
-
-    std::sort(points.begin(), points.end());
-
-    bins ret;
-    ret.data.resize(points.size());
-
-    if (xs.empty()) return ret;
-
-    auto snd = [](const auto& x) noexcept (true) { return x.second; };
-    std::transform(points.begin(), points.end(), ret.data.begin(), snd);
-
-    auto prev = points.front().first;
-    std::size_t i = 0;
-    ret.itrs.push_back(i);
-    ret.keys.push_back(prev);
-    for (const auto& p : points) {
-        ++i;
-
-        if (p.first == prev) continue;
-
-        prev = p.first;
-        ret.itrs.push_back(i - 1);
-        ret.keys.push_back(prev);
-    }
-
-    ret.itrs.push_back(points.size());
-
-    return ret;
-}
-
 }
 
 int main( int args, char** argv ) {
@@ -192,11 +115,11 @@ int main( int args, char** argv ) {
     std::cout.sync_with_stdio(false);
     auto surface_time = std::chrono::system_clock::now();
 
-    const auto bins = bin( fragment_size, cube_size, surface );
+    const auto bins = sc::bin(fragment_size, cube_size, surface);
     auto bin_time = std::chrono::system_clock::now();
 
     #pragma omp parallel for
-    for (std::size_t i = 0; i < bins.itrs.size(); ++i) {
+    for (std::size_t i = 0; i < bins.keys.size(); ++i) {
         const auto bin = bins.at(i);
         const auto& key = bin.key;
         const std::string path = manifest["basename"].get< std::string >()
@@ -207,20 +130,21 @@ int main( int args, char** argv ) {
                                ;
         mio::mmap_source file( cfg.input_dir + "/" + path );
 
-        const char* ptr = static_cast< const char* >( file.data() );
-
         const auto output_elem_size = sizeof(float) + sizeof(std::uint64_t);
-        const auto output_size = std::distance(bin.begin(), bin.end());
-        auto output = std::vector< char >(output_size);
-        void* out = output.data();
+        const auto output_elems = std::distance(bin.begin(), bin.end());
+        auto output = std::vector< char >(output_elems * output_elem_size);
+
+        char* out = output.data();
+        const char* in = static_cast< const char* >(file.data());
 
         for (const auto off : bin) {
             const std::uint64_t global_offset =
                 sc::local_to_global(off, fragment_size, cube_size, key);
 
-            out = std::memcpy(out, &global_offset, sizeof(global_offset));
-            out = std::memcpy(out, ptr + off * 4, sizeof(float));
-
+            std::memcpy(out, &global_offset, sizeof(global_offset));
+            out += sizeof(global_offset);
+            std::memcpy(out, in + off * 4, sizeof(float));
+            out += sizeof(float);
         }
 
         #pragma omp critical

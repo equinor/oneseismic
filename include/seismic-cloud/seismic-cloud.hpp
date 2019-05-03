@@ -1,6 +1,8 @@
 #ifndef SEISMIC_CLOUD_HPP
 #define SEISMIC_CLOUD_HPP
 
+#include <cassert>
+
 namespace sc {
 
 template < typename T >
@@ -100,6 +102,90 @@ std::size_t local_to_global( std::size_t local,
     auto global = local_to_global( local_point, root );
 
     return point_to_offset( global, cube_size );
+}
+
+struct bins {
+    std::vector< sc::point > keys;
+    std::vector< std::size_t > itrs;
+    std::vector< std::size_t > data;
+
+    using iterator = decltype(data.cbegin());
+
+    struct bin {
+        sc::point key;
+        iterator first;
+        iterator last;
+
+        bin() = default;
+        bin(iterator fst, iterator lst) : first(fst), last(lst) {}
+
+        iterator begin() const noexcept (true) {
+            return this->first;
+        }
+
+        iterator end() const noexcept (true) {
+            return this->last;
+        }
+    };
+
+    bin at(std::size_t i) const noexcept (true) {
+        bin x;
+        x.first = this->data.begin() + this->itrs[i];
+        x.last  = this->data.begin() + this->itrs[i + 1];
+        x.key   = this->keys[i];
+        return x;
+    }
+};
+
+bins bin(sc::dimension fragment_size,
+         sc::dimension cube_size,
+         const std::vector< sc::point >& xs) noexcept (false) {
+
+    using key = std::pair< sc::point, std::size_t >;
+    auto points = std::vector< key >(xs.size());
+
+    auto fragment_id = [fragment_size](const auto& p) noexcept (true) {
+        const auto root  = sc::global_to_root(p, fragment_size);
+        const auto local = sc::global_to_local(p, fragment_size);
+        const auto pos   = sc::point_to_offset(local, fragment_size);
+        return std::make_pair(root, pos);
+    };
+
+    std::transform(xs.begin(), xs.end(), points.begin(), fragment_id);
+    std::sort(points.begin(), points.end());
+
+    /*
+     * If the input surface xs is empty, just return here.  should work and
+     * still just output empty, but accessing vec.front() would be undefined.
+     * Hopefully this check will never be true, because empty requests should
+     * be handled further up in the stack
+     */
+    assert(!xs.empty());
+    bins ret;
+    if (xs.empty()) return ret;
+
+    ret.data.resize(points.size());
+
+    auto snd = [](const auto& x) noexcept (true) { return x.second; };
+    std::transform(points.begin(), points.end(), ret.data.begin(), snd);
+
+    auto prev = points.front().first;
+    std::size_t i = 0;
+    ret.itrs.push_back(i);
+    ret.keys.push_back(prev);
+    for (const auto& p : points) {
+        ++i;
+
+        if (p.first == prev) continue;
+
+        prev = p.first;
+        ret.itrs.push_back(i - 1);
+        ret.keys.push_back(prev);
+    }
+
+    ret.itrs.push_back(points.size());
+
+    return ret;
 }
 
 }
