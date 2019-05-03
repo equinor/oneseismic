@@ -19,7 +19,7 @@ steps:
   - script: |
       mkdir build
       cd build
-      cmake .. -DCMAKE_BUILD_TYPE=Release
+      cmake ../core -DCMAKE_BUILD_TYPE=Release
     displayName: 'Setup seismic-cloud'
   - script: |
       make

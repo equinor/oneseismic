@@ -4,6 +4,11 @@ dist: xenial
 sudo: required
 compiler: clang
 
+addons:
+  apt:
+    packages:
+      - libomp-dev
+
 install:
     - git clone https://github.com/statoil/segyio
     - pushd segyio
@@ -16,6 +21,6 @@ install:
 script:
     - mkdir build
     - pushd build
-    - cmake .. -DCMAKE_BUILD_TYPE=Release
+    - cmake ../core -DCMAKE_BUILD_TYPE=Release
     - make
     - ctest --output-on-failure
