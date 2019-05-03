@@ -18,11 +18,40 @@ struct triple_comparison {
         return false;
     }
 
+    bool operator > (const T& rhs) const noexcept (true) {
+        const auto& self = *static_cast< const T* >(this);
+        if (self.x > rhs.x) return true;
+        if (self.x < rhs.x) return false;
+        if (self.y > rhs.y) return true;
+        if (self.y < rhs.y) return false;
+        if (self.z > rhs.z) return true;
+        if (self.z < rhs.z) return false;
+        return false;
+    }
+
+    bool operator <= (const T& rhs) const noexcept (true) {
+        const auto& self = *static_cast< const T* >(this);
+        return self < rhs or self == rhs;
+    }
+
+    bool operator >= (const T& rhs) const noexcept (true) {
+        const auto& self = *static_cast< const T* >(this);
+        return self > rhs or self == rhs;
+    }
+
     bool operator == (const T& rhs) const noexcept (true) {
         const auto& self = *static_cast< const T* >(this);
         return self.x == rhs.x
            and self.y == rhs.y
            and self.z == rhs.z
+        ;
+    }
+
+    bool operator != (const T& rhs) const noexcept (true) {
+        const auto& self = *static_cast< const T* >(this);
+        return self.x != rhs.x
+            or self.y != rhs.y
+            or self.z != rhs.z
         ;
     }
 };
