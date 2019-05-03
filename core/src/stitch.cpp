@@ -9,7 +9,10 @@
 #include <system_error>
 #include <vector>
 
-#include <omp.h>
+#if defined(HAVE_OPENMP)
+    #include <omp.h>
+#endif
+
 #include <nlohmann/json.hpp>
 #include <clara/clara.hpp>
 #include <mio/mio.hpp>

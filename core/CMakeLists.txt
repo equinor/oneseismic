@@ -13,7 +13,12 @@ add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
 find_package(segyio REQUIRED)
-find_package(OpenMP REQUIRED)
+
+if (NOT MSVC)
+    # openmp is pretty broken on MSVC with only super old versions. Accept the
+    # performance loss, and don't bother searching for it
+    find_package(OpenMP REQUIRED)
+endif ()
 
 add_subdirectory(external/mio)
 
@@ -54,7 +59,14 @@ target_include_directories(stitch
     PRIVATE include
 )
 target_compile_definitions(stitch
-    PRIVATE _GLIBCXX_PARALLEL
+    PRIVATE
+        _GLIBCXX_PARALLEL
+        # cmake >= 3.9 uses OpenMP_<lang>_FOUND, but older cmake sets
+        # OPENMP_FOUND if the library is found and properly configured. We only
+        # set the preprocessor directive to only include the header on
+        # non-MSVC, so just set the same directive on both
+        $<$<BOOL:${OPENMP_FOUND}>:HAVE_OPENMP>
+        $<$<BOOL:${OpenMP_CXX_FOUND}>:HAVE_OPENMP>
 )
 target_compile_options(stitch
     PUBLIC ${OpenMP_CXX_FLAGS}
