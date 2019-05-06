@@ -53,6 +53,8 @@ func main() {
 		ctx.HTML("Hello world!")
 	})
 
+	app.Post("/stitch", controller.Stitch)
+
 	manifestIDExpr := "^[a-zA-z0-9\\-]{1,40}$"
 	manifestIDRegex, err := regexp.Compile(manifestIDExpr)
 	if err != nil {
