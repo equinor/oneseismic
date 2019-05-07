@@ -1,7 +1,7 @@
 package main
 
 import (
-	"regexp"
+	"equinor/seismic-cloud/api/controller"
 	"equinor/seismic-cloud/api/service"
 	"fmt"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"regexp"
 )
 
 func getAuthServer() (*url.URL, error) {
