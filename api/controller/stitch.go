@@ -2,36 +2,56 @@ package controller
 
 import (
 	"bytes"
-	"os"
+	"io"
 	"os/exec"
+	"sync"
 
 	"github.com/kataras/iris"
 )
 
 func Stitch(ctx iris.Context) {
 	// in := ctx.Body
-	cmd := exec.Command("../build/stitch", "shatter.manifest", "-i", "./cubes")
-	ctx.Application().Logger().Infof("Hello")
-	infile, err := os.Open("surfaces/surface1.i32")
-	if err != nil {
-		panic(err)
-	}
+	// cmd := exec.Command("../build/stitch", "shatter.manifest", "-i", "./cubes")
+	cmd := exec.Command("cat")
 
-	cmd.Stdin = infile
-	var buffer bytes.Buffer
-	cmd.Stdout = &buffer
-	err = cmd.Run()
+	ctx.Application().Logger().Infof("Stiching: %d", ctx.Request().ContentLength)
+	// infile, err := os.Open("surfaces/surface1.i32")
+	// if err != nil {
+	// 	ctx.StatusCode(500)
+	// 	ctx.Application().Logger().Error(err)
+	// }
+
+	// io.Copy(os.Stdout, ctx.Request().Body)
+	cmd.Stdin = ctx.Request().Body
+	cmdOutput := &bytes.Buffer{}
+	cmd.Stdout = cmdOutput
+
+	err := cmd.Start()
 	if err != nil {
-		panic(err)
+		ctx.StatusCode(500)
+		ctx.Application().Logger().Error(err)
 	}
-	ctx.Write(buffer.Bytes())
-	// ctx.StreamWriter(func(w io.Writer) bool {
-	// 	fmt.Fprintf(w, "Message number %d<br>", ints[i])
-	// 	time.Sleep(500 * time.Millisecond) // simulate delay.
-	// 	if i == len(ints)-1 {
-	// 		return false // close and flush
-	// 	}
-	// 	i++
-	// 	return true // continue write
-	// })
+	var wg sync.WaitGroup
+	done := false
+	wg.Add(1)
+	go func() {
+
+		ctx.StreamWriter(func(w io.Writer) bool {
+			n := 100000
+			p := cmdOutput.Next(n)
+			w.Write(p)
+
+			if done && len(p) == 0 {
+				return false
+			}
+			if len(p) > 0 {
+				ctx.Application().Logger().Infof("Wrote %d bytes to stream", len(p))
+			}
+			return true // continue write
+		})
+		wg.Done()
+	}()
+	cmd.Wait()
+	done = true
+	wg.Wait()
 }
