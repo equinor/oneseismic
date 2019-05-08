@@ -62,15 +62,15 @@ int main( int args, char** argv ) {
        std::exit( EXIT_FAILURE );
     }
 
-    create_surface(4000, 3000, 200, 0.005, 200,  cfg.output_dir + "surface1.i32");
-    create_surface(4000, 3000, 200, 0.005, 600,  cfg.output_dir + "surface2.i32");
-    create_surface(4000, 3000, 200, 0.005, 1050, cfg.output_dir + "surface3.i32");
+    create_surface(400, 300, 200, 0.005, 200,  cfg.output_dir + "surface1.i32");
+    create_surface(400, 300, 200, 0.005, 600,  cfg.output_dir + "surface2.i32");
+    create_surface(400, 300, 200, 0.005, 1050, cfg.output_dir + "surface3.i32");
 
-    create_surface(4000, 3000, 400, 0.004, 400, cfg.output_dir + "surface4.i32");
-    create_surface(4000, 3000, 400, 0.004, 600, cfg.output_dir + "surface5.i32");
-    create_surface(4000, 3000, 400, 0.004, 850, cfg.output_dir + "surface6.i32");
+    create_surface(400, 300, 400, 0.004, 400, cfg.output_dir + "surface4.i32");
+    create_surface(400, 300, 400, 0.004, 600, cfg.output_dir + "surface5.i32");
+    create_surface(400, 300, 400, 0.004, 850, cfg.output_dir + "surface6.i32");
 
-    create_surface(4000, 3000, 200, 0.01, 200,  cfg.output_dir + "surface7.i32");
-    create_surface(4000, 3000, 200, 0.01, 600,  cfg.output_dir + "surface8.i32");
-    create_surface(4000, 3000, 200, 0.01, 1050, cfg.output_dir + "surface9.i32");
+    create_surface(400, 300, 200, 0.01, 200,  cfg.output_dir + "surface7.i32");
+    create_surface(400, 300, 200, 0.01, 600,  cfg.output_dir + "surface8.i32");
+    create_surface(400, 300, 200, 0.01, 1050, cfg.output_dir + "surface9.i32");
 }
