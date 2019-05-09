@@ -4,13 +4,13 @@ import (
 	"equinor/seismic-cloud/api/controller"
 	"equinor/seismic-cloud/api/service"
 	"fmt"
-	jwt "github.com/dgrijalva/jwt-go"
-	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
-	"github.com/kataras/iris"
 	"log"
 	"net/url"
 	"os"
 	"regexp"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/kataras/iris"
 )
 
 func getAuthServer() (*url.URL, error) {
@@ -25,7 +25,7 @@ func getAuthServer() (*url.URL, error) {
 	return u, nil
 }
 
-func main() {
+func server() *iris.Application {
 	app := iris.Default()
 
 	authServer, err := getAuthServer()
@@ -62,12 +62,15 @@ func main() {
 		panic(err)
 	}
 
-
 	app.Macros().Get("string").RegisterFunc("manifestID", manifestIDRegex.MatchString)
-	app.Post( "/stitch/{id:string manifestID() else 502}", func(ctx iris.Context) {
-		ctx.HTML("Hello id: "+ctx.Params().Get("id"))
+	app.Post("/stitch/{id:string manifestID() else 502}", func(ctx iris.Context) {
+		ctx.HTML("Hello id: " + ctx.Params().Get("id"))
 	})
 
+	return app
+}
 
+func main() {
+	app := server()
 	app.Run(iris.Addr(":8080"))
 }

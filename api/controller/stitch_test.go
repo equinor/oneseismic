@@ -33,15 +33,15 @@ func TestStitch(t *testing.T) {
 	echoCtx := context.NewContext(nil)
 	want :=
 		`VLiFrhfjz7O5Zt1VD0Wd
-	MBECw6JWO0oEsbkz4Qqv
-	pEHK1urgtb8SC5gGs3po
-	D5wzMivWXHiDvqHIKE4s
-	djHkWdeZUB8JsacIhbnK
-	HoTYPAQZ7ZoXAL2YVvoT
-	j1sDu7eF9m1DNXFBy5cf
-	TiAdXYPNBfNkqzi5nBRk
-	S0wpZgBZYp5HK1dCF9sL
-	kcmmZTNurGRSYkOJS9xn`
+		MBECw6JWO0oEsbkz4Qqv
+		pEHK1urgtb8SC5gGs3po
+		D5wzMivWXHiDvqHIKE4s
+		djHkWdeZUB8JsacIhbnK
+		HoTYPAQZ7ZoXAL2YVvoT
+		j1sDu7eF9m1DNXFBy5cf
+		TiAdXYPNBfNkqzi5nBRk
+		S0wpZgBZYp5HK1dCF9sL
+		kcmmZTNurGRSYkOJS9xn`
 
 	echoReq := &http.Request{}
 	echoReq.Body = ioutil.NopCloser(strings.NewReader(want))
