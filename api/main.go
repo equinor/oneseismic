@@ -26,30 +26,32 @@ func getAuthServer() (*url.URL, error) {
 	return u, nil
 }
 
-func server() *iris.Application {
+func server(auth bool) *iris.Application {
 	app := iris.Default()
 
-	authServer, err := getAuthServer()
-	if err != nil {
-		log.Panic(fmt.Errorf("Couldn't read authserver: %v", err))
+	if auth == true {
+		authServer, err := getAuthServer()
+		if err != nil {
+			log.Panic(fmt.Errorf("Couldn't read authserver: %v", err))
+		}
+		sigKeySet, err := service.GetKeySet(authServer)
+		if err != nil {
+			log.Panic(fmt.Errorf("Couldn't get keyset: %v", err))
+		}
+
+		jwtHandler := jwtmiddleware.New(jwtmiddleware.Config{
+			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
+				if t.Method.Alg() != "RS256" {
+					return nil, fmt.Errorf("unexpected jwt signing method=%v", t.Header["alg"])
+				}
+				return sigKeySet[t.Header["kid"].(string)], nil
+			},
+
+			SigningMethod: jwt.SigningMethodRS256,
+		})
+
+		app.Use(jwtHandler.Serve)
 	}
-	sigKeySet, err := service.GetKeySet(authServer)
-	if err != nil {
-		log.Panic(fmt.Errorf("Couldn't get keyset: %v", err))
-	}
-
-	jwtHandler := jwtmiddleware.New(jwtmiddleware.Config{
-		ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
-			if t.Method.Alg() != "RS256" {
-				return nil, fmt.Errorf("unexpected jwt signing method=%v", t.Header["alg"])
-			}
-			return sigKeySet[t.Header["kid"].(string)], nil
-		},
-
-		SigningMethod: jwt.SigningMethodRS256,
-	})
-
-	app.Use(jwtHandler.Serve)
 
 	app.Get("/", func(ctx iris.Context) {
 		ctx.HTML("Hello world!")
@@ -72,6 +74,7 @@ func server() *iris.Application {
 }
 
 func main() {
-	app := server()
+	auth := true
+	app := server(auth)
 	app.Run(iris.Addr(":8080"))
 }
