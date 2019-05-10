@@ -3,49 +3,39 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"regexp"
 
+	"github.com/equinor/seismic-cloud/api/config"
+
 	"github.com/equinor/seismic-cloud/api/controller"
 	"github.com/equinor/seismic-cloud/api/service"
-	"github.com/spf13/cobra"
 
 	"github.com/dgrijalva/jwt-go"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 	"github.com/kataras/iris"
+	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
 )
 
+// serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "serve a local auth provider",
-	Long:  `serve a local auth provider.`,
+	Short: "serve seismic cloud provider",
+	Long:  `serve seismic cloud provider.`,
 	Run:   runServe,
-}
-
-func getAuthServer() (*url.URL, error) {
-	envAuth := os.Getenv("AUTHSERVER")
-	if len(envAuth) == 0 {
-		return nil, fmt.Errorf("No authserver set")
-	}
-	u, err := url.Parse(envAuth)
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
 }
 
 func server(auth bool) *iris.Application {
 	app := iris.Default()
 
 	if auth == true {
-		authServer, err := getAuthServer()
-		if err != nil {
-			log.Panic(fmt.Errorf("Couldn't read authserver: %v", err))
-		}
+		authServer := config.AuthServer()
+
 		sigKeySet, err := service.GetKeySet(authServer)
 		if err != nil {
-			log.Panic(fmt.Errorf("Couldn't get keyset: %v", err))
+			log.Fatal(fmt.Errorf("Couldn't get keyset: %v", err))
 		}
 
 		jwtHandler := jwtmiddleware.New(jwtmiddleware.Config{
@@ -83,9 +73,16 @@ func server(auth bool) *iris.Application {
 }
 
 func runServe(cmd *cobra.Command, args []string) {
-	auth := true
-	app := server(auth)
-	app.Run(iris.Addr(":8080"))
+
+	if viper.ConfigFileUsed() == "" {
+		jww.ERROR.Println("No config file loaded")
+		os.Exit(1)
+	} else {
+		jww.INFO.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	app := server(config.UseAuth())
+	app.Run(iris.Addr(config.HostAddr()))
 }
 
 func init() {

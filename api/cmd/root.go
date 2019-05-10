@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/equinor/seismic-cloud/api/config"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -51,4 +52,8 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+	if err := config.Load(); err == nil {
+		fmt.Println("Config loaded and validated:", viper.ConfigFileUsed())
+	}
+
 }
