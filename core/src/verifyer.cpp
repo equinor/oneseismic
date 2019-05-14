@@ -5,6 +5,8 @@
 #include <clara/clara.hpp>
 #include <nlohmann/json.hpp>
 
+#include <seismic-cloud/seismic-cloud.hpp>
+
 using json = nlohmann::json;
 
 struct config {
@@ -30,12 +32,6 @@ struct config {
     }
 };
 
-struct point {
-    int x;
-    int y;
-    int z;
-};
-
 int main( int args, char** argv ) {
     config cfg;
     auto cli = cfg.cli();
@@ -56,7 +52,7 @@ int main( int args, char** argv ) {
     json manifest;
     std::ifstream( cfg.input_dir + "/" + cfg.manifest ) >> manifest;
 
-    point cube_size {
+    sc::point cube_size {
         manifest["cube-xs"].get< int >(),
         manifest["cube-ys"].get< int >(),
         manifest["cube-zs"].get< int >(),
@@ -105,8 +101,8 @@ int main( int args, char** argv ) {
     srfc >> expected_meta;
     int expected_size = expected_meta["size"];
 
-    std::vector< point > surface( expected_size );
-    srfc.read( (char*)&surface[0], sizeof(point)*expected_size );
+    std::vector< sc::point > surface( expected_size );
+    srfc.read( (char*)&surface[0], sizeof(sc::point)*expected_size );
 
     std::vector< int > expected_xs( expected_size );
     std::vector< int > expected_ys( expected_size );
