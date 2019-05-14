@@ -1,12 +1,12 @@
 package controller
 
 import (
-	"log"
 	"bytes"
-	"os"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -18,12 +18,11 @@ type MockWriter struct {
 	io.Writer
 }
 
-type MockManifestStore struct {}
+type MockManifestStore struct{}
 
-func (*MockManifestStore)Fetch(id string)([]byte,error){
-return []byte("MANIFEST"),nil
+func (*MockManifestStore) Fetch(id string) ([]byte, error) {
+	return []byte("MANIFEST"), nil
 }
-
 
 func NewMockWriter(w io.Writer) MockWriter {
 	return MockWriter{w}
@@ -52,14 +51,14 @@ func TestStitch(t *testing.T) {
 		S0wpZgBZYp5HK1dCF9sL
 		kcmmZTNurGRSYkOJS9xn`
 
-	want := "M:"+string([]byte{8,0,0,0}) +"MANIFEST"+have
+	want := "M:" + string([]byte{8, 0, 0, 0}) + "MANIFEST" + have
 
 	echoReq := &http.Request{}
 	echoReq.Body = ioutil.NopCloser(strings.NewReader(have))
 	buf := bytes.NewBuffer([]byte{})
 	echoWriter := NewMockWriter(buf)
 	echoCtx.BeginRequest(echoWriter, echoReq)
-	echoStitch := StitchController(new(MockManifestStore),[]string{"echo"},log.New(os.Stdout,"MockLog",log.Ldate))
+	echoStitch := StitchController(new(MockManifestStore), []string{"cat"}, log.New(os.Stdout, "MockLog", log.Ldate))
 	type args struct {
 		ctx iris.Context
 	}
