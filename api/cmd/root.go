@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/equinor/seismic-cloud/api/config"
 	"os"
+
+	"github.com/equinor/seismic-cloud/api/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -28,7 +29,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $PWD/.sc-api.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .sc-api.yaml)")
 
 }
 

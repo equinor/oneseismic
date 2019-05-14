@@ -2,30 +2,34 @@ package controller
 
 import (
 	"bytes"
-	"fmt"
+	"log"
 	"os/exec"
+
+	"github.com/equinor/seismic-cloud/api/service"
 
 	"github.com/kataras/iris"
 )
 
-func Stitch(ctx iris.Context) {
+func StitchController(ms service.ManifestStore,
+	cmd *exec.Cmd,
+	logger *log.Logger) func(ctx iris.Context) {
 
-	// cmd := exec.Command("../build/stitch", "shatter.manifest", "-i", "./cubes")
-	cmd := exec.Command("cat")
+	return func(ctx iris.Context) {
+		manifestID := ctx.Params().Get("manifestID")
+		logger.Printf("Stiching: manifest: %s, surface: %d bytes\n", manifestID, ctx.Request().ContentLength)
 
-	fmt.Printf("Stiching: %d bytes\n", ctx.Request().ContentLength)
+		cmd.Stdin = ctx.Request().Body
 
-	cmd.Stdin = ctx.Request().Body
+		var buffer bytes.Buffer
+		cmd.Stdout = &buffer
 
-	var buffer bytes.Buffer
-	cmd.Stdout = &buffer
-
-	err := cmd.Run()
-	if err != nil {
-		ctx.StatusCode(500)
-		fmt.Println("Stich error:", err)
-	} else {
-		cmd.Wait()
+		err := cmd.Run()
+		if err != nil {
+			ctx.StatusCode(500)
+			logger.Println("Stich error:", err)
+		} else {
+			cmd.Wait()
+		}
+		ctx.Write(buffer.Bytes())
 	}
-	ctx.Write(buffer.Bytes())
 }
