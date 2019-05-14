@@ -92,3 +92,11 @@ func (hs *HttpServer) Serve() error {
 	hs.registerEndpoints()
 	return hs.app.Run(iris.Addr(hs.hostAddr))
 }
+
+func WithManifestStore(manifestStore service.ManifestStore) HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+		hs.manifestStore = manifestStore
+		return
+	})
+}
