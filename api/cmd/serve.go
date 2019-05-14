@@ -6,6 +6,7 @@ import (
 
 	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/server"
+	"github.com/equinor/seismic-cloud/api/service"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -31,11 +32,22 @@ func runServe(cmd *cobra.Command, args []string) {
 	opts := make([]server.HttpServerOption, 0)
 
 	if config.UseAuth() {
-		opts = append(opts, server.WithOAuth2(config.AuthServer(), "seismic-api"))
+		opts = append(opts,
+			server.WithOAuth2(config.AuthServer(), "seismic-api"))
 	}
-	hs,err := server.NewHttpServer()
-	if err != nil{
-		fmt.Println("Error starting http server: ",err)
+
+	opts = append(
+		opts,
+		server.WithManifestStore(&service.ManifestFileStore{BasePath: "cubes"}))
+
+	opts = append(
+		opts,
+		server.WithStitchCommand([]string{"ls"}))
+
+	hs, err := server.NewHttpServer(opts...)
+
+	if err != nil {
+		fmt.Println("Error starting http server: ", err)
 		os.Exit(1)
 	}
 	hs.Serve()

@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"os/exec"
 	"regexp"
 
 	"github.com/equinor/seismic-cloud/api/controller"
@@ -20,7 +19,7 @@ import (
 type HttpServer struct {
 	logger        *log.Logger
 	manifestStore service.ManifestStore
-	stitchCommand *exec.Cmd
+	stitchCommand []string
 	app           *iris.Application
 	hostAddr      string
 }
@@ -35,11 +34,24 @@ func DefaultHttpServer() *HttpServer {
 		hostAddr: "localhost:8080"}
 }
 
-func NewHttpServer(opts ...HttpServerOption) (*HttpServer, error) {
+func NewHttpServer(opts ...HttpServerOption) (*HttpServer, err error) {
 	hs := DefaultHttpServer()
 	for _, opt := range opts {
-		opt.apply(hs)
+		err = opt.apply(hs)
+		if err != nil {
+			return nil,fmt.Errorf("Applying config failed: %v",err)
+		}
 	}
+	
+	if hs.manifestStore == nil  {
+		return nil, fmt.Errorf("Server cannot start, no manifest store set")
+	}
+
+
+	if hs.stitchCommand == nil || len(hs.stitchCommand) == 0  {
+		return nil, fmt.Errorf("Server cannot start, stitch command is empty")
+	}
+
 	return hs, nil
 }
 
@@ -97,6 +109,15 @@ func WithManifestStore(manifestStore service.ManifestStore) HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) (err error) {
 		hs.manifestStore = manifestStore
+		return
+	})
+}
+
+func WithStitchCommand(stitchCommand []string) HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+		//TODO: check if it is executable
+		hs.stitchCommand = stitchCommand
 		return
 	})
 }
