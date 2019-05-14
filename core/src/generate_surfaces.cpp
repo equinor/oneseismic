@@ -16,8 +16,6 @@ void create_surface( int xs,
 
     int size = xs * ys;
 
-    f << "{\"size\": " << size << "}";
-
     for (int x = 0; x < xs; ++x)
     for (int y = 0; y < ys; ++y) {
         int z = amplitude * std::sin(steepness*(x+y)) + height;
