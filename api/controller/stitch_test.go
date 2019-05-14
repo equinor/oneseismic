@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"log"
 	"bytes"
+	"os"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,26 +14,33 @@ import (
 	"github.com/kataras/iris/context"
 )
 
-type MockResponseWriter struct {
+type MockWriter struct {
 	io.Writer
 }
 
-func NewMock(w io.Writer) MockResponseWriter {
-	return MockResponseWriter{w}
+type MockManifestStore struct {}
+
+func (*MockManifestStore)Fetch(id string)([]byte,error){
+return []byte("MANIFEST"),nil
 }
 
-func (m MockResponseWriter) Header() http.Header {
+
+func NewMockWriter(w io.Writer) MockWriter {
+	return MockWriter{w}
+}
+
+func (m MockWriter) Header() http.Header {
 	return http.Header{}
 }
 
-func (m MockResponseWriter) WriteHeader(statusCode int) {
+func (m MockWriter) WriteHeader(statusCode int) {
 	return
 }
 
 func TestStitch(t *testing.T) {
 
 	echoCtx := context.NewContext(nil)
-	want :=
+	have :=
 		`VLiFrhfjz7O5Zt1VD0Wd
 		MBECw6JWO0oEsbkz4Qqv
 		pEHK1urgtb8SC5gGs3po
@@ -43,12 +52,14 @@ func TestStitch(t *testing.T) {
 		S0wpZgBZYp5HK1dCF9sL
 		kcmmZTNurGRSYkOJS9xn`
 
-	echoReq := &http.Request{}
-	echoReq.Body = ioutil.NopCloser(strings.NewReader(want))
-	buf := bytes.NewBuffer([]byte{})
-	echoWriter := NewMock(buf)
-	echoCtx.BeginRequest(echoWriter, echoReq)
+	want := "M:"+string([]byte{8,0,0,0}) +"MANIFEST"+have
 
+	echoReq := &http.Request{}
+	echoReq.Body = ioutil.NopCloser(strings.NewReader(have))
+	buf := bytes.NewBuffer([]byte{})
+	echoWriter := NewMockWriter(buf)
+	echoCtx.BeginRequest(echoWriter, echoReq)
+	echoStitch := StitchController(new(MockManifestStore),[]string{"echo"},log.New(os.Stdout,"MockLog",log.Ldate))
 	type args struct {
 		ctx iris.Context
 	}
@@ -56,7 +67,7 @@ func TestStitch(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		resp MockResponseWriter
+		resp MockWriter
 	}{
 		{name: "Echo little ", args: args{echoCtx}},
 	}
@@ -64,14 +75,14 @@ func TestStitch(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			Stitch(tt.args.ctx)
+			echoStitch(tt.args.ctx)
 			got, err := ioutil.ReadAll(buf)
 			if err != nil {
 				t.Errorf("Stitch() Readall err %v", err)
 				return
 			}
 			if string(got) != want {
-				t.Errorf("Stitch() got = %v, want %v", got, want)
+				t.Errorf("Stitch() got = %v, want %v", string(got), want)
 			}
 			tt.args.ctx.EndRequest()
 
