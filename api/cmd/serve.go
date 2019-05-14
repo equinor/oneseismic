@@ -36,13 +36,17 @@ func runServe(cmd *cobra.Command, args []string) {
 			server.WithOAuth2(config.AuthServer(), "seismic-api"))
 	}
 
-	opts = append(
-		opts,
-		server.WithManifestStore(&service.ManifestFileStore{BasePath: "cubes"}))
+	if len(config.ManifestStoragePath()) > 0 {
+		opts = append(opts,
+			server.WithManifestStore(&service.ManifestFileStore{
+				BasePath: config.ManifestStoragePath()}))
+	}
 
-	opts = append(
-		opts,
-		server.WithStitchCommand([]string{"ls"}))
+	if len(config.StitchCmd()) > 0 {
+		opts = append(
+			opts,
+			server.WithStitchCmd(config.StitchCmd()))
+	}
 
 	hs, err := server.NewHttpServer(opts...)
 

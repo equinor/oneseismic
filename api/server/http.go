@@ -19,7 +19,7 @@ import (
 type HttpServer struct {
 	logger        *log.Logger
 	manifestStore service.ManifestStore
-	stitchCommand []string
+	stitchCmd     []string
 	app           *iris.Application
 	hostAddr      string
 }
@@ -34,21 +34,20 @@ func DefaultHttpServer() *HttpServer {
 		hostAddr: "localhost:8080"}
 }
 
-func NewHttpServer(opts ...HttpServerOption) (*HttpServer, err error) {
-	hs := DefaultHttpServer()
+func NewHttpServer(opts ...HttpServerOption) (hs *HttpServer, err error) {
+	hs = DefaultHttpServer()
 	for _, opt := range opts {
 		err = opt.apply(hs)
 		if err != nil {
-			return nil,fmt.Errorf("Applying config failed: %v",err)
+			return nil, fmt.Errorf("Applying config failed: %v", err)
 		}
 	}
-	
-	if hs.manifestStore == nil  {
+
+	if hs.manifestStore == nil {
 		return nil, fmt.Errorf("Server cannot start, no manifest store set")
 	}
 
-
-	if hs.stitchCommand == nil || len(hs.stitchCommand) == 0  {
+	if hs.stitchCmd == nil || len(hs.stitchCmd) == 0 {
 		return nil, fmt.Errorf("Server cannot start, stitch command is empty")
 	}
 
@@ -95,7 +94,7 @@ func (hs *HttpServer) registerEndpoints() {
 	})
 
 	hs.app.Post("/stitch/{manifestID:string manifestID() else 502}",
-		controller.StitchController(hs.manifestStore, hs.stitchCommand, hs.logger))
+		controller.StitchController(hs.manifestStore, hs.stitchCmd, hs.logger))
 
 }
 
@@ -113,11 +112,11 @@ func WithManifestStore(manifestStore service.ManifestStore) HttpServerOption {
 	})
 }
 
-func WithStitchCommand(stitchCommand []string) HttpServerOption {
+func WithStitchCmd(stitchCmd []string) HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) (err error) {
 		//TODO: check if it is executable
-		hs.stitchCommand = stitchCommand
+		hs.stitchCmd = stitchCmd
 		return
 	})
 }

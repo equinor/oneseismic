@@ -9,10 +9,11 @@ import (
 )
 
 type Config struct {
-	authServer *url.URL
-	insecure   bool
-	stitchCmd  []string
-	hostAddr   string
+	authServer          *url.URL
+	insecure            bool
+	stitchCmd           []string
+	manifestStoragePath string
+	hostAddr            string
 }
 
 var cfg *Config
@@ -30,6 +31,7 @@ func Load() error {
 	}
 
 	cfg.stitchCmd = strings.Split(viper.GetString("STITCH_CMD"), " ")
+	cfg.manifestStoragePath = viper.GetString("MANIFEST_PATH")
 	hostAddr := viper.GetString("HOST_ADDR")
 	if len(hostAddr) == 0 {
 		hostAddr = ":8080"
@@ -72,4 +74,12 @@ func UseAuth() bool {
 
 func HostAddr() string {
 	return cfg.hostAddr
+}
+
+func StitchCmd() []string {
+	return cfg.stitchCmd
+}
+
+func ManifestStoragePath() string {
+	return cfg.manifestStoragePath
 }
