@@ -39,17 +39,19 @@ func StitchController(ms service.ManifestStore,
 			bytes.NewBuffer(manifest),
 			ctx.Request().Body)
 
-		var buffer bytes.Buffer
-		cmd.Stdout = &buffer
+		cmd.Stdout = ctx.ResponseWriter()
+		cmd.Stderr = logger.Writer()
 		logger.Printf("Stiching: manfest: %v, length in LE: %v bytes\n", manifest, manLengthBuff)
 
 		err = cmd.Run()
 		if err != nil {
 			ctx.StatusCode(500)
 			logger.Println("Stich error:", err)
+
 		} else {
-			cmd.Wait()
+
 		}
-		ctx.Write(buffer.Bytes())
+		cmd.Wait()
+
 	}
 }
