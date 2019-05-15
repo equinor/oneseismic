@@ -5,15 +5,19 @@ import (
 	"path"
 )
 
-type Manifest struct {
-	basePath string
+type ManifestFileStore struct {
+	BasePath string
 }
 
-func (m *Manifest) Fetch(id string) (string, error) {
-	fileName := path.Join(m.basePath, id+".manifest")
+type ManifestStore interface {
+	Fetch(string) ([]byte, error)
+}
+
+func (m *ManifestFileStore) Fetch(id string) ([]byte, error) {
+	fileName := path.Join(m.BasePath, id+".manifest")
 	cont, err := ioutil.ReadFile(path.Clean(fileName))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(cont), nil
+	return cont, nil
 }

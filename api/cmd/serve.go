@@ -2,18 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"regexp"
 
 	"github.com/equinor/seismic-cloud/api/config"
-
-	"github.com/equinor/seismic-cloud/api/controller"
+	"github.com/equinor/seismic-cloud/api/server"
 	"github.com/equinor/seismic-cloud/api/service"
-
-	"github.com/dgrijalva/jwt-go"
-	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
-	"github.com/kataras/iris"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -27,51 +20,6 @@ var serveCmd = &cobra.Command{
 	Run:   runServe,
 }
 
-func server(auth bool) *iris.Application {
-	app := iris.Default()
-
-	if auth == true {
-		authServer := config.AuthServer()
-
-		sigKeySet, err := service.GetKeySet(authServer)
-		if err != nil {
-			log.Fatal(fmt.Errorf("Couldn't get keyset: %v", err))
-		}
-
-		jwtHandler := jwtmiddleware.New(jwtmiddleware.Config{
-			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
-				if t.Method.Alg() != "RS256" {
-					return nil, fmt.Errorf("unexpected jwt signing method=%v", t.Header["alg"])
-				}
-				return sigKeySet[t.Header["kid"].(string)], nil
-			},
-
-			SigningMethod: jwt.SigningMethodRS256,
-		})
-
-		app.Use(jwtHandler.Serve)
-	}
-
-	app.Get("/", func(ctx iris.Context) {
-		ctx.HTML("Hello world!")
-	})
-
-	app.Post("/stitch", controller.Stitch)
-
-	manifestIDExpr := "^[a-zA-z0-9\\-]{1,40}$"
-	manifestIDRegex, err := regexp.Compile(manifestIDExpr)
-	if err != nil {
-		panic(err)
-	}
-
-	app.Macros().Get("string").RegisterFunc("manifestID", manifestIDRegex.MatchString)
-	app.Post("/stitch/{id:string manifestID() else 502}", func(ctx iris.Context) {
-		ctx.HTML("Hello id: " + ctx.Params().Get("id"))
-	})
-
-	return app
-}
-
 func runServe(cmd *cobra.Command, args []string) {
 
 	if viper.ConfigFileUsed() == "" {
@@ -81,8 +29,32 @@ func runServe(cmd *cobra.Command, args []string) {
 		jww.INFO.Println("Using config file:", viper.ConfigFileUsed())
 	}
 
-	app := server(config.UseAuth())
-	app.Run(iris.Addr(config.HostAddr()))
+	opts := make([]server.HttpServerOption, 0)
+
+	if config.UseAuth() {
+		opts = append(opts,
+			server.WithOAuth2(config.AuthServer(), "seismic-api"))
+	}
+
+	if len(config.ManifestStoragePath()) > 0 {
+		opts = append(opts,
+			server.WithManifestStore(&service.ManifestFileStore{
+				BasePath: config.ManifestStoragePath()}))
+	}
+
+	if len(config.StitchCmd()) > 0 {
+		opts = append(
+			opts,
+			server.WithStitchCmd(config.StitchCmd()))
+	}
+
+	hs, err := server.NewHttpServer(opts...)
+
+	if err != nil {
+		fmt.Println("Error starting http server: ", err)
+		os.Exit(1)
+	}
+	hs.Serve()
 }
 
 func init() {
