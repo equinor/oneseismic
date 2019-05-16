@@ -16,12 +16,42 @@ import (
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 )
 
+type serverMode int
+
+func (sm serverMode) String() string {
+	switch sm {
+	case NONE:
+		return "None"
+	case INSECURE:
+		return "Insecure"
+	case SECURE:
+		return "Lets Encrypt"
+	case LETSENCRYPT:
+		return "Secure"
+	default:
+		return "Unknown"
+	}
+
+}
+
+const (
+	NONE serverMode = iota
+	INSECURE
+	SECURE
+	LETSENCRYPT
+)
+
 type HttpServer struct {
 	logger        *log.Logger
 	manifestStore service.ManifestStore
 	stitchCmd     []string
 	app           *iris.Application
 	hostAddr      string
+	chosenMode    serverMode
+	domains       string
+	domainmail    string
+	privKeyFile   string
+	certFile      string
 }
 type HttpServerOption interface {
 	apply(*HttpServer) error
@@ -101,7 +131,17 @@ func (hs *HttpServer) registerEndpoints() {
 func (hs *HttpServer) Serve() error {
 	hs.registerMacros()
 	hs.registerEndpoints()
-	return hs.app.Run(iris.Addr(hs.hostAddr))
+
+	switch hs.chosenMode {
+	case INSECURE:
+		return hs.app.Run(iris.Addr(hs.hostAddr))
+	case LETSENCRYPT:
+		return hs.app.Run(iris.AutoTLS(hs.hostAddr, hs.domains, hs.domainmail))
+	case SECURE:
+		return hs.app.Run(iris.TLS(hs.hostAddr, hs.certFile, hs.privKeyFile))
+	default:
+		return fmt.Errorf("no http server mode chosen")
+	}
 }
 
 func WithManifestStore(manifestStore service.ManifestStore) HttpServerOption {
@@ -117,6 +157,48 @@ func WithStitchCmd(stitchCmd []string) HttpServerOption {
 	return newFuncOption(func(hs *HttpServer) (err error) {
 		//TODO: check if it is executable
 		hs.stitchCmd = stitchCmd
+		return
+	})
+}
+
+func WithHttpOnly() HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+		hs.chosenMode = INSECURE
+		return
+	})
+}
+
+func WithTLS(certFile, keyFile string) HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+
+		if len(certFile) == 0 {
+			return fmt.Errorf("No cert file selected for TLS")
+		}
+
+		if len(keyFile) == 0 {
+			return fmt.Errorf("No key file selected for TLS")
+		}
+		hs.chosenMode = SECURE
+		hs.certFile = certFile
+		hs.privKeyFile = keyFile
+		return
+	})
+}
+func WithLetsEncrypt(domains, domainmail string) HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+		if len(domains) == 0 {
+			return fmt.Errorf("No domains selected for LetsEncrypt")
+		}
+
+		if len(domainmail) == 0 {
+			return fmt.Errorf("No domain mail selected for LetsEncrypt")
+		}
+		hs.chosenMode = LETSENCRYPT
+		hs.domains = domains
+		hs.domainmail = domainmail
 		return
 	})
 }

@@ -48,6 +48,24 @@ func runServe(cmd *cobra.Command, args []string) {
 			server.WithStitchCmd(config.StitchCmd()))
 	}
 
+	if config.HttpOnly() {
+		opts = append(
+			opts,
+			server.WithHttpOnly())
+	}
+
+	if config.UseLetsEncrypt() {
+		opts = append(
+			opts,
+			server.WithLetsEncrypt(config.DomainList(), config.DomainMail()))
+	}
+
+	if config.UseTLS() {
+		opts = append(
+			opts,
+			server.WithTLS(config.CertFile(), config.KeyFile()))
+	}
+
 	hs, err := server.NewHttpServer(opts...)
 
 	if err != nil {
