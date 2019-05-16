@@ -14,6 +14,13 @@ type Config struct {
 	stitchCmd           []string
 	manifestStoragePath string
 	hostAddr            string
+	domainList          string
+	domainMail          string
+	certFile            string
+	keyFile             string
+	httpOnly            bool
+	useLetsEncrypt      bool
+	useTLS              bool
 }
 
 var cfg *Config
@@ -32,12 +39,18 @@ func Load() error {
 
 	cfg.stitchCmd = strings.Split(viper.GetString("STITCH_CMD"), " ")
 	cfg.manifestStoragePath = viper.GetString("MANIFEST_PATH")
-	hostAddr := viper.GetString("HOST_ADDR")
-	if len(hostAddr) == 0 {
-		hostAddr = ":8080"
+	cfg.hostAddr = viper.GetString("HOST_ADDR")
+	if len(cfg.hostAddr) == 0 {
+		cfg.hostAddr = ":8080"
 	}
-	cfg.hostAddr = hostAddr
+	cfg.domainList = viper.GetString("DOMAIN_LIST")
+	cfg.domainMail = viper.GetString("DOMAIN_MAIL")
+	cfg.certFile = viper.GetString("CERT_FILE")
+	cfg.keyFile = viper.GetString("KEY_FILE")
 
+	cfg.httpOnly = viper.GetBool("HTTP_ONLY")
+	cfg.useTLS = viper.GetBool("TLS")
+	cfg.useLetsEncrypt = viper.GetBool("LETSENCRYPT")
 	if err := cfg.verify(); err != nil {
 		return err
 	}
@@ -82,4 +95,32 @@ func StitchCmd() []string {
 
 func ManifestStoragePath() string {
 	return cfg.manifestStoragePath
+}
+
+func HttpOnly() bool {
+	return cfg.httpOnly
+}
+
+func UseTLS() bool {
+	return cfg.useTLS
+}
+
+func UseLetsEncrypt() bool {
+	return cfg.useLetsEncrypt
+}
+
+func DomainList() string {
+	return cfg.domainList
+}
+
+func DomainMail() string {
+	return cfg.domainMail
+}
+
+func CertFile() string {
+	return cfg.certFile
+}
+
+func KeyFile() string {
+	return cfg.keyFile
 }
