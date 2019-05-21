@@ -1,16 +1,57 @@
 import http.client
 import subprocess
 import os
-sc_api = "localhost:8080"
-manifest_id = "shatter"
-token_cmd = "oauth2local token"
-surfaceFile = ""
+import argparse
 
 
-res = subprocess.run(["oauth2local", "token"], stdout=subprocess.PIPE)
-h = {"Authorization": "Bearer " + str(res.stdout)}
+def getAccessToken() -> str:
+    res = subprocess.run(["oauth2local", "token"], stdout=subprocess.PIPE)
+    return res.stdout.decode("utf-8").strip()
 
-conn = http.client.HTTPConnection(sc_api)
-conn.request("POST", "/stitch/"+manifest_id, headers=h, body=open(surfaceFile))
-r1 = conn.getresponse()
-print(r1)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Send surface to seismic cloud.')
+    parser.add_argument('-m', dest='manID',
+                        help='manifest id for cube')
+    parser.add_argument('-i',
+                        help='in surface file path')
+    parser.add_argument('-o',
+                        help='out surface file path')
+    parser.add_argument('--sc-url', dest='scURL',
+                        help='url for seismic cloud api')
+    args = parser.parse_args()
+    if args.scURL is None:
+        parser.print_usage()
+        return
+    if args.manID is None:
+        parser.print_usage()
+        return
+    if args.i is None:
+        parser.print_usage()
+        return
+
+    at = getAccessToken()
+
+    conn = http.client.HTTPConnection(args.scURL)
+    conn.request("POST", "/stitch/"+args.manID,
+                 headers={"Authorization": "Bearer " + at},
+                 body=open(args.i))
+    r1 = conn.getresponse()
+    if r1.status == 200:
+        if args.o is None:
+            print(r1.read())
+        else:
+            try:
+                b = open(args.o, "rw")
+                r1.readinto(b)
+            except Exception as e:
+                print("Error:" + e)
+
+    else:
+        print("Error:" + r1.status)
+        print(r1.read())
+
+
+if __name__ == '__main__':
+    main()
