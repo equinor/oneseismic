@@ -12,6 +12,7 @@ import (
 	"github.com/kataras/iris"
 
 	"github.com/dgrijalva/jwt-go"
+	claimsmiddleware "github.com/equinor/seismic-cloud/api/middleware/claims"
 	"github.com/equinor/seismic-cloud/api/service"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 )
@@ -103,7 +104,10 @@ func WithOAuth2(authServer *url.URL, resourceID string) HttpServerOption {
 			SigningMethod: jwt.SigningMethodRS256,
 		})
 
+		claimsHandler := claimsmiddleware.New()
+
 		hs.app.Use(jwtHandler.Serve)
+		hs.app.Use(claimsHandler.Validate)
 		return nil
 	})
 }
