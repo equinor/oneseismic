@@ -33,7 +33,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	if config.UseAuth() {
 		opts = append(opts,
-			server.WithOAuth2(config.AuthServer(), "seismic-api"))
+			server.WithOAuth2(config.AuthServer(), config.ResourceID(), config.Issuer()))
 	}
 
 	if len(config.ManifestStoragePath()) > 0 {

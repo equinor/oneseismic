@@ -10,6 +10,8 @@ import (
 
 type Config struct {
 	authServer          *url.URL
+	resourceID          string
+	issuer              string
 	insecure            bool
 	stitchCmd           []string
 	manifestStoragePath string
@@ -35,6 +37,8 @@ func Load() error {
 			return err
 		}
 		cfg.authServer = a
+		cfg.issuer = viper.GetString("ISSUER")
+		cfg.resourceID = viper.GetString("RESOURCE_ID")
 	}
 
 	cfg.stitchCmd = strings.Split(viper.GetString("STITCH_CMD"), " ")
@@ -123,4 +127,10 @@ func CertFile() string {
 
 func KeyFile() string {
 	return cfg.keyFile
+}
+func ResourceID() string {
+	return cfg.resourceID
+}
+func Issuer() string {
+	return cfg.issuer
 }

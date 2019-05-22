@@ -85,7 +85,7 @@ func NewHttpServer(opts ...HttpServerOption) (hs *HttpServer, err error) {
 	return hs, nil
 }
 
-func WithOAuth2(authServer *url.URL, resourceID string) HttpServerOption {
+func WithOAuth2(authServer *url.URL, audience, issuer string) HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) error {
 		sigKeySet, err := service.GetKeySet(authServer)
@@ -104,7 +104,11 @@ func WithOAuth2(authServer *url.URL, resourceID string) HttpServerOption {
 			SigningMethod: jwt.SigningMethodRS256,
 		})
 
-		claimsHandler := claimsmiddleware.New()
+		if len(issuer) == 0 {
+			issuer = authServer.String()
+		}
+
+		claimsHandler := claimsmiddleware.New(audience, issuer)
 
 		hs.app.Use(jwtHandler.Serve)
 		hs.app.Use(claimsHandler.Validate)
