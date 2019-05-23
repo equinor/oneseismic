@@ -36,6 +36,12 @@ func New(audience, issuer string, validators ...ClaimsValidator) *Middleware {
 
 func (m *Middleware) Validate(ctx context.Context) {
 	user := ctx.Values().Get("jwt").(*jwt.Token)
+	if user.Claims == nil {
+		log.Println("No claims")
+		ctx.StatusCode(iris.StatusUnauthorized)
+		ctx.StopExecution()
+		return
+	}
 	validationErrors := make([]error, 0)
 	stdClaims := user.Claims.(jwt.StandardClaims)
 	if err := stdClaims.Valid(); err != nil {
@@ -68,7 +74,7 @@ func (m *Middleware) verifyAud(c jwt.Claims) error {
 	if !ok {
 		return fmt.Errorf("Claims are not standard")
 	}
-	if subtle.ConstantTimeCompare([]byte(m.audience), []byte(sc.Audience)) != 0 {
+	if subtle.ConstantTimeCompare([]byte(m.audience), []byte(sc.Audience)) == 0 {
 		return fmt.Errorf("Invalid audience %s", sc.Audience)
 	}
 
@@ -81,7 +87,7 @@ func (m *Middleware) verifyIss(c jwt.Claims) error {
 	if !ok {
 		return fmt.Errorf("Claims are not standard")
 	}
-	if subtle.ConstantTimeCompare([]byte(m.issuer), []byte(sc.Issuer)) != 0 {
+	if subtle.ConstantTimeCompare([]byte(m.issuer), []byte(sc.Issuer)) == 0 {
 		return fmt.Errorf("Invalid issuer %s", sc.Issuer)
 	}
 	return nil
