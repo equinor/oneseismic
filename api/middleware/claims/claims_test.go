@@ -58,21 +58,57 @@ func (m mockWriter) WriteHeader(statusCode int) {
 	return
 }
 
-func TestMiddleware_Validate(t *testing.T) {
+func TestClaimsMiddleware_Validate(t *testing.T) {
 
 	m := New("valid_audience", "valid_issuer")
- 	testApp := iris.Default()
+	testApp := iris.Default()
 	tests := []struct {
 		name   string
 		m      *Middleware
-		claims jwt.StandardClaims
+		claims jwt.MapClaims
 		want   int
 	}{
-		{"Valid token", m, jwt.StandardClaims{Audience: "valid_audience",Issuer:"valid_issuer",ExpiresAt:time.Now().Unix()+1000}, 200},
-		{"Invalid audience", m, jwt.StandardClaims{Audience: "invalid_audience",Issuer:"valid_issuer",ExpiresAt:time.Now().Unix()+1000}, 401},
-		{"Invalid issuer", m, jwt.StandardClaims{Audience: "valid_audience",Issuer:"invalid_issuer",ExpiresAt:time.Now().Unix()+1000}, 401},
-		{"Invalid expiry", m, jwt.StandardClaims{Audience: "valid_audience",Issuer:"valid_issuer",ExpiresAt:time.Now().Unix()-1000}, 401},
-		{"Invalid not before", m, jwt.StandardClaims{Audience: "valid_audience",Issuer:"valid_issuer",ExpiresAt:time.Now().Unix()+2000,NotBefore:time.Now().Unix()+1000}, 401},
+		{
+			"Valid token",
+			m,
+			jwt.MapClaims{
+				"aud": "valid_audience",
+				"iss": "valid_issuer",
+				"exp": float64(time.Now().Unix() + 1000)},
+			200},
+		{
+			"Invalid audience",
+			m,
+			jwt.MapClaims{
+				"aud": "invalid_audience",
+				"iss": "valid_issuer",
+				"exp": float64(time.Now().Unix() + 1000)},
+			401},
+		{
+			"Invalid issuer",
+			m,
+			jwt.MapClaims{
+				"aud": "valid_audience",
+				"iss": "invalid_issuer",
+				"exp": float64(time.Now().Unix() + 1000)},
+			401},
+		{
+			"Invalid expiry",
+			m,
+			jwt.MapClaims{
+				"aud": "valid_audience",
+				"iss": "valid_issuer",
+				"exp": float64(time.Now().Unix() - 1000)},
+			401},
+		{
+			"Invalid not before",
+			m,
+			jwt.MapClaims{
+				"aud": "valid_audience",
+				"iss": "valid_issuer",
+				"exp": float64(time.Now().Unix() + 2000),
+				"nbf": float64(time.Now().Unix() + 1000)},
+			401},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

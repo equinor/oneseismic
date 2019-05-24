@@ -48,6 +48,12 @@ func runServe(cmd *cobra.Command, args []string) {
 			server.WithStitchCmd(config.StitchCmd()))
 	}
 
+	if len(config.HostAddr()) > 0 {
+		opts = append(
+			opts,
+			server.WithHostAddr(config.HostAddr()))
+	}
+
 	if config.HttpOnly() {
 		opts = append(
 			opts,
@@ -72,7 +78,12 @@ func runServe(cmd *cobra.Command, args []string) {
 		fmt.Println("Error starting http server: ", err)
 		os.Exit(1)
 	}
-	hs.Serve()
+	err = hs.Serve()
+
+	if err != nil {
+		fmt.Println("Error starting http server: ", err)
+		os.Exit(1)
+	}
 }
 
 func init() {

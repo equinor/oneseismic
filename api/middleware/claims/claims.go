@@ -16,7 +16,7 @@ type Middleware struct {
 	issuer     string
 }
 
-type ClaimsValidator func(jwt.Claims) error
+type ClaimsValidator func(jwt.MapClaims) error
 
 func New(audience, issuer string, validators ...ClaimsValidator) *Middleware {
 	m := &Middleware{
@@ -36,6 +36,7 @@ func New(audience, issuer string, validators ...ClaimsValidator) *Middleware {
 
 func (m *Middleware) Validate(ctx context.Context) {
 	user := ctx.Values().Get("jwt").(*jwt.Token)
+
 	if user.Claims == nil {
 		log.Println("No claims")
 		ctx.StatusCode(iris.StatusUnauthorized)
@@ -43,20 +44,20 @@ func (m *Middleware) Validate(ctx context.Context) {
 		return
 	}
 	validationErrors := make([]error, 0)
-	stdClaims := user.Claims.(jwt.StandardClaims)
-	if err := stdClaims.Valid(); err != nil {
+	claims := user.Claims.(jwt.MapClaims)
+	if err := claims.Valid(); err != nil {
 		validationErrors = append(validationErrors, err)
 	}
 
 	for _, validator := range m.validators {
-		err := validator(user.Claims)
+		err := validator(claims)
 		if err != nil {
 			validationErrors = append(validationErrors, err)
 		}
 	}
 
 	if len(validationErrors) > 0 {
-		for e := range validationErrors {
+		for _, e := range validationErrors {
 			log.Println("Claims invalid", e)
 		}
 		ctx.StatusCode(iris.StatusUnauthorized)
@@ -68,27 +69,23 @@ func (m *Middleware) Validate(ctx context.Context) {
 
 }
 
-func (m *Middleware) verifyAud(c jwt.Claims) error {
-
-	sc, ok := c.(jwt.StandardClaims)
-	if !ok {
-		return fmt.Errorf("Claims are not standard")
+func (m *Middleware) verifyAud(c jwt.MapClaims) error {
+	if c["aud"] == nil {
+		return nil
 	}
-	if subtle.ConstantTimeCompare([]byte(m.audience), []byte(sc.Audience)) == 0 {
-		return fmt.Errorf("Invalid audience %s", sc.Audience)
+
+	if subtle.ConstantTimeCompare([]byte(m.audience), []byte(c["aud"].(string))) == 0 {
+		return fmt.Errorf("Invalid audience %s", c["aud"])
 	}
 
 	return nil
 
 }
 
-func (m *Middleware) verifyIss(c jwt.Claims) error {
-	sc, ok := c.(jwt.StandardClaims)
-	if !ok {
-		return fmt.Errorf("Claims are not standard")
-	}
-	if subtle.ConstantTimeCompare([]byte(m.issuer), []byte(sc.Issuer)) == 0 {
-		return fmt.Errorf("Invalid issuer %s", sc.Issuer)
+func (m *Middleware) verifyIss(c jwt.MapClaims) error {
+
+	if subtle.ConstantTimeCompare([]byte(m.issuer), []byte(c["iss"].(string))) == 0 {
+		return fmt.Errorf("Invalid issuer %s", c["iss"])
 	}
 	return nil
 }
