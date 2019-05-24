@@ -169,6 +169,14 @@ func WithStitchCmd(stitchCmd []string) HttpServerOption {
 	})
 }
 
+func WithHostAddr(hostAddr string) HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+		hs.hostAddr = hostAddr
+		return
+	})
+}
+
 func WithHttpOnly() HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) (err error) {

@@ -127,6 +127,6 @@ func GetKeySet(authserver *url.URL) (map[string]interface{}, error) {
 
 		}
 	}
-	fmt.Println("uri", jwksMap)
+
 	return jwksMap, nil
 }
