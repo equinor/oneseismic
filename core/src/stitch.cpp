@@ -153,6 +153,13 @@ int main( int args, char** argv ) {
             std::memcpy(&z, ptr, sizeof(z));
             ptr += sizeof(z);
 
+            if (x >= cube_size.x or y >= cube_size.y or z >= cube_size.z) {
+                std::cerr << "Point ("
+                          << x << ", " << y << ", " << z
+                          << ") is outside cube boarders\n";
+                std::exit( EXIT_FAILURE );
+            }
+
             p.x = x;
             p.y = y;
             p.z = z;
