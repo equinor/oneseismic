@@ -6,8 +6,10 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"time"
 
 	"github.com/equinor/seismic-cloud/api/controller"
+	"github.com/kataras/iris/context"
 
 	"github.com/kataras/iris"
 
@@ -139,6 +141,22 @@ func (hs *HttpServer) registerEndpoints() {
 func (hs *HttpServer) Serve() error {
 	hs.registerMacros()
 	hs.registerEndpoints()
+
+	profiling := func(ctx context.Context) {
+		timeStart := time.Now()
+		ctx.Header("Trailer", "")
+
+		ctx.Next()
+
+		deltaT := time.Since(timeStart)
+		ctx.WriteString("\nDuration: ")
+		ctx.WriteString(deltaT.String())
+
+		// Not working:
+		ctx.Header("Trailer", deltaT.String())
+	}
+
+	hs.app.UseGlobal(profiling)
 
 	switch hs.chosenMode {
 	case INSECURE:
