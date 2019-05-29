@@ -139,24 +139,20 @@ func (hs *HttpServer) registerEndpoints() {
 }
 
 func (hs *HttpServer) Serve() error {
-	hs.registerMacros()
-	hs.registerEndpoints()
 
 	profiling := func(ctx context.Context) {
 		timeStart := time.Now()
-		ctx.Header("Trailer", "")
+		ctx.ResponseWriter().Header().Set("Trailer", "Duration")
 
 		ctx.Next()
 
 		deltaT := time.Since(timeStart)
-		ctx.WriteString("\nDuration: ")
-		ctx.WriteString(deltaT.String())
-
-		// Not working:
-		ctx.Header("Trailer", deltaT.String())
+		ctx.ResponseWriter().Header().Set("Duration", deltaT.String())
 	}
 
-	hs.app.UseGlobal(profiling)
+	hs.app.Use(profiling)
+	hs.registerMacros()
+	hs.registerEndpoints()
 
 	switch hs.chosenMode {
 	case INSECURE:
