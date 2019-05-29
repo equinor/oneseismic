@@ -92,7 +92,7 @@ target_compile_options(stitch
 )
 
 add_executable(verifyer src/verifyer.cpp)
-target_link_libraries(verifyer json clara)
+target_link_libraries(verifyer json clara seismic-cloud)
 
 add_executable(check_shatters src/check_shatters.cpp)
 target_link_libraries(check_shatters

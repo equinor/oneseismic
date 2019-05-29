@@ -27,22 +27,22 @@ struct config {
     bool help = false;
 
     std::string bin;
-    std::string manifest;
     std::string surface;
     std::string input_dir = "./";
     bool timing = false;
+    std::size_t buff_size = 3999996;
 
     clara::Parser cli() {
         using namespace clara;
 
         return ExeName( bin )
-            | Arg( manifest, "manifest" )
-                 ( "Manifest" )
             | Opt( timing )
                  ( "Writing timing report" )
                  ["--time"]["-t"]
             | Opt( input_dir, "Input directory" )
                  ["--input-dir"]["-i"]
+            | Opt( buff_size, "Buffer size" )
+                 ["--buff-size"]["-b"]
             | Help( this->help )
         ;
     }
@@ -51,6 +51,39 @@ struct config {
 void throw_errno() {
     auto errc = static_cast< std::errc >( errno );
     throw std::system_error( std::make_error_code( errc ) );
+}
+
+std::vector< char > read_input( std::size_t buffsize ) {
+    auto surface = std::vector< char >();
+    auto buff = std::vector< char >( buffsize );
+
+    while (true) {
+        std::cin.read(buff.data(), buff.size());
+        const auto count = std::cin.gcount();
+
+        surface.insert( surface.end(),
+                        buff.begin(),
+                        buff.begin() + count );
+
+        if (count < buffsize) {
+            if (!std::cin.eof()) {
+                std::cerr << "Error encountered when reading surface: "
+                          << "Broken pipe.\n";
+                std::exit( EXIT_FAILURE );
+            }
+            break;
+        }
+
+    }
+
+    if( surface.size() % (sizeof(std::int32_t) * 3) != 0 ) {
+        std::cerr << "Invalid surface: Surface is expected to be a list of "
+                  << "(x, y, z) 32 bit int triplets (should be a multiple "
+                  << "of 12 bytes).\n";
+        std::exit( EXIT_FAILURE );
+    }
+
+    return surface;
 }
 
 }
@@ -72,8 +105,23 @@ int main( int args, char** argv ) {
         std::exit( EXIT_FAILURE );
     }
 
-    json manifest;
-    std::ifstream( cfg.input_dir + "/" + cfg.manifest ) >> manifest;
+    char c[2];
+    std::cin.read(c, 2);
+
+    if ( not (c[0] == 'M' and c[1] == ':') ) {
+        std::cerr << "Expected input on format: "
+                  << "M:<manifest_size><manifest><surface>\n";
+        std::exit( EXIT_FAILURE );
+    }
+
+    std::uint32_t manifest_size;
+    std::cin.read( (char*)&manifest_size, sizeof(std::int32_t) );
+
+    std::vector< char > manifest_buff( manifest_size );
+
+    std::cin.read( manifest_buff.data(), manifest_size );
+
+    json manifest = json::parse(manifest_buff.begin(), manifest_buff.end());
 
     sc::dimension fragment_size {
         manifest["fragment-xs"].get< std::size_t >(),
@@ -89,17 +137,13 @@ int main( int args, char** argv ) {
 
     auto start_time = std::chrono::system_clock::now();
 
-    json meta;
-    std::cin >> meta;
-    std::cout << meta;
-    int size = meta["size"];
+    const auto points = read_input( cfg.buff_size );
+
+    std::size_t size = points.size() / ( sizeof(std::int32_t) * 3 );
 
     std::vector< sc::point > surface( size );
 
-    auto points = std::vector< char >(size * sizeof(std::int32_t) * 3);
-    std::cin.read(points.data(), points.size());
-
-    [&surface] (char* ptr) {
+    [&surface, cube_size] (const char* ptr) {
         for (auto& p : surface) {
             std::int32_t x, y, z;
             std::memcpy(&x, ptr, sizeof(x));
@@ -108,6 +152,13 @@ int main( int args, char** argv ) {
             ptr += sizeof(y);
             std::memcpy(&z, ptr, sizeof(z));
             ptr += sizeof(z);
+
+            if (x >= cube_size.x or y >= cube_size.y or z >= cube_size.z) {
+                std::cerr << "Point ("
+                          << x << ", " << y << ", " << z
+                          << ") is outside cube boarders\n";
+                std::exit( EXIT_FAILURE );
+            }
 
             p.x = x;
             p.y = y;

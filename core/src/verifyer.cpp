@@ -5,6 +5,8 @@
 #include <clara/clara.hpp>
 #include <nlohmann/json.hpp>
 
+#include <seismic-cloud/seismic-cloud.hpp>
+
 using json = nlohmann::json;
 
 struct config {
@@ -30,12 +32,6 @@ struct config {
     }
 };
 
-struct point {
-    int x;
-    int y;
-    int z;
-};
-
 int main( int args, char** argv ) {
     config cfg;
     auto cli = cfg.cli();
@@ -56,27 +52,29 @@ int main( int args, char** argv ) {
     json manifest;
     std::ifstream( cfg.input_dir + "/" + cfg.manifest ) >> manifest;
 
-    point cube_size {
-        manifest["cube-xs"].get< int >(),
-        manifest["cube-ys"].get< int >(),
-        manifest["cube-zs"].get< int >(),
+    sc::point cube_size {
+        manifest["cube-xs"].get< std::size_t >(),
+        manifest["cube-ys"].get< std::size_t >(),
+        manifest["cube-zs"].get< std::size_t >(),
     };
 
-    json result_meta;
-    std::cin >> result_meta;
-    int result_size = result_meta["size"];
+    std::vector< std::uint64_t > offsets;
+    std::vector< float > values;
 
-    std::vector< std::uint64_t > offsets( result_size );
-    std::vector< float > values( result_size );
-
-    for (int i = 0; i < result_size; ++i) {
+    while (true) {
         std::uint64_t offset;
         float value;
-        fread((void*)&offset, sizeof(std::uint64_t), 1, stdin);
-        fread((void*)&value, sizeof(float), 1, stdin);
-        offsets[i] = offset;
-        values[i] = value;
+
+        std::cin.read( (char*)&offset, sizeof(std::uint64_t) );
+        std::cin.read( (char*)&value, sizeof(float) );
+
+        if (std::cin.eof()) break;
+
+        offsets.push_back(offset);
+        values.push_back(value);
     }
+
+    std::uint64_t result_size = offsets.size();
 
     std::vector< int > xs( result_size );
     std::vector< int > ys( result_size );
@@ -101,12 +99,32 @@ int main( int args, char** argv ) {
 
     std::ifstream srfc( cfg.surface );
 
-    json expected_meta;
-    srfc >> expected_meta;
-    int expected_size = expected_meta["size"];
+    srfc.seekg( 0, srfc.end );
+    auto size = srfc.tellg();
+    srfc.seekg( 0, srfc.beg );
 
-    std::vector< point > surface( expected_size );
-    srfc.read( (char*)&surface[0], sizeof(point)*expected_size );
+    std::vector< char > points( size );
+    srfc.read( points.data(), size );
+
+    std::size_t expected_size = points.size() / ( sizeof(std::int32_t) * 3 );
+
+    std::vector< sc::point > surface( expected_size );
+
+    [&surface] (char* ptr) {
+        for (auto& p : surface) {
+            std::int32_t x, y, z;
+            std::memcpy(&x, ptr, sizeof(x));
+            ptr += sizeof(x);
+            std::memcpy(&y, ptr, sizeof(y));
+            ptr += sizeof(y);
+            std::memcpy(&z, ptr, sizeof(z));
+            ptr += sizeof(z);
+
+            p.x = x;
+            p.y = y;
+            p.z = z;
+        }
+    }(points.data());
 
     std::vector< int > expected_xs( expected_size );
     std::vector< int > expected_ys( expected_size );
