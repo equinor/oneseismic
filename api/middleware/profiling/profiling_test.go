@@ -48,7 +48,7 @@ func TestProfilingMiddlewareDuration(t *testing.T) {
 
 	got = ctx.ResponseWriter().Header().Get("Duration")
 	if got == "" {
-		t.Errorf("Header Duration is empty)
+		t.Errorf("Header Duration is empty")
 	}
 
 }
