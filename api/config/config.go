@@ -23,6 +23,7 @@ type Config struct {
 	httpOnly            bool
 	useLetsEncrypt      bool
 	useTLS              bool
+	profiling           bool
 }
 
 var cfg *Config
@@ -55,6 +56,7 @@ func Load() error {
 	cfg.httpOnly = viper.GetBool("HTTP_ONLY")
 	cfg.useTLS = viper.GetBool("TLS")
 	cfg.useLetsEncrypt = viper.GetBool("LETSENCRYPT")
+	cfg.profiling = viper.GetBool("PROFILING")
 	if err := cfg.verify(); err != nil {
 		return err
 	}
@@ -133,4 +135,8 @@ func ResourceID() string {
 }
 func Issuer() string {
 	return cfg.issuer
+}
+
+func Profiling() bool {
+	return cfg.profiling
 }

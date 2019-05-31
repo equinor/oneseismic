@@ -6,15 +6,14 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"time"
 
 	"github.com/equinor/seismic-cloud/api/controller"
-	"github.com/kataras/iris/context"
 
 	"github.com/kataras/iris"
 
 	"github.com/dgrijalva/jwt-go"
 	claimsmiddleware "github.com/equinor/seismic-cloud/api/middleware/claims"
+	profilingmiddleware "github.com/equinor/seismic-cloud/api/middleware/profiling"
 	"github.com/equinor/seismic-cloud/api/service"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 )
@@ -55,6 +54,7 @@ type HttpServer struct {
 	domainmail    string
 	privKeyFile   string
 	certFile      string
+	profilling    bool
 }
 type HttpServerOption interface {
 	apply(*HttpServer) error
@@ -139,18 +139,6 @@ func (hs *HttpServer) registerEndpoints() {
 }
 
 func (hs *HttpServer) Serve() error {
-
-	profiling := func(ctx context.Context) {
-		timeStart := time.Now()
-		ctx.ResponseWriter().Header().Set("Trailer", "Duration")
-
-		ctx.Next()
-
-		deltaT := time.Since(timeStart)
-		ctx.ResponseWriter().Header().Set("Duration", deltaT.String())
-	}
-
-	hs.app.Use(profiling)
 	hs.registerMacros()
 	hs.registerEndpoints()
 
@@ -229,6 +217,15 @@ func WithLetsEncrypt(domains, domainmail string) HttpServerOption {
 		hs.chosenMode = LETSENCRYPT
 		hs.domains = domains
 		hs.domainmail = domainmail
+		return
+	})
+}
+
+func WithProfiling() HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+
+		hs.app.Use(profilingmiddleware.Duration)
 		return
 	})
 }

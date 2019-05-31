@@ -72,6 +72,12 @@ func runServe(cmd *cobra.Command, args []string) {
 			server.WithTLS(config.CertFile(), config.KeyFile()))
 	}
 
+	if config.Profiling() {
+		opts = append(
+			opts,
+			server.WithProfiling())
+	}
+
 	hs, err := server.NewHttpServer(opts...)
 
 	if err != nil {
