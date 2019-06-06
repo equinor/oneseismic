@@ -78,6 +78,12 @@ func runServe(cmd *cobra.Command, args []string) {
 			server.WithProfiling())
 	}
 
+	if config.Swagger() {
+		opts = append(
+			opts,
+			server.WithSwagger())
+	}
+
 	hs, err := server.NewHttpServer(opts...)
 
 	if err != nil {

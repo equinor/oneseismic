@@ -1,0 +1,7 @@
+AUTHSERVER: 'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/'
+RESOURCE_ID: '1a918ea3-cc8f-45e9-bdf5-d3dd208cbb9a'
+STITCH_CMD: 'stitch'
+MANIFEST_PATH: cubes
+HTTP_ONLY: true
+NO_AUTH: true
+SWAGGER: true

@@ -24,6 +24,7 @@ type Config struct {
 	useLetsEncrypt      bool
 	useTLS              bool
 	profiling           bool
+	swagger             bool
 }
 
 var cfg *Config
@@ -57,6 +58,7 @@ func Load() error {
 	cfg.useTLS = viper.GetBool("TLS")
 	cfg.useLetsEncrypt = viper.GetBool("LETSENCRYPT")
 	cfg.profiling = viper.GetBool("PROFILING")
+	cfg.swagger = viper.GetBool("SWAGGER")
 	if err := cfg.verify(); err != nil {
 		return err
 	}
@@ -139,4 +141,8 @@ func Issuer() string {
 
 func Profiling() bool {
 	return cfg.profiling
+}
+
+func Swagger() bool {
+	return cfg.swagger
 }

@@ -1,0 +1,46 @@
+basePath: '{{.BasePath}}'
+definitions:
+  controller.APIError:
+    properties:
+      errorCode:
+        type: integer
+      errorMessage:
+        type: string
+    type: object
+host: '{{.Host}}'
+info:
+  contact: {}
+  description: '{{.Description}}'
+  license: {}
+  title: '{{.Title}}'
+  version: '{{.Version}}'
+paths:
+  /stitch/{maifest_id}:
+    post:
+      consumes:
+      - application/octet-stream
+      description: post surface query to stitch
+      parameters:
+      - description: Some ID
+        in: path
+        name: some_id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Manifest id not found
+          schema:
+            $ref: '#/definitions/controller.APIError'
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.APIError'
+            type: object
+swagger: "2.0"
