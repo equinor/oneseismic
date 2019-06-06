@@ -13,6 +13,15 @@ import (
 	"github.com/kataras/iris"
 )
 
+
+// @Description post surface query to stitch 
+// @Accept  application/octet-stream
+// @Produce  application/octet-stream
+// @Param   some_id     path    string     true        "Some ID"
+// @Success 200 {file} file	Ok
+// @Failure 400 {object} controller.APIError "Manifest id not found"
+// @Failure 500 {object} controller.APIError "Internal Server Error"
+// @Router /stitch/{maifest_id} [post]
 func StitchController(ms service.ManifestStore,
 	stitchCommand []string,
 	logger *log.Logger) func(ctx iris.Context) {
@@ -23,7 +32,7 @@ func StitchController(ms service.ManifestStore,
 
 		manifest, err := ms.Fetch(manifestID)
 		if err != nil {
-			ctx.StatusCode(500)
+			ctx.StatusCode(404)
 			logger.Println("Stich error:", err)
 			return
 		}
