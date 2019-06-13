@@ -33,23 +33,23 @@ def main():
 
     at = getAccessToken()
 
-    conn = http.client.HTTPConnection(args.scURL)
+    conn = http.client.HTTPSConnection(args.scURL)
     conn.request("POST", "/stitch/"+args.manID,
                  headers={"Authorization": "Bearer " + at},
-                 body=open(args.i))
+                 body=open(args.i, mode='rb'))
     r1 = conn.getresponse()
     if r1.status == 200:
         if args.o is None:
             print(r1.read())
         else:
             try:
-                b = open(args.o, "rw")
-                r1.readinto(b)
+                b = open(args.o, mode="wb")
+                b.write(r1.read())
             except Exception as e:
-                print("Error:" + e)
+                print("Error:" + str(e))
 
     else:
-        print("Error:" + r1.status)
+        print("Error:" + str(r1.status))
         print(r1.read())
 
 
