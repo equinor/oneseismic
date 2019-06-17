@@ -7,7 +7,7 @@ pool:
 
 variables:
   GOPATH: '$(system.defaultWorkingDirectory)/gopath'
-  PATH:   '$(GOPATH)/bin:$(PATH)'
+  # PATH:   '$(GOPATH)/bin:$(PATH)'
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
 
 steps:
@@ -64,12 +64,12 @@ steps:
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
 
 
-  - task: PublishTestResults@1
+  - task: PublishTestResults@2
     inputs:
       testRunner: JUnit
       testResultsFiles: $(System.DefaultWorkingDirectory)/**/report.xml
 
-  - task: PublishCodeCoverageResults@2
+  - task: PublishCodeCoverageResults@1
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
