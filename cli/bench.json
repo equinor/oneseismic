@@ -1,0 +1,12 @@
+{
+  "apis": [
+    "https://example.com/master",
+    "https://example.com/base"
+  ],
+  "bench": [{
+    "cube": "middle",
+    "surfaces": [
+      "surfaces/surface1.i32"
+    ]
+  }]
+}
