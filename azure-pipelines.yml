@@ -5,6 +5,11 @@ trigger:
 pool:
   vmImage: 'Ubuntu-16.04'
 
+variables:
+  GOPATH: '$(system.defaultWorkingDirectory)/gopath'
+  PATH:   '$(GOPATH)/bin:$(PATH)'
+  modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
+
 steps:
   - task: GoTool@0
     inputs:
@@ -15,29 +20,36 @@ steps:
       cd segyio/build
       cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
       sudo make install
-    displayName: 'Get segyio, then build'
+    displayName: 'Build segyio'
+
   - script: |
       mkdir build
       cd build
       cmake ../core -DCMAKE_BUILD_TYPE=Release
     displayName: 'Setup seismic-cloud'
+
   - script: |
       make
     displayName: 'Build seismic-cloud'
     workingDirectory: build
+
   - script: |
       ctest --output-on-failure
     displayName: 'Test seismic-cloud'
     workingDirectory: build
+  - script: go get -v -t -d ./...
+    workingDirectory: '$(modulePath)'
+    displayName: 'go get dependencies'
+
   - script: |
       go build
     displayName: 'Build seismic-cloud-api'
     workingDirectory: api
   - script: |
-      go get github.com/jstemmer/go-junit-report
-      go get github.com/axw/gocov/gocov
-      go get github.com/AlekSi/gocov-xml
-      go get -u gopkg.in/matm/v1/gocov-html
+      # go get github.com/jstemmer/go-junit-report
+      # go get github.com/axw/gocov/
+      # go get github.com/AlekSi/gocov-xml
+      # go get github.com/matm/gocov-html
       go test -v -coverprofile=coverage.txt -covermode count ./... 2>&1 | go-junit-report > report.xml
       gocov convert coverage.txt > coverage.json
       gocov-xml < coverage.json > coverage.xml
@@ -45,18 +57,19 @@ steps:
       gocov-html < coverage.json > coverage/index.html
     workingDirectory: api
     displayName: 'Run unit test seismic-cloud-api'
+
   - script: |
       echo 'Deploy'
     displayName: 'Deploy seismic-cloud'
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
 
 
-  - task: PublishTestResults@2
+  - task: PublishTestResults@1
     inputs:
       testRunner: JUnit
       testResultsFiles: $(System.DefaultWorkingDirectory)/**/report.xml
 
-  - task: PublishCodeCoverageResults@1
+  - task: PublishCodeCoverageResults@2
     inputs:
       codeCoverageTool: Cobertura
       summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
