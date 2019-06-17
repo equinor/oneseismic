@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-import http.client
+from http.client import HTTPConnection, HTTPSConnection
 import subprocess
 import os
 import argparse
 from urllib.parse import urlparse
 import json
+import time
+from typing import Union
 
 
 def getAccessToken() -> str:
@@ -15,38 +17,47 @@ def getAccessToken() -> str:
     return res.stdout.decode("utf-8").strip()
 
 
-def clientConnector(scUrl):
+def connectionProvider(scUrl) -> Union[HTTPConnection, HTTPSConnection]:
     o = urlparse(scUrl)
     op = o.netloc + o.path
     if o.scheme == "http":
-        return http.client.HTTPConnection(op)
+        return HTTPConnection(op)
     else:
-        return http.client.HTTPSConnection(op)
+        return HTTPSConnection(op)
 
 
 def sendSurface(scUrl, manID, surface, outFile, at):
-    conn = clientConnector(scUrl)
+    start_time = time.time()
+    success = False
+    conn = connectionProvider(scUrl)
     conn.request("POST", "/stitch/"+manID,
                  headers={"Authorization": "Bearer " + at},
                  body=open(surface, mode='rb'))
     r1 = conn.getresponse()
+    procDuration = 0
     if r1.status == 200:
+        procDuration = r1.getheader("Duration", 0)
         if outFile is None:
             print(r1.read())
+            success = True
         else:
             try:
                 b = open(outFile, mode="wb")
                 b.write(r1.read())
                 b.close()
+                success = True
             except Exception as e:
                 print("Error:" + str(e))
 
     else:
         print("Error:" + str(r1.status))
         print(r1.read())
+    elapsed_time = time.time() - start_time
+    print("Time elapsed", elapsed_time, "Processing time", procDuration)
+    return success
 
 
-def verify(binFile, cube, surface):
+def verify(binFile, cube, surface) -> bool:
     return True
 
 
@@ -57,10 +68,16 @@ def sendSurfaces(configFile, at):
         for bench in config.benchs:
             for surface in bench.surface:
                 open(outFile, 'w').close()
-                sendSurface(apiUrl, bench.cube, surface, outFile, at)
+                succ = sendSurface(apiUrl, bench.cube, surface, outFile, at)
+                if not succ:
+                    print("Error: Api failed to process",
+                          outFile, bench.cube, surface)
+                    return False
+
                 if not verify(outFile, bench.cube, surface):
                     print("Error: Response is not verifiable",
                           outFile, bench.cube, surface)
+                    return False
 
 
 def main():
