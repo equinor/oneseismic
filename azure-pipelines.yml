@@ -6,6 +6,7 @@ pool:
   vmImage: 'Ubuntu-16.04'
 
 variables:
+  GOBIN:  '$(GOPATH)/bin'
   GOPATH: '$(system.defaultWorkingDirectory)/gopath'
   # PATH:   '$(GOPATH)/bin:$(PATH)'
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
@@ -40,14 +41,23 @@ steps:
 
   - script: |
       mkdir -p '$(GOBIN)'
+      mkdir -p '$(GOPATH)/pkg'
       mkdir -p '$(modulePath)'
+      shopt -s extglob
+      echo '##vso[task.prependpath]$(GOBIN)'
+      echo "##vso[task.prependpath]$(GOROOT)/bin"
+      echo $(PATH)
     displayName: 'Set up Go env'
 
   - script: |
       go get -v -t ./...
       go build
+      echo '##vso[task.prependpath]$(GOBIN)'
+      echo "##vso[task.prependpath]$(GOROOT)/bin"
+      echo $(PATH)
     displayName: 'Build seismic-cloud-api'
     workingDirectory: api
+
   - script: |
       # go get github.com/jstemmer/go-junit-report
       # go get github.com/axw/gocov/
