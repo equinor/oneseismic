@@ -1,4 +1,5 @@
 {
+  "verifier": "bin/verfy",
   "apis": [
     "https://example.com/master",
     "https://example.com/base"
