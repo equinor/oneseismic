@@ -46,10 +46,13 @@ steps:
       shopt -s extglob
       echo '##vso[task.prependpath]$(GOBIN)'
       echo "##vso[task.prependpath]$(GOROOT)/bin"
-      'echo export PATH=$GOPATH/bin:$PATH'
+      go get github.com/jstemmer/go-junit-report
+      go get github.com/axw/gocov/
+      go get github.com/AlekSi/gocov-xml
+      go get github.com/matm/gocov-html
       echo $(PATH)
     displayName: 'Set up Go env'
-
+    workingDirectory: /
   - script: |
       go get -v -t ./...
       go build
@@ -60,10 +63,6 @@ steps:
     workingDirectory: api
 
   - script: |
-      # go get github.com/jstemmer/go-junit-report
-      # go get github.com/axw/gocov/
-      # go get github.com/AlekSi/gocov-xml
-      # go get github.com/matm/gocov-html
       go test -v -coverprofile=coverage.txt -covermode count ./... 2>&1 | go-junit-report > report.xml
       gocov convert coverage.txt > coverage.json
       gocov-xml < coverage.json > coverage.xml
