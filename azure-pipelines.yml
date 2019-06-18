@@ -46,6 +46,7 @@ steps:
       shopt -s extglob
       echo '##vso[task.prependpath]$(GOBIN)'
       echo "##vso[task.prependpath]$(GOROOT)/bin"
+      'echo export PATH=$GOPATH/bin:$PATH'
       echo $(PATH)
     displayName: 'Set up Go env'
 
