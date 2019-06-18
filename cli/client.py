@@ -57,8 +57,10 @@ def sendSurface(scUrl, manID, surface, outFile, at):
     return success
 
 
-def verify(binFile, cube, surface) -> bool:
-    return True
+def verify(verifier, binFile, cube, surface) -> bool:
+    res = subprocess.run(
+        [verifier, binFile, cube, surface], stdout=subprocess.PIPE)
+    return res.returncode == 0
 
 
 def sendSurfaces(configFile, at):
@@ -74,7 +76,7 @@ def sendSurfaces(configFile, at):
                           outFile, bench.cube, surface)
                     return False
 
-                if not verify(outFile, bench.cube, surface):
+                if not verify(config.verifier, outFile, bench.cube, surface):
                     print("Error: Response is not verifiable",
                           outFile, bench.cube, surface)
                     return False
