@@ -12,25 +12,31 @@ from typing import Union
 def getAccessToken() -> str:
     res = subprocess.run(["oauth2local", "token"], stdout=subprocess.PIPE)
     if res.returncode != 0:
-        raise "No token in ouath2local store " + \
-            res.stdout.decode("utf-8").strip()
+        raise Exception("No token in ouath2local store " + \
+            res.stdout.decode("utf-8").strip())
     return res.stdout.decode("utf-8").strip()
 
 
 def connectionProvider(scUrl) -> Union[HTTPConnection, HTTPSConnection]:
     o = urlparse(scUrl)
-    op = o.netloc + o.path
+    op = o.netloc
+    print("address is",op)
     if o.scheme == "http":
         return HTTPConnection(op)
     else:
+        print("Connection is secure")
         return HTTPSConnection(op)
 
 
 def sendSurface(scUrl, manID, surface, outFile, at):
+    print("Sending surface to", scUrl,manID,surface,outFile)
     start_time = time.time()
     success = False
     conn = connectionProvider(scUrl)
-    conn.request("POST", "/stitch/"+manID,
+    
+    o = urlparse(scUrl)
+    print(o.path+"/stitch/"+manID)
+    conn.request("POST", o.path+"/stitch/"+manID,
                  headers={"Authorization": "Bearer " + at},
                  body=open(surface, mode='rb'))
     r1 = conn.getresponse()
@@ -57,26 +63,26 @@ def sendSurface(scUrl, manID, surface, outFile, at):
     return success
 
 
-def verify(verifier, binFile, cube, surface) -> bool:
+def verify(verifier,cubeDir, workFile, cube, surface) -> bool:
     res = subprocess.run(
-        [verifier, binFile, cube, surface], stdout=subprocess.PIPE)
+        [verifier, '-i',cubeDir, cube+".manifest", surface],stdin=open(workFile), stdout=subprocess.PIPE)
     return res.returncode == 0
 
 
 def sendSurfaces(configFile, at):
-    config = json.loads(open(configFile))
+    config = json.loads(open(configFile).read())
     outFile = "work.i32"
-    for apiUrl in config.apis:
-        for bench in config.benchs:
-            for surface in bench.surface:
+    for apiUrl in config['apis']:
+        for bench in config['benchs']:
+            for surface in bench['surfaces']:
                 open(outFile, 'w').close()
-                succ = sendSurface(apiUrl, bench.cube, surface, outFile, at)
+                succ = sendSurface(apiUrl, bench['cube'], surface, outFile, at)
                 if not succ:
                     print("Error: Api failed to process",
-                          outFile, bench.cube, surface)
+                          outFile, bench['cube'], surface)
                     return False
 
-                if not verify(config.verifier, outFile, bench.cube, surface):
+                if not verify(config['verifier'], config['cube_dir'], outFile, bench['cube'], surface):
                     print("Error: Response is not verifiable",
                           outFile, bench.cube, surface)
                     return False
@@ -98,24 +104,27 @@ def main():
     parser.add_argument('--sc-url', dest='scURL',
                         help='url for seismic cloud api')
     args = parser.parse_args()
-    if args.scURL is None:
-        parser.print_usage()
-        return
-    if args.manID is None:
-        parser.print_usage()
-        return
-    if args.i is None:
-        parser.print_usage()
-        return
-
-    if len(args.t) == 0:
-        at = getAccessToken()
-    else:
-        at = args.t
-
     if args.configFile is None:
-        sendSurface(args.scUrl, args.manID, args.surface, args.outFile, at)
+        if args.scURL is None:
+            parser.print_usage()
+            return
+        if args.manID is None:
+            parser.print_usage()
+            return
+        if args.i is None:
+            parser.print_usage()
+            return
+
+        if args.t is None:
+            at = getAccessToken()
+        else:
+            at = args.t
+        sendSurface(args.scURL, args.manID, args.i, args.o, at)
     else:
+        if args.t is None or len(args.t) == 0:
+            at = getAccessToken()
+        else:
+            at = args.t
         sendSurfaces(args.configFile, at)
 
 

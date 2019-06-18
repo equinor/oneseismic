@@ -1,13 +1,14 @@
 {
-  "verifier": "bin/verfy",
+  "verifier": "../build/verifyer",
+  "cube_dir":"../cubes",
   "apis": [
-    "https://example.com/master",
-    "https://example.com/base"
+    "https://seismic-cloud-bench.northeurope.cloudapp.azure.com/master",
+    "https://seismic-cloud-bench.northeurope.cloudapp.azure.com/base"
   ],
-  "bench": [{
-    "cube": "middle",
+  "benchs": [{
+    "cube": "small",
     "surfaces": [
-      "surfaces/surface1.i32"
+      "../build/surfaces/surface1.i32"
     ]
   }]
 }
