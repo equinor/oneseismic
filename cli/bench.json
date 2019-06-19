@@ -1,6 +1,7 @@
 {
   "verifier": "../build/verifyer",
-  "cube_dir":"../cubes",
+  "logTemplate": "../tmp/log%Y-%m-%d_%H%M%S.log",
+  "cube_dir": "../cubes",
   "apis": [
     "https://seismic-cloud-bench.northeurope.cloudapp.azure.com/master",
     "https://seismic-cloud-bench.northeurope.cloudapp.azure.com/base"

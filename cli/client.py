@@ -7,20 +7,31 @@ from urllib.parse import urlparse
 import json
 import time
 from typing import Union
+from datetime import datetime
+
+
+logFile = None
+
+
+def logResult(endPoint, cube, surface, procTime, totTime):
+    if logFile is None:
+        return
+    logFile.write(
+        f'{datetime.now()} E:{endPoint} C:{cube} S:{surface} P:{procTime} T:{totTime}\n')
 
 
 def getAccessToken() -> str:
     res = subprocess.run(["oauth2local", "token"], stdout=subprocess.PIPE)
     if res.returncode != 0:
-        raise Exception("No token in ouath2local store " + \
-            res.stdout.decode("utf-8").strip())
+        raise Exception("No token in ouath2local store " +
+                        res.stdout.decode("utf-8").strip())
     return res.stdout.decode("utf-8").strip()
 
 
 def connectionProvider(scUrl) -> Union[HTTPConnection, HTTPSConnection]:
     o = urlparse(scUrl)
     op = o.netloc
-    print("address is",op)
+    print("address is", op)
     if o.scheme == "http":
         return HTTPConnection(op)
     else:
@@ -29,11 +40,11 @@ def connectionProvider(scUrl) -> Union[HTTPConnection, HTTPSConnection]:
 
 
 def sendSurface(scUrl, manID, surface, outFile, at):
-    print("Sending surface to", scUrl,manID,surface,outFile)
+    print("Sending surface to", scUrl, manID, surface, outFile)
     start_time = time.time()
     success = False
     conn = connectionProvider(scUrl)
-    
+
     o = urlparse(scUrl)
     print(o.path+"/stitch/"+manID)
     conn.request("POST", o.path+"/stitch/"+manID,
@@ -60,17 +71,29 @@ def sendSurface(scUrl, manID, surface, outFile, at):
         print(r1.read())
     elapsed_time = time.time() - start_time
     print("Time elapsed", elapsed_time, "Processing time", procDuration)
+    logResult(o.path, manID, surface, procDuration, elapsed_time)
     return success
 
 
-def verify(verifier,cubeDir, workFile, cube, surface) -> bool:
+def verify(verifier, cubeDir, workFile, cube, surface) -> bool:
     res = subprocess.run(
-        [verifier, '-i',cubeDir, cube+".manifest", surface],stdin=open(workFile), stdout=subprocess.PIPE)
+        [verifier, '-i', cubeDir, cube+".manifest", surface], stdin=open(workFile), stdout=subprocess.PIPE)
     return res.returncode == 0
 
 
 def sendSurfaces(configFile, at):
     config = json.loads(open(configFile).read())
+    logTemplate = config['logTemplate']
+    if logTemplate is not None:
+        logFilePath = datetime.now().strftime(logTemplate)
+        global logFile
+        logFile = open(logFilePath, mode="w")
+    logResult("path", "manID", "surface", "procDuration", "elapsed_time")
+    logResult("path", "manID", "surface", "procDuration", "elapsed_time")
+    logResult("path", "manID", "surface", "procDuration", "elapsed_time")
+    logResult("path", "manID", "surface", "procDuration", "elapsed_time")
+    logResult("path", "manID", "surface", "procDuration", "elapsed_time")
+    logResult("path", "manID", "surface", "procDuration", "elapsed_time")
     outFile = "work.i32"
     for apiUrl in config['apis']:
         for bench in config['benchs']:
