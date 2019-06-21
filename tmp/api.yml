@@ -1,0 +1,5 @@
+STITCH_CMD: 'core/build/stitch -i /cubes '
+MANIFEST_PATH: /cubes
+HTTP_ONLY: true
+NO_AUTH: true
+SWAGGER: true
