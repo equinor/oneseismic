@@ -6,7 +6,7 @@ import (
 
 	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/server"
-	"github.com/equinor/seismic-cloud/api/service"
+	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -38,7 +38,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	if len(config.ManifestStoragePath()) > 0 {
 		opts = append(opts,
-			server.WithManifestStore(&service.ManifestFileStore{
+			server.WithManifestStore(&store.ManifestFileStore{
 				BasePath: config.ManifestStoragePath()}))
 	}
 

@@ -1,17 +1,33 @@
 package profiling
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/google/uuid"
 	"github.com/kataras/iris/context"
 )
 
-func Duration(ctx context.Context) {
-	timeStart := time.Now()
-	ctx.ResponseWriter().Header().Set("Trailer", "Duration")
+func Init(ps store.ProfileStore) func(context.Context) {
+	return func(ctx context.Context) {
+		timeStart := time.Now()
+		sessionID := uuid.New().String()
+		ctx.ResponseWriter().Header().Set("Trailer", "Duration")
+		ctx.ResponseWriter().Header().Set("Session-Id", sessionID)
+		ctx.Next()
 
-	ctx.Next()
+		deltaT := time.Since(timeStart)
+		ctx.ResponseWriter().Header().Set("Duration", deltaT.String())
+		ctx.OnClose(func() {
 
-	deltaT := time.Since(timeStart)
-	ctx.ResponseWriter().Header().Set("Duration", deltaT.String())
+			ps.Append(sessionID,
+				map[string]string{
+					"sessionDuration": deltaT.String(),
+					"stitchProfile":   ctx.Values().GetStringTrim("Stitch")})
+			pd, err := ps.Fetch(sessionID)
+			fmt.Println(sessionID, pd, err)
+		})
+	}
+
 }
