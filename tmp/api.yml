@@ -3,3 +3,4 @@ MANIFEST_PATH: /cubes
 HTTP_ONLY: true
 NO_AUTH: true
 SWAGGER: true
+PROFILING: true
