@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris/context"
 )
 
@@ -36,7 +37,8 @@ func TestProfilingMiddlewareDuration(t *testing.T) {
 
 	ctx := context.NewContext(nil)
 	ctx.BeginRequest(newMockWriter(bytes.NewBuffer([]byte{})), new(http.Request))
-	Duration(ctx)
+	profile := Init(&store.ProfileInMemoryStore{})
+	profile(ctx)
 	ctx.EndRequest()
 
 	want := "Duration"

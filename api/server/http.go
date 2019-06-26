@@ -58,6 +58,7 @@ type HttpServer struct {
 	domainmail    string
 	privKeyFile   string
 	certFile      string
+	profile       bool
 	addSwagger    bool
 }
 type HttpServerOption interface {
@@ -141,8 +142,7 @@ func (hs *HttpServer) registerEndpoints() {
 	hs.app.Post("/stitch/{manifestID:string manifestID() else 502}",
 		controller.StitchController(
 			hs.manifestStore,
-			service.NamedPipeProvider{BasePath: "../tmp/pipes/"},
-			hs.stitchCmd,
+			service.NewExecStitch(hs.stitchCmd, hs.profile),
 			hs.logger))
 
 }
@@ -241,7 +241,7 @@ func WithLetsEncrypt(domains, domainmail string) HttpServerOption {
 func WithProfiling() HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) (err error) {
-
+		hs.profile = true
 		hs.profileStore = &store.ProfileInMemoryStore{}
 		hs.app.Use(profilingmiddleware.Init(hs.profileStore))
 		hs.app.Get("/profile/{profileID:string manifestID() else 502}",
