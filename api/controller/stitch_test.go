@@ -36,6 +36,14 @@ func (m MockWriter) WriteHeader(statusCode int) {
 	return
 }
 
+type EchoStitch string
+
+func (es EchoStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+
+	_, err := io.Copy(out, in)
+	return string(es), err
+}
+
 func TestStitch(t *testing.T) {
 
 	echoCtx := context.NewContext(nil)
@@ -58,7 +66,10 @@ func TestStitch(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
 	echoWriter := NewMockWriter(buf)
 	echoCtx.BeginRequest(echoWriter, echoReq)
-	echoStitch := StitchController(new(MockManifestStore), []string{"cat"}, log.New(os.Stdout, "MockLog", log.Ldate))
+	echoStitch := StitchController(
+		new(MockManifestStore),
+		EchoStitch("Echo Stitch"),
+		log.New(os.Stdout, "MockLog", log.Ldate))
 	type args struct {
 		ctx iris.Context
 	}

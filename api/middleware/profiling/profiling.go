@@ -1,7 +1,6 @@
 package profiling
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/equinor/seismic-cloud/api/service/store"
@@ -24,9 +23,8 @@ func Init(ps store.ProfileStore) func(context.Context) {
 			ps.Append(sessionID,
 				map[string]string{
 					"sessionDuration": deltaT.String(),
-					"stitchProfile":   ctx.Values().GetStringTrim("Stitch")})
-			pd, err := ps.Fetch(sessionID)
-			fmt.Println(sessionID, pd, err)
+					"stitchProfile":   ctx.Values().GetStringTrim("StitchInfo")})
+
 		})
 	}
 

@@ -8,7 +8,8 @@
 	"runArgs": [
 		"--cap-add=SYS_PTRACE",
 		"--security-opt",
-		"seccomp=unconfined"
+		"seccomp=unconfined",
+		"--volume=C:/tmp/sc-tmp:/tmp/app-tmp"
 	],
 	"settings": {
 		"go.gopath": "/go"
