@@ -30,6 +30,7 @@ RUN go get -u -v \
     golang.org/x/lint/golint \
     github.com/alecthomas/gometalinter \
     honnef.co/go/tools/... \
+    github.com/cweill/gotests/... \
     github.com/golangci/golangci-lint/cmd/golangci-lint \
     github.com/mgechev/revive \
     github.com/swaggo/swag/cmd/swag \
