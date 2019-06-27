@@ -12,7 +12,6 @@ func NewNamedPipe() (pr *os.File, pw *os.File, err error) {
 
 	name := fmt.Sprintf("/tmp/sc-api-%s", uuid.New())
 
-	//to create pipe: does not work in windows
 	err = syscall.Mkfifo(name, 0666)
 	if err != nil {
 		return
