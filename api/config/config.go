@@ -18,7 +18,6 @@ func SetDefaults() {
 	viper.SetDefault("NO_AUTH", false)
 	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
 	viper.SetDefault("ISSUER", "")
-	viper.SetDefault("MANIFEST_PATH", "tmp/")
 	viper.SetDefault("HOST_ADDR", "localhost:8080")
 	viper.SetDefault("DOMAIN_LIST", "")
 	viper.SetDefault("DOMAIN_MAIL", "")
@@ -32,6 +31,9 @@ func SetDefaults() {
 	viper.SetDefault("LETSENCRYPT", false)
 	viper.SetDefault("PROFILING", false)
 	viper.SetDefault("SWAGGER", false)
+	viper.SetDefault("MANIFEST_PATH", "tmp/")
+	viper.SetDefault("MANIFEST_SRC", "db")
+	viper.SetDefault("MANIFEST_DB_URI", "mongodb://")
 }
 
 func Load() error {
@@ -126,4 +128,12 @@ func Profiling() bool {
 
 func Swagger() bool {
 	return viper.GetBool("SWAGGER")
+}
+
+func ManifestURI() string {
+	return viper.GetString("MANIFEST_DB_URI")
+}
+
+func ManifestSrc() string {
+	return viper.GetString("MANIFEST_SRC")
 }

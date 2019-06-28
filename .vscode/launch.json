@@ -12,8 +12,6 @@
         "env": {},
         "args": [
             "serve",
-            "--config",
-            "/tmp/app-tmp/api.yml"
         ],
         "windows": {
             "args": [
