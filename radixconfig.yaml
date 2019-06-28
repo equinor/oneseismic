@@ -63,7 +63,7 @@ spec:
             SWAGGER: true
             ISSUER:  'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
       secrets:
-        - STOREKEY
+        - MANIFEST_DB_URI
   dnsAppAlias:
     environment: prod
     component: api

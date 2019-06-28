@@ -37,7 +37,11 @@ func runServe(cmd *cobra.Command, args []string) {
 			server.WithOAuth2(config.AuthServer(), config.ResourceID(), config.Issuer()))
 	}
 
-	if len(config.ManifestStoragePath()) > 0 {
+	if config.ManifestSrc() == "db" {
+		opts = append(opts,
+			server.WithManifestStore(&store.ManifestDbStore{
+				ConnString: config.ManifestURI()}))
+	} else if config.ManifestSrc() == "path" {
 		opts = append(opts,
 			server.WithManifestStore(&store.ManifestFileStore{
 				BasePath: config.ManifestStoragePath()}))
