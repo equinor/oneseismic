@@ -3,7 +3,9 @@
 	"dockerFile": ".devcontainer.Dockerfile",
 	"appPort": 8080,
 	"extensions": [
-		"ms-vscode.go"
+		"ms-vscode.go",
+		"beautify",
+		"cpptools"
 	],
 	"runArgs": [
 		"--cap-add=SYS_PTRACE",
