@@ -5,6 +5,7 @@ RUN apt-get update\
     && apt-get -y install --no-install-recommends apt-utils cmake 2>&1
 RUN apt-get install -y ca-certificates
 RUN update-ca-certificates
+RUN apt-get install -y vim
 
 
 # RUN apk --no-cache add cmake clang clang-dev make gcc g++ libc-dev linux-headers git
