@@ -47,20 +47,26 @@ const (
 )
 
 type HttpServer struct {
-	logger        *log.Logger
+	logger      *log.Logger
+	service     ApiService
+	stitchCmd   []string
+	app         *iris.Application
+	hostAddr    string
+	chosenMode  serverMode
+	domains     string
+	domainmail  string
+	privKeyFile string
+	certFile    string
+	profile     bool
+	addSwagger  bool
+}
+
+type ApiService struct {
 	manifestStore store.ManifestStore
 	profileStore  store.ProfileStore
-	stitchCmd     []string
-	app           *iris.Application
-	hostAddr      string
-	chosenMode    serverMode
-	domains       string
-	domainmail    string
-	privKeyFile   string
-	certFile      string
-	profile       bool
-	addSwagger    bool
+	stitcher      service.Stitcher
 }
+
 type HttpServerOption interface {
 	apply(*HttpServer) error
 }
@@ -82,11 +88,11 @@ func NewHttpServer(opts ...HttpServerOption) (hs *HttpServer, err error) {
 	}
 	hs.app.Use(iris.Gzip)
 
-	if hs.manifestStore == nil {
+	if hs.service.manifestStore == nil {
 		return nil, fmt.Errorf("Server cannot start, no manifest store set")
 	}
 
-	if hs.stitchCmd == nil || len(hs.stitchCmd) == 0 {
+	if hs.service.stitcher == nil {
 		return nil, fmt.Errorf("Server cannot start, stitch command is empty")
 	}
 
@@ -141,8 +147,8 @@ func (hs *HttpServer) registerEndpoints() {
 
 	hs.app.Post("/stitch/{manifestID:string manifestID() else 502}",
 		controller.StitchController(
-			hs.manifestStore,
-			service.NewExecStitch(hs.stitchCmd, hs.profile),
+			hs.service.manifestStore,
+			hs.service.stitcher,
 			hs.logger))
 
 }
@@ -174,16 +180,7 @@ func (hs *HttpServer) Serve() error {
 func WithManifestStore(manifestStore store.ManifestStore) HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) (err error) {
-		hs.manifestStore = manifestStore
-		return
-	})
-}
-
-func WithStitchCmd(stitchCmd []string) HttpServerOption {
-
-	return newFuncOption(func(hs *HttpServer) (err error) {
-		//TODO: check if it is executable
-		hs.stitchCmd = stitchCmd
+		hs.service.manifestStore = manifestStore
 		return
 	})
 }
@@ -242,10 +239,10 @@ func WithProfiling() HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) (err error) {
 		hs.profile = true
-		hs.profileStore = &store.ProfileInMemoryStore{}
-		hs.app.Use(profilingmiddleware.Init(hs.profileStore))
+		hs.service.profileStore = &store.ProfileInMemoryStore{}
+		hs.app.Use(profilingmiddleware.Init(hs.service.profileStore))
 		hs.app.Get("/profile/{profileID:string manifestID() else 502}",
-			controller.ProfileController(hs.profileStore))
+			controller.ProfileController(hs.service.profileStore))
 		return
 	})
 }
@@ -255,6 +252,15 @@ func WithSwagger() HttpServerOption {
 	return newFuncOption(func(hs *HttpServer) (err error) {
 
 		hs.addSwagger = true
+		return
+	})
+}
+
+func WithStitcher(stitcher service.Stitcher) HttpServerOption {
+
+	return newFuncOption(func(hs *HttpServer) (err error) {
+
+		hs.service.stitcher = stitcher
 		return
 	})
 }

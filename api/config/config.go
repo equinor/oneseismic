@@ -14,6 +14,7 @@ type Config struct {
 	issuer              string
 	insecure            bool
 	stitchCmd           []string
+	stitchAddr          string
 	manifestStoragePath string
 	hostAddr            string
 	domainList          string
@@ -44,6 +45,8 @@ func Load() error {
 	}
 
 	cfg.stitchCmd = strings.Split(viper.GetString("STITCH_CMD"), " ")
+	cfg.stitchAddr = viper.GetString("STITCH_ADDR")
+
 	cfg.manifestStoragePath = viper.GetString("MANIFEST_PATH")
 	cfg.hostAddr = viper.GetString("HOST_ADDR")
 	if len(cfg.hostAddr) == 0 {
@@ -99,6 +102,10 @@ func HostAddr() string {
 
 func StitchCmd() []string {
 	return cfg.stitchCmd
+}
+
+func StitchAddr() string {
+	return cfg.stitchAddr
 }
 
 func ManifestStoragePath() string {

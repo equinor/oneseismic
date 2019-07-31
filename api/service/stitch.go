@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 )
@@ -17,9 +18,18 @@ type ExecStitch struct {
 	profile bool
 }
 
-func NewExecStitch(cmdArgs []string, profile bool) *ExecStitch {
+func NewExecStitch(cmdArgs []string, profile bool) (*ExecStitch, error) {
+	execName := cmdArgs[0]
 
-	return &ExecStitch{cmdArgs, profile}
+	inf, err := os.Stat(execName)
+	if err != nil {
+		return nil, err
+	}
+
+	if inf.IsDir() {
+		return nil, fmt.Errorf("Cannot be a directory")
+	}
+	return &ExecStitch{cmdArgs, profile}, nil
 }
 
 func (es *ExecStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
@@ -66,4 +76,38 @@ func (es *ExecStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 
 	return "", nil
 
+}
+
+type TCPStitch struct {
+	stitchAddr *net.TCPAddr
+}
+
+func NewTCPStitch(addr string) (*TCPStitch, error) {
+	tAddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return &TCPStitch{tAddr}, nil
+}
+
+func (ts *TCPStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+
+	conn, err := net.DialTCP("tcp", nil, ts.stitchAddr)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	if _, err := io.Copy(conn, in); err != nil {
+		return "", fmt.Errorf("Sending to tcp stitch failed: %v", err)
+	}
+	errChan := make(chan error, 0)
+	go func() {
+		if _, err := io.Copy(out, conn); err != nil {
+			errChan <- fmt.Errorf("Receiving from tcp stitch failed: %v", err)
+		}
+		errChan <- nil
+	}()
+	err = <-errChan
+	return "", err
 }
