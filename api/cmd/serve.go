@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/equinor/seismic-cloud/api/service"
+
 	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/server"
 	"github.com/equinor/seismic-cloud/api/service/store"
@@ -42,11 +44,26 @@ func runServe(cmd *cobra.Command, args []string) {
 				BasePath: config.ManifestStoragePath()}))
 	}
 
-	if len(config.StitchCmd()) > 0 {
-		opts = append(
-			opts,
-			server.WithStitchCmd(config.StitchCmd()))
+	var st service.Stitcher
+	if len(config.StitchAddr()) > 0 {
+		var err error
+		st, err = service.NewTCPStitch(config.StitchAddr())
+		if err != nil {
+			jww.ERROR.Println("Stitch tcp error", err)
+			os.Exit(1)
+		}
+	} else if len(config.StitchCmd()) > 0 {
+		var err error
+		st, err = service.NewExecStitch(config.StitchCmd(), config.Profiling())
+		if err != nil {
+			jww.ERROR.Println("Stitch exec error", err)
+			os.Exit(1)
+		}
+
 	}
+	opts = append(
+		opts,
+		server.WithStitcher(st))
 
 	if len(config.HostAddr()) > 0 {
 		opts = append(
