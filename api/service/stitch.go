@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"sync"
 )
 
 type Stitcher interface {
@@ -18,6 +19,7 @@ type ExecStitch struct {
 	profile bool
 }
 
+// NewExecStitch produces a executable sitcher
 func NewExecStitch(cmdArgs []string, profile bool) (*ExecStitch, error) {
 	execName := cmdArgs[0]
 
@@ -97,17 +99,22 @@ func (ts *TCPStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 		return "", err
 	}
 	defer conn.Close()
-
-	if _, err := io.Copy(conn, in); err != nil {
-		return "", fmt.Errorf("Sending to tcp stitch failed: %v", err)
-	}
-	errChan := make(chan error, 0)
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		if _, err := io.Copy(conn, in); err != nil {
+			err = fmt.Errorf("Sending to tcp stitch failed: %v", err)
+		}
+		conn.CloseWrite()
+		wg.Done()
+	}()
 	go func() {
 		if _, err := io.Copy(out, conn); err != nil {
-			errChan <- fmt.Errorf("Receiving from tcp stitch failed: %v", err)
+			err = fmt.Errorf("Receiving from tcp stitch failed: %v", err)
 		}
-		errChan <- nil
+		conn.CloseRead()
+		wg.Done()
 	}()
-	err = <-errChan
+	wg.Wait()
 	return "", err
 }
