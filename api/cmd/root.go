@@ -47,7 +47,7 @@ func initConfig() {
 		viper.AddConfigPath(wd)
 		viper.SetConfigName(".sc-api")
 	}
-
+	config.SetDefaults()
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
