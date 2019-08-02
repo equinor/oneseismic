@@ -7,7 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"sync"
+	"strings"
 )
 
 type Stitcher interface {
@@ -99,22 +99,44 @@ func (ts *TCPStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 		return "", err
 	}
 	defer conn.Close()
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	rxErrChan := make(chan string)
+	txErrChan := make(chan string)
 	go func() {
 		if _, err := io.Copy(conn, in); err != nil {
-			err = fmt.Errorf("Sending to tcp stitch failed: %v", err)
+			txErrChan <- fmt.Sprintf("Sending to tcp stitch failed: %v", err)
+		} else {
+			txErrChan <- ""
 		}
 		conn.CloseWrite()
-		wg.Done()
+
 	}()
 	go func() {
 		if _, err := io.Copy(out, conn); err != nil {
-			err = fmt.Errorf("Receiving from tcp stitch failed: %v", err)
+			rxErrChan <- fmt.Sprintf("Receiving from tcp stitch failed: %v", err)
+		} else {
+			rxErrChan <- ""
 		}
 		conn.CloseRead()
-		wg.Done()
+
 	}()
-	wg.Wait()
-	return "", err
+	errs := make([]string, 0)
+	for i := 0; i < 2; i++ {
+		select {
+		case e := <-rxErrChan:
+			if len(e) > 0 {
+				errs = append(errs, e)
+			}
+		case e := <-txErrChan:
+			if len(e) > 0 {
+				errs = append(errs, e)
+
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return "", fmt.Errorf("%s", strings.Join(errs, "\n"))
+	}
+
+	return "", nil
+
 }
