@@ -9,67 +9,37 @@ import (
 )
 
 type Config struct {
-	authServer          *url.URL
-	resourceID          string
-	issuer              string
-	insecure            bool
-	stitchCmd           []string
-	stitchAddr          string
-	manifestStoragePath string
-	hostAddr            string
-	domainList          string
-	domainMail          string
-	certFile            string
-	keyFile             string
-	httpOnly            bool
-	useLetsEncrypt      bool
-	useTLS              bool
-	profiling           bool
-	swagger             bool
+	authServer *url.URL
 }
 
 var cfg *Config
 
+func SetDefaults() {
+	viper.SetDefault("NO_AUTH", false)
+	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
+	viper.SetDefault("MANIFEST_PATH", "tmp/")
+	viper.SetDefault("HOST_ADDR", "http://localhost:8080")
+	viper.SetDefault("DOMAIN_LIST", "")
+	viper.SetDefault("DOMAIN_MAIL", "")
+	viper.SetDefault("CERT_FILE", "cert.crt")
+	viper.SetDefault("KEY_FILE", "cert.key")
+	viper.SetDefault("HTTP_ONLY", false)
+	viper.SetDefault("TLS", false)
+	viper.SetDefault("LETSENCRYPT", false)
+	viper.SetDefault("PROFILING", false)
+	viper.SetDefault("SWAGGER", false)
+}
+
 func Load() error {
 	cfg = new(Config)
 
-	cfg.insecure = viper.GetBool("NO_AUTH")
-	if !cfg.insecure {
+	if !viper.GetBool("NO_AUTH") {
 		a, err := parseURL(viper.GetString("AUTHSERVER"))
 		if err != nil {
 			return err
 		}
 		cfg.authServer = a
-		cfg.issuer = viper.GetString("ISSUER")
-		cfg.resourceID = viper.GetString("RESOURCE_ID")
 	}
-
-	cfg.stitchCmd = strings.Split(viper.GetString("STITCH_CMD"), " ")
-	cfg.stitchAddr = viper.GetString("STITCH_ADDR")
-
-	cfg.manifestStoragePath = viper.GetString("MANIFEST_PATH")
-	cfg.hostAddr = viper.GetString("HOST_ADDR")
-	if len(cfg.hostAddr) == 0 {
-		cfg.hostAddr = ":8080"
-	}
-	cfg.domainList = viper.GetString("DOMAIN_LIST")
-	cfg.domainMail = viper.GetString("DOMAIN_MAIL")
-	cfg.certFile = viper.GetString("CERT_FILE")
-	cfg.keyFile = viper.GetString("KEY_FILE")
-
-	cfg.httpOnly = viper.GetBool("HTTP_ONLY")
-	cfg.useTLS = viper.GetBool("TLS")
-	cfg.useLetsEncrypt = viper.GetBool("LETSENCRYPT")
-	cfg.profiling = viper.GetBool("PROFILING")
-	cfg.swagger = viper.GetBool("SWAGGER")
-	if err := cfg.verify(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (cfg *Config) verify() error {
 
 	return nil
 }
@@ -93,63 +63,63 @@ func AuthServer() *url.URL {
 
 func UseAuth() bool {
 
-	return !cfg.insecure
+	return !viper.GetBool("NO_AUTH")
 }
 
 func HostAddr() string {
-	return cfg.hostAddr
+	return viper.GetString("HOST_ADDR")
 }
 
 func StitchCmd() []string {
-	return cfg.stitchCmd
+	return strings.Split(viper.GetString("STITCH_CMD"), " ")
 }
 
 func StitchAddr() string {
-	return cfg.stitchAddr
+	return viper.GetString("STITCH_ADDR")
 }
 
 func ManifestStoragePath() string {
-	return cfg.manifestStoragePath
+	return viper.GetString("MANIFEST_PATH")
 }
 
 func HttpOnly() bool {
-	return cfg.httpOnly
+	return viper.GetBool("HTTP_ONLY")
 }
 
 func UseTLS() bool {
-	return cfg.useTLS
+	return viper.GetBool("TLS")
 }
 
 func UseLetsEncrypt() bool {
-	return cfg.useLetsEncrypt
+	return viper.GetBool("LETSENCRYPT")
 }
 
 func DomainList() string {
-	return cfg.domainList
+	return viper.GetString("DOMAIN_LIST")
 }
 
 func DomainMail() string {
-	return cfg.domainMail
+	return viper.GetString("DOMAIN_MAIL")
 }
 
 func CertFile() string {
-	return cfg.certFile
+	return viper.GetString("CERT_FILE")
 }
 
 func KeyFile() string {
-	return cfg.keyFile
+	return viper.GetString("KEY_FILE")
 }
 func ResourceID() string {
-	return cfg.resourceID
+	return viper.GetString("RESOURCE_ID")
 }
 func Issuer() string {
-	return cfg.issuer
+	return viper.GetString("ISSUER")
 }
 
 func Profiling() bool {
-	return cfg.profiling
+	return viper.GetBool("PROFILING")
 }
 
 func Swagger() bool {
-	return cfg.swagger
+	return viper.GetBool("SWAGGER")
 }
