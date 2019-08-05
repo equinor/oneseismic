@@ -47,6 +47,25 @@ func runServe(cmd *cobra.Command, args []string) {
 				BasePath: config.ManifestStoragePath()}))
 	}
 
+	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
+		azure, err := store.NewAzBlobStorage(
+			config.AzStorageAccount(),
+			config.AzStorageKey(),
+			config.AzContainerName())
+		if err != nil {
+			jww.ERROR.Println("New azure blob storage error", err)
+			os.Exit(1)
+		}
+		opts = append(opts, server.WithSurfaceStore(azure))
+	} else if len(config.LocalSurfacePath()) > 0 {
+		local, err := store.NewLocalStorage(config.LocalSurfacePath())
+		if err != nil {
+			jww.ERROR.Println("New local directory error", err)
+			os.Exit(1)
+		}
+		opts = append(opts, server.WithSurfaceStore(local))
+	}
+
 	var st service.Stitcher
 	if len(config.StitchAddr()) > 0 {
 		var err error

@@ -32,7 +32,7 @@ func StitchController(
 		manifest, err := ms.Fetch(manifestID)
 		if err != nil {
 			ctx.StatusCode(404)
-			logger.Println("Stich error:", err)
+			logger.Println("Manifest fetch failed:", err)
 			return
 		}
 
@@ -52,7 +52,6 @@ func StitchController(
 			logger.Println("Stich error:", err)
 		}
 
-		logger.Println(si)
 		ctx.Values().SetImmutable("StitchInfo", si)
 
 	}
