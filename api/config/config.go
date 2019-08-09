@@ -19,7 +19,7 @@ func SetDefaults() {
 	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
 	viper.SetDefault("ISSUER", "")
 	viper.SetDefault("MANIFEST_PATH", "tmp/")
-	viper.SetDefault("HOST_ADDR", "http://localhost:8080")
+	viper.SetDefault("HOST_ADDR", "localhost:8080")
 	viper.SetDefault("DOMAIN_LIST", "")
 	viper.SetDefault("DOMAIN_MAIL", "")
 	viper.SetDefault("STITCH_ADDR", "")
