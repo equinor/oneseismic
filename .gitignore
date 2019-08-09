@@ -3,3 +3,5 @@ build
 .sc-api.yml
 .sc-api.yaml
 *.exe
+tmp
+api/api
