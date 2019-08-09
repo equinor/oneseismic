@@ -35,6 +35,7 @@ RUN go get -u -v \
     github.com/golangci/golangci-lint/cmd/golangci-lint \
     github.com/mgechev/revive \
     github.com/swaggo/swag/cmd/swag \
+    golang.org/x/tools/gopls \
     github.com/derekparker/delve/cmd/dlv 2>&1
 
 # gocode-gomod
