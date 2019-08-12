@@ -22,7 +22,7 @@ RUN apk --no-cache add git
 COPY api /src
 WORKDIR /src
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s"  -o /bin/sc-api
+RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s"  -o /bin/sc-api
 
 FROM alpine as deploy
 RUN apk --no-cache add libc-dev g++  ca-certificates 

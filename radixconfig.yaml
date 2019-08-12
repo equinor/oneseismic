@@ -1,0 +1,67 @@
+apiVersion: radix.equinor.com/v1
+kind: RadixApplication
+metadata:
+  name: seismicCloud
+spec:
+  environments:
+    - name: dev
+      build:
+        from: master
+    - name: prod
+      build:
+        from: release
+  components:
+    - name: core
+      src: core-server
+      ports:
+        - name: http
+          port: 80
+      publicPort: http
+      environmentConfig:
+        - environment: prod
+          replicas: 2
+          monitoring: true
+          resources:
+            requests:
+              memory: '64Mi'
+              cpu: '100m'
+            limits:
+              memory: '128Mi'
+              cpu: '200m'
+        - environment: dev
+          replicas: 2
+          monitoring: true
+          resources:
+            requests:
+              memory: '64Mi'
+              cpu: '100m'
+            limits:
+              memory: '128Mi'
+              cpu: '200m'
+    - name: api
+      src: api
+      ports:
+        - name: http
+          port: 8080
+      publicPort: http
+      environmentConfig:
+        - environment: dev
+          variables:
+            AUTHSERVER: 'https://windows.net/ss'
+            HOST_ADDR: 'localhost:8080'
+            HTTP_ONLY: true
+            STITCH_ADDR: core:5000
+            SWAGGER: true
+        - environment: prod
+          replicas: 2
+          variables:
+            AUTHSERVER: 'https://windows.net/ss'
+            HOST_ADDR: 'localhost:8080'
+            HTTP_ONLY: true
+            STITCH_ADDR: core:5000
+            SWAGGER: true
+      secrets:
+        - STOREKEY
+  dnsAppAlias:
+    environment: prod
+    component: api
