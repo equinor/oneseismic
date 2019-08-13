@@ -12,7 +12,7 @@ spec:
         from: release
   components:
     - name: core
-      src: core-server
+      src: core
       ports:
         - name: http
           port: 80
