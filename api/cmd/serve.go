@@ -25,8 +25,7 @@ var serveCmd = &cobra.Command{
 func runServe(cmd *cobra.Command, args []string) {
 
 	if viper.ConfigFileUsed() == "" {
-		jww.ERROR.Println("No config file loaded")
-		os.Exit(1)
+		jww.ERROR.Println("Config from environment variables")
 	} else {
 		jww.INFO.Println("Using config file:", viper.ConfigFileUsed())
 	}
