@@ -1,7 +1,7 @@
 apiVersion: radix.equinor.com/v1
 kind: RadixApplication
 metadata:
-  name: seismicCloud
+  name: seismic-cloud
 spec:
   environments:
     - name: dev
