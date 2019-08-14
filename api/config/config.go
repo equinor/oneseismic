@@ -76,7 +76,6 @@ func AuthServer() *url.URL {
 }
 
 func UseAuth() bool {
-
 	return !viper.GetBool("NO_AUTH")
 }
 
