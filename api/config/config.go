@@ -88,7 +88,7 @@ func StitchCmd() []string {
 	return strings.Split(viper.GetString("STITCH_CMD"), " ")
 }
 
-func StitchTcpAddr() string {
+func StitchTCPAddr() string {
 	return viper.GetString("STITCH_TCP_ADDR")
 }
 

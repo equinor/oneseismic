@@ -26,14 +26,14 @@ var serveCmd = &cobra.Command{
 
 func stitchConfig() interface{} {
 	sCmd := config.StitchCmd()
-	sTCP := config.StitchTcpAddr()
+	sTCP := config.StitchTCPAddr()
 	sGRPC := config.StitchGrpcAddr()
 	if len(sGRPC) > 0 {
 
 		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
 	}
 	if len(sTCP) > 0 {
-		return service.TcpAddr(sTCP)
+		return service.TCPAddr(sTCP)
 	}
 	if len(sCmd) > 0 && len(sCmd[0]) > 0 {
 		return sCmd
@@ -80,41 +80,41 @@ func manifestStoreConfig() interface{} {
 
 }
 
-func createHTTPServerOptions() ([]server.HttpServerOption, error) {
-	op := "serve.getHttpServerOptions"
+func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
+	op := "serve.getHTTPServerOptions"
 
-	opts := make([]server.HttpServerOption, 0)
+	opts := make([]server.HTTPServerOption, 0)
 
 	if config.UseAuth() {
 		opts = append(opts,
 			server.WithOAuth2(config.AuthServer(), config.ResourceID(), config.Issuer()))
 	}
 
-	if ms, err := store.NewManifestStore(manifestStoreConfig()); err != nil {
+	ms, err := store.NewManifestStore(manifestStoreConfig())
+	if err != nil {
 		return nil, events.E(events.Op(op), "Accessing manifest store", err)
-	} else {
-		opts = append(
-			opts,
-			server.WithManifestStore(ms))
 	}
+	opts = append(
+		opts,
+		server.WithManifestStore(ms))
 
-	if ssC, err := store.NewSurfaceStore(surfaceStoreConfig()); err != nil {
+	ssC, err := store.NewSurfaceStore(surfaceStoreConfig())
+	if err != nil {
 		return nil, events.E(events.Op(op), "Accessing surface store", err)
 
-	} else {
-		opts = append(
-			opts,
-			server.WithSurfaceStore(ssC))
 	}
+	opts = append(
+		opts,
+		server.WithSurfaceStore(ssC))
 
-	if st, err := service.NewStitch(stitchConfig(), config.Profiling()); err != nil {
+	st, err := service.NewStitch(stitchConfig(), config.Profiling())
+	if err != nil {
 		return nil, events.E(events.Op(op), "Stitch tcp error", err)
 
-	} else {
-		opts = append(
-			opts,
-			server.WithStitcher(st))
 	}
+	opts = append(
+		opts,
+		server.WithStitcher(st))
 
 	if len(config.HostAddr()) > 0 {
 		opts = append(
@@ -200,7 +200,7 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	hs, err := server.NewHttpServer(opts...)
+	hs, err := server.NewHTTPServer(opts...)
 
 	if err != nil {
 		l.LogE(op, "Error configuring http server", err)

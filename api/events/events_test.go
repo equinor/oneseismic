@@ -43,7 +43,7 @@ func TestError(t *testing.T) {
 		return
 	}
 
-	if ev.ContextId() != "" {
+	if ev.ContextID() != "" {
 		return
 	}
 

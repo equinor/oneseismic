@@ -2,18 +2,18 @@ package server
 
 type EmptyOption struct{}
 
-func (EmptyOption) apply(*HttpServer) (err error) { return }
+func (EmptyOption) apply(*HTTPServer) (err error) { return }
 
 type funcOption struct {
-	f func(*HttpServer) error
+	f func(*HTTPServer) error
 }
 
-func (fo *funcOption) apply(h *HttpServer) error {
+func (fo *funcOption) apply(h *HTTPServer) error {
 
 	return fo.f(h)
 }
 
-func newFuncOption(f func(*HttpServer) error) *funcOption {
+func newFuncOption(f func(*HTTPServer) error) *funcOption {
 	return &funcOption{
 		f: f,
 	}

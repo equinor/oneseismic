@@ -48,8 +48,8 @@ const (
 	LETSENCRYPT
 )
 
-type HttpServer struct {
-	service     ApiService
+type HTTPServer struct {
+	service     APIService
 	stitchCmd   []string
 	app         *iris.Application
 	hostAddr    string
@@ -62,28 +62,28 @@ type HttpServer struct {
 	addSwagger  bool
 }
 
-type ApiService struct {
+type APIService struct {
 	manifestStore store.ManifestStore
 	surfaceStore  store.SurfaceStore
 	stitcher      service.Stitcher
 }
 
-type HttpServerOption interface {
-	apply(*HttpServer) error
+type HTTPServerOption interface {
+	apply(*HTTPServer) error
 }
 
-func DefaultHttpServer() *HttpServer {
+func DefaultHTTPServer() *HTTPServer {
 
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
 	l.AddGoLogSource(app.Logger().SetOutput)
-	return &HttpServer{
+	return &HTTPServer{
 		app:      app,
 		hostAddr: "localhost:8080"}
 }
 
-func NewHttpServer(opts ...HttpServerOption) (hs *HttpServer, err error) {
-	hs = DefaultHttpServer()
+func NewHTTPServer(opts ...HTTPServerOption) (hs *HTTPServer, err error) {
+	hs = DefaultHTTPServer()
 	for _, opt := range opts {
 		err = opt.apply(hs)
 		if err != nil {
@@ -107,9 +107,9 @@ func NewHttpServer(opts ...HttpServerOption) (hs *HttpServer, err error) {
 	return hs, nil
 }
 
-func WithOAuth2(authServer *url.URL, audience, issuer string) HttpServerOption {
+func WithOAuth2(authServer *url.URL, audience, issuer string) HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) error {
+	return newFuncOption(func(hs *HTTPServer) error {
 		sigKeySet, err := service.GetKeySet(authServer)
 		if err != nil {
 			return fmt.Errorf("Couldn't get keyset: %v", err)
@@ -138,7 +138,7 @@ func WithOAuth2(authServer *url.URL, audience, issuer string) HttpServerOption {
 	})
 }
 
-func (hs *HttpServer) registerMacros() {
+func (hs *HTTPServer) registerMacros() {
 	manifestIDExpr := "^[a-zA-Z0-9\\-]{1,40}$"
 	manifestIDRegex, err := regexp.Compile(manifestIDExpr)
 	if err != nil {
@@ -148,7 +148,7 @@ func (hs *HttpServer) registerMacros() {
 	hs.app.Macros().Get("string").RegisterFunc("idString", manifestIDRegex.MatchString)
 }
 
-func (hs *HttpServer) registerEndpoints() {
+func (hs *HTTPServer) registerEndpoints() {
 
 	sc := controller.NewSurfaceController(hs.service.surfaceStore)
 
@@ -177,7 +177,7 @@ func (hs *HttpServer) registerEndpoints() {
 
 }
 
-func (hs *HttpServer) Serve() error {
+func (hs *HTTPServer) Serve() error {
 	hs.registerMacros()
 	hs.registerEndpoints()
 
@@ -233,41 +233,41 @@ func (hs *HttpServer) Serve() error {
 	}
 }
 
-func WithManifestStore(manifestStore store.ManifestStore) HttpServerOption {
+func WithManifestStore(manifestStore store.ManifestStore) HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.service.manifestStore = manifestStore
 		return
 	})
 }
 
-func WithSurfaceStore(surfaceStore store.SurfaceStore) HttpServerOption {
+func WithSurfaceStore(surfaceStore store.SurfaceStore) HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.service.surfaceStore = surfaceStore
 		return
 	})
 }
 
-func WithHostAddr(hostAddr string) HttpServerOption {
+func WithHostAddr(hostAddr string) HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.hostAddr = hostAddr
 		return
 	})
 }
 
-func WithHttpOnly() HttpServerOption {
+func WithHttpOnly() HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.chosenMode = INSECURE
 		return
 	})
 }
 
-func WithTLS(certFile, keyFile string) HttpServerOption {
+func WithTLS(certFile, keyFile string) HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 
 		if len(certFile) == 0 {
 			return fmt.Errorf("No cert file selected for TLS")
@@ -282,9 +282,9 @@ func WithTLS(certFile, keyFile string) HttpServerOption {
 		return
 	})
 }
-func WithLetsEncrypt(domains, domainmail string) HttpServerOption {
+func WithLetsEncrypt(domains, domainmail string) HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 		if len(domains) == 0 {
 			return fmt.Errorf("No domains selected for LetsEncrypt")
 		}
@@ -299,9 +299,9 @@ func WithLetsEncrypt(domains, domainmail string) HttpServerOption {
 	})
 }
 
-func WithProfiling() HttpServerOption {
+func WithProfiling() HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.profile = true
 
 		m := prometheusmiddleware.New("Metrics", 0.3, 1.2, 5.0)
@@ -310,18 +310,18 @@ func WithProfiling() HttpServerOption {
 	})
 }
 
-func WithSwagger() HttpServerOption {
+func WithSwagger() HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 
 		hs.addSwagger = true
 		return
 	})
 }
 
-func WithStitcher(stitcher service.Stitcher) HttpServerOption {
+func WithStitcher(stitcher service.Stitcher) HTTPServerOption {
 
-	return newFuncOption(func(hs *HttpServer) (err error) {
+	return newFuncOption(func(hs *HTTPServer) (err error) {
 
 		hs.service.stitcher = stitcher
 		return
