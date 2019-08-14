@@ -53,6 +53,8 @@ spec:
           replicas: 0
           monitoring: false
         - environment: dev
+          variables:
+            SC_GRPC_HOST_ADDR: '0.0.0.0:10000'
           replicas: 1
           monitoring: false
         - environment: monitor
