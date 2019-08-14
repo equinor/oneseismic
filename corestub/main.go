@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"fmt"
 	"log"
@@ -38,8 +39,13 @@ func (s *coreServer) ShatterLink(ctx context.Context, in *pb.ShatterLinkRequest)
 func main() {
 	cs := &coreServer{storeAddr: ""}
 
-	fmt.Println("starting server on localhost:10000")
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", 10000))
+	hostAddr := os.Getenv("SC_GRPC_HOST_ADDR")
+	if len(hostAddr) < 1 {
+		hostAddr = "localhost:10000"
+	}
+
+	fmt.Println("starting server on ", hostAddr)
+	lis, err := net.Listen("tcp", hostAddr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
