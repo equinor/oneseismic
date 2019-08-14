@@ -18,12 +18,12 @@ func TestServer(t *testing.T) {
 func Test_createHTTPServerOptions(t *testing.T) {
 	tests := []struct {
 		name        string
-		want        []server.HttpServerOption
+		want        []server.HTTPServerOption
 		setDefaults bool
 		wantErr     bool
 	}{
-		{"No config should fail", []server.HttpServerOption{}, false, true},
-		{"Default config should fail", []server.HttpServerOption{}, true, true},
+		{"No config should fail", []server.HTTPServerOption{}, false, true},
+		{"Default config should fail", []server.HTTPServerOption{}, true, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

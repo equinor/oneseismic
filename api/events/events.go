@@ -15,7 +15,7 @@ type Event struct {
 	Message string
 	Level   Severity
 	UserID  UserID
-	CtxId   uuid.UUID
+	CtxID   uuid.UUID
 	Kind    EventKind
 }
 
@@ -50,12 +50,11 @@ const (
 	CriticalLevel
 )
 
-func (e *Event) ContextId() string {
-	if e.CtxId == uuid.Nil {
+func (e *Event) ContextID() string {
+	if e.CtxID == uuid.Nil {
 		return ""
-	} else {
-		return e.CtxId.String()
 	}
+	return e.CtxID.String()
 }
 
 func (s Severity) String() string {
@@ -159,7 +158,7 @@ func E(args ...interface{}) error {
 		case UserID:
 			e.UserID = arg
 		case uuid.UUID:
-			e.CtxId = arg
+			e.CtxID = arg
 		case EventKind:
 			e.Kind = arg
 		default:

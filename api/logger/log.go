@@ -167,7 +167,7 @@ func (dl *dbLogger) log(ev *events.Event) {
 		ev.Message,
 		ev.Level.String(),
 		ev.UserID,
-		ev.ContextId(),
+		ev.ContextID(),
 		ev.Kind.String(),
 	)
 	if wErr != nil {

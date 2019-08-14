@@ -42,9 +42,9 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 			return nil, events.E(op, events.ErrorLevel, msg)
 		}
 		return &execStitch{cmdArgs, profile}, nil
-	case TcpAddr:
-		addr := stype.(TcpAddr)
-		return &tCPStitch{TcpAddr(string(addr))}, nil
+	case TCPAddr:
+		addr := stype.(TCPAddr)
+		return &tCPStitch{TCPAddr(string(addr))}, nil
 	case GrpcOpts:
 		addr := stype.(GrpcOpts).Addr
 		opts := make([]grpc.DialOption, 0)
@@ -199,10 +199,10 @@ func (gs *gRPCStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writ
 }
 
 type tCPStitch struct {
-	tcpAddr TcpAddr
+	tcpAddr TCPAddr
 }
 
-type TcpAddr string
+type TCPAddr string
 
 func (ts *tCPStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", string(ts.tcpAddr))
