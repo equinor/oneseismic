@@ -162,6 +162,13 @@ func (hs *HttpServer) registerEndpoints() {
 			hs.service.stitcher,
 			hs.logger))
 
+	hs.app.Post("/stitchsurface/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
+		controller.StitchControllerWithSurfaceID(
+			hs.service.manifestStore,
+			hs.service.surfaceStore,
+			hs.service.stitcher,
+			hs.logger))
+
 }
 
 func (hs *HttpServer) Serve() error {

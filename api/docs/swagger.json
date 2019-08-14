@@ -82,6 +82,46 @@
                 }
             }
         },
+        "/stitch/{maifest_id}/{surface_id}": {
+            "post": {
+                "description": "post surface query to stitch",
+                "consumes": [
+                    "application/octet-stream"
+                ],
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Some ID",
+                        "name": "some_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Surface id not found",
+                        "schema": {
+                            "$ref": "#/definitions/controller.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/controller.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/surface/": {
             "get": {
                 "description": "get list of available surfaces",
@@ -104,7 +144,7 @@
                 }
             }
         },
-        "/surface/{fileName}": {
+        "/surface/{surfaceID}": {
             "get": {
                 "description": "get surface file",
                 "produces": [
@@ -114,7 +154,7 @@
                     {
                         "type": "string",
                         "description": "File ID",
-                        "name": "fileName",
+                        "name": "surfaceID",
                         "in": "path",
                         "required": true
                     }
@@ -146,7 +186,7 @@
                     {
                         "type": "string",
                         "description": "File ID",
-                        "name": "fileName",
+                        "name": "surfaceID",
                         "in": "path",
                         "required": true
                     }
