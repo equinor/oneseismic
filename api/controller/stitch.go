@@ -59,14 +59,13 @@ func StitchController(
 }
 
 // @Description post surface query to stitch
-// @Accept  application/octet-stream
 // @Produce  application/octet-stream
 // @Param   some_id     path    string     true        "Some ID"
 // @Success 200 {file} file	Ok
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 400 {object} controller.APIError "Surface id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
-// @Router /stitch/{maifest_id}/{surface_id} [post]
+// @Router /stitch/{maifest_id}/{surface_id} [get]
 func StitchControllerWithSurfaceID(
 	ms store.ManifestStore,
 	ss store.SurfaceStore,
@@ -88,10 +87,6 @@ func StitchControllerWithSurfaceID(
 		binary.LittleEndian.PutUint32(manLengthBuff, manLength)
 
 		surfaceID := ctx.Params().Get("surfaceID")
-		userID, ok := ctx.Values().Get("userID").(string)
-		if !ok || userID == "" {
-			userID = "seismic-cloud-api"
-		}
 		logger.Printf("Stitching: manifestID: %s, surfaceID: %s \n", manifestID, surfaceID)
 
 		reader, err := ss.Download(context.Background(), surfaceID)
@@ -101,12 +96,7 @@ func StitchControllerWithSurfaceID(
 			return
 		}
 
-		buf := &bytes.Buffer{}
-		nRead, err := io.Copy(buf, reader)
-		if err != nil {
-			logger.Println(err)
-		}
-		logger.Printf("Stitching: manifestLength: %d bytes, surfaceLength: %d bytes\n", manLength, nRead)
+		logger.Printf("Stitching: manifestLength: %d bytes", manLength)
 
 		si, err := stitcher.Stitch(
 			ctx.ResponseWriter(),

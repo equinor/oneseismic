@@ -5,3 +5,4 @@ build
 *.exe
 tmp
 api/api
+settings.json
