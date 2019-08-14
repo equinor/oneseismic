@@ -162,7 +162,7 @@ func (hs *HttpServer) registerEndpoints() {
 			hs.service.stitcher,
 			hs.logger))
 
-	hs.app.Post("/stitchsurface/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
+	hs.app.Get("/stitchsurface/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
 		controller.StitchControllerWithSurfaceID(
 			hs.service.manifestStore,
 			hs.service.surfaceStore,
