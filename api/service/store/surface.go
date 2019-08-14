@@ -126,7 +126,7 @@ func (local *SurfaceLocalStore) Download(ctx context.Context, fileName string) (
 func (az *SurfaceBlobStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
 	blobURL := az.containerURL.NewBlockBlobURL(blobNameGenerator(fn))
 
-	_, err := azblob.UploadStreamToBlockBlob(ctx, r, blobURL, azblob.UploadStreamToBlockBlobOptions{BufferSize: 20, MaxBuffers: 20})
+	_, err := azblob.UploadStreamToBlockBlob(ctx, r, blobURL, azblob.UploadStreamToBlockBlobOptions{BufferSize: 2 * 1024 * 1024, MaxBuffers: 100})
 	if err != nil {
 		return "", err
 	}
