@@ -27,5 +27,5 @@ WORKDIR /home/appuser
 
 EXPOSE 5000
 
-ENTRYPOINT ["nc","-lk","-p", "5000","-e"]
+ENTRYPOINT ["entrypoint.sh"]
 CMD ["cat"]
