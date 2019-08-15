@@ -22,7 +22,7 @@ RUN adduser -D -g '' appuser
 COPY --from=builder /build/stitch /bin/stitch
 USER appuser
 WORKDIR /home/appuser
-
+COPY entrypoint.sh /home/appuser/entrypoint.sh
 
 
 EXPOSE 5000
