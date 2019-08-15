@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 set -e
-echo "Running nc $@"
 
-exec "nc -lk -p 5000 -e $@"
+echo "yoyou"
+echo "Running nc on  $@"
+
+nc -lk -p 5000 -e "$@"
