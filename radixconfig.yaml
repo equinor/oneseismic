@@ -29,14 +29,13 @@ spec:
               memory: '128Mi'
               cpu: '200m'
         - environment: dev
-          replicas: 2
           monitoring: true
           resources:
             requests:
               memory: '64Mi'
               cpu: '100m'
             limits:
-              memory: '128Mi'
+              memory: '2048Mi'
               cpu: '200m'
     - name: api
       src: api
@@ -52,7 +51,7 @@ spec:
             HTTP_ONLY: true
             STITCH_CMD: /usr/bin/cat
             SWAGGER: true
-            ISSUER:  'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
+            ISSUER: 'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
         - environment: prod
           replicas: 2
           variables:
@@ -61,7 +60,7 @@ spec:
             HTTP_ONLY: true
             STITCH_ADDR: core:5000
             SWAGGER: true
-            ISSUER:  'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
+            ISSUER: 'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
       secrets:
         - MANIFEST_DB_URI
   dnsAppAlias:
