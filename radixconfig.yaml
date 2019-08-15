@@ -14,9 +14,8 @@ spec:
     - name: core
       src: core
       ports:
-        - name: http
-          port: 80
-      publicPort: http
+        - name: tcp
+          port: 5000
       environmentConfig:
         - environment: prod
           replicas: 2

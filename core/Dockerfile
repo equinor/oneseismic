@@ -14,15 +14,17 @@ RUN mkdir -p /build
 WORKDIR /build
 RUN cmake ../src -DBUILD_SHARED_LIBS=off -DCMAKE_BUILD_TYPE=Release
 RUN make
-RUN ls
+
 FROM alpine:latest as deploy
 RUN apk --no-cache add libc-dev g++ ca-certificates nmap-ncat
+COPY entrypoint.sh /usr/local/bin/
+RUN dos2unix /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 RUN adduser -D -g '' appuser
 COPY --from=builder /build/stitch /bin/stitch
 USER appuser
 WORKDIR /home/appuser
-COPY entrypoint.sh /home/appuser/entrypoint.sh
 
 
 EXPOSE 5000
