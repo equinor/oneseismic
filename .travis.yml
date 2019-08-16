@@ -8,19 +8,36 @@ addons:
   apt:
     packages:
       - libomp-dev
+      - libgflags-dev
+      - libgtest-dev
+      - pkg-config
+      - libtool
+      - autoconf
+      - build-essential
 
 install:
-    - git clone https://github.com/statoil/segyio
-    - pushd segyio
-    - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
-              -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF
-    - make
-    - sudo make install
-    - popd
+  - git clone https://github.com/statoil/segyio
+  - pushd segyio
+  - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
+    -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF
+  - make
+  - sudo make install
+  - popd
+  - git clone -b v1.22.1 https://github.com/grpc/grpc
+  - pushd grpc
+  - git submodule update --init
+  - make
+  - sudo make install
+  - pushd third_party/protobuf
+  - sudo make install
+  - popd
+  - popd
 
 script:
-    - mkdir build
-    - pushd build
-    - cmake ../core -DCMAKE_BUILD_TYPE=Release
-    - make
-    - ctest --output-on-failure
+  - protoc -I protos --grpc_out=core/core-server/proto --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` protos/core.proto
+  - protoc -I protos --cpp_out=core/core-server/proto protos/core.proto
+  - mkdir build
+  - pushd build
+  - cmake ../core -DCMAKE_BUILD_TYPE=Release
+  - make
+  - ctest --output-on-failure

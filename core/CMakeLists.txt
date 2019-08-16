@@ -13,6 +13,7 @@ add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
 find_package(segyio REQUIRED)
+find_package(PkgConfig REQUIRED)
 
 if (NOT MSVC)
     # openmp is pretty broken on MSVC with only super old versions. Accept the
@@ -103,6 +104,35 @@ target_link_libraries(check_shatters
     ${OpenMP_CXX_FLAGS}
 )
 target_compile_options(check_shatters
+    PRIVATE
+        ${OpenMP_CXX_FLAGS}
+)
+
+pkg_check_modules(GRPC REQUIRED protobuf grpc++)
+
+add_executable(server
+    core-server/server.cpp
+    core-server/proto/core.grpc.pb.cc
+    core-server/proto/core.pb.cc
+)
+target_link_libraries(server
+    seismic-cloud
+    clara
+    mio
+    ${GRPC_LIBRARIES}
+    ${OpenMP_EXE_LINKER_FLAGS}
+    ${OpenMP_CXX_FLAGS}
+)
+target_compile_definitions(server
+    PRIVATE
+        # cmake >= 3.9 uses OpenMP_<lang>_FOUND, but older cmake sets
+        # OPENMP_FOUND if the library is found and properly configured. We only
+        # set the preprocessor directive to only include the header on
+        # non-MSVC, so just set the same directive on both
+        $<$<BOOL:${OPENMP_FOUND}>:HAVE_OPENMP>
+        $<$<BOOL:${OpenMP_CXX_FOUND}>:HAVE_OPENMP>
+)
+target_compile_options(server
     PRIVATE
         ${OpenMP_CXX_FLAGS}
 )
