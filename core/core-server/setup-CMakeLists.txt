@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.5)
+project(js-core-server LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 11)
+
+find_package(PythonExtensions REQUIRED)
+find_package(seismic-cloud REQUIRED)
+
+add_library(mio INTERFACE)
+target_include_directories(mio INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/../external/mio)
+
+add_library(stitch MODULE server/stitch.cpp)
+target_include_directories(stitch
+    PRIVATE
+        ${PYBIND11_INCLUDE_DIRS}
+)
+python_extension_module(stitch)
+
+target_link_libraries(stitch seismic-cloud mio)
+
+install(TARGETS stitch LIBRARY DESTINATION stitch)

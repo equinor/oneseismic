@@ -6,6 +6,10 @@ include(CTest)
 include(GNUInstallDirs)
 include(TestBigEndian)
 
+# The libraries will be linked against from python extension module. This requires
+# position independent code.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_library(json INTERFACE)
 target_include_directories(json INTERFACE external/nlohmann)
 
@@ -49,12 +53,6 @@ target_include_directories(seismic-cloud
     PRIVATE
         include
 )
-target_compile_definitions(seismic-cloud
-    PUBLIC
-        # compile with parallel-enabled <algorithm> and <numeric>. could be
-        # made optional at some point, but for now just hard-code it
-        _GLIBCXX_PARALLEL
-)
 target_compile_options(seismic-cloud
     PUBLIC
         ${OpenMP_CXX_FLAGS}
@@ -64,6 +62,25 @@ target_link_libraries(seismic-cloud
         ${OpenMP_EXE_LINKER_FLAGS}
         ${OpenMP_CXX_FLAGS}
 )
+
+install(TARGETS seismic-cloud
+        EXPORT seismic-cloud-export
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(DIRECTORY include/ DESTINATION include)
+install(
+    EXPORT seismic-cloud-export
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/seismic-cloud/cmake
+    FILE seismic-cloud-config.cmake
+)
+export(
+    TARGETS seismic-cloud
+    FILE seismic-cloud-config.cmake
+)
+
+add_subdirectory(core-server)
 
 add_executable(generate src/generate.cpp)
 target_link_libraries(generate seismic-cloud json clara)
