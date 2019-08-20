@@ -18,7 +18,6 @@ func SetDefaults() {
 	viper.SetDefault("NO_AUTH", false)
 	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
 	viper.SetDefault("ISSUER", "")
-	viper.SetDefault("MANIFEST_PATH", "tmp/")
 	viper.SetDefault("HOST_ADDR", "localhost:8080")
 	viper.SetDefault("DOMAIN_LIST", "")
 	viper.SetDefault("DOMAIN_MAIL", "")
@@ -32,6 +31,14 @@ func SetDefaults() {
 	viper.SetDefault("LETSENCRYPT", false)
 	viper.SetDefault("PROFILING", false)
 	viper.SetDefault("SWAGGER", false)
+	viper.SetDefault("MANIFEST_PATH", "tmp/")
+	viper.SetDefault("MANIFEST_SRC", "db")
+	viper.SetDefault("MANIFEST_DB_URI", "mongodb://")
+	viper.SetDefault("AZURE_STORAGE_ACCOUNT", "")
+	viper.SetDefault("AZURE_STORAGE_ACCESS_KEY", "")
+	viper.SetDefault("AZURE_CONTAINER_NAME", "scblob")
+	viper.SetDefault("AZURE_STORAGE_URL", "https://%s.blob.core.windows.net/%s")
+	viper.SetDefault("LOCAL_SURFACE_PATH", "tmp/")
 }
 
 func Load() error {
@@ -86,6 +93,26 @@ func ManifestStoragePath() string {
 	return viper.GetString("MANIFEST_PATH")
 }
 
+func AzStorageAccount() string {
+	return viper.GetString("AZURE_STORAGE_ACCOUNT")
+}
+
+func AzStorageKey() string {
+	return viper.GetString("AZURE_STORAGE_ACCESS_KEY")
+}
+
+func AzStorageURL() string {
+	return viper.GetString("AZURE_STORAGE_URL")
+}
+
+func AzContainerName() string {
+	return viper.GetString("AZURE_CONTAINER_NAME")
+}
+
+func LocalSurfacePath() string {
+	return viper.GetString("LOCAL_SURFACE_PATH")
+}
+
 func HttpOnly() bool {
 	return viper.GetBool("HTTP_ONLY")
 }
@@ -126,4 +153,12 @@ func Profiling() bool {
 
 func Swagger() bool {
 	return viper.GetBool("SWAGGER")
+}
+
+func ManifestURI() string {
+	return viper.GetString("MANIFEST_DB_URI")
+}
+
+func ManifestSrc() string {
+	return viper.GetString("MANIFEST_SRC")
 }
