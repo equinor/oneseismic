@@ -48,7 +48,7 @@ spec:
             AUTHSERVER: 'https://login.microsoft.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0'
             HOST_ADDR: '0.0.0.0:8080'
             HTTP_ONLY: true
-            STITCH_CMD: /usr/bin/cat
+            STITCH_ADDR: core:5000
             SWAGGER: true
             ISSUER: 'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
             AZURE_STORAGE_ACCOUNT: "seismiccloud"
