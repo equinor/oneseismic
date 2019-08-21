@@ -22,6 +22,7 @@ steps:
       sudo make install
     displayName: 'Build segyio'
   - script: |
+      sudo pip install scikit-build pybind11
       mkdir build
       cd build
       cmake ../core -DCMAKE_BUILD_TYPE=Release

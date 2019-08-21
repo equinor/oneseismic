@@ -17,6 +17,7 @@ install:
     - make
     - sudo make install
     - popd
+    - sudo pip install scikit-build pybind11
 
 script:
     - mkdir build
