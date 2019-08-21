@@ -5,7 +5,7 @@ trigger:
 resources:
   containers:
     - container: b1
-      image: lambdaville/seismic-cloud-deps:latest
+      image: lambdaville/go-python:latest
 
 variables:
   GOBIN: '$(GOPATH)/bin'
@@ -42,9 +42,6 @@ jobs:
   - job: Build_API
     container: b1
     steps:
-      - task: GoTool@0
-        inputs:
-          version: '1.12.9'
       - script: |
           mkdir -p '$(GOBIN)'
           mkdir -p '$(GOPATH)/pkg'
@@ -57,6 +54,7 @@ jobs:
           go get github.com/axw/gocov/gocov
           go get github.com/AlekSi/gocov-xml
           go get github.com/matm/gocov-html
+          go get github.com/golang/protobuf/protoc-gen-go
         workingDirectory: /
         displayName: 'Set up Go env and build dependencies'
       - script: |
@@ -83,6 +81,11 @@ jobs:
           gocov-html < coverage.json > coverage/index.html
         workingDirectory: api
         displayName: 'Run unit test seismic-cloud-api'
+
+      - script: |
+          pytest integration.py
+        workingDirectory: api/tests
+        displayName: 'SC-API Integration tests'
 
       - script: |
           echo 'Deploy'
