@@ -16,7 +16,7 @@ os.environ["HOST_ADDR"] = "localhost:7020"
 
 def test_create_defaults():
     subprocess.call(["../api", "defaults", "--config", ".sc-api.yaml"])
-    assert os.path.exists('.sc-api.yml') == True
+    assert os.path.exists('.sc-api.yaml') == True
 
 
 def test_get_main_page():
