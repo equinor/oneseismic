@@ -7,7 +7,7 @@ import requests
 import subprocess
 
 subprocess.call(["../api", "defaults", "--config", ".sc-api.yaml"])
-os.environ["STITCH_CMD"] = "ls"
+os.environ["STITCH_CMD"] = "/usr/bin/cat"
 os.environ["MANIFEST_SRC"] = "path"
 # os.environ["MANIFEST_PATH"] = ""
 os.environ["NO_AUTH"] = "True"
