@@ -12,6 +12,13 @@ variables:
   GOPATH: '$(system.defaultWorkingDirectory)/gopath'
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
 jobs:
+  - job: Docker_build_CORE
+    steps:
+      - script: |
+          docker build --target builder -t test-core .
+          docker run test-core core-server -h
+        displayName: Build docker image
+        workingDirectory: core
   - job: Build_Core
     steps:
       - script: |
