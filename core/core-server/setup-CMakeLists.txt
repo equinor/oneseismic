@@ -18,4 +18,4 @@ python_extension_module(stitch)
 
 target_link_libraries(stitch seismic-cloud mio)
 
-install(TARGETS stitch LIBRARY DESTINATION stitch)
+install(TARGETS stitch LIBRARY DESTINATION server)

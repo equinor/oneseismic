@@ -4,7 +4,7 @@ import sys
 import time
 
 import grpc
-from stitch import stitch
+from . import stitch
 
 from .proto import core_pb2
 from .proto import core_pb2_grpc
