@@ -2,81 +2,100 @@ trigger:
   - master
   - release
 
-pool:
-  vmImage: 'Ubuntu-16.04'
+resources:
+  containers:
+    - container: b1
+      image: lambdaville/seismic-cloud-deps:latest
 
 variables:
-  GOBIN:  '$(GOPATH)/bin'
+  GOBIN: '$(GOPATH)/bin'
   GOPATH: '$(system.defaultWorkingDirectory)/gopath'
   modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
+jobs:
+  - job: Build_Core
+    steps:
+      - script: |
+          git clone https://github.com/equinor/segyio
+          mkdir -p segyio/build
+          cd segyio/build
+          cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
+          sudo make install
+        displayName: 'Build segyio'
+      - script: |
+          sudo pip install scikit-build pybind11
+          mkdir build
+          cd build
+          cmake ../core -DCMAKE_BUILD_TYPE=Release
+        displayName: 'Setup seismic-cloud'
 
-steps:
-  - task: GoTool@0
-    inputs:
-      version: '1.12.4'
-  - script: |
-      git clone https://github.com/equinor/segyio
-      mkdir -p segyio/build
-      cd segyio/build
-      cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
-      sudo make install
-    displayName: 'Build segyio'
-  - script: |
-      mkdir build
-      cd build
-      cmake ../core -DCMAKE_BUILD_TYPE=Release
-    displayName: 'Setup seismic-cloud'
+      - script: |
+          make
+        displayName: 'Build seismic-cloud'
 
-  - script: |
-      make
-    displayName: 'Build seismic-cloud'
+        workingDirectory: build
+      - script: |
+          ctest --output-on-failure
+        displayName: 'Test seismic-cloud'
 
-    workingDirectory: build
-  - script: |
-      ctest --output-on-failure
-    displayName: 'Test seismic-cloud'
+        workingDirectory: build
 
-    workingDirectory: build
-  - script: |
-      mkdir -p '$(GOBIN)'
-      mkdir -p '$(GOPATH)/pkg'
-      mkdir -p '$(modulePath)'
-      shopt -s extglob
-      echo '##vso[task.prependpath]$(GOBIN)'
-      echo "##vso[task.prependpath]$(GOROOT)/bin"
-      go get github.com/jstemmer/go-junit-report
-      go get github.com/axw/gocov/gocov
-      go get github.com/AlekSi/gocov-xml
-      go get github.com/matm/gocov-html
-    workingDirectory: /
-    displayName: 'Set up Go env'
+  - job: Build_API
+    container: b1
+    steps:
+      - task: GoTool@0
+        inputs:
+          version: '1.12.9'
+      - script: |
+          mkdir -p '$(GOBIN)'
+          mkdir -p '$(GOPATH)/pkg'
+          mkdir -p '$(modulePath)'
+          shopt -s extglob
+          echo '##vso[task.prependpath]$(GOBIN)'
+          echo "##vso[task.prependpath]$(GOROOT)/bin"
+          go get github.com/swaggo/swag/cmd/swag
+          go get github.com/jstemmer/go-junit-report
+          go get github.com/axw/gocov/gocov
+          go get github.com/AlekSi/gocov-xml
+          go get github.com/matm/gocov-html
+        workingDirectory: /
+        displayName: 'Set up Go env and build dependencies'
+      - script: |
+          protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
+        displayName: 'Generating grpc client stubs'
+        workingDirectory: api
+      - script: |
+          swag init
+        displayName: Generate docs
+        workingDirectory: api
+      - script: |
+          go mod download
+        displayName: 'Download modules'
+        workingDirectory: api
+      - script: |
+          go build
+        displayName: 'Build seismic-cloud-api'
+        workingDirectory: api
+      - script: |
+          go test -v -coverprofile=coverage.txt -covermode count ./... 2>&1 | go-junit-report > report.xml
+          gocov convert coverage.txt > coverage.json
+          gocov-xml < coverage.json > coverage.xml
+          mkdir -p coverage
+          gocov-html < coverage.json > coverage/index.html
+        workingDirectory: api
+        displayName: 'Run unit test seismic-cloud-api'
 
-  - script: |
-      go build
-    displayName: 'Build seismic-cloud-api'
+      - script: |
+          echo 'Deploy'
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
+        displayName: 'Deploy seismic-cloud'
 
-    workingDirectory: api
-  - script: |
-      go test -v -coverprofile=coverage.txt -covermode count ./... 2>&1 | go-junit-report > report.xml
-      gocov convert coverage.txt > coverage.json
-      gocov-xml < coverage.json > coverage.xml
-      mkdir -p coverage
-      gocov-html < coverage.json > coverage/index.html
-    workingDirectory: api
-    displayName: 'Run unit test seismic-cloud-api'
+      - task: PublishTestResults@2
+        inputs:
+          testRunner: JUnit
+          testResultsFiles: $(System.DefaultWorkingDirectory)/**/report.xml
 
-  - script: |
-      echo 'Deploy'
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
-    displayName: 'Deploy seismic-cloud'
-
-  - task: PublishTestResults@2
-    inputs:
-      testRunner: JUnit
-      testResultsFiles: $(System.DefaultWorkingDirectory)/**/report.xml
-
-  - task: PublishCodeCoverageResults@1
-    inputs:
-      codeCoverageTool: Cobertura
-      summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
-      reportDirectory: $(System.DefaultWorkingDirectory)/**/coverage
+      - task: PublishCodeCoverageResults@1
+        inputs:
+          codeCoverageTool: Cobertura
+          summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
+          reportDirectory: $(System.DefaultWorkingDirectory)/**/coverage

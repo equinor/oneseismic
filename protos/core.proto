@@ -1,0 +1,32 @@
+syntax = "proto3";
+package seismic_core;
+
+// The seismic core service definition.
+service Core {
+  rpc ShatterLink (ShatterLinkRequest) returns (ShatterReply) {}
+  rpc StitchSurface (SurfaceRequest) returns (SurfaceReply) {}
+}
+
+message  SurfaceRequest {
+    string surface    = 1;
+    string basename   = 2;
+    int32  cubexs     = 3;
+    int32  cubeys     = 4;
+    int32  cubezs     = 5;
+    int32  fragmentxs = 6;
+    int32  fragmentys = 7;
+    int32  fragmentzs = 8;
+}
+
+message  SurfaceReply {
+    repeated int64 i = 1;
+    repeated float v = 2;
+}
+
+message ShatterLinkRequest {
+    string link = 1;
+}
+
+message ShatterReply {
+    string link = 1;
+}
