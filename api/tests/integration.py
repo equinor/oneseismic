@@ -17,6 +17,11 @@ os.environ["HOST_ADDR"] = "localhost:7020"
 def test_create_defaults():
     subprocess.call(["../api", "defaults", "--config", ".sc-api.yaml"])
     assert os.path.exists('.sc-api.yaml') == True
+    with open('.sc-api.yaml') as f:
+        config = f.read()
+        assert 'authserver: http://oauth2.example.com' in config
+        assert 'tls: false' in config
+        assert 'issuer: ""\n' in config
 
 
 def test_get_main_page():
@@ -43,5 +48,6 @@ def test_post():
 
 
 if __name__ == "__main__":
+    test_create_defaults()
     test_get_main_page()
     test_post()
