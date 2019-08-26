@@ -1,7 +1,7 @@
 FROM alpine:edge as builder
 
 RUN apk --no-cache add cmake clang \
-    clang-dev make gcc g++ libc-dev linux-headers git nmap-ncat python py-pip python-dev
+    clang-dev make gcc g++ libc-dev linux-headers git nmap-ncat python3 py3-pip python3-dev
 
 RUN git clone https://github.com/statoil/segyio
 WORKDIR /segyio
@@ -10,8 +10,8 @@ RUN make
 RUN make install
 
 COPY . /src
-ENV PYTHONPATH /usr/local/lib/python2.7/site-packages/
-RUN python -m  pip install scikit-build pybind11 grpcio
+# ENV PYTHONPATH /usr/local/lib/python2.7/site-packages/
+RUN python3 -m  pip install scikit-build pybind11 grpcio
 RUN mkdir -p /build
 WORKDIR /build
 RUN cmake ../src -DBUILD_SHARED_LIBS=off -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
