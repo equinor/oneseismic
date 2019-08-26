@@ -29,6 +29,8 @@ type (
 	}
 	SurfaceBlobStore struct {
 		containerURL *azblob.ContainerURL
+		bufferSize   int
+		maxBuffers   int
 	}
 	SurfaceLocalStore struct {
 		localPath string
@@ -52,7 +54,9 @@ func NewAzBlobStorage(accountName, accountKey, containerName string) (*SurfaceBl
 	}
 	containerURL := azblob.NewContainerURL(*u, p)
 
-	return &SurfaceBlobStore{containerURL: &containerURL}, nil
+	return &SurfaceBlobStore{containerURL: &containerURL,
+		bufferSize: 2 * 1024 * 1024,
+		maxBuffers: 100}, nil
 }
 
 func NewLocalStorage(localPath string) (*SurfaceLocalStore, error) {
@@ -109,6 +113,7 @@ func (az *SurfaceBlobStore) Download(ctx context.Context, fileName string) (io.R
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Download: surfaceLength: %d bytes\n", downloadResponse.ContentLength())
 	retryReader := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
 
 	return retryReader, nil
@@ -126,7 +131,7 @@ func (local *SurfaceLocalStore) Download(ctx context.Context, fileName string) (
 func (az *SurfaceBlobStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
 	blobURL := az.containerURL.NewBlockBlobURL(blobNameGenerator(fn))
 
-	_, err := azblob.UploadStreamToBlockBlob(ctx, r, blobURL, azblob.UploadStreamToBlockBlobOptions{BufferSize: 20, MaxBuffers: 20})
+	_, err := azblob.UploadStreamToBlockBlob(ctx, r, blobURL, azblob.UploadStreamToBlockBlobOptions{BufferSize: az.bufferSize, MaxBuffers: az.maxBuffers})
 	if err != nil {
 		return "", err
 	}

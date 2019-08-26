@@ -41,11 +41,17 @@ add_custom_target(
 
 add_dependencies(core-server seismic-cloud)
 
+# If a cmake install prefix is set, the python module should be installed to
+# this path.
+if(CMAKE_INSTALL_PREFIX)
+    set(prefix --prefix=${CMAKE_INSTALL_PREFIX} --root=/)
+endif()
+
 install(CODE "
     execute_process(
         COMMAND ${PYTHON_EXECUTABLE} ${setup.py}
             install
-                --prefix=${CMAKE_INSTALL_PREFIX}
+                ${prefix}
                 --cmake-executable \"${CMAKE_COMMAND}\"
                 --generator \"${CMAKE_GENERATOR}\"
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

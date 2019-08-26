@@ -60,6 +60,32 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+  /stitch/{maifest_id}/{surface_id}:
+    post:
+      consumes:
+      - application/octet-stream
+      description: post surface query to stitch
+      parameters:
+      - description: Some ID
+        in: path
+        name: some_id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Surface id not found
+          schema:
+            $ref: '#/definitions/controller.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.APIError'
   /surface/:
     get:
       description: get list of available surfaces
@@ -74,13 +100,13 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-  /surface/{fileName}:
+  /surface/{surfaceID}:
     get:
       description: get surface file
       parameters:
       - description: File ID
         in: path
-        name: fileName
+        name: surfaceID
         required: true
         type: string
       produces:
@@ -101,7 +127,7 @@ paths:
       parameters:
       - description: File ID
         in: path
-        name: fileName
+        name: surfaceID
         required: true
         type: string
       produces:
