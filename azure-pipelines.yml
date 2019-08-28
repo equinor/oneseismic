@@ -105,8 +105,11 @@ jobs:
     steps:
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: '3.6'
+          versionSpec: '3.7'
       - script: |
+          sudo apt-get -y install libpython3.7-dev
+          which python
+          python --version
           python -m pip install --upgrade pip
           pip install pytest pytest-azurepipelines requests
           pytest integration.py
