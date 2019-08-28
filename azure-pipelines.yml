@@ -99,3 +99,16 @@ jobs:
           codeCoverageTool: Cobertura
           summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
           reportDirectory: $(System.DefaultWorkingDirectory)/**/coverage
+
+  - job: API_integrationtests
+    container: b1
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.6'
+      - script: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-azurepipelines requests
+          pytest integration.py
+        workingDirectory: api/tests
+        displayName: 'SC-API Integration tests'
