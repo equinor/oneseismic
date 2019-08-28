@@ -100,16 +100,14 @@ jobs:
           summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
           reportDirectory: $(System.DefaultWorkingDirectory)/**/coverage
 
-  - job: API_integrationtests
+  - job: API_Integration
     container: b1
     steps:
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.7'
       - script: |
-          sudo apt-get -y install libpython3.7-dev
-          which python
-          python --version
+          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libpython3.7m.so.1.0:$LD_LIBRARY_PATH
           python -m pip install --upgrade pip
           pip install pytest pytest-azurepipelines requests
           pytest integration.py
