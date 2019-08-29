@@ -49,12 +49,6 @@ jobs:
           shopt -s extglob
           echo '##vso[task.prependpath]$(GOBIN)'
           echo "##vso[task.prependpath]$(GOROOT)/bin"
-          go get github.com/swaggo/swag/cmd/swag
-          go get github.com/jstemmer/go-junit-report
-          go get github.com/axw/gocov/gocov
-          go get github.com/AlekSi/gocov-xml
-          go get github.com/matm/gocov-html
-          go get github.com/golang/protobuf/protoc-gen-go
         workingDirectory: /
         displayName: 'Set up Go env and build dependencies'
       - script: |
