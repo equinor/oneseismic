@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
-	"log"
 	"strings"
 
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris"
@@ -23,17 +24,20 @@ import (
 // @Router /stitch/{maifest_id} [post]
 func StitchController(
 	ms store.ManifestStore,
-	stitcher service.Stitcher,
-	logger *log.Logger) func(ctx iris.Context) {
-
+	stitcher service.Stitcher) func(ctx iris.Context) {
+	op := "stich.file"
 	return func(ctx iris.Context) {
 		manifestID := ctx.Params().Get("manifestID")
-		logger.Printf("Stitching: manifest: %s, surface: %d bytes\n", manifestID, ctx.Request().ContentLength)
 
+		l.LogI(op,
+			fmt.Sprintf("Stitching: manifest: %s, surface: %d bytes\n",
+				manifestID,
+				ctx.Request().ContentLength))
 		manifest, err := ms.Fetch(manifestID)
 		if err != nil {
 			ctx.StatusCode(404)
-			logger.Println("Manifest fetch failed:", err)
+
+			l.LogE(op, "Manifest fetch failed", err)
 			return
 		}
 
@@ -50,11 +54,11 @@ func StitchController(
 				ctx.Request().Body))
 		if err != nil {
 			ctx.StatusCode(500)
-			logger.Println("Stitch error:", err)
+
+			l.LogE(op, "Stitch error", err)
 		}
 
 		ctx.Values().SetImmutable("StitchInfo", si)
-
 	}
 }
 
@@ -69,16 +73,15 @@ func StitchController(
 func StitchControllerWithSurfaceID(
 	ms store.ManifestStore,
 	ss store.SurfaceStore,
-	stitcher service.Stitcher,
-	logger *log.Logger) func(ctx iris.Context) {
-
+	stitcher service.Stitcher) func(ctx iris.Context) {
+	op := "stitch.surfaceid"
 	return func(ctx iris.Context) {
 		manifestID := ctx.Params().Get("manifestID")
 
 		manifest, err := ms.Fetch(manifestID)
 		if err != nil {
 			ctx.StatusCode(404)
-			logger.Println("Manifest fetch failed:", err)
+			l.LogE(op, "Manifest fetch failed", err)
 			return
 		}
 
@@ -87,16 +90,17 @@ func StitchControllerWithSurfaceID(
 		binary.LittleEndian.PutUint32(manLengthBuff, manLength)
 
 		surfaceID := ctx.Params().Get("surfaceID")
-		logger.Printf("Stitching: manifestID: %s, surfaceID: %s \n", manifestID, surfaceID)
+		l.LogI(op, fmt.Sprintf("Stitching: manifest: %s, surfaceID: %s \n",
+			manifestID,
+			surfaceID))
 
 		reader, err := ss.Download(context.Background(), surfaceID)
 		if err != nil {
 			ctx.StatusCode(404)
-			logger.Println("Surface download failed: ", err)
 			return
 		}
 
-		logger.Printf("Stitching: manifestLength: %d bytes", manLength)
+		l.LogI(op, fmt.Sprintf("Stitching: manifestLength: %d bytes", manLength))
 
 		si, err := stitcher.Stitch(
 			ctx.ResponseWriter(),
@@ -107,7 +111,7 @@ func StitchControllerWithSurfaceID(
 				reader))
 		if err != nil {
 			ctx.StatusCode(500)
-			logger.Println("Stitch error:", err)
+			l.LogE(op, "Core stitch failed", err)
 		}
 
 		ctx.Values().SetImmutable("StitchInfo", si)

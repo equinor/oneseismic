@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	l "github.com/equinor/seismic-cloud/api/logger"
 )
 
 type Stitcher interface {
@@ -35,7 +37,7 @@ func NewExecStitch(cmdArgs []string, profile bool) (*ExecStitch, error) {
 }
 
 func (es *ExecStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
-
+	op := "execStitch.stitch"
 	var e *exec.Cmd
 	var pBuf *bytes.Buffer
 
@@ -55,7 +57,7 @@ func (es *ExecStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 			defer os.Remove(pr.Name())
 
 			if _, err := io.Copy(pBuf, pr); err != nil {
-				fmt.Printf("Profiling stitch failed: %v\n", err)
+				l.LogE(op, "Profiling stitch failed", err)
 			}
 		}()
 	} else {

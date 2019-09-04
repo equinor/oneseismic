@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/equinor/seismic-cloud/api/events"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/context"
 )
@@ -45,7 +46,7 @@ func (es EchoStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 }
 
 func TestStitch(t *testing.T) {
-
+	l.SetLogSink(os.Stdout, events.DebugLevel)
 	echoCtx := context.NewContext(nil)
 	have :=
 		`VLiFrhfjz7O5Zt1VD0Wd
@@ -66,10 +67,10 @@ func TestStitch(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
 	echoWriter := NewMockWriter(buf)
 	echoCtx.BeginRequest(echoWriter, echoReq)
+	echoCtx.Params().Set("manifestID", "12345")
 	echoStitch := StitchController(
 		new(MockManifestStore),
-		EchoStitch("Echo Stitch"),
-		log.New(os.Stdout, "MockLog", log.Ldate))
+		EchoStitch("Echo Stitch"))
 	type args struct {
 		ctx iris.Context
 	}

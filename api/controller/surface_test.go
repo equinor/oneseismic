@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -49,7 +47,7 @@ func (*MockSurfaceStore) Upload(gocontext.Context, string, string, io.Reader) (s
 func TestSurfaceControllerUpload(t *testing.T) {
 
 	store := &MockSurfaceStore{}
-	c := NewSurfaceController(store, log.New(os.Stdout, "MockLog", log.Ldate))
+	c := NewSurfaceController(store)
 
 	tests := []struct {
 		name          string
@@ -102,7 +100,7 @@ func TestSurfaceControllerUpload(t *testing.T) {
 func TestSurfaceControllerList(t *testing.T) {
 
 	mockstore := &MockSurfaceStore{}
-	c := NewSurfaceController(mockstore, log.New(os.Stdout, "MockLog", log.Ldate))
+	c := NewSurfaceController(mockstore)
 
 	tests := []struct {
 		name         string
@@ -147,7 +145,7 @@ func TestSurfaceControllerList(t *testing.T) {
 func TestSurfaceControllerDownload(t *testing.T) {
 
 	store := &MockSurfaceStore{}
-	c := NewSurfaceController(store, log.New(os.Stdout, "MockLog", log.Ldate))
+	c := NewSurfaceController(store)
 
 	tests := []struct {
 		name          string
