@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
+
+	l "github.com/equinor/seismic-cloud/api/logger"
 
 	"github.com/equinor/seismic-cloud/api/config"
 
@@ -21,7 +22,7 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		l.LogE("root.Execute", "", err)
 		os.Exit(1)
 	}
 }
@@ -37,24 +38,20 @@ func initConfig() {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-
 		wd, err := os.Getwd()
 		if err != nil {
-			fmt.Println(err)
+			l.LogE("root.initConfig", "Open working dir", err)
 			os.Exit(1)
 		}
-
 		viper.AddConfigPath(wd)
 		viper.SetConfigName(".sc-api")
 	}
 	config.SetDefaults()
 	viper.AutomaticEnv()
-
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		l.LogI("root.initConfig", "Using config file")
 	}
 	if err := config.Load(); err == nil {
-		fmt.Println("Config loaded and validated:", viper.ConfigFileUsed())
+		l.LogI("root.initConfig", "Config loaded and validated "+viper.ConfigFileUsed())
 	}
-
 }

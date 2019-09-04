@@ -2,22 +2,22 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"log"
 	"net/http"
 
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris"
 )
 
 type SurfaceController struct {
-	ss     store.SurfaceStore
-	logger *log.Logger
+	ss store.SurfaceStore
 }
 
-func NewSurfaceController(ss store.SurfaceStore, l *log.Logger) *SurfaceController {
+func NewSurfaceController(ss store.SurfaceStore) *SurfaceController {
 
-	return &SurfaceController{ss: ss, logger: l}
+	return &SurfaceController{ss: ss}
 }
 
 // @Description get list of available surfaces
@@ -26,11 +26,12 @@ func NewSurfaceController(ss store.SurfaceStore, l *log.Logger) *SurfaceControll
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @Router /surface/ [get]
 func (ssc *SurfaceController) List(ctx iris.Context) {
+	op := "surface.list"
 	bgctx := context.Background()
 	info, err := ssc.ss.List(bgctx)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
-		ssc.logger.Println("Files can't be listed", err)
+		l.LogE(op, "Files can't be listed", err)
 		return
 	}
 	ctx.JSON(info)
@@ -43,12 +44,13 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @Router /surface/{surfaceID} [get]
 func (ssc *SurfaceController) Download(ctx iris.Context) {
+	op := "surface.download"
 	surfaceID := ctx.Params().Get("surfaceID")
 	bgctx := context.Background()
 	reader, err := ssc.ss.Download(bgctx, surfaceID)
 	if err != nil {
 		ctx.StatusCode(404)
-		ssc.logger.Printf("Could not read file: %s\n%s", surfaceID, err)
+		l.LogE(op, fmt.Sprintf("Could not download surface: %s", surfaceID), err)
 		return
 	}
 
@@ -56,7 +58,8 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 
 	_, err = io.Copy(ctx.ResponseWriter(), reader)
 	if err != nil {
-		ssc.logger.Println("Error: ", err)
+
+		l.LogE(op, fmt.Sprintf("Error writing to response, surfaceID %s", surfaceID), err)
 		return
 	}
 }
@@ -70,18 +73,21 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 // @Router /surface/{surfaceID} [post]
 func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	userID, ok := ctx.Values().Get("userID").(string)
+
 	if !ok || userID == "" {
 		userID = "seismic-cloud-api"
 	}
+
+	surfaceID := ctx.Params().Get("surfaceID")
+
 	reader := ctx.Request().Body
 
 	bgctx := context.Background()
-	blobURL, err := ssc.ss.Upload(bgctx, ctx.Params().Get("surfaceID"), userID, reader)
+	blobURL, err := ssc.ss.Upload(bgctx, surfaceID, userID, reader)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
-		ssc.logger.Println("Could not upload file: ", err)
+		l.LogE("surface.upload", fmt.Sprintf("Could not upload surface: %s", surfaceID), err)
 		return
 	}
-
 	ctx.JSON(blobURL)
 }
