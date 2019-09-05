@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/equinor/seismic-cloud/api/config"
+	"github.com/equinor/seismic-cloud/api/errors"
+	"github.com/equinor/seismic-cloud/api/service"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -40,7 +43,7 @@ func initConfig() {
 
 		wd, err := os.Getwd()
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			os.Exit(1)
 		}
 
@@ -51,10 +54,11 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		log.Println("Using config file:", viper.ConfigFileUsed())
 	}
 	if err := config.Load(); err == nil {
-		fmt.Println("Config loaded and validated:", viper.ConfigFileUsed())
+		log.Println("Config loaded and validated:", viper.ConfigFileUsed())
 	}
+	service.Log(errors.E(errors.Op("Foo"), fmt.Errorf("something something")))
 
 }

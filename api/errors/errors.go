@@ -2,6 +2,7 @@ package errors
 
 import (
 	"bytes"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,15 @@ const (
 	NotExists
 )
 
+func (ek ErrorKind) String() string {
+	switch ek {
+	case NotExists:
+		return "item doesn't exist"
+	default:
+		return "Unknown error kind"
+	}
+}
+
 type Severity int
 
 const (
@@ -34,15 +44,23 @@ const (
 	InfoLevel
 	WarnLevel
 	ErrorLevel
-	PanicLevel
+	CriticalLevel
 )
 
-func (ek ErrorKind) String() string {
-	switch ek {
-	case NotExists:
-		return "item doesn't exist"
+func (s Severity) String() string {
+	switch s {
+	case DebugLevel:
+		return "DEBG"
+	case InfoLevel:
+		return "INFO"
+	case WarnLevel:
+		return "WARN"
+	case ErrorLevel:
+		return "ERRO"
+	case CriticalLevel:
+		return "CRIT"
 	default:
-		return "Unknown error kind"
+		return "UNKN"
 	}
 }
 
@@ -97,8 +115,34 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
-func E(args ...interface{}) error {
-	e := &Error{When: time.Now()}
+func ParseLevel(s string) Severity {
+	if len(s) == 0 {
+		return DebugLevel
+	}
+	s = strings.ToUpper(s)
+	f := s[0]
+	switch f {
+	case 'D':
+	case 'T':
+		return DebugLevel
+	case 'I':
+	case 'L':
+		return InfoLevel
+	case 'W':
+		return WarnLevel
+	case 'E':
+		return ErrorLevel
+	case 'C':
+	case 'F':
+		return CriticalLevel
+	default:
+		return DebugLevel
+	}
+	return DebugLevel
+}
+
+func E(args ...interface{}) *Error {
+	e := &Error{When: time.Now().UTC()}
 	for _, arg := range args {
 		switch arg := arg.(type) {
 		case Op:
@@ -107,6 +151,8 @@ func E(args ...interface{}) error {
 			e.Err = arg
 		case ErrorKind:
 			e.Kind = arg
+		case Severity:
+			e.Level = arg
 		default:
 			panic("bad call to E")
 		}
