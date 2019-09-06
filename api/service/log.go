@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kataras/golog"
+
 	"github.com/equinor/seismic-cloud/api/errors"
 )
 
@@ -71,6 +73,37 @@ func WrapLogger(loggerName string, output func(io.Writer)) {
 	}()
 
 	output(pw)
+}
+
+func WrapIrisLogger(output func(io.Writer) *golog.Logger) {
+	pr, pw := io.Pipe()
+	br := bufio.NewReader(pr)
+
+	go func() {
+		for {
+
+			s, err := br.ReadString('\n')
+			if err != nil {
+				panic(err)
+			}
+			s = strings.TrimRight(s, "\n")
+			var level string
+			var year, month, day, hour, minute, second int
+
+			fmt.Sscanf(s, "[%s] %d/%d/%d %d:%d:%d", &level, &year, &month, &day, &hour, &minute, &second)
+			s = s[len(level)+1+4+1+1+3+3+3+3+3+3:]
+
+			sev := errors.ParseLevel(level)
+
+			nErr := errors.E(errors.Op("iris.log"), sev, fmt.Errorf("%s", s))
+			nErr.When = time.Now().UTC()
+
+			Log(nErr)
+		}
+	}()
+
+	output(pw)
+
 }
 
 type fileLogger struct {

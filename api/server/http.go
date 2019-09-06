@@ -2,9 +2,7 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net/url"
-	"os"
 	"regexp"
 
 	"github.com/equinor/seismic-cloud/api/controller"
@@ -47,7 +45,6 @@ const (
 )
 
 type HttpServer struct {
-	logger      *log.Logger
 	service     ApiService
 	stitchCmd   []string
 	app         *iris.Application
@@ -73,9 +70,12 @@ type HttpServerOption interface {
 }
 
 func DefaultHttpServer() *HttpServer {
+
+	app := iris.Default()
+	app.Logger().SetPrefix("iris: ")
+	service.WrapIrisLogger(app.Logger().SetOutput)
 	return &HttpServer{
-		logger:   log.New(os.Stdout, "seismic-api", log.Lshortfile),
-		app:      iris.Default(),
+		app:      app,
 		hostAddr: "localhost:8080"}
 }
 
@@ -147,7 +147,7 @@ func (hs *HttpServer) registerMacros() {
 
 func (hs *HttpServer) registerEndpoints() {
 
-	sc := controller.NewSurfaceController(hs.service.surfaceStore, hs.logger)
+	sc := controller.NewSurfaceController(hs.service.surfaceStore)
 
 	hs.app.Post("/surface/{surfaceID:string idString() else 502}", sc.Upload)
 	hs.app.Get("/surface/{surfaceID:string idString() else 502}", sc.Download)
@@ -159,15 +159,13 @@ func (hs *HttpServer) registerEndpoints() {
 	hs.app.Post("/stitch/{manifestID:string idString() else 502}",
 		controller.StitchController(
 			hs.service.manifestStore,
-			hs.service.stitcher,
-			hs.logger))
+			hs.service.stitcher))
 
 	hs.app.Get("/stitchsurface/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
 		controller.StitchControllerWithSurfaceID(
 			hs.service.manifestStore,
 			hs.service.surfaceStore,
-			hs.service.stitcher,
-			hs.logger))
+			hs.service.stitcher))
 
 }
 
