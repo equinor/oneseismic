@@ -5,7 +5,7 @@ trigger:
 resources:
   containers:
     - container: b1
-      image: lambdaville/go-python:alpine
+      image: lambdaville/go-python:latest
 
 variables:
   GOBIN: '$(GOPATH)/bin'
