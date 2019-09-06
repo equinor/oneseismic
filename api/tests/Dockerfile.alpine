@@ -3,6 +3,7 @@ FROM golang:1.12-alpine
 RUN apk add --no-cache python3
 RUN apk add --no-cache git
 RUN apk add --no-cache protobuf
+RUN apk add --no-cache bash
 RUN pip3 install pytest pytest-azurepipelines requests
 
 RUN go get github.com/jstemmer/go-junit-report
