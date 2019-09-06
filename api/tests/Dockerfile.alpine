@@ -12,3 +12,7 @@ RUN go get github.com/AlekSi/gocov-xml
 RUN go get github.com/matm/gocov-html
 RUN go get github.com/swaggo/swag/cmd/swag
 RUN go get github.com/golang/protobuf/protoc-gen-go
+
+SHELL ["/bin/bash", "-c"]
+
+CMD top
