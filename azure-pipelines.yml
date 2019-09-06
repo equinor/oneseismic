@@ -60,10 +60,6 @@ jobs:
         displayName: Generate docs
         workingDirectory: api
       - script: |
-          go mod download
-        displayName: 'Download modules'
-        workingDirectory: api
-      - script: |
           go build
         displayName: 'Build seismic-cloud-api'
         workingDirectory: api
