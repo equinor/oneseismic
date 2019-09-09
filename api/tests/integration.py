@@ -27,6 +27,7 @@ def test_create_defaults():
 def test_get_main_page():
     p = subprocess.Popen(
         ["../api serve --config .sc-api.yaml"], shell=True)
+    sleep(0.5)
     r = requests.get('http://localhost:7020/')
     p.kill()
     assert r.status_code == 200
