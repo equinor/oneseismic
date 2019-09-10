@@ -25,21 +25,15 @@ def test_create_defaults():
         assert 'issuer: ""\n' in config
 
 
-def test_get_main_page():
+def test_get_post():
     p = subprocess.Popen(
         ["../api serve --config .sc-api.yaml"], shell=True)
     sleep(0.5)
     r = requests.get('http://localhost:7020/')
-    p.kill()
     assert r.status_code == 200
 
-
-def test_post():
     with open("sample.manifest", "w") as f:
         f.write("my_manifest\n")
-
-    p = subprocess.Popen(
-        ["../api serve --config .sc-api.yaml"], shell=True)
     r = requests.post('http://localhost:7020/stitch/sample',
                       data={'please': 'return'})
     p.kill()
@@ -48,5 +42,4 @@ def test_post():
 
 if __name__ == "__main__":
     test_create_defaults()
-    test_get_main_page()
-    test_post()
+    test_get_post()
