@@ -24,15 +24,14 @@ var innerLogger logger
 
 func DbOpener() (*sql.DB, error) {
 	db, err := sql.Open("postgres", config.LogDBConnStr())
-	// db, err := sql.Open("postgres", "postgresql://seismic-cloud.postgres.database.azure.com:5432/postgres?user=sc@seismic-cloud&password=Lambdaville123&sslmode=disable")
 	if err != nil {
 		return nil, err
 	}
 	rows, err := db.Query("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'log'")
-	// defer rows.Close()
 	if err != nil || rows == nil {
 		return nil, err
 	}
+	defer rows.Close()
 	return db, nil
 }
 
@@ -72,17 +71,18 @@ func WrapLogger(loggerName string, output func(io.Writer)) {
 				fmt.Sscanf(s, "%s %d/%d/%d %d:%d:%d", &level, &year, &month, &day, &hour, &minute, &second)
 				s = s[len(level)+21:]
 			} else {
-				level = "INFO"
-				fmt.Sscanf(s, "%d/%d/%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second)
-				s = s[20:]
+				fmt.Sscanf(s, "%s %d/%d/%d %d:%d:%d", &level, &year, &month, &day, &hour, &minute, &second)
+				s = s[27:]
 			}
 			sev := errors.ParseLevel(level)
 
 			nErr := errors.E(errors.Op(loggerName), sev, fmt.Errorf("%s", s))
-			nErr.When = time.Date(
+			logtime := time.Date(
 				year,
 				time.Month(month),
-				day, hour, minute, second, 0, time.UTC)
+				day, hour, minute, second, 0,
+				time.FixedZone(time.Now().Zone()))
+			nErr.When = logtime.UTC()
 
 			Log(nErr)
 		}
@@ -103,13 +103,7 @@ func WrapIrisLogger(output func(io.Writer) *golog.Logger) {
 				panic(err)
 			}
 			s = strings.TrimRight(s, "\n")
-			var level string
-			var year, month, day, hour, minute, second int
-
-			fmt.Sscanf(s, "[%s] %d/%d/%d %d:%d:%d", &level, &year, &month, &day, &hour, &minute, &second)
-			s = s[len(level)+1+4+1+1+3+3+3+3+3+3:]
-
-			sev := errors.ParseLevel(level)
+			sev := errors.InfoLevel
 
 			nErr := errors.E(errors.Op("iris.log"), sev, fmt.Errorf("%s", s))
 			nErr.When = time.Now().UTC()

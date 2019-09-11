@@ -122,6 +122,9 @@ func ParseLevel(s string) Severity {
 	}
 	s = strings.ToUpper(s)
 	f := s[0]
+	if f == '[' {
+		f = s[1]
+	}
 	switch f {
 	case 'D':
 	case 'T':

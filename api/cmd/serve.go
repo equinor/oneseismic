@@ -25,19 +25,17 @@ var serveCmd = &cobra.Command{
 }
 
 func runServe(cmd *cobra.Command, args []string) {
-
 	if viper.ConfigFileUsed() == "" {
 		jww.ERROR.Println("Config from environment variables")
 	} else {
 		jww.INFO.Println("Using config file:", viper.ConfigFileUsed())
 	}
 
+	log.Println("Switch log sink from os.Stdout to psqlDB")
 	db, err := service.DbOpener()
 	if err != nil {
 		panic(fmt.Errorf("Unable to connect to log db: %v", err))
 	}
-	log.Println(fmt.Sprintf("Switching logsink from standard out to DB: %s", "asd"))
-	// service.Log(errors.E(errors.Op("Foo"), fmt.Errorf("something something")))
 	service.SetLogSink(db, errors.DebugLevel)
 
 	opts := make([]server.HttpServerOption, 0)
