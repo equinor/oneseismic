@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/equinor/seismic-cloud/api/errors"
 	"github.com/equinor/seismic-cloud/api/service"
 
 	"github.com/equinor/seismic-cloud/api/config"
@@ -29,6 +31,14 @@ func runServe(cmd *cobra.Command, args []string) {
 	} else {
 		jww.INFO.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
+	db, err := service.DbOpener()
+	if err != nil {
+		panic(fmt.Errorf("Unable to connect to log db: %v", err))
+	}
+	log.Println(fmt.Sprintf("Switching logsink from standard out to DB: %s", "asd"))
+	// service.Log(errors.E(errors.Op("Foo"), fmt.Errorf("something something")))
+	service.SetLogSink(db, errors.DebugLevel)
 
 	opts := make([]server.HttpServerOption, 0)
 

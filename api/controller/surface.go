@@ -89,8 +89,8 @@ func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	blobURL, err := ssc.ss.Upload(bgctx, surfaceID, userID, reader)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
-
-		service.Log(errors.E(op, "Could not upload file: ", surfaceID, errors.ErrorLevel, err))
+		message := "Could not upload file: " + surfaceID
+		service.Log(errors.E(op, message, errors.ErrorLevel, err))
 
 		return
 	}

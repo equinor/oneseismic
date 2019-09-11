@@ -39,6 +39,7 @@ func SetDefaults() {
 	viper.SetDefault("AZURE_CONTAINER_NAME", "scblob")
 	viper.SetDefault("AZURE_STORAGE_URL", "https://%s.blob.core.windows.net/%s")
 	viper.SetDefault("LOCAL_SURFACE_PATH", "tmp/")
+	viper.SetDefault("LOGDB_CONNSTR", "postgresql://localhost:5432/postgres?user={username}&password={password}&sslmode=require")
 }
 
 func Load() error {
@@ -161,4 +162,8 @@ func ManifestURI() string {
 
 func ManifestSrc() string {
 	return viper.GetString("MANIFEST_SRC")
+}
+
+func LogDBConnStr() string {
+	return viper.GetString("LOGDB_CONNSTR")
 }

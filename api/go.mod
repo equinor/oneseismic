@@ -43,6 +43,7 @@ require (
 	github.com/kataras/pio v0.0.0-20190103105442-ea782b38602d // indirect
 	github.com/klauspost/compress v1.8.2 // indirect
 	github.com/klauspost/cpuid v1.2.1 // indirect
+	github.com/lib/pq v1.2.0
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect

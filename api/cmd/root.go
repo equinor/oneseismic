@@ -6,8 +6,6 @@ import (
 	"os"
 
 	"github.com/equinor/seismic-cloud/api/config"
-	"github.com/equinor/seismic-cloud/api/errors"
-	"github.com/equinor/seismic-cloud/api/service"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -52,13 +50,10 @@ func initConfig() {
 	}
 	config.SetDefaults()
 	viper.AutomaticEnv()
-
 	if err := viper.ReadInConfig(); err == nil {
 		log.Println("Using config file:", viper.ConfigFileUsed())
 	}
 	if err := config.Load(); err == nil {
 		log.Println("Config loaded and validated:", viper.ConfigFileUsed())
 	}
-	service.Log(errors.E(errors.Op("Foo"), fmt.Errorf("something something")))
-
 }

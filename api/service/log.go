@@ -10,15 +10,31 @@ import (
 	"time"
 
 	"github.com/kataras/golog"
+	_ "github.com/lib/pq"
 
+	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/errors"
 )
 
 type logger interface {
-	log(*errors.Error)
+	log(*errors.Event)
 }
 
 var innerLogger logger
+
+func DbOpener() (*sql.DB, error) {
+	db, err := sql.Open("postgres", config.LogDBConnStr())
+	// db, err := sql.Open("postgres", "postgresql://seismic-cloud.postgres.database.azure.com:5432/postgres?user=sc@seismic-cloud&password=Lambdaville123&sslmode=disable")
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.Query("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'log'")
+	// defer rows.Close()
+	if err != nil || rows == nil {
+		return nil, err
+	}
+	return db, nil
+}
 
 // Create logger to sink
 func SetLogSink(sink interface{}, verbosity errors.Severity) error {
@@ -33,7 +49,7 @@ func SetLogSink(sink interface{}, verbosity errors.Severity) error {
 	return nil
 }
 
-func errToLog(err *errors.Error) string {
+func errToLog(err *errors.Event) string {
 	return fmt.Sprintln(err.When.Format(time.RFC3339), err.Level, err.Error())
 }
 
@@ -111,7 +127,7 @@ type fileLogger struct {
 	verbosity errors.Severity
 }
 
-func (fl *fileLogger) log(err *errors.Error) {
+func (fl *fileLogger) log(err *errors.Event) {
 	if err.Level < fl.verbosity {
 		return
 	}
@@ -127,15 +143,18 @@ type dbLogger struct {
 	verbosity errors.Severity
 }
 
-func (dl *dbLogger) log(err *errors.Error) {
+func (dl *dbLogger) log(err *errors.Event) {
 	if err.Level < dl.verbosity {
 		return
 	}
 
-	_, wErr := dl.pool.Exec(
-		"INSERT INTO log (date,log) VALUES ($1,$2)",
+	_, wErr := dl.pool.Query(
+		"INSERT INTO log (time, error, eventkind, severity, message) VALUES ($1,$2,$3,$4,$5)",
 		err.When,
 		err.Error(),
+		err.Kind.String(),
+		err.Level.String(),
+		err.Message,
 	)
 	if wErr != nil {
 		panic(fmt.Errorf("Error logging to db: %v, %v", wErr, err))
@@ -143,6 +162,6 @@ func (dl *dbLogger) log(err *errors.Error) {
 }
 
 // Log sends error to chosen sink
-func Log(err *errors.Error) {
+func Log(err *errors.Event) {
 	innerLogger.log(err)
 }

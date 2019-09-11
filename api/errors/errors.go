@@ -8,27 +8,28 @@ import (
 	"github.com/google/uuid"
 )
 
-type Error struct {
-	When   time.Time
-	Err    error
-	Op     Op
-	Path   string
-	UserID string
-	CtxId  uuid.UUID
-	Kind   ErrorKind
-	Level  Severity
+type Event struct {
+	When    time.Time
+	Err     error
+	Message string
+	Op      Op
+	Path    string
+	UserID  string
+	CtxId   uuid.UUID
+	Kind    EventKind
+	Level   Severity
 }
 
 type Op string
 
-type ErrorKind int
+type EventKind int
 
 const (
-	UnknownError ErrorKind = iota
+	UnknownError EventKind = iota
 	NotExists
 )
 
-func (ek ErrorKind) String() string {
+func (ek EventKind) String() string {
 	switch ek {
 	case NotExists:
 		return "item doesn't exist"
@@ -71,11 +72,11 @@ func pad(b *bytes.Buffer, str string) {
 	b.WriteString(str)
 }
 
-func (e *Error) isZero() bool {
+func (e *Event) isZero() bool {
 	return e.Path == "" && e.UserID == "" && e.Op == "" && e.Kind == 0 && e.Err == nil
 }
 
-func (e *Error) Error() string {
+func (e *Event) Error() string {
 	b := new(bytes.Buffer)
 	if e.Op != "" {
 		pad(b, ": ")
@@ -99,7 +100,7 @@ func (e *Error) Error() string {
 		b.WriteString(e.Kind.String())
 	}
 	if e.Err != nil {
-		if prevErr, ok := e.Err.(*Error); ok {
+		if prevErr, ok := e.Err.(*Event); ok {
 			if !prevErr.isZero() {
 				pad(b, "-> ")
 				b.WriteString(e.Err.Error())
@@ -141,18 +142,24 @@ func ParseLevel(s string) Severity {
 	return DebugLevel
 }
 
-func E(args ...interface{}) *Error {
-	e := &Error{When: time.Now().UTC()}
+func Message() string {
+	return ""
+}
+
+func E(args ...interface{}) *Event {
+	e := &Event{When: time.Now().UTC()}
 	for _, arg := range args {
 		switch arg := arg.(type) {
 		case Op:
 			e.Op = arg
 		case error:
 			e.Err = arg
-		case ErrorKind:
+		case EventKind:
 			e.Kind = arg
 		case Severity:
 			e.Level = arg
+		case string:
+			e.Message = arg
 		default:
 			panic("bad call to E")
 		}
