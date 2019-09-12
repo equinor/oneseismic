@@ -46,6 +46,7 @@ endif ()
 set(CMAKE_CXX_STANDARD 14)
 
 add_library(seismic-cloud src/core.cpp)
+add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -78,6 +79,7 @@ install(
 export(
     TARGETS seismic-cloud
     FILE seismic-cloud-config.cmake
+    NAMESPACE seismic-cloud::
 )
 
 add_subdirectory(core-server)

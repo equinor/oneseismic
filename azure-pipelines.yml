@@ -5,12 +5,8 @@ trigger:
 resources:
   containers:
     - container: b1
-      image: lambdaville/seismic-cloud-deps:latest
+      image: lambdaville/go-python:latest
 
-variables:
-  GOBIN: '$(GOPATH)/bin'
-  GOPATH: '$(system.defaultWorkingDirectory)/gopath'
-  modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)'
 jobs:
   - job: Build_Core
     steps:
@@ -31,46 +27,40 @@ jobs:
       - script: |
           make
         displayName: 'Build seismic-cloud'
-
         workingDirectory: build
+
       - script: |
           ctest --output-on-failure
         displayName: 'Test seismic-cloud'
-
         workingDirectory: build
+
 
   - job: Build_API
     container: b1
+    variables:
+      GOPATH: $(Pipeline.Workspace)/go
     steps:
-      - task: GoTool@0
+      - task: CacheBeta@0
         inputs:
-          version: '1.12.9'
-      - script: |
-          mkdir -p '$(GOBIN)'
-          mkdir -p '$(GOPATH)/pkg'
-          mkdir -p '$(modulePath)'
-          shopt -s extglob
-          echo '##vso[task.prependpath]$(GOBIN)'
-          echo "##vso[task.prependpath]$(GOROOT)/bin"
-          go get github.com/swaggo/swag/cmd/swag
-          go get github.com/jstemmer/go-junit-report
-          go get github.com/axw/gocov/gocov
-          go get github.com/AlekSi/gocov-xml
-          go get github.com/matm/gocov-html
-        workingDirectory: /
-        displayName: 'Set up Go env and build dependencies'
-      - script: |
-          protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
-        displayName: 'Generating grpc client stubs'
-        workingDirectory: api
-      - script: |
-          swag init
-        displayName: Generate docs
-        workingDirectory: api
+          key: $(Agent.OS) | api/go.sum
+          path: $(GOPATH)/pkg
+        displayName: Cache go.sum
+
       - script: |
           go mod download
         displayName: 'Download modules'
         workingDirectory: api
+
+      - script: |
+          protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
+        displayName: 'Generating grpc client stubs'
+        workingDirectory: api
+
+      - script: |
+          swag init
+        displayName: Generate docs
+        workingDirectory: api
+
       - script: |
           go build
         displayName: 'Build seismic-cloud-api'
@@ -82,7 +72,12 @@ jobs:
           mkdir -p coverage
           gocov-html < coverage.json > coverage/index.html
         workingDirectory: api
-        displayName: 'Run unit test seismic-cloud-api'
+        displayName: 'SC-API unit tests'
+
+      - script: |
+          pytest -v integration.py
+        workingDirectory: api/tests
+        displayName: 'SC-API integration tests'
 
       - script: |
           echo 'Deploy'

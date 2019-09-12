@@ -66,6 +66,31 @@ struct point : triple_comparison< point > {
         x(x), y(y), z(z) {}
 };
 
+template < typename Point >
+struct basic_point : triple_comparison< Point > {
+    std::size_t x;
+    std::size_t y;
+    std::size_t z;
+
+    basic_point() noexcept (true) = default;
+    basic_point(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
+        x(x), y(y), z(z) {}
+};
+
+struct cube_point : basic_point< cube_point > {
+    using basic_point::basic_point;
+};
+
+struct frag_point : basic_point< frag_point > {
+    using basic_point::basic_point;
+};
+
+struct root_point : basic_point< root_point > {
+    using basic_point::basic_point;
+
+    cube_point operator + (frag_point) const noexcept (true);
+};
+
 struct dimension : triple_comparison< dimension > {
     std::size_t x;
     std::size_t y;
@@ -76,8 +101,119 @@ struct dimension : triple_comparison< dimension > {
         x(x), y(y), z(z) {}
 };
 
+template < typename Dim >
+struct basic_dim : triple_comparison< Dim > {
+    std::size_t x;
+    std::size_t y;
+    std::size_t z;
+
+    basic_dim() = default;
+    basic_dim(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
+        x(x), y(y), z(z) {}
+};
+
+struct cube_dim : basic_dim< cube_dim > {
+    using basic_dim::basic_dim;
+    std::size_t to_offset(cube_point p) const noexcept (true);
+    std::size_t to_offset(root_point p) const noexcept (true);
+};
+
+struct frag_dim : basic_dim< cube_dim > {
+    using basic_dim::basic_dim;
+    std::size_t to_offset(frag_point p) const noexcept (true);
+};
+
 std::ostream& operator << (std::ostream& o, const point& rhs);
 std::ostream& operator << (std::ostream& o, const dimension& rhs);
+
+/*
+ * Map between different reference systems
+ *
+ * Consider the flat cube with coordinates x, y:
+ *
+ *     0,0   0,3   0,5   0,7
+ *      +-----+-----+-----+
+ *      |  1  |  2  |  3  |
+ *      |     |     |     |
+ *  2,0 +-----+-----+-----+ 6,7
+ *      |  4  |  5  |  6  |
+ *      |     |     |     |
+ *  4,0 +-----+-----+-----+ 6,7
+ *      |  7  |  8  |  9  |
+ *      |     |     |     |
+ *  6,0 +-----+-----+-----+ 6,7
+ *      |  A  |  B  |  C  |
+ *      |     |     |     |
+ *      +-----+-----+-----+
+ *     8,0   8,3   8,5   8,7
+ *
+ * This consists of 12 smaller fragments 1..C, which can internally be indexed
+ * m, n:
+ *
+ * Fragment 5
+ * ----------
+ *     0,0 0,1 0,2
+ *      +---+---+
+ *      | 1 | 2 |
+ *  1,0 +---+---+ 1,2
+ *      | 3 | 4 |
+ *      +---+---+
+ *     2,0 2,1 2,2
+ *
+ *
+ * The global coordinate 3,4 would map to fragment 5, coordinates 1,1. Each
+ * fragment is identified by it's root coordinate, the fragment-local 0,0 in
+ * the top-left coorner.
+ *
+ * Names
+ * -----
+ *
+ *  global, cube:
+ *      The names global and cube always refer to the full survey, and is
+ *      independent on how the system is fragmented
+ *  local, frag:
+ *      The names local and frag always refer to the individual fragments
+ *      (subcubes) and their dimensions
+ *  root, anchor:
+ *      The names root and anchors work as identifiers for individual
+ *      fragments, and is the upper-left corner (0,0) in the global system of a
+ *      specific fragment
+ */
+class cubecoords {
+    public:
+        cubecoords(cube_dim, frag_dim) noexcept (true);
+
+        /*
+         * map global x, y, z -> m, n, k in the fragment
+         */
+        frag_point to_local(cube_point) const noexcept (true);
+        /*
+         * get the root (fragment-ID) of any global coordinate
+         */
+        root_point root_of(cube_point) const noexcept (true);
+
+        /*
+         * map a root and local coordinate to the global coordinate. This is
+         * the inverse operation of root_of and to_local,
+         * x == root_of(x) + to_local(x)
+         */
+        cube_point to_global(root_point, frag_point) const noexcept (true);
+
+        /*
+         * get the point of an offset, assuming the cube is flattened to a
+         * large array, zs first.
+         */
+        cube_point from_offset(std::size_t) const noexcept (true);
+
+        /*
+         * the number of (x,y,z) triples, or points, in the cube
+         */
+        std::size_t global_size() const noexcept (true);
+
+    private:
+        cube_dim global_dims;
+        frag_dim fragment_dims;
+};
 
 point global_to_local(point global, dimension fragment_size) noexcept (true);
 point local_to_global(point local, point root)               noexcept (true);
