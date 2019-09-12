@@ -51,8 +51,7 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 	reader, err := ssc.ss.Download(bgctx, surfaceID)
 	if err != nil {
 		ctx.StatusCode(404)
-		fmt.Sprintf("Could not read file: %s\n%s", surfaceID, err)
-		service.Log(errors.E(op, fmt.Sprintf("Could not read file: %s\n%s", surfaceID, err), errors.WarnLevel, err))
+		service.Log(errors.E(op, fmt.Sprintf("Could not download surface: %s", surfaceID), errors.WarnLevel, err))
 		return
 	}
 
@@ -61,7 +60,7 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 	_, err = io.Copy(ctx.ResponseWriter(), reader)
 	if err != nil {
 
-		service.Log(errors.E(op, "Writing to response", surfaceID, errors.ErrorLevel, err))
+		service.Log(errors.E(op, fmt.Sprintf("Error writing to response, surfaceID %s", surfaceID), errors.ErrorLevel, err))
 		return
 	}
 }
@@ -89,11 +88,8 @@ func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	blobURL, err := ssc.ss.Upload(bgctx, surfaceID, userID, reader)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
-		message := "Could not upload file: " + surfaceID
-		service.Log(errors.E(op, message, errors.ErrorLevel, err))
-
+		service.Log(errors.E(op, fmt.Sprintf("Could not upload surface: %s", surfaceID), errors.ErrorLevel, err))
 		return
 	}
-
 	ctx.JSON(blobURL)
 }

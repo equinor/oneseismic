@@ -39,7 +39,6 @@ func StitchController(
 		manifest, err := ms.Fetch(manifestID)
 		if err != nil {
 			ctx.StatusCode(404)
-			// logger.Println("Manifest fetch failed:", err)
 			service.Log(errors.E(op, "Manifest fetch failed", errors.ErrorLevel, err))
 			return
 		}
@@ -57,7 +56,7 @@ func StitchController(
 				ctx.Request().Body))
 		if err != nil {
 			ctx.StatusCode(500)
-			service.Log(errors.E(op, "Stitch error:", errors.ErrorLevel, err))
+			service.Log(errors.E(op, "Stitch error", errors.ErrorLevel, err))
 		}
 
 		ctx.Values().SetImmutable("StitchInfo", si)
@@ -118,7 +117,7 @@ func StitchControllerWithSurfaceID(
 				reader))
 		if err != nil {
 			ctx.StatusCode(500)
-			service.Log(errors.E(op, "core stitch", errors.ErrorLevel, err))
+			service.Log(errors.E(op, "Core stitch failed", errors.ErrorLevel, err))
 		}
 
 		ctx.Values().SetImmutable("StitchInfo", si)
