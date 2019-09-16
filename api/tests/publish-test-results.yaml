@@ -1,0 +1,13 @@
+steps:
+- task: PublishTestResults@2
+  condition: always()
+  inputs:
+    testRunner: JUnit
+    testResultsFiles: $(System.DefaultWorkingDirectory)/**/report.xml
+
+- task: PublishCodeCoverageResults@1
+  condition: always()
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
+    reportDirectory: $(System.DefaultWorkingDirectory)/**/coverage
