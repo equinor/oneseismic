@@ -79,14 +79,17 @@ struct basic_point : triple_comparison< Point > {
 
 struct cube_point : basic_point< cube_point > {
     using basic_point::basic_point;
+    constexpr static const char* name = "cube_point";
 };
 
 struct frag_point : basic_point< frag_point > {
     using basic_point::basic_point;
+    constexpr static const char* name = "frag_point";
 };
 
 struct root_point : basic_point< root_point > {
     using basic_point::basic_point;
+    constexpr static const char* name = "root_point";
 
     cube_point operator + (frag_point) const noexcept (true);
 };

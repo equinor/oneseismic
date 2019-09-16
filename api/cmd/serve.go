@@ -1,16 +1,16 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
+	"github.com/equinor/seismic-cloud/api/events"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service"
 
 	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/server"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/spf13/cobra"
-	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 )
 
@@ -23,11 +23,22 @@ var serveCmd = &cobra.Command{
 }
 
 func runServe(cmd *cobra.Command, args []string) {
-
+	op := "serve.runServe"
 	if viper.ConfigFileUsed() == "" {
-		jww.ERROR.Println("Config from environment variables")
+		l.LogW(op, "Config from environment variables")
 	} else {
-		jww.INFO.Println("Using config file:", viper.ConfigFileUsed())
+		l.LogI(op, "Config loaded and validated "+viper.ConfigFileUsed())
+	}
+
+	if len(config.LogDBConnStr()) > 0 {
+		l.LogI(op, "Switch log sink from os.Stdout to psqlDB")
+		db, err := l.DbOpener()
+		if err != nil {
+			l.LogE(op, "Unable to connect to log db", err)
+			return
+		}
+		l.SetLogSink(db, events.DebugLevel)
+
 	}
 
 	opts := make([]server.HttpServerOption, 0)
@@ -53,14 +64,15 @@ func runServe(cmd *cobra.Command, args []string) {
 			config.AzStorageKey(),
 			config.AzContainerName())
 		if err != nil {
-			jww.ERROR.Println("New azure blob storage error", err)
+			l.LogE(op, "New azure blob storage error", err)
+
 			os.Exit(1)
 		}
 		opts = append(opts, server.WithSurfaceStore(azure))
 	} else if len(config.LocalSurfacePath()) > 0 {
 		local, err := store.NewLocalStorage(config.LocalSurfacePath())
 		if err != nil {
-			jww.ERROR.Println("New local directory error", err)
+			l.LogE(op, "New local directory error", err)
 			os.Exit(1)
 		}
 		opts = append(opts, server.WithSurfaceStore(local))
@@ -71,14 +83,14 @@ func runServe(cmd *cobra.Command, args []string) {
 		var err error
 		st, err = service.NewTCPStitch(config.StitchAddr())
 		if err != nil {
-			jww.ERROR.Println("Stitch tcp error", err)
+			l.LogE(op, "Stitch tcp error", err)
 			os.Exit(1)
 		}
 	} else if len(config.StitchCmd()) > 0 {
 		var err error
 		st, err = service.NewExecStitch(config.StitchCmd(), config.Profiling())
 		if err != nil {
-			jww.ERROR.Println("Stitch exec error", err)
+			l.LogE(op, "Stitch exec error", err)
 			os.Exit(1)
 		}
 
@@ -126,13 +138,13 @@ func runServe(cmd *cobra.Command, args []string) {
 	hs, err := server.NewHttpServer(opts...)
 
 	if err != nil {
-		fmt.Println("Error starting http server: ", err)
+		l.LogE(op, "Error starting http server", err)
 		os.Exit(1)
 	}
 	err = hs.Serve()
 
 	if err != nil {
-		fmt.Println("Error starting http server: ", err)
+		l.LogE(op, "Error starting http server", err)
 		os.Exit(1)
 	}
 }

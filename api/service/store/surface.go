@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/url"
 	"os"
 	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/equinor/seismic-cloud/api/config"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/google/uuid"
 )
 
@@ -41,7 +41,7 @@ func NewAzBlobStorage(accountName, accountKey, containerName string) (*SurfaceBl
 
 	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
-		log.Fatal("Invalid credentials with error: " + err.Error())
+		l.LogE("surfaceStore download", "Invalid credentials", err)
 	}
 	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
 
@@ -111,9 +111,10 @@ func (az *SurfaceBlobStore) Download(ctx context.Context, fileName string) (io.R
 
 	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
+		l.LogW("surface store download", "Surface download failed:", l.Wrap(err))
 		return nil, err
 	}
-	log.Printf("Download: surfaceLength: %d bytes\n", downloadResponse.ContentLength())
+	l.LogI("surfaceStore download", fmt.Sprintf("Download: surfaceLength: %d bytes\n", downloadResponse.ContentLength()))
 	retryReader := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
 
 	return retryReader, nil

@@ -9,6 +9,7 @@ import (
 	"path"
 	"time"
 
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -50,9 +51,7 @@ func (m *ManifestDbStore) Fetch(id string) ([]byte, error) {
 	defer cancel()
 	client, err := mongo.Connect(db_ctx, options.Client().ApplyURI(m.ConnString))
 	if err != nil {
-		fmt.Println("ERROR: ", err)
-	} else {
-		fmt.Println("Connected to manifestDB")
+		return []byte{}, err
 	}
 	defer client.Disconnect(db_ctx)
 	collection := client.Database("seismiccloud").Collection("manifests")
@@ -61,6 +60,7 @@ func (m *ManifestDbStore) Fetch(id string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	l.LogI("manifest fetch", fmt.Sprintf("Connected to manifest DB and fetched file %s", id))
 	resBytes := new(bytes.Buffer)
 	json.NewEncoder(resBytes).Encode(res)
 	return resBytes.Bytes(), nil
