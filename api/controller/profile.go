@@ -9,7 +9,7 @@ import (
 // @Description get profiling numbers
 // @Produce  application/json
 // @Param   some_id     path    string     true        "Some ID"
-// @Success 200 {file} file	Ok
+// @Success 200 {file} controller.fileBytes OK
 // @Failure 404 {object} controller.APIError "Profile not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
 // @Router /profile/{profile_id} [get]

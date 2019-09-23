@@ -18,7 +18,7 @@ import (
 // @Accept  application/octet-stream
 // @Produce  application/octet-stream
 // @Param   some_id     path    string     true        "Some ID"
-// @Success 200 {file} file	Ok
+// @Success 200 {object} controller.fileBytes OK
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
 // @Router /stitch/{maifest_id} [post]
@@ -65,7 +65,7 @@ func StitchController(
 // @Description post surface query to stitch
 // @Produce  application/octet-stream
 // @Param   some_id     path    string     true        "Some ID"
-// @Success 200 {file} file	Ok
+// @Success 200 {object} controller.fileBytes OK
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 400 {object} controller.APIError "Surface id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"

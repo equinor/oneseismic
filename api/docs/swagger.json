@@ -64,7 +64,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "file"
+                            "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "400": {
@@ -83,11 +83,8 @@
             }
         },
         "/stitch/{maifest_id}/{surface_id}": {
-            "post": {
+            "get": {
                 "description": "post surface query to stitch",
-                "consumes": [
-                    "application/octet-stream"
-                ],
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -104,7 +101,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "file"
+                            "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "400": {
@@ -132,7 +129,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "files"
+                            "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "502": {
@@ -163,7 +160,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "file"
+                            "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "502": {
@@ -195,7 +192,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "file"
+                            "$ref": "#/definitions/controller.bloburl"
                         }
                     },
                     "500": {
@@ -219,6 +216,14 @@
                     "type": "string"
                 }
             }
+        },
+        "controller.bloburl": {
+            "type": "array",
+            "items": {}
+        },
+        "controller.fileBytes": {
+            "type": "array",
+            "items": {}
         }
     }
 }

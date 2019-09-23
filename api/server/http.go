@@ -174,9 +174,13 @@ func (hs *HttpServer) Serve() error {
 	hs.registerMacros()
 	hs.registerEndpoints()
 
+	protocolPrefix := "http"
+	if hs.chosenMode != INSECURE{
+		protocolPrefix += "s"
+	}
 	if hs.addSwagger {
 		config := &swagger.Config{
-			URL: hs.hostAddr + "/swagger/doc.json", //The url pointing to API definition
+			URL: fmt.Sprintf("%s://%s/swagger/doc.json" , protocolPrefix, hs.hostAddr ), //The url pointing to API definition
 		}
 		// use swagger middleware to
 		hs.app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
