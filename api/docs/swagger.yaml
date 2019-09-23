@@ -6,6 +6,12 @@ definitions:
       errorMessage:
         type: string
     type: object
+  controller.bloburl:
+    items: {}
+    type: array
+  controller.fileBytes:
+    items: {}
+    type: array
 info:
   contact: {}
   license: {}
@@ -51,7 +57,7 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.fileBytes'
         "400":
           description: Manifest id not found
           schema:
@@ -61,9 +67,7 @@ paths:
           schema:
             $ref: '#/definitions/controller.APIError'
   /stitch/{maifest_id}/{surface_id}:
-    post:
-      consumes:
-      - application/octet-stream
+    get:
       description: post surface query to stitch
       parameters:
       - description: Some ID
@@ -77,7 +81,7 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.fileBytes'
         "400":
           description: Surface id not found
           schema:
@@ -95,7 +99,7 @@ paths:
         "200":
           description: OK
           schema:
-            type: files
+            $ref: '#/definitions/controller.fileBytes'
         "502":
           description: Internal Server Error
           schema:
@@ -115,7 +119,7 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.fileBytes'
         "502":
           description: Internal Server Error
           schema:
@@ -136,7 +140,7 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.bloburl'
         "500":
           description: Internal Server Error
           schema:
