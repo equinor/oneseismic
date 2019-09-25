@@ -85,6 +85,7 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.4.0 // indirect
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
+	github.com/prometheus/client_golang v0.9.3
 	github.com/ryanuber/columnize v2.1.0+incompatible // indirect
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/smartystreets/assertions v1.0.1 // indirect
