@@ -22,6 +22,23 @@ var serveCmd = &cobra.Command{
 	Run:   runServe,
 }
 
+func stitchConfig() interface{} {
+	sCmd := config.StitchCmd()
+	sTCP := config.StitchTcpAddr()
+	sGRPC := config.StitchGrpcAddr()
+	if len(sGRPC) > 0 {
+
+		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
+	}
+	if len(sTCP) > 0 {
+		return service.TcpAddr(sTCP)
+	}
+	if len(sCmd) > 0 {
+		return sCmd
+	}
+	return nil
+}
+
 func runServe(cmd *cobra.Command, args []string) {
 	op := "serve.runServe"
 	if viper.ConfigFileUsed() == "" {
@@ -78,22 +95,10 @@ func runServe(cmd *cobra.Command, args []string) {
 		opts = append(opts, server.WithSurfaceStore(local))
 	}
 
-	var st service.Stitcher
-	if len(config.StitchAddr()) > 0 {
-		var err error
-		st, err = service.NewTCPStitch(config.StitchAddr())
-		if err != nil {
-			l.LogE(op, "Stitch tcp error", err)
-			os.Exit(1)
-		}
-	} else if len(config.StitchCmd()) > 0 {
-		var err error
-		st, err = service.NewExecStitch(config.StitchCmd(), config.Profiling())
-		if err != nil {
-			l.LogE(op, "Stitch exec error", err)
-			os.Exit(1)
-		}
-
+	st, err := service.NewStitch(stitchConfig(), config.Profiling())
+	if err != nil {
+		l.LogE(op, "Stitch tcp error", err)
+		os.Exit(1)
 	}
 	opts = append(
 		opts,

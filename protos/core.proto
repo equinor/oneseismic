@@ -10,16 +10,16 @@ service Core {
 message  SurfaceRequest {
     string surface    = 1;
     string basename   = 2;
-    int32  cubexs     = 3;
-    int32  cubeys     = 4;
-    int32  cubezs     = 5;
-    int32  fragmentxs = 6;
-    int32  fragmentys = 7;
-    int32  fragmentzs = 8;
+    uint32  cubexs     = 3;
+    uint32  cubeys     = 4;
+    uint32  cubezs     = 5;
+    uint32  fragmentxs = 6;
+    uint32  fragmentys = 7;
+    uint32  fragmentzs = 8;
 }
 
 message  SurfaceReply {
-    repeated int64 i = 1;
+    repeated uint64 i = 1;
     repeated float v = 2;
 }
 

@@ -2,6 +2,8 @@ package service
 
 import (
 	"bytes"
+	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -10,33 +12,48 @@ import (
 	"strings"
 
 	l "github.com/equinor/seismic-cloud/api/logger"
+	pb "github.com/equinor/seismic-cloud/api/proto"
+	"google.golang.org/grpc"
 )
 
 type Stitcher interface {
 	Stitch(out io.Writer, in io.Reader) (string, error)
 }
 
-type ExecStitch struct {
+func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
+	switch stype.(type) {
+	case []string:
+		cmdArgs := stype.([]string)
+		execName := cmdArgs[0]
+		inf, err := os.Stat(execName)
+		if err != nil {
+			return nil, err
+		}
+		if inf.IsDir() {
+			return nil, fmt.Errorf("Cannot be a directory")
+		}
+		return &execStitch{cmdArgs, profile}, nil
+	case TcpAddr:
+		addr := stype.(TcpAddr)
+		return &tCPStitch{TcpAddr(string(addr))}, nil
+	case GrpcOpts:
+		addr := stype.(GrpcOpts).Addr
+		opts := make([]grpc.DialOption, 0)
+		if stype.(GrpcOpts).Insecure {
+			opts = append(opts, grpc.WithInsecure())
+		}
+		return &gRPCStitch{addr, opts}, nil
+	default:
+		return nil, fmt.Errorf("Invalid stitch type")
+	}
+}
+
+type execStitch struct {
 	cmd     []string
 	profile bool
 }
 
-// NewExecStitch produces a executable sitcher
-func NewExecStitch(cmdArgs []string, profile bool) (*ExecStitch, error) {
-	execName := cmdArgs[0]
-
-	inf, err := os.Stat(execName)
-	if err != nil {
-		return nil, err
-	}
-
-	if inf.IsDir() {
-		return nil, fmt.Errorf("Cannot be a directory")
-	}
-	return &ExecStitch{cmdArgs, profile}, nil
-}
-
-func (es *ExecStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+func (es *execStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 	op := "execStitch.stitch"
 	var e *exec.Cmd
 	var pBuf *bytes.Buffer
@@ -82,21 +99,65 @@ func (es *ExecStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 
 }
 
-type TCPStitch struct {
-	stitchAddr *net.TCPAddr
+type gRPCStitch struct {
+	grpcAddr string
+	opts     []grpc.DialOption
+}
+type GrpcOpts struct {
+	Addr     string
+	Insecure bool
 }
 
-func NewTCPStitch(addr string) (*TCPStitch, error) {
-	tAddr, err := net.ResolveTCPAddr("tcp", addr)
+func (gs *gRPCStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+	conn, err := grpc.Dial(string(gs.grpcAddr), gs.opts...)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &TCPStitch{tAddr}, nil
+	defer conn.Close()
+
+	client := pb.NewCoreClient(conn)
+
+	r, err := client.StitchSurface(
+		context.Background(),
+		&pb.SurfaceRequest{
+			Surface:  "surfaceid",
+			Basename: "cubeid",
+		})
+	if err != nil {
+		return "", err
+	}
+	buf := &bytes.Buffer{}
+
+	for i := range r.I {
+		err = binary.Write(buf, binary.LittleEndian, r.I[i])
+		if err != nil {
+			return "", err
+		}
+		err = binary.Write(buf, binary.LittleEndian, r.V[i])
+		if err != nil {
+			return "", err
+		}
+	}
+	_, err = io.Copy(out, buf)
+	if err != nil {
+		return "", err
+	}
+
+	return "", nil
 }
 
-func (ts *TCPStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+type tCPStitch struct {
+	tcpAddr TcpAddr
+}
 
-	conn, err := net.DialTCP("tcp", nil, ts.stitchAddr)
+type TcpAddr string
+
+func (ts *tCPStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", string(ts.tcpAddr))
+	if err != nil {
+		return "", err
+	}
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		return "", err
 	}

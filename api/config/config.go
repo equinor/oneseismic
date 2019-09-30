@@ -21,7 +21,8 @@ func SetDefaults() {
 	viper.SetDefault("HOST_ADDR", "localhost:8080")
 	viper.SetDefault("DOMAIN_LIST", "")
 	viper.SetDefault("DOMAIN_MAIL", "")
-	viper.SetDefault("STITCH_ADDR", "")
+	viper.SetDefault("STITCH_TCP_ADDR", "")
+	viper.SetDefault("STITCH_GRPC_ADDR", "")
 	viper.SetDefault("STITCH_CMD", "")
 	viper.SetDefault("RESOURCE_ID", "")
 	viper.SetDefault("CERT_FILE", "cert.crt")
@@ -86,8 +87,12 @@ func StitchCmd() []string {
 	return strings.Split(viper.GetString("STITCH_CMD"), " ")
 }
 
-func StitchAddr() string {
-	return viper.GetString("STITCH_ADDR")
+func StitchTcpAddr() string {
+	return viper.GetString("STITCH_TCP_ADDR")
+}
+
+func StitchGrpcAddr() string {
+	return viper.GetString("STITCH_GRPC_ADDR")
 }
 
 func ManifestStoragePath() string {
