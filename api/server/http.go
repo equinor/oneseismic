@@ -18,8 +18,9 @@ import (
 	"github.com/iris-contrib/swagger"
 	"github.com/iris-contrib/swagger/swaggerFiles"
 	"github.com/kataras/iris"
-	prometheusMiddleware "github.com/iris-contrib/middleware/prometheus"
+	prometheusmiddleware"github.com/iris-contrib/middleware/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type serverMode int
@@ -159,7 +160,7 @@ func (hs *HttpServer) registerEndpoints() {
 		ctx.HTML("Hello World")
 	})
 
-	m := prometheusMiddleware.New("Metrics", 0.3, 1.2, 5.0)
+	m := prometheusmiddleware.New("Metrics", 0.3, 1.2, 5.0)
 	hs.app.OnErrorCode(iris.StatusNotFound, func(ctx iris.Context) {
 		// error code handlers are not sharing the same middleware as other routes, so we have
 		// to call them inside their body.
@@ -167,13 +168,14 @@ func (hs *HttpServer) registerEndpoints() {
 
 		ctx.Writef("Not Found22")
 	})
-
+	opts := promhttp.HandlerOpts{DisableCompression: true}
 	hs.app.Use(m.ServeHTTP)
-	hs.app.Get("/metrics", iris.FromStd(promhttp.Handler()))
+	hs.app.Get("/metrics", iris.FromStd(promhttp.HandlerFor(prometheus.DefaultGatherer, opts)))
 
 	hs.app.Post("/stitch/{manifestID:string idString() else 502}",
 		controller.StitchController(
 			hs.service.manifestStore,
+			
 			hs.service.stitcher))
 
 	hs.app.Get("/stitchsurface/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",

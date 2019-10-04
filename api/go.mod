@@ -28,9 +28,10 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/flosch/pongo2 v0.0.0-20190707114632-bbf5a6c351f4 // indirect
 	github.com/gavv/monotime v0.0.0-20190418164738-30dba4353424 // indirect
-	github.com/go-check/check v1.0.0-20180628173108-788fd7840127 // indirect
+	github.com/go-check/check v0.0.0-20190902080502-41f04d3bba15 // indirect
 	github.com/go-openapi/jsonreference v0.19.3 // indirect
 	github.com/go-openapi/spec v0.19.3 // indirect
+	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc // indirect
 	github.com/golang/protobuf v1.3.2
@@ -77,7 +78,7 @@ require (
 	github.com/onsi/ginkgo v1.10.2 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/pelletier/go-toml v1.4.0 // indirect
-	github.com/prometheus/client_golang v1.1.0 // indirect
+	github.com/prometheus/client_golang v1.1.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4 // indirect
 	github.com/prometheus/common v0.7.0 // indirect
 	github.com/prometheus/procfs v0.0.5 // indirect
@@ -85,7 +86,6 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.4.0 // indirect
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
-	github.com/prometheus/client_golang v0.9.3
 	github.com/ryanuber/columnize v2.1.0+incompatible // indirect
 	github.com/sergi/go-diff v1.0.0 // indirect
 	github.com/smartystreets/assertions v1.0.1 // indirect
