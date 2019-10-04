@@ -10,9 +10,9 @@ spec:
     - name: prod
       build:
         from: release
-    - name: monitor
-      build:
-        from: monitor
+#    - name: monitor
+#      build:
+#        from: monitor
   components:
     - name: core
       src: core
