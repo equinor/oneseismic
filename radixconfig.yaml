@@ -10,9 +10,9 @@ spec:
     - name: prod
       build:
         from: release
-#    - name: monitor
-#      build:
-#        from: monitor
+   - name: monitor
+     build:
+       from: monitor
   components:
     - name: core
       src: core
@@ -89,6 +89,8 @@ spec:
 
     - name: grafana
       src: monitoring/grafana
+      secrets:
+        - GF_SECURITY_ADMIN_PASSWORD
       ports:
         - name: http
           port: 3000
