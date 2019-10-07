@@ -1,9 +1,14 @@
 {
     "swagger": "2.0",
     "info": {
+        "description": "{{.Description}}",
+        "title": "{{.Title}}",
         "contact": {},
-        "license": {}
+        "license": {},
+        "version": "{{.Version}}"
     },
+    "host": "{{.Host}}",
+    "basePath": "{{.BasePath}}",
     "paths": {
         "/profile/{profile_id}": {
             "get": {
@@ -30,19 +35,21 @@
                     "404": {
                         "description": "Profile not found",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
                 }
             }
         },
-        "/stitch/{maifest_id}": {
+        "/stitch/{manifest_id}": {
             "post": {
                 "description": "post surface query to stitch",
                 "consumes": [
@@ -64,25 +71,28 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "400": {
                         "description": "Manifest id not found",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
                 }
             }
         },
-        "/stitch/{maifest_id}/{surface_id}": {
+        "/stitch/{manifest_id}/{surface_id}": {
             "get": {
                 "description": "post surface query to stitch",
                 "produces": [
@@ -101,18 +111,21 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "400": {
                         "description": "Surface id not found",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -129,19 +142,21 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "502": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
                 }
             }
         },
-        "/surface/{surfaceID}": {
+        "/surface/{surface_id}": {
             "get": {
                 "description": "get surface file",
                 "produces": [
@@ -160,12 +175,14 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.fileBytes"
                         }
                     },
                     "502": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -192,12 +209,14 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.bloburl"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }

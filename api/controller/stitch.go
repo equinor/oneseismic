@@ -21,7 +21,7 @@ import (
 // @Success 200 {object} controller.fileBytes OK
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
-// @Router /stitch/{maifest_id} [post]
+// @Router /stitch/{manifest_id} [post]
 func StitchController(
 	ms store.ManifestStore,
 	stitcher service.Stitcher) func(ctx iris.Context) {
@@ -69,8 +69,8 @@ func StitchController(
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 400 {object} controller.APIError "Surface id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
-// @Router /stitch/{maifest_id}/{surface_id} [get]
-func StitchControllerWithSurfaceID(
+// @Router /stitch/{manifest_id}/{surface_id} [get]
+func StitchSurfaceController(
 	ms store.ManifestStore,
 	ss store.SurfaceStore,
 	stitcher service.Stitcher) func(ctx iris.Context) {

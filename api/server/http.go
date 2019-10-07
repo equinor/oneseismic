@@ -162,8 +162,8 @@ func (hs *HttpServer) registerEndpoints() {
 			hs.service.manifestStore,
 			hs.service.stitcher))
 
-	hs.app.Get("/stitchsurface/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
-		controller.StitchControllerWithSurfaceID(
+	hs.app.Get("/stitch/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
+		controller.StitchSurfaceController(
 			hs.service.manifestStore,
 			hs.service.surfaceStore,
 			hs.service.stitcher))
@@ -175,12 +175,12 @@ func (hs *HttpServer) Serve() error {
 	hs.registerEndpoints()
 
 	protocolPrefix := "http"
-	if hs.chosenMode != INSECURE{
+	if hs.chosenMode != INSECURE {
 		protocolPrefix += "s"
 	}
 	if hs.addSwagger {
 		config := &swagger.Config{
-			URL: fmt.Sprintf("%s://%s/swagger/doc.json" , protocolPrefix, hs.hostAddr ), //The url pointing to API definition
+			URL: fmt.Sprintf("%s://%s/swagger/doc.json", protocolPrefix, hs.hostAddr), //The url pointing to API definition
 		}
 		// use swagger middleware to
 		hs.app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))

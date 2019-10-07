@@ -42,7 +42,7 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 // @Param   surfaceID  path    string     true        "File ID"
 // @Success 200 {object} controller.fileBytes OK
 // @Failure 502 {object} controller.APIError "Internal Server Error"
-// @Router /surface/{surfaceID} [get]
+// @Router /surface/{surface_id} [get]
 func (ssc *SurfaceController) Download(ctx iris.Context) {
 	op := "surface.download"
 	surfaceID := ctx.Params().Get("surfaceID")
@@ -70,7 +70,7 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 // @Param   surfaceID  path    string     true        "File ID"
 // @Success 200 {object} controller.bloburl OK
 // @Failure 500 {object} controller.APIError "Internal Server Error"
-// @Router /surface/{surfaceID} [post]
+// @Router /surface/{surface_id} [post]
 func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	userID, ok := ctx.Values().Get("userID").(string)
 
