@@ -12,7 +12,7 @@ spec:
         from: release
    - name: monitor
      build:
-       from: monitor
+        from: monitor
   components:
     - name: core
       src: core
