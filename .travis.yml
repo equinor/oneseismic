@@ -1,27 +1,46 @@
-language: cpp
 os: linux
 dist: xenial
 sudo: required
 compiler: clang
 
-addons:
-  apt:
-    packages:
-      - libomp-dev
+matrix:
+  fast_finish: true
+  include:
+    - language: python
+      python: 3.7
+    - language: python
+      python: 3.6
+    - language: c++
+      dist: xenial
+      compiler: clang
+      addons:
+        apt:
+          packages:
+            - libomp-dev
 
 install:
-    - git clone https://github.com/statoil/segyio
-    - pushd segyio
-    - cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
-              -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF
-    - make
-    - sudo make install
-    - popd
-    - sudo pip install scikit-build pybind11
+    - if [[ -z $TRAVIS_PYTHON_VERSION ]]; then
+        git clone https://github.com/statoil/segyio &&
+        pushd segyio &&
+        cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
+                -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF &&
+        make &&
+        sudo make install &&
+        popd &&
+        sudo pip install scikit-build pybind11;
+      fi
 
 script:
-    - mkdir build
-    - pushd build
-    - cmake ../core -DCMAKE_BUILD_TYPE=Release
-    - make
-    - ctest --output-on-failure
+    - if [[ -n "${TRAVIS_PYTHON_VERSION+1}" ]]; then
+        cd core/ingestion/scan &&
+        pip install -r requirements-dev.txt &&
+        python setup.py test;
+      fi
+
+    - if [[ -z $TRAVIS_PYTHON_VERSION ]]; then
+        mkdir build &&
+        pushd build &&
+        cmake ../core -DCMAKE_BUILD_TYPE=Release &&
+        make &&
+        ctest --output-on-failure;
+      fi

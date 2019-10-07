@@ -30,7 +30,6 @@ func TestProfileController(t *testing.T) {
 			ctx := context.NewContext(iris.Default())
 
 			ctx.BeginRequest(NewMockWriter(bytes.NewBuffer(make([]byte, 0))), &http.Request{})
-
 			ctx.Params().Set("profileID", tt.sessionID)
 			c(ctx)
 

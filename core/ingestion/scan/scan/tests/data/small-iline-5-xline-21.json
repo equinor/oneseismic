@@ -1,0 +1,103 @@
+{
+    "dataSampleFormatCode": 1,
+    "headerEndianness": "BigEndian",
+    "persistentID": "f53a4af4ffa57e1e00b47f1a07ad31263f345cfae44a43a356b9ca0650eae41a",
+    "primaryKey": [
+        5,
+        "FourByte"
+    ],
+    "sampleCount": 50,
+    "sampleInterval": 4.0,
+    "secondaryKey": [
+        21,
+        "FourByte"
+    ],
+    "segmentInfo": [
+        {
+            "binInfoStart": {
+                "crosslineNumber": 20,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 1
+            },
+            "binInfoStop": {
+                "crosslineNumber": 24,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 1
+            },
+            "primaryKey": 1,
+            "traceStart": 0,
+            "traceStop": 4
+        },
+        {
+            "binInfoStart": {
+                "crosslineNumber": 20,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 2
+            },
+            "binInfoStop": {
+                "crosslineNumber": 24,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 2
+            },
+            "primaryKey": 2,
+            "traceStart": 5,
+            "traceStop": 9
+        },
+        {
+            "binInfoStart": {
+                "crosslineNumber": 20,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 3
+            },
+            "binInfoStop": {
+                "crosslineNumber": 24,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 3
+            },
+            "primaryKey": 3,
+            "traceStart": 10,
+            "traceStop": 14
+        },
+        {
+            "binInfoStart": {
+                "crosslineNumber": 20,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 4
+            },
+            "binInfoStop": {
+                "crosslineNumber": 24,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 4
+            },
+            "primaryKey": 4,
+            "traceStart": 15,
+            "traceStop": 19
+        },
+        {
+            "binInfoStart": {
+                "crosslineNumber": 20,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 5
+            },
+            "binInfoStop": {
+                "crosslineNumber": 24,
+                "ensembleXCoordinate": 0.0,
+                "ensembleYCoordinate": 0.0,
+                "inlineNumber": 5
+            },
+            "primaryKey": 5,
+            "traceStart": 20,
+            "traceStop": 24
+        }
+    ],
+    "traceCount": 25
+}

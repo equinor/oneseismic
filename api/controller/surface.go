@@ -22,7 +22,7 @@ func NewSurfaceController(ss store.SurfaceStore) *SurfaceController {
 
 // @Description get list of available surfaces
 // @Produce  application/json
-// @Success 200 files Ok
+// @Success 200 {object} controller.fileBytes OK
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @Router /surface/ [get]
 func (ssc *SurfaceController) List(ctx iris.Context) {
@@ -40,9 +40,9 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 // @Description get surface file
 // @Produce  application/octet-stream
 // @Param   surfaceID  path    string     true        "File ID"
-// @Success 200 file Ok
+// @Success 200 {object} controller.fileBytes OK
 // @Failure 502 {object} controller.APIError "Internal Server Error"
-// @Router /surface/{surfaceID} [get]
+// @Router /surface/{surface_id} [get]
 func (ssc *SurfaceController) Download(ctx iris.Context) {
 	op := "surface.download"
 	surfaceID := ctx.Params().Get("surfaceID")
@@ -68,9 +68,9 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 // @Accept  application/octet-stream
 // @Produce  application/octet-stream
 // @Param   surfaceID  path    string     true        "File ID"
-// @Success 200 {file} bloburl	Ok
+// @Success 200 {object} controller.bloburl OK
 // @Failure 500 {object} controller.APIError "Internal Server Error"
-// @Router /surface/{surfaceID} [post]
+// @Router /surface/{surface_id} [post]
 func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	userID, ok := ctx.Values().Get("userID").(string)
 

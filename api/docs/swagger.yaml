@@ -1,3 +1,4 @@
+basePath: '{{.BasePath}}'
 definitions:
   controller.APIError:
     properties:
@@ -6,9 +7,19 @@ definitions:
       errorMessage:
         type: string
     type: object
+  controller.bloburl:
+    items: {}
+    type: array
+  controller.fileBytes:
+    items: {}
+    type: array
+host: '{{.Host}}'
 info:
   contact: {}
+  description: '{{.Description}}'
   license: {}
+  title: '{{.Title}}'
+  version: '{{.Version}}'
 paths:
   /profile/{profile_id}:
     get:
@@ -30,11 +41,13 @@ paths:
           description: Profile not found
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-  /stitch/{maifest_id}:
+            type: object
+  /stitch/{manifest_id}:
     post:
       consumes:
       - application/octet-stream
@@ -51,19 +64,20 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.fileBytes'
+            type: object
         "400":
           description: Manifest id not found
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-  /stitch/{maifest_id}/{surface_id}:
-    post:
-      consumes:
-      - application/octet-stream
+            type: object
+  /stitch/{manifest_id}/{surface_id}:
+    get:
       description: post surface query to stitch
       parameters:
       - description: Some ID
@@ -77,15 +91,18 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.fileBytes'
+            type: object
         "400":
           description: Surface id not found
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
   /surface/:
     get:
       description: get list of available surfaces
@@ -95,12 +112,14 @@ paths:
         "200":
           description: OK
           schema:
-            type: files
+            $ref: '#/definitions/controller.fileBytes'
+            type: object
         "502":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-  /surface/{surfaceID}:
+            type: object
+  /surface/{surface_id}:
     get:
       description: get surface file
       parameters:
@@ -115,11 +134,13 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.fileBytes'
+            type: object
         "502":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
     post:
       consumes:
       - application/octet-stream
@@ -136,9 +157,11 @@ paths:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/controller.bloburl'
+            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
 swagger: "2.0"
