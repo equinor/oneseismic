@@ -10,9 +10,9 @@ spec:
     - name: prod
       build:
         from: release
-#    - name: monitor
-#      build:
-#        from: monitor
+    - name: monitor
+      build:
+        from: monitor
   components:
     - name: core
       src: core
@@ -60,8 +60,8 @@ spec:
             STITCH_ADDR: core:5000
             SWAGGER: true
             ISSUER: 'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
-            AZURE_STORAGE_ACCOUNT: "seismiccloud"
-            AZURE_CONTAINER_NAME: "scblob"
+            AZURE_STORAGE_ACCOUNT: 'seismiccloud'
+            AZURE_CONTAINER_NAME: 'scblob'
         - environment: prod
           replicas: 2
           variables:
