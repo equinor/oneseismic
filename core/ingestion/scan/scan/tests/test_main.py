@@ -119,3 +119,19 @@ def test_4byte_primary_2byte_secondary():
     for s in result['segmentInfo']:
         assert s['binInfoStart']['crosslineNumber'] == 30
         assert s['binInfoStop']['crosslineNumber'] == 34
+
+def test_missing_line_numbers():
+    s = main([datadir('missing-line-numbers.sgy')])
+    result = json.loads(s)
+
+    primaries = [k['primaryKey'] for k in result['segmentInfo']]
+    assert primaries == [1, 2, 3, 5, 6]
+
+    for s in result['segmentInfo']:
+        assert s['binInfoStart']['crosslineNumber'] == 20
+        assert s['binInfoStop']['crosslineNumber'] == 25
+
+    with open(datadir('missing-line-numbers.json')) as f:
+        ref = json.load(f)
+
+    assert result == ref
