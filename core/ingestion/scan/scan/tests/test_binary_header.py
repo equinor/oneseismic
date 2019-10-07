@@ -86,7 +86,7 @@ def test_get_sample_count(textbin, endian, val):
     assert out['sampleCount'] == val
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
-@given(integers(min_value = 0, max_value = math.pow(2, 15)))
+@given(integers(min_value = 0, max_value = math.pow(2, 15) - 1))
 def test_get_sample_interval(textbin, endian, val):
     if endian == 'big':
         packfmt = '>h'
