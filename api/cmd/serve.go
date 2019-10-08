@@ -39,24 +39,42 @@ func stitchConfig() interface{} {
 	return nil
 }
 
-func runServe(cmd *cobra.Command, args []string) {
-	op := "serve.runServe"
-	if viper.ConfigFileUsed() == "" {
-		l.LogW(op, "Config from environment variables")
-	} else {
-		l.LogI(op, "Config loaded and validated "+viper.ConfigFileUsed())
-	}
-
-	if len(config.LogDBConnStr()) > 0 {
-		l.LogI(op, "Switch log sink from os.Stdout to psqlDB")
-		db, err := l.DbOpener()
-		if err != nil {
-			l.LogE(op, "Unable to connect to log db", err)
-			return
+func surfaceStoreConfig() interface{} {
+	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
+		return store.AzureBlobSettings{
+			AccountName:   config.AzStorageAccount(),
+			AccountKey:    config.AzStorageKey(),
+			ContainerName: config.AzContainerName(),
 		}
-		l.SetLogSink(db, events.DebugLevel)
 
 	}
+
+	if len(config.LocalSurfacePath()) > 0 {
+		return config.LocalSurfacePath()
+
+	}
+
+	return make(map[string][]byte)
+
+}
+
+func manifestStoreConfig() interface{} {
+	if len(config.ManifestURI()) > len("mongodb://") {
+		return store.ConnStr(config.ManifestURI())
+
+	}
+
+	if len(config.ManifestStoragePath()) > 0 {
+		return config.ManifestStoragePath()
+
+	}
+
+	return nil
+
+}
+
+func createHTTPServerOptions() ([]server.HttpServerOption, error) {
+	op := "serve.getHttpServerOptions"
 
 	opts := make([]server.HttpServerOption, 0)
 
@@ -65,44 +83,32 @@ func runServe(cmd *cobra.Command, args []string) {
 			server.WithOAuth2(config.AuthServer(), config.ResourceID(), config.Issuer()))
 	}
 
-	if config.ManifestSrc() == "db" {
-		opts = append(opts,
-			server.WithManifestStore(&store.ManifestDbStore{
-				ConnString: config.ManifestURI()}))
-	} else if config.ManifestSrc() == "path" {
-		opts = append(opts,
-			server.WithManifestStore(&store.ManifestFileStore{
-				BasePath: config.ManifestStoragePath()}))
+	if ms, err := store.NewManifestStore(manifestStoreConfig()); err != nil {
+
+		return nil, events.E(events.Op(op), "Accessing manifest store", err)
+	} else {
+		opts = append(
+			opts,
+			server.WithManifestStore(ms))
 	}
 
-	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
-		azure, err := store.NewAzBlobStorage(
-			config.AzStorageAccount(),
-			config.AzStorageKey(),
-			config.AzContainerName())
-		if err != nil {
-			l.LogE(op, "New azure blob storage error", err)
+	if ssC, err := store.NewSurfaceStore(surfaceStoreConfig()); err != nil {
+		return nil, events.E(events.Op(op), "Accessing surface store", err)
 
-			os.Exit(1)
-		}
-		opts = append(opts, server.WithSurfaceStore(azure))
-	} else if len(config.LocalSurfacePath()) > 0 {
-		local, err := store.NewLocalStorage(config.LocalSurfacePath())
-		if err != nil {
-			l.LogE(op, "New local directory error", err)
-			os.Exit(1)
-		}
-		opts = append(opts, server.WithSurfaceStore(local))
+	} else {
+		opts = append(
+			opts,
+			server.WithSurfaceStore(ssC))
 	}
 
-	st, err := service.NewStitch(stitchConfig(), config.Profiling())
-	if err != nil {
-		l.LogE(op, "Stitch tcp error", err)
-		os.Exit(1)
+	if st, err := service.NewStitch(stitchConfig(), config.Profiling()); err != nil {
+		return nil, events.E(events.Op(op), "Stitch tcp error", err)
+
+	} else {
+		opts = append(
+			opts,
+			server.WithStitcher(st))
 	}
-	opts = append(
-		opts,
-		server.WithStitcher(st))
 
 	if len(config.HostAddr()) > 0 {
 		opts = append(
@@ -138,6 +144,34 @@ func runServe(cmd *cobra.Command, args []string) {
 		opts = append(
 			opts,
 			server.WithSwagger())
+	}
+
+	return opts, nil
+}
+
+func runServe(cmd *cobra.Command, args []string) {
+	op := "serve.runServe"
+	if viper.ConfigFileUsed() == "" {
+		l.LogW(op, "Config from environment variables")
+	} else {
+		l.LogI(op, "Config loaded and validated "+viper.ConfigFileUsed())
+	}
+
+	if len(config.LogDBConnStr()) > 0 {
+		l.LogI(op, "Switch log sink from os.Stdout to psqlDB")
+		db, err := l.DbOpener()
+		if err != nil {
+			l.LogE(op, "Unable to connect to log db", err)
+			return
+		}
+		l.SetLogSink(db, events.DebugLevel)
+
+	}
+
+	opts, err := createHTTPServerOptions()
+	if err != nil {
+		l.LogE(op, "Error creating http server options", err)
+		os.Exit(1)
 	}
 
 	hs, err := server.NewHttpServer(opts...)
