@@ -96,6 +96,7 @@ func StitchSurfaceController(
 
 		reader, err := ss.Download(context.Background(), surfaceID)
 		if err != nil {
+			l.LogE(op, "Surface fetch failed", err)
 			ctx.StatusCode(404)
 			return
 		}
