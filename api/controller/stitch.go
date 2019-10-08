@@ -1,12 +1,8 @@
 package controller
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
-	"io"
-	"strings"
 
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service"
@@ -41,17 +37,11 @@ func StitchController(
 			return
 		}
 
-		manLength := uint32(len(manifest))
-		manLengthBuff := make([]byte, 4)
-		binary.LittleEndian.PutUint32(manLengthBuff, manLength)
-
 		si, err := stitcher.Stitch(
+			context.Background(),
+			manifest,
 			ctx.ResponseWriter(),
-			io.MultiReader(
-				strings.NewReader("M:"),
-				bytes.NewBuffer(manLengthBuff),
-				bytes.NewBuffer(manifest),
-				ctx.Request().Body))
+			ctx.Request().Body)
 		if err != nil {
 			ctx.StatusCode(500)
 
@@ -85,31 +75,24 @@ func StitchSurfaceController(
 			return
 		}
 
-		manLength := uint32(len(manifest))
-		manLengthBuff := make([]byte, 4)
-		binary.LittleEndian.PutUint32(manLengthBuff, manLength)
-
 		surfaceID := ctx.Params().Get("surfaceID")
-		l.LogI(op, fmt.Sprintf("Stitching: manifest: %s, surfaceID: %s \n",
-			manifestID,
-			surfaceID))
-
-		reader, err := ss.Download(context.Background(), surfaceID)
+		bgctx := context.Background()
+		surface, err := ss.Download(bgctx, surfaceID)
 		if err != nil {
 			l.LogE(op, "Surface fetch failed", err)
 			ctx.StatusCode(404)
 			return
 		}
 
-		l.LogI(op, fmt.Sprintf("Stitching: manifestLength: %d bytes", manLength))
+		l.LogI(op, fmt.Sprintf("Stitching: manifest: %s, surfaceID: %s \n",
+			manifestID,
+			surfaceID))
 
 		si, err := stitcher.Stitch(
+			bgctx,
+			manifest,
 			ctx.ResponseWriter(),
-			io.MultiReader(
-				strings.NewReader("M:"),
-				bytes.NewBuffer(manLengthBuff),
-				bytes.NewBuffer(manifest),
-				reader))
+			surface)
 		if err != nil {
 			ctx.StatusCode(500)
 			l.LogE(op, "Core stitch failed", err)

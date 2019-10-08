@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,7 +17,7 @@ import (
 )
 
 type ManifestStore interface {
-	Fetch(string) ([]byte, error)
+	Fetch(string) (Manifest, error)
 }
 
 type (
@@ -31,7 +30,7 @@ type (
 	}
 
 	manifestInMemoryStore struct {
-		m    map[string][]byte
+		m    map[string]Manifest
 		lock sync.RWMutex
 	}
 )
@@ -42,8 +41,8 @@ type ConnStr string
 // NewManifestStore provides a manifest store based on the persistance configuration given
 func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 	switch persistance.(type) {
-	case map[string][]byte:
-		return &manifestInMemoryStore{m: persistance.(map[string][]byte)}, nil
+	case map[string]Manifest:
+		return &manifestInMemoryStore{m: persistance.(map[string]Manifest)}, nil
 	case ConnStr:
 		return &manifestDbStore{string(persistance.(ConnStr))}, nil
 	case string:
@@ -56,49 +55,49 @@ func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 
 type Manifest struct {
 	Basename   string `json:"basename"`
-	Cubexs     int32  `json:"cube-xs"`
-	Cubeys     int32  `json:"cube-ys"`
-	Cubezs     int32  `json:"cube-zs"`
-	Fragmentxs int32  `json:"fragment-xs"`
-	Fragmentys int32  `json:"fragment-ys"`
-	Fragmentzs int32  `json:"fragment-zs"`
+	Cubexs     uint32 `json:"cube-xs"`
+	Cubeys     uint32 `json:"cube-ys"`
+	Cubezs     uint32 `json:"cube-zs"`
+	Fragmentxs uint32 `json:"fragment-xs"`
+	Fragmentys uint32 `json:"fragment-ys"`
+	Fragmentzs uint32 `json:"fragment-zs"`
 }
 
-func (m *manifestFileStore) Fetch(id string) ([]byte, error) {
+func (m *manifestFileStore) Fetch(id string) (Manifest, error) {
 	fileName := path.Join(m.basePath, id+".manifest")
 	cont, err := ioutil.ReadFile(path.Clean(fileName))
+	var mani Manifest
+	err = json.Unmarshal(cont, &mani)
 	if err != nil {
-		return nil, err
+		return mani, err
 	}
-	return cont, nil
+	return mani, nil
 }
 
-func (m *manifestDbStore) Fetch(id string) ([]byte, error) {
+func (m *manifestDbStore) Fetch(id string) (Manifest, error) {
 	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	var res Manifest
 	client, err := mongo.Connect(dbCtx, options.Client().ApplyURI(m.connString))
 	if err != nil {
-		return []byte{}, err
+		return res, err
 	}
 	defer client.Disconnect(dbCtx)
 	collection := client.Database("seismiccloud").Collection("manifests")
-	var res Manifest
 	err = collection.FindOne(dbCtx, bson.D{{"basename", id}}).Decode(&res)
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	l.LogI("manifest fetch", fmt.Sprintf("Connected to manifest DB and fetched file %s", id))
-	resBytes := new(bytes.Buffer)
-	json.NewEncoder(resBytes).Encode(res)
-	return resBytes.Bytes(), nil
+	return res, nil
 }
 
-func (inMem *manifestInMemoryStore) Fetch(id string) ([]byte, error) {
+func (inMem *manifestInMemoryStore) Fetch(id string) (Manifest, error) {
 	inMem.lock.RLock()
 	defer inMem.lock.RUnlock()
 	manifest, ok := inMem.m[id]
 	if !ok {
-		return nil, events.E("No manifest for id")
+		return Manifest{}, events.E("No manifest for id")
 	}
 	return manifest, nil
 }

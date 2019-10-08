@@ -13,11 +13,12 @@ import (
 
 	l "github.com/equinor/seismic-cloud/api/logger"
 	pb "github.com/equinor/seismic-cloud/api/proto"
+	"github.com/equinor/seismic-cloud/api/service/store"
 	"google.golang.org/grpc"
 )
 
 type Stitcher interface {
-	Stitch(out io.Writer, in io.Reader) (string, error)
+	Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error)
 }
 
 func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
@@ -53,7 +54,7 @@ type execStitch struct {
 	profile bool
 }
 
-func (es *execStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+func (es *execStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
 	op := "execStitch.stitch"
 	var e *exec.Cmd
 	var pBuf *bytes.Buffer
@@ -108,7 +109,39 @@ type GrpcOpts struct {
 	Insecure bool
 }
 
-func (gs *gRPCStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+func decodeSurface(in io.Reader) (pb.Surface, error) {
+	var surface pb.Surface
+	for {
+		var p struct {
+			X, Y, Z float32
+		}
+		err := binary.Read(in, binary.LittleEndian, &p)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return surface, err
+		}
+		surface.Points = append(surface.Points, &pb.Point{X: p.X, Y: p.Y, Z: p.Z})
+	}
+	return surface, nil
+}
+
+func (gs *gRPCStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
+	surface, err := decodeSurface(in)
+	if err != nil {
+		return "", err
+	}
+	req := &pb.SurfaceRequest{
+		Surface:    &surface,
+		Basename:   ms.Basename,
+		Cubexs:     ms.Cubexs,
+		Cubeys:     ms.Cubeys,
+		Cubezs:     ms.Cubezs,
+		Fragmentxs: ms.Fragmentxs,
+		Fragmentys: ms.Fragmentys,
+		Fragmentzs: ms.Fragmentzs,
+	}
 	conn, err := grpc.Dial(string(gs.grpcAddr), gs.opts...)
 	if err != nil {
 		return "", err
@@ -118,11 +151,8 @@ func (gs *gRPCStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 	client := pb.NewCoreClient(conn)
 
 	r, err := client.StitchSurface(
-		context.Background(),
-		&pb.SurfaceRequest{
-			Surface:  "surfaceid",
-			Basename: "cubeid",
-		})
+		ctx,
+		req)
 	if err != nil {
 		return "", err
 	}
@@ -152,7 +182,7 @@ type tCPStitch struct {
 
 type TcpAddr string
 
-func (ts *tCPStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+func (ts *tCPStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", string(ts.tcpAddr))
 	if err != nil {
 		return "", err

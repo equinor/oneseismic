@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	goctx "context"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -20,6 +21,20 @@ type MockWriter struct {
 	io.Writer
 }
 
+type MockManifestStore struct{}
+
+func (*MockManifestStore) Fetch(id string) (store.Manifest, error) {
+	return store.Manifest{
+		Basename:   "mock",
+		Cubexs:     1,
+		Cubeys:     1,
+		Cubezs:     1,
+		Fragmentxs: 1,
+		Fragmentys: 1,
+		Fragmentzs: 1,
+	}, nil
+}
+
 func NewMockWriter(w io.Writer) MockWriter {
 	return MockWriter{w}
 }
@@ -34,7 +49,7 @@ func (m MockWriter) WriteHeader(statusCode int) {
 
 type EchoStitch string
 
-func (es EchoStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
+func (es EchoStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
 
 	_, err := io.Copy(out, in)
 	return string("ECHO"), err
@@ -55,16 +70,14 @@ func TestStitch(t *testing.T) {
 		S0wpZgBZYp5HK1dCF9sL
 		kcmmZTNurGRSYkOJS9xn`
 
-	want := "M:" + string([]byte{8, 0, 0, 0}) + "MANIFEST" + have
-
 	echoReq := &http.Request{}
 	echoReq.Body = ioutil.NopCloser(strings.NewReader(have))
 	buf := bytes.NewBuffer([]byte{})
 	echoWriter := NewMockWriter(buf)
 	echoCtx.BeginRequest(echoWriter, echoReq)
 	echoCtx.Params().Set("manifestID", "12345")
-
-	ms, _ := store.NewManifestStore(map[string][]byte{"12345": []byte("MANIFEST")})
+	ms := &MockManifestStore{}
+	// ms, _ := store.NewManifestStore(map[string][]byte{"12345": []byte("MANIFEST")})
 	echoStitch := StitchController(
 		ms,
 		EchoStitch("Echo Stitch"))
@@ -89,8 +102,8 @@ func TestStitch(t *testing.T) {
 				t.Errorf("Stitch() Readall err %v", err)
 				return
 			}
-			if string(got) != want {
-				t.Errorf("Stitch() got = %v, want %v", string(got), want)
+			if string(got) != have {
+				t.Errorf("Stitch() got = %v, want %v", string(got), have)
 			}
 			tt.args.ctx.EndRequest()
 
@@ -104,9 +117,13 @@ func TestStitchSurfaceController(t *testing.T) {
 		manID  string
 		surfID string
 	}
-
-	ms, _ := store.NewManifestStore(map[string][]byte{"man-1": []byte("MANIFEST")})
-	ss, _ := store.NewSurfaceStore(map[string][]byte{"surf-2": []byte("SURFACE")})
+	ms := &MockManifestStore{}
+	// ms, _ := store.NewManifestStore(map[string][]byte{"man-1": []byte("MANIFEST")})
+	ss, err := store.NewSurfaceStore(map[string][]byte{"surf-2": []byte("SURFACE")})
+	if err != nil {
+		t.Errorf("StitchSurfaceController() = Error making new Surface: %v", err)
+		return
+	}
 	ssC := StitchSurfaceController(ms, ss, EchoStitch("Echo Stitch"))
 	tests := []struct {
 		name string
@@ -116,7 +133,7 @@ func TestStitchSurfaceController(t *testing.T) {
 		{
 			"Reply from exisiting manifest and surface",
 			args{manID: "man-1", surfID: "surf-2"},
-			[]byte("M:" + string([]byte{8, 0, 0, 0}) + "MANIFESTSURFACE"),
+			[]byte("SURFACE"),
 		},
 	}
 	for _, tt := range tests {
