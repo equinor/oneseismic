@@ -18,15 +18,14 @@ type coreServer struct {
 
 func (s *coreServer) StitchSurface(ctx context.Context, in *pb.SurfaceRequest) (*pb.SurfaceReply, error) {
 
-	fmt.Println("stitching ", in.Surface, "on cube", in.Basename)
-	n := 100.0
+	fmt.Println("stitching on cube ", in.Basename)
 	repl := &pb.SurfaceReply{
 		I: make([]uint64, 0),
 		V: make([]float32, 0)}
-	for i := 0.0; i < n*n; i++ {
-		repl.I = append(repl.I, uint64(i))
-		x := math.Mod(i, 100) // Repeting values for every 100th
-		repl.V = append(repl.V, float32(n*math.Sin((math.Pi*x)/n)))
+	fmt.Println("size of surface is ", len(in.Surface.Points))
+	for idx, val := range in.Surface.Points {
+		repl.I = append(repl.I, uint64(idx))
+		repl.V = append(repl.V, float32(math.Sin(float64(val.Z))))
 	}
 	fmt.Println("size of repl is ", len(repl.I))
 	return repl, nil
