@@ -2,7 +2,6 @@ package controller
 
 import (
 	"bytes"
-	gocontext "context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -10,44 +9,17 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris"
 	"github.com/kataras/iris/context"
 )
 
-type MockSurface struct{}
-
-type MockSurfaceStore struct{}
-
-func mockSurfaces() []store.Surface {
-	surfaces := make([]store.Surface, 0)
-	surfaces = append(surfaces, store.Surface{
-		SurfaceID:    "blobtest",
-		Link:         "azure.container.blobstore",
-		LastModified: time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)})
-	surfaces = append(surfaces, store.Surface{
-		SurfaceID:    "blobtest_2",
-		Link:         "azure.container.blobstore",
-		LastModified: time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)})
-	return surfaces
-}
-
-func (*MockSurfaceStore) List(gocontext.Context) ([]store.Surface, error) {
-	return mockSurfaces(), nil
-}
-func (*MockSurfaceStore) Download(gocontext.Context, string) (io.Reader, error) {
-	return bytes.NewReader([]byte("surface")), nil
-}
-func (*MockSurfaceStore) Upload(gocontext.Context, string, string, io.Reader) (string, error) {
-	return "blobtest", nil
-}
-
 func TestSurfaceControllerUpload(t *testing.T) {
 
-	store := &MockSurfaceStore{}
-	c := NewSurfaceController(store)
+	ss, _ := store.NewSurfaceStore(make(map[string][]byte))
+
+	c := NewSurfaceController(ss)
 
 	tests := []struct {
 		name          string
@@ -99,15 +71,28 @@ func TestSurfaceControllerUpload(t *testing.T) {
 
 func TestSurfaceControllerList(t *testing.T) {
 
-	mockstore := &MockSurfaceStore{}
-	c := NewSurfaceController(mockstore)
+	mockSurfaces := make([]store.SurfaceMeta, 0)
+	mockSurfaces = append(mockSurfaces, store.SurfaceMeta{
+		SurfaceID: "blobtest",
+		Link:      "blobtest",
+	}, store.SurfaceMeta{
+		SurfaceID: "blobtest_2",
+		Link:      "blobtest_2",
+	})
+
+	ss, _ := store.NewSurfaceStore(map[string][]byte{
+		"blobtest":   []byte("blobtest"),
+		"blobtest_2": []byte("blobtest_2"),
+	})
+
+	c := NewSurfaceController(ss)
 
 	tests := []struct {
 		name         string
-		wantSurfaces []store.Surface
+		wantSurfaces []store.SurfaceMeta
 		wantStatus   int
 	}{
-		{"List", mockSurfaces(), 200},
+		{"List", mockSurfaces, 200},
 	}
 
 	for _, tt := range tests {
@@ -130,7 +115,7 @@ func TestSurfaceControllerList(t *testing.T) {
 				return
 			}
 
-			surf := make([]store.Surface, 0)
+			surf := make([]store.SurfaceMeta, 0)
 			err = json.Unmarshal(gotSurfaces, &surf)
 
 			if !reflect.DeepEqual(surf, tt.wantSurfaces) {
@@ -144,8 +129,10 @@ func TestSurfaceControllerList(t *testing.T) {
 
 func TestSurfaceControllerDownload(t *testing.T) {
 
-	store := &MockSurfaceStore{}
-	c := NewSurfaceController(store)
+	surfaces := map[string][]byte{"blobtest": []byte("surface")}
+	ss, _ := store.NewSurfaceStore(surfaces)
+
+	c := NewSurfaceController(ss)
 
 	tests := []struct {
 		name          string

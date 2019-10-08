@@ -6,23 +6,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/equinor/seismic-cloud/api/events"
 	l "github.com/equinor/seismic-cloud/api/logger"
-	"github.com/kataras/iris"
-	"github.com/kataras/iris/context"
+	"github.com/equinor/seismic-cloud/api/service/store"
+	irisCtx "github.com/kataras/iris/context"
 )
 
 type MockWriter struct {
 	io.Writer
-}
-
-type MockManifestStore struct{}
-
-func (*MockManifestStore) Fetch(id string) ([]byte, error) {
-	return []byte("MANIFEST"), nil
 }
 
 func NewMockWriter(w io.Writer) MockWriter {
@@ -42,12 +37,12 @@ type EchoStitch string
 func (es EchoStitch) Stitch(out io.Writer, in io.Reader) (string, error) {
 
 	_, err := io.Copy(out, in)
-	return string(es), err
+	return string("ECHO"), err
 }
 
 func TestStitch(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	echoCtx := context.NewContext(nil)
+	echoCtx := irisCtx.NewContext(nil)
 	have :=
 		`VLiFrhfjz7O5Zt1VD0Wd
 		MBECw6JWO0oEsbkz4Qqv
@@ -68,11 +63,13 @@ func TestStitch(t *testing.T) {
 	echoWriter := NewMockWriter(buf)
 	echoCtx.BeginRequest(echoWriter, echoReq)
 	echoCtx.Params().Set("manifestID", "12345")
+
+	ms, _ := store.NewManifestStore(map[string][]byte{"12345": []byte("MANIFEST")})
 	echoStitch := StitchController(
-		new(MockManifestStore),
+		ms,
 		EchoStitch("Echo Stitch"))
 	type args struct {
-		ctx iris.Context
+		ctx irisCtx.Context
 	}
 
 	tests := []struct {
@@ -98,5 +95,50 @@ func TestStitch(t *testing.T) {
 			tt.args.ctx.EndRequest()
 
 		})
+	}
+}
+
+func TestStitchSurfaceController(t *testing.T) {
+	l.SetLogSink(os.Stdout, events.DebugLevel)
+	type args struct {
+		manID  string
+		surfID string
+	}
+
+	ms, _ := store.NewManifestStore(map[string][]byte{"man-1": []byte("MANIFEST")})
+	ss, _ := store.NewSurfaceStore(map[string][]byte{"surf-2": []byte("SURFACE")})
+	ssC := StitchSurfaceController(ms, ss, EchoStitch("Echo Stitch"))
+	tests := []struct {
+		name string
+		args args
+		want []byte
+	}{
+		{
+			"Reply from exisiting manifest and surface",
+			args{manID: "man-1", surfID: "surf-2"},
+			[]byte("M:" + string([]byte{8, 0, 0, 0}) + "MANIFESTSURFACE"),
+		},
+	}
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := irisCtx.NewContext(nil)
+			buf := &bytes.Buffer{}
+			ctx.BeginRequest(NewMockWriter(buf), &http.Request{})
+			ctx.Params().Set("manifestID", tt.args.manID)
+			ctx.Params().Set("surfaceID", tt.args.surfID)
+
+			ssC(ctx)
+
+			got, err := ioutil.ReadAll(buf)
+			if err != nil {
+				t.Errorf("StitchSurfaceController() = Error %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("StitchSurfaceController() = %v, want %v", got, tt.want)
+			}
+			ctx.EndRequest()
+		})
+
 	}
 }
