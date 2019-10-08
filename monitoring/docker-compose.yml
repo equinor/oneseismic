@@ -1,16 +1,35 @@
-version: '3'
-services:  
-  
-  prometheus:
-    build: './prometheus'
-    container_name: 'prometheus'
+version: "3"
+services:
+  api:
+    build: "../api"
+    container_name: "api"
     ports:
-      - '9090:9090'
+      - "8080:8080"
+    environment:
+      - STITCH_CMD=/bin/cat
+      - NO_AUTH=True
+      - HTTP_ONLY=True
+      - HOST_ADDR=0.0.0.0:8080
+      - PROFILING=True
+    depends_on:
+      - core
+
+  core:
+    build: "../core"
+    container_name: "core"
+    ports:
+      - "5000:5000"
+
+  prometheus:
+    build: "./prometheus"
+    container_name: "prometheus"
+    ports:
+      - "9090:9090"
 
   grafana:
-    build: './grafana'
-    container_name: 'grafana'
+    build: "./grafana"
+    container_name: "grafana"
     ports:
-      - '3000:3000'
+      - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD

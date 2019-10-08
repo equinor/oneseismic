@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 
@@ -15,12 +16,11 @@ import (
 	"github.com/equinor/seismic-cloud/api/service"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
+	prometheusmiddleware "github.com/iris-contrib/middleware/prometheus"
 	"github.com/iris-contrib/swagger"
 	"github.com/iris-contrib/swagger/swaggerFiles"
 	"github.com/kataras/iris"
-	prometheusmiddleware"github.com/iris-contrib/middleware/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type serverMode int
@@ -160,22 +160,10 @@ func (hs *HttpServer) registerEndpoints() {
 		ctx.HTML("Hello World")
 	})
 
-	m := prometheusmiddleware.New("Metrics", 0.3, 1.2, 5.0)
-	hs.app.OnErrorCode(iris.StatusNotFound, func(ctx iris.Context) {
-		// error code handlers are not sharing the same middleware as other routes, so we have
-		// to call them inside their body.
-		m.ServeHTTP(ctx)
-
-		ctx.Writef("Not Found22")
-	})
-	opts := promhttp.HandlerOpts{DisableCompression: true}
-	hs.app.Use(m.ServeHTTP)
-	hs.app.Get("/metrics", iris.FromStd(promhttp.HandlerFor(prometheus.DefaultGatherer, opts)))
-
 	hs.app.Post("/stitch/{manifestID:string idString() else 502}",
 		controller.StitchController(
 			hs.service.manifestStore,
-			
+
 			hs.service.stitcher))
 
 	hs.app.Get("/stitchsurface/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
@@ -288,6 +276,18 @@ func WithProfiling() HttpServerOption {
 		hs.app.Use(profilingmiddleware.Init(hs.service.profileStore))
 		hs.app.Get("/profile/{profileID:string manifestID() else 502}",
 			controller.ProfileController(hs.service.profileStore))
+
+		// Prometheus middleware
+		m := prometheusmiddleware.New("Metrics", 0.3, 1.2, 5.0)
+		hs.app.Use(m.ServeHTTP)
+		metrics := iris.New()
+		metrics.Get("/metrics", iris.FromStd(promhttp.Handler()))
+		err = metrics.Build()
+		if err != nil {
+			panic(err)
+		}
+		metricsServer := &http.Server{Addr: ":8081", Handler: metrics}
+		go metricsServer.ListenAndServe()
 		return
 	})
 }
