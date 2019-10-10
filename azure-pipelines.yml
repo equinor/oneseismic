@@ -16,22 +16,22 @@ jobs:
           cd segyio/build
           cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
           sudo make install -j2
-        displayName: "Build segyio"
+        displayName: 'Build segyio'
       - script: |
           sudo pip install scikit-build pybind11
           mkdir build
           cd build
           cmake ../core -DCMAKE_BUILD_TYPE=Release
-        displayName: "Setup seismic-cloud"
+        displayName: 'Setup seismic-cloud'
 
       - script: |
           make
-        displayName: "Build seismic-cloud"
+        displayName: 'Build seismic-cloud'
         workingDirectory: build
 
       - script: |
           ctest --output-on-failure
-        displayName: "Test seismic-cloud"
+        displayName: 'Test seismic-cloud'
         workingDirectory: build
 
   - job: Build_API
@@ -49,12 +49,12 @@ jobs:
 
       - script: |
           go mod download
-        displayName: "Download modules"
+        displayName: 'Download modules'
         workingDirectory: api
 
       - script: |
           protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
-        displayName: "Generating grpc client stubs"
+        displayName: 'Generating grpc client stubs'
         workingDirectory: api
 
       - script: |
@@ -64,11 +64,11 @@ jobs:
 
       - script: |
           go build
-        displayName: "Build seismic-cloud-api"
+        displayName: 'Build seismic-cloud-api'
         workingDirectory: api
 
       - script: |
-           go test ./...
+          go test -race -v ./...
         workingDirectory: api
         displayName: 'SC-API Run unit tests'
 
@@ -77,6 +77,6 @@ jobs:
       - script: |
           echo 'Deploy'
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
-        displayName: "Deploy seismic-cloud"
+        displayName: 'Deploy seismic-cloud'
 
       - template: api/tests/publish-test-results.yaml
