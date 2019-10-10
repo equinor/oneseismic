@@ -3,10 +3,12 @@ package service
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"reflect"
 	"testing"
 
 	pb "github.com/equinor/seismic-cloud/api/proto"
+	"github.com/equinor/seismic-cloud/api/service/store"
 	"google.golang.org/grpc"
 )
 
@@ -43,11 +45,50 @@ func TestDecodeSurface(t *testing.T) {
 
 	got, err := decodeSurface(buf)
 	if err != nil {
-		t.Errorf("Stitch.decode Readall err %v", err)
+		t.Errorf("Stitch.decode err %v", err)
 		return
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Stitch.decode got %v, want %v", got, want)
+		return
+	}
+}
+
+func TestEncodeManifest(t *testing.T) {
+	want := store.Manifest{
+		Basename:   "testmanifest",
+		Cubexs:     1,
+		Cubeys:     1,
+		Cubezs:     1,
+		Fragmentxs: 1,
+		Fragmentys: 1,
+		Fragmentzs: 1,
+	}
+	buf, err := manifestReader(want)
+	if err != nil {
+		t.Errorf("Stitch.encode manifestReader %v", err)
+		return
+	}
+	dump := make([]byte, 2)
+	err = binary.Read(buf, binary.LittleEndian, &dump)
+	if err != nil {
+		t.Errorf("Stitch.encode binary.Read err %v", err)
+		return
+	}
+	var manilen uint32
+	err = binary.Read(buf, binary.LittleEndian, &manilen)
+	if err != nil {
+		t.Errorf("Stitch.encode binary.Read err %v", err)
+		return
+	}
+	var m store.Manifest
+	err = json.Unmarshal(buf.Bytes(), &m)
+	if err != nil {
+		t.Errorf("Stitch.encode json.Unmarshal err %v", err)
+	}
+
+	if !reflect.DeepEqual(m, want) {
+		t.Errorf("Stitch.encode got %v, want %v", m, want)
 		return
 	}
 }

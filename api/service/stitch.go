@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -49,6 +50,36 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 	}
 }
 
+func decodeSurface(in io.Reader) (pb.Surface, error) {
+	var surface pb.Surface
+	for {
+		var p struct {
+			X, Y, Z float32
+		}
+		err := binary.Read(in, binary.LittleEndian, &p)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return surface, err
+		}
+		surface.Points = append(surface.Points, &pb.Point{X: p.X, Y: p.Y, Z: p.Z})
+	}
+	return surface, nil
+}
+
+func manifestReader(ms store.Manifest) (*bytes.Buffer, error) {
+
+	b, err := json.Marshal(ms)
+	if err != nil {
+		return nil, err
+	}
+	nb := []byte("M:\x00\x00\x00\x00")
+	binary.LittleEndian.PutUint32(nb[2:], uint32(len(b)))
+
+	return bytes.NewBuffer(append(nb, b...)), nil
+}
+
 type execStitch struct {
 	cmd     []string
 	profile bool
@@ -81,12 +112,14 @@ func (es *execStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writ
 	} else {
 		e = exec.Command(es.cmd[0], es.cmd[1:]...)
 	}
+	buf, err := manifestReader(ms)
+	mr := io.MultiReader(buf, in)
 	errBuf := bytes.NewBuffer(make([]byte, 0))
 	e.Stdout = out
-	e.Stdin = in
+	e.Stdin = mr
 	e.Stderr = errBuf
 
-	err := e.Run()
+	err = e.Run()
 	if err != nil {
 		return "", fmt.Errorf("Execute stitch failed: %v - %v ", err, string(errBuf.Bytes()))
 	}
@@ -107,24 +140,6 @@ type gRPCStitch struct {
 type GrpcOpts struct {
 	Addr     string
 	Insecure bool
-}
-
-func decodeSurface(in io.Reader) (pb.Surface, error) {
-	var surface pb.Surface
-	for {
-		var p struct {
-			X, Y, Z float32
-		}
-		err := binary.Read(in, binary.LittleEndian, &p)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return surface, err
-		}
-		surface.Points = append(surface.Points, &pb.Point{X: p.X, Y: p.Y, Z: p.Z})
-	}
-	return surface, nil
 }
 
 func (gs *gRPCStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
@@ -194,8 +209,13 @@ func (ts *tCPStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Write
 	defer conn.Close()
 	rxErrChan := make(chan string)
 	txErrChan := make(chan string)
+	buf, err := manifestReader(ms)
+	if err != nil {
+		return "", err
+	}
+	mr := io.MultiReader(buf, in)
 	go func() {
-		if _, err := io.Copy(conn, in); err != nil {
+		if _, err := io.Copy(conn, mr); err != nil {
 			txErrChan <- fmt.Sprintf("Sending to tcp stitch failed: %v", err)
 		} else {
 			txErrChan <- ""
