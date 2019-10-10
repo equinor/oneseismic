@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"net/http"
 	"os"
 
 	"github.com/equinor/seismic-cloud/api/events"
@@ -10,6 +11,7 @@ import (
 	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/server"
 	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -151,12 +153,32 @@ func createHTTPServerOptions() ([]server.HttpServerOption, error) {
 
 func runServe(cmd *cobra.Command, args []string) {
 	op := "serve.runServe"
+
 	if viper.ConfigFileUsed() == "" {
 		l.LogW(op, "Config from environment variables")
 	} else {
 		l.LogI(op, "Config loaded and validated "+viper.ConfigFileUsed())
 	}
 
+	var p *profile.Profile
+	if config.Profiling() {
+		l.LogI(op, "Enabling profiling")
+		pType := "mem"
+		pOpts := []func(*profile.Profile){
+			profile.ProfilePath("pprof"),
+			profile.NoShutdownHook,
+		}
+		switch pType {
+		case "mem":
+			pOpts = append(pOpts, profile.MemProfile)
+		case "cpu":
+			pOpts = append(pOpts, profile.CPUProfile)
+		default:
+			pOpts = append(pOpts, profile.CPUProfile)
+		}
+
+		p = profile.Start(pOpts...).(*profile.Profile)
+	}
 	if len(config.LogDBConnStr()) > 0 {
 		l.LogI(op, "Switch log sink from os.Stdout to psqlDB")
 		db, err := l.DbOpener()
@@ -177,15 +199,20 @@ func runServe(cmd *cobra.Command, args []string) {
 	hs, err := server.NewHttpServer(opts...)
 
 	if err != nil {
-		l.LogE(op, "Error starting http server", err)
+		l.LogE(op, "Error configuring http server", err)
 		os.Exit(1)
 	}
 	err = hs.Serve()
 
-	if err != nil {
-		l.LogE(op, "Error starting http server", err)
+	if err != nil && err != http.ErrServerClosed {
+		l.LogE(op, "Error running http server", err)
 		os.Exit(1)
 	}
+
+	if p != nil {
+		p.Stop()
+	}
+
 }
 
 func init() {
