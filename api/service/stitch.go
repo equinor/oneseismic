@@ -28,13 +28,18 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 	switch stype.(type) {
 	case []string:
 		cmdArgs := stype.([]string)
+		if len(cmdArgs) < 1 {
+			return nil, events.E(op, events.ErrorLevel, "No command given")
+		}
 		execName := cmdArgs[0]
 		inf, err := os.Stat(execName)
 		if err != nil {
-			return nil, err
+			msg := "Cannot use executable: `" + execName + "`"
+			return nil, events.E(op, events.ErrorLevel, msg, err)
 		}
 		if inf.IsDir() {
-			return nil, fmt.Errorf("Cannot be a directory")
+			msg := "Cannot use directory as executable: `" + execName + "`"
+			return nil, events.E(op, events.ErrorLevel, msg)
 		}
 		return &execStitch{cmdArgs, profile}, nil
 	case TcpAddr:
