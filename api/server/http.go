@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 
@@ -15,9 +16,11 @@ import (
 	"github.com/equinor/seismic-cloud/api/service"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
+	prometheusmiddleware "github.com/iris-contrib/middleware/prometheus"
 	"github.com/iris-contrib/swagger"
 	"github.com/iris-contrib/swagger/swaggerFiles"
 	"github.com/kataras/iris"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type serverMode int
@@ -186,6 +189,18 @@ func (hs *HttpServer) Serve() error {
 		hs.app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
 	}
 
+	if hs.profile {
+		// Activate Prometheus middleware if profiling is on
+		metrics := iris.New()
+		metrics.Get("/metrics", iris.FromStd(promhttp.Handler()))
+		err := metrics.Build()
+		if err != nil {
+			panic(err)
+		}
+		metricsServer := &http.Server{Addr: ":8081", Handler: metrics}
+		go metricsServer.ListenAndServe()
+	}
+
 	switch hs.chosenMode {
 	case INSECURE:
 		return hs.app.Run(iris.Addr(hs.hostAddr))
@@ -272,6 +287,9 @@ func WithProfiling() HttpServerOption {
 		hs.app.Use(profilingmiddleware.Init(hs.service.profileStore))
 		hs.app.Get("/profile/{profileID:string manifestID() else 502}",
 			controller.ProfileController(hs.service.profileStore))
+
+		m := prometheusmiddleware.New("Metrics", 0.3, 1.2, 5.0)
+		hs.app.Use(m.ServeHTTP)
 		return
 	})
 }
