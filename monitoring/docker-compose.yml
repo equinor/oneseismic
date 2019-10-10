@@ -1,4 +1,4 @@
-version: "3"
+version: "3.0"
 services:
   api:
     build: "../api"
@@ -22,7 +22,6 @@ services:
 
   prometheus:
     build: "./prometheus"
-    container_name: "prometheus"
     ports:
       - "9090:9090"
 
@@ -33,3 +32,65 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD
+
+  prometheus_postgresql_adapter:
+    depends_on:
+    - db
+    - prometheus
+    environment:
+      TS_PROM_LOG_LEVEL: debug
+      TS_PROM_PG_DB_CONNECT_RETRIES: 10
+      TS_PROM_PG_HOST: oneseismic-metrics.postgres.database.azure.com
+      TS_PROM_PG_USER: seismiccloud@oneseismic-metrics
+      TS_PROM_PG_PASSWORD: Q{)ZrYhS]jF^^*39
+      TS_PROM_PG_SCHEMA: postgres
+      TS_PROM_WEB_TELEMETRY_PATH: /metrics-text
+    image: timescale/prometheus-postgresql-adapter:latest
+    command: -pg-prometheus-log-samples
+    ports:
+    - 9201:9201/tcp
+
+  db:
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    image: timescale/pg_prometheus:latest
+    ports:
+    - 5432:5432/tcp
+
+
+
+
+# version: "3.0"
+# services:
+
+#   prometheus:
+#     build: "/home/kristian/git/seismic-cloud/monitoring/prometheus"
+#     ports:
+#       - "9090:9090"
+
+
+#   prometheus_postgresql_adapter:
+#     depends_on:
+#     - db
+#     - prometheus
+#     environment:
+#       TS_PROM_LOG_LEVEL: debug
+#       TS_PROM_PG_DB_CONNECT_RETRIES: 10
+#       TS_PROM_PG_HOST: db
+#       # TS_PROM_PG_USER: seismiccloud
+#       TS_PROM_PG_PASSWORD: postgres
+#       TS_PROM_PG_SCHEMA: postgres
+#       TS_PROM_WEB_TELEMETRY_PATH: /metrics-text
+#     image: timescale/prometheus-postgresql-adapter:latest
+#     command: -pg-prometheus-log-samples
+#     ports:
+#     - 9201:9201/tcp
+
+#   db:
+#     environment:
+#       POSTGRES_PASSWORD: postgres
+#       POSTGRES_USER: postgres
+#     image: timescale/pg_prometheus:latest
+#     ports:
+#     - 5432:5432/tcp
