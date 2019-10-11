@@ -21,32 +21,6 @@ info:
   title: '{{.Title}}'
   version: '{{.Version}}'
 paths:
-  /profile/{profile_id}:
-    get:
-      description: get profiling numbers
-      parameters:
-      - description: Some ID
-        in: path
-        name: some_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: file
-        "404":
-          description: Profile not found
-          schema:
-            $ref: '#/definitions/controller.APIError'
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/controller.APIError'
-            type: object
   /stitch/{manifest_id}:
     post:
       consumes:

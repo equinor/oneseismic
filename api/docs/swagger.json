@@ -10,45 +10,6 @@
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/profile/{profile_id}": {
-            "get": {
-                "description": "get profiling numbers",
-                "produces": [
-                    "application/json"
-                ],
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Some ID",
-                        "name": "some_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "file"
-                        }
-                    },
-                    "404": {
-                        "description": "Profile not found",
-                        "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/controller.APIError"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/controller.APIError"
-                        }
-                    }
-                }
-            }
-        },
         "/stitch/{manifest_id}": {
             "post": {
                 "description": "post surface query to stitch",
