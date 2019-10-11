@@ -35,7 +35,7 @@ func stitchConfig() interface{} {
 	if len(sTCP) > 0 {
 		return service.TcpAddr(sTCP)
 	}
-	if len(sCmd) > 0 {
+	if len(sCmd) > 0 && len(sCmd[0]) > 0 {
 		return sCmd
 	}
 	return nil
