@@ -8,11 +8,10 @@ import (
 	"testing"
 
 	"github.com/equinor/seismic-cloud/api/events"
-	"gotest.tools/assert"
-
 	pb "github.com/equinor/seismic-cloud/api/proto"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"google.golang.org/grpc"
+	"gotest.tools/assert"
 )
 
 type mockGRPCStitch struct {
@@ -96,17 +95,34 @@ func TestEncodeManifest(t *testing.T) {
 	}
 }
 
-func TestNewStitch_nil_cmd(t *testing.T) {
-	_, err := NewStitch(nil, false)
-
+func ExpectOurError(t *testing.T, err error, expectedMsg string) {
 	if err != nil {
-		if serr, ok := err.(*events.Event); ok {
-			assert.Equal(t, "Invalid stitch type", serr.Message)
+		if ourErr, ok := err.(*events.Event); ok {
+			assert.Equal(t, expectedMsg, ourErr.Message)
 		} else {
-			t.Errorf("Expected error type: *events.Event")
+			t.Errorf("Expected our error type: *events.Event, got: %s", err)
 		}
 	} else {
-		t.Errorf("Expected error")
+		t.Errorf("Expected some error")
 	}
+}
 
+func TestNewStitchNilCmd(t *testing.T) {
+	_, err := NewStitch(nil, false)
+	ExpectOurError(t, err, "Invalid stitch type")
+}
+
+func TestNewStitchNoSuchFileCmd(t *testing.T) {
+	_, err := NewStitch([]string{"/no/such/file"}, false)
+	ExpectOurError(t, err, "Cannot use executable: `/no/such/file`")
+}
+
+func TestNewStitchEmptyCmd(t *testing.T) {
+	_, err := NewStitch([]string{}, false)
+	ExpectOurError(t, err, "No command given")
+}
+
+func TestNewStitchDirCmd(t *testing.T) {
+	_, err := NewStitch([]string{"/tmp"}, false)
+	ExpectOurError(t, err, "Cannot use directory as executable: `/tmp`")
 }
