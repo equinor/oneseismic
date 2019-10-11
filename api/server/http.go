@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	pprof "net/http/pprof"
 	"net/url"
 	"regexp"
 
@@ -192,12 +193,28 @@ func (hs *HttpServer) Serve() error {
 		// Activate Prometheus middleware if profiling is on
 		metrics := iris.New()
 		metrics.Get("/metrics", iris.FromStd(promhttp.Handler()))
+		metrics.Get("/debug/pprof", iris.FromStd(pprof.Index))
+		metrics.Get("/debug/pprof/cmdline", iris.FromStd(pprof.Cmdline))
+		metrics.Get("/debug/pprof/profile", iris.FromStd(pprof.Profile))
+		metrics.Get("/debug/pprof/symbol", iris.FromStd(pprof.Symbol))
+
+		metrics.Get("/debug/pprof/goroutine", iris.FromStd(pprof.Handler("goroutine")))
+		metrics.Get("/debug/pprof/heap", iris.FromStd(pprof.Handler("heap")))
+		metrics.Get("/debug/pprof/threadcreate", iris.FromStd(pprof.Handler("threadcreate")))
+		metrics.Get("/debug/pprof/block", iris.FromStd(pprof.Handler("block")))
+
 		err := metrics.Build()
 		if err != nil {
 			panic(err)
 		}
 		metricsServer := &http.Server{Addr: ":8081", Handler: metrics}
-		go metricsServer.ListenAndServe()
+
+		go func() {
+			err := metricsServer.ListenAndServe()
+			if err != nil {
+				l.LogE("http.RunningProfileServer", "Server shutdown", err)
+			}
+		}()
 	}
 
 	switch hs.chosenMode {
