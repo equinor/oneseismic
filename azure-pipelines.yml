@@ -39,7 +39,7 @@ jobs:
     variables:
       GOPATH: $(Pipeline.Workspace)/go
       # Minimum ercentage of code that has to be tested
-      COVERAGE_LIMIT: 32
+      COVERAGE_LIMIT: 34
     steps:
       - task: CacheBeta@0
         inputs:
