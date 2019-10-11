@@ -76,8 +76,8 @@ func manifestReader(ms store.Manifest) (*bytes.Buffer, error) {
 	}
 	nb := []byte("M:\x00\x00\x00\x00")
 	binary.LittleEndian.PutUint32(nb[2:], uint32(len(b)))
-
-	return bytes.NewBuffer(append(nb, b...)), nil
+	nb = append(nb, b...)
+	return bytes.NewBuffer(nb), nil
 }
 
 type execStitch struct {

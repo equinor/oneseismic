@@ -64,9 +64,13 @@ type Manifest struct {
 }
 
 func (m *manifestFileStore) Fetch(id string) (Manifest, error) {
+	var mani Manifest
 	fileName := path.Join(m.basePath, id+".manifest")
 	cont, err := ioutil.ReadFile(path.Clean(fileName))
-	var mani Manifest
+	if err != nil {
+		return mani, err
+	}
+
 	err = json.Unmarshal(cont, &mani)
 	if err != nil {
 		return mani, err
