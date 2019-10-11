@@ -64,7 +64,6 @@ type HttpServer struct {
 
 type ApiService struct {
 	manifestStore store.ManifestStore
-	profileStore  store.ProfileStore
 	surfaceStore  store.SurfaceStore
 	stitcher      service.Stitcher
 }
@@ -299,10 +298,6 @@ func WithProfiling() HttpServerOption {
 
 	return newFuncOption(func(hs *HttpServer) (err error) {
 		hs.profile = true
-		// hs.service.profileStore = &store.ProfileInMemoryStore{}
-		// hs.app.Use(profilingmiddleware.Init(hs.service.profileStore))
-		// hs.app.Get("/profile/{profileID:string manifestID() else 502}",
-		// 	controller.ProfileController(hs.service.profileStore))
 
 		m := prometheusmiddleware.New("Metrics", 0.3, 1.2, 5.0)
 		hs.app.Use(m.ServeHTTP)
