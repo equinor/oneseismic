@@ -101,7 +101,7 @@ func TestNewStitch_nil_cmd(t *testing.T) {
 
 	if err != nil {
 		if serr, ok := err.(*events.Event); ok {
-			assert.Equal(t, "Invalid stitch type", serr.Err.Error())
+			assert.Equal(t, "Invalid stitch type", serr.Message)
 		} else {
 			t.Errorf("Expected error type: *events.Event")
 		}

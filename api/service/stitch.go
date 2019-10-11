@@ -48,7 +48,7 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 		}
 		return &gRPCStitch{addr, opts}, nil
 	default:
-		return nil, events.E(op, events.ErrorLevel, fmt.Errorf("Invalid stitch type"))
+		return nil, events.E(op, events.ErrorLevel, "Invalid stitch type")
 	}
 }
 
