@@ -41,6 +41,34 @@ spec:
               cpu: '200m'
         - environment: monitor
           monitoring: true
+          
+    - name: corestub
+      src: corestub
+      ports:
+        - name: grpc
+          port: 10000
+      environmentConfig:
+        - environment: prod
+          replicas: 2
+          monitoring: true
+          resources:
+            requests:
+              memory: '64Mi'
+              cpu: '100m'
+            limits:
+              memory: '128Mi'
+              cpu: '200m'
+        - environment: dev
+          monitoring: true
+          resources:
+            requests:
+              memory: '64Mi'
+              cpu: '100m'
+            limits:
+              memory: '2048Mi'
+              cpu: '200m'
+        - environment: monitor
+          monitoring: true
 
     - name: api
       src: api
@@ -57,7 +85,7 @@ spec:
             AUTHSERVER: 'https://login.microsoft.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0'
             HOST_ADDR: '0.0.0.0:8080'
             HTTP_ONLY: true
-            STITCH_ADDR: core:5000
+            STITCH_GRPC_ADDR: '0.0.0.0:10000'
             SWAGGER: true
             ISSUER: 'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
             AZURE_STORAGE_ACCOUNT: 'seismiccloud'
@@ -76,7 +104,7 @@ spec:
             AUTHSERVER: 'https://login.microsoft.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0'
             HOST_ADDR: '0.0.0.0:8080'
             HTTP_ONLY: true
-            STITCH_ADDR: core:5000
+            STITCH_GRPC_ADDR: '0.0.0.0:10000'
             SWAGGER: true
             ISSUER: 'https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0'
 
