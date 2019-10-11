@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -144,6 +145,7 @@ func (inMem *surfaceInMemoryStore) List(ctx context.Context) ([]SurfaceMeta, err
 			SurfaceID: k,
 			Link:      k})
 	}
+	sort.Slice(info, func(i, j int) bool { return info[i].SurfaceID < info[j].SurfaceID })
 
 	return info, nil
 }
