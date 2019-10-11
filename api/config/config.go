@@ -69,7 +69,9 @@ func parseURL(s string) (*url.URL, error) {
 }
 
 func AuthServer() *url.URL {
-
+	if cfg == nil {
+		return nil
+	}
 	return cfg.authServer
 }
 
