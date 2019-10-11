@@ -31,6 +31,7 @@ spec:
               memory: '128Mi'
               cpu: '200m'
         - environment: dev
+          replicas: 0
           monitoring: true
           resources:
             requests:
@@ -49,7 +50,7 @@ spec:
           port: 10000
       environmentConfig:
         - environment: prod
-          replicas: 2
+          replicas: 0
           monitoring: true
           resources:
             requests:
@@ -59,6 +60,7 @@ spec:
               memory: '128Mi'
               cpu: '200m'
         - environment: dev
+          replicas: 0
           monitoring: true
           resources:
             requests:
@@ -114,6 +116,11 @@ spec:
         - name: http
           port: 9090
       publicPort: http
+      environmentConfig:
+        - environment: dev
+          replicas: 0
+        - environment: monitor
+          replicas: 0
 
     - name: grafana
       src: monitoring/grafana
@@ -123,6 +130,11 @@ spec:
         - name: http
           port: 3000
       publicPort: http
+      environmentConfig:
+        - environment: dev
+          replicas: 0
+         - environment: monitor
+          replicas: 1
 
   dnsAppAlias:
     environment: prod
