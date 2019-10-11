@@ -119,8 +119,6 @@ spec:
       environmentConfig:
         - environment: dev
           replicas: 0
-        - environment: monitor
-          replicas: 0
 
     - name: grafana
       src: monitoring/grafana
@@ -133,8 +131,6 @@ spec:
       environmentConfig:
         - environment: dev
           replicas: 0
-         - environment: monitor
-          replicas: 1
 
   dnsAppAlias:
     environment: prod
