@@ -33,7 +33,6 @@ func SetDefaults() {
 	viper.SetDefault("PROFILING", false)
 	viper.SetDefault("SWAGGER", false)
 	viper.SetDefault("MANIFEST_PATH", "tmp/")
-	viper.SetDefault("MANIFEST_SRC", "db")
 	viper.SetDefault("MANIFEST_DB_URI", "mongodb://")
 	viper.SetDefault("AZURE_STORAGE_ACCOUNT", "")
 	viper.SetDefault("AZURE_STORAGE_ACCESS_KEY", "")
@@ -93,10 +92,6 @@ func StitchTcpAddr() string {
 
 func StitchGrpcAddr() string {
 	return viper.GetString("STITCH_GRPC_ADDR")
-}
-
-func ManifestStoragePath() string {
-	return viper.GetString("MANIFEST_PATH")
 }
 
 func AzStorageAccount() string {
@@ -161,12 +156,11 @@ func Swagger() bool {
 	return viper.GetBool("SWAGGER")
 }
 
+func ManifestStoragePath() string {
+	return viper.GetString("MANIFEST_PATH")
+}
 func ManifestURI() string {
 	return viper.GetString("MANIFEST_DB_URI")
-}
-
-func ManifestSrc() string {
-	return viper.GetString("MANIFEST_SRC")
 }
 
 func LogDBConnStr() string {

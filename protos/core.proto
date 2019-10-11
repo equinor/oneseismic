@@ -8,8 +8,8 @@ service Core {
 }
 
 message  SurfaceRequest {
-    string surface    = 1;
-    string basename   = 2;
+    Surface surface    = 1;
+    string basename    = 2;
     uint32  cubexs     = 3;
     uint32  cubeys     = 4;
     uint32  cubezs     = 5;
@@ -18,7 +18,17 @@ message  SurfaceRequest {
     uint32  fragmentzs = 8;
 }
 
-message  SurfaceReply {
+message Surface {
+    repeated Point points = 1;
+}
+
+message Point {
+    float x = 1;
+    float y = 2;
+    float z = 3;
+}
+
+message SurfaceReply {
     repeated uint64 i = 1;
     repeated float v = 2;
 }
