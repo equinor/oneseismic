@@ -7,6 +7,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/equinor/seismic-cloud/api/events"
+	"gotest.tools/assert"
+
 	pb "github.com/equinor/seismic-cloud/api/proto"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"google.golang.org/grpc"
@@ -91,4 +94,19 @@ func TestEncodeManifest(t *testing.T) {
 		t.Errorf("Stitch.encode got %v, want %v", m, want)
 		return
 	}
+}
+
+func TestNewStitch_nil_cmd(t *testing.T) {
+	_, err := NewStitch(nil, false)
+
+	if err != nil {
+		if serr, ok := err.(*events.Event); ok {
+			assert.Equal(t, "Invalid stitch type", serr.Message)
+		} else {
+			t.Errorf("Expected error type: *events.Event")
+		}
+	} else {
+		t.Errorf("Expected error")
+	}
+
 }

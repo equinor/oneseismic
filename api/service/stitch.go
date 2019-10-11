@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/equinor/seismic-cloud/api/events"
 	l "github.com/equinor/seismic-cloud/api/logger"
 	pb "github.com/equinor/seismic-cloud/api/proto"
 	"github.com/equinor/seismic-cloud/api/service/store"
@@ -23,6 +24,7 @@ type Stitcher interface {
 }
 
 func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
+	op := events.Op("service.NewStich")
 	switch stype.(type) {
 	case []string:
 		cmdArgs := stype.([]string)
@@ -46,7 +48,7 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 		}
 		return &gRPCStitch{addr, opts}, nil
 	default:
-		return nil, fmt.Errorf("Invalid stitch type")
+		return nil, events.E(op, events.ErrorLevel, "Invalid stitch type")
 	}
 }
 
