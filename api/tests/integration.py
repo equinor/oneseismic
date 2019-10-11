@@ -15,7 +15,15 @@ os.environ["MANIFEST_PATH"] = "./"
 os.environ["NO_AUTH"] = "True"
 os.environ["HTTP_ONLY"] = "True"
 os.environ["HOST_ADDR"] = "localhost:7020"
-
+def cmp_bytes(a : bytes,b : bytes):
+    n = 0 
+    if len(a) != len(b):
+        return -1
+    for c, d in zip(a, b): 
+        n += 1
+        if c != d:
+            return n
+    return 0
 
 def test_code_coverage():
     with open("../coverage/index.html") as fp:
@@ -37,18 +45,23 @@ def test_create_defaults():
 
 
 def test_get_post():
-    p = subprocess.Popen(
-        ["../api serve --config .sc-api.yaml"], shell=True)
+    test_manifest = '{"basename":"testmanifest","cube-xs":1,"cube-ys":1,"cube-zs":1,"fragment-xs":1,"fragment-ys":1,"fragment-zs":1}'
+    p = subprocess.Popen(["../api serve --config .sc-api.yaml"], shell=True)
     sleep(0.5)
-    r = requests.get('http://localhost:7020/')
-    assert r.status_code == 200
+    try:
+        r = requests.get('http://localhost:7020/')
+        assert r.status_code == 200
 
-    with open("sample.manifest", "w") as f:
-        f.write("my_manifest\n")
-    r = requests.post('http://localhost:7020/stitch/sample',
-                      data={'please': 'return'})
-    p.kill()
-    assert r.content == b'M:\x0c\x00\x00\x00my_manifest\nplease=return'
+        with open("sample.manifest", "w") as f:
+            f.write(test_manifest)
+        r = requests.post('http://localhost:7020/stitch/sample',
+                        data={'point': 'reply'})
+        want = b'M:\x6f\x00\x00\x00'+bytes(test_manifest, encoding='utf-8')+b'point=reply'
+        if cmp_bytes(r.content, want) != 0:
+            print(cmp_bytes(r.content, want))
+        assert r.content == want
+    finally:
+        p.kill()
 
 
 if __name__ == "__main__":
