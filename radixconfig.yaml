@@ -51,26 +51,12 @@ spec:
       environmentConfig:
         - environment: prod
           replicas: 0
-          monitoring: true
-          resources:
-            requests:
-              memory: '64Mi'
-              cpu: '100m'
-            limits:
-              memory: '128Mi'
-              cpu: '200m'
+          monitoring: false
         - environment: dev
-          replicas: 0
-          monitoring: true
-          resources:
-            requests:
-              memory: '64Mi'
-              cpu: '100m'
-            limits:
-              memory: '2048Mi'
-              cpu: '200m'
+          replicas: 1
+          monitoring: false
         - environment: monitor
-          monitoring: true
+          monitoring: false
 
     - name: api
       src: api
