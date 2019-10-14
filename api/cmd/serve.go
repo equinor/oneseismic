@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "serve seismic cloud provider",
@@ -29,7 +28,6 @@ func stitchConfig() interface{} {
 	sTCP := config.StitchTCPAddr()
 	sGRPC := config.StitchGrpcAddr()
 	if len(sGRPC) > 0 {
-
 		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
 	}
 	if len(sTCP) > 0 {
@@ -155,6 +153,21 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 	return opts, nil
 }
 
+func serve(opts []server.HTTPServerOption) error {
+	op := "serve.serve"
+	hs, err := server.NewHTTPServer(opts...)
+
+	if err != nil {
+		return events.E(events.Op(op), "Error configuring http server", err)
+	}
+	err = hs.Serve()
+
+	if err != nil && err != http.ErrServerClosed {
+		return events.E(events.Op(op), "Error running http server", err)
+	}
+	return nil
+}
+
 func runServe(cmd *cobra.Command, args []string) {
 	op := "serve.runServe"
 
@@ -200,17 +213,9 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	hs, err := server.NewHTTPServer(opts...)
-
+	err = serve(opts)
 	if err != nil {
-		l.LogE(op, "Error configuring http server", err)
-		os.Exit(1)
-	}
-	err = hs.Serve()
-
-	if err != nil && err != http.ErrServerClosed {
-		l.LogE(op, "Error running http server", err)
-		os.Exit(1)
+		l.LogE(op, "Error starting http server", err)
 	}
 
 	if p != nil {
