@@ -45,18 +45,18 @@ def test_create_defaults():
 
 
 def test_get_post():
-    test_manifest = '{"basename":"testmanifest","cube-xs":1,"cube-ys":1,"cube-zs":1,"fragment-xs":1,"fragment-ys":1,"fragment-zs":1}'
+    test_manifest = '{"basename":"testmanifest","cubexs":1,"cubeys":1,"cubezs":1,"fragmentxs":1,"fragmentys":1,"fragmentzs":1}'
     p = subprocess.Popen(["../api serve --config .sc-api.yaml"], shell=True)
     sleep(0.5)
     try:
         r = requests.get('http://localhost:7020/')
         assert r.status_code == 200
 
-        with open("sample.manifest", "w") as f:
+        with open("sample", "w") as f:
             f.write(test_manifest)
         r = requests.post('http://localhost:7020/stitch/sample',
                         data={'point': 'reply'})
-        want = b'M:\x6f\x00\x00\x00'+bytes(test_manifest, encoding='utf-8')+b'point=reply'
+        want = b'M:\x69\x00\x00\x00'+bytes(test_manifest, encoding='utf-8')+b'point=reply'
         if cmp_bytes(r.content, want) != 0:
             print(cmp_bytes(r.content, want))
         assert r.content == want

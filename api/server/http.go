@@ -159,6 +159,11 @@ func (hs *HttpServer) registerEndpoints() {
 		ctx.HTML("Seismic cloud API v0.1.0")
 	})
 
+	mc := controller.NewManifestController(hs.service.manifestStore)
+
+	hs.app.Get("/manifest", mc.List)
+	hs.app.Get("/manifest/{manifestID:string idString() else 502}", mc.Fetch)
+
 	hs.app.Post("/stitch/{manifestID:string idString() else 502}",
 		controller.StitchController(
 			hs.service.manifestStore,

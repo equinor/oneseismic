@@ -23,7 +23,7 @@ type MockWriter struct {
 
 type MockManifestStore struct{}
 
-func (*MockManifestStore) Fetch(id string) (store.Manifest, error) {
+func (*MockManifestStore) Fetch(ctx goctx.Context, id string) (store.Manifest, error) {
 	return store.Manifest{
 		Basename:   "mock",
 		Cubexs:     1,
@@ -33,6 +33,10 @@ func (*MockManifestStore) Fetch(id string) (store.Manifest, error) {
 		Fragmentys: 1,
 		Fragmentzs: 1,
 	}, nil
+}
+
+func (*MockManifestStore) List(ctx goctx.Context) ([]store.Manifest, error) {
+	return nil, nil
 }
 
 func NewMockWriter(w io.Writer) MockWriter {

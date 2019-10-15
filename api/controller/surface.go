@@ -16,7 +16,6 @@ type SurfaceController struct {
 }
 
 func NewSurfaceController(ss store.SurfaceStore) *SurfaceController {
-
 	return &SurfaceController{ss: ss}
 }
 

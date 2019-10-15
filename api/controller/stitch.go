@@ -24,12 +24,12 @@ func StitchController(
 	op := "stich.file"
 	return func(ctx iris.Context) {
 		manifestID := ctx.Params().Get("manifestID")
-
+		bgCtx := context.Background()
 		l.LogI(op,
 			fmt.Sprintf("Stitching: manifest: %s, surface: %d bytes\n",
 				manifestID,
 				ctx.Request().ContentLength))
-		manifest, err := ms.Fetch(manifestID)
+		manifest, err := ms.Fetch(bgCtx, manifestID)
 		if err != nil {
 			ctx.StatusCode(404)
 
@@ -38,7 +38,7 @@ func StitchController(
 		}
 
 		si, err := stitcher.Stitch(
-			context.Background(),
+			bgCtx,
 			manifest,
 			ctx.ResponseWriter(),
 			ctx.Request().Body)
@@ -67,8 +67,9 @@ func StitchSurfaceController(
 	op := "stitch.surfaceid"
 	return func(ctx iris.Context) {
 		manifestID := ctx.Params().Get("manifestID")
+		bgctx := context.Background()
 
-		manifest, err := ms.Fetch(manifestID)
+		manifest, err := ms.Fetch(bgctx, manifestID)
 		if err != nil {
 			ctx.StatusCode(404)
 			l.LogE(op, "Manifest fetch failed", err)
@@ -76,7 +77,6 @@ func StitchSurfaceController(
 		}
 
 		surfaceID := ctx.Params().Get("surfaceID")
-		bgctx := context.Background()
 		surface, err := ss.Download(bgctx, surfaceID)
 		if err != nil {
 			l.LogE(op, "Surface fetch failed", err)
