@@ -17,16 +17,60 @@ type coreServer struct {
 	storeAddr string
 }
 
+func genFunc(g string) func(p *pb.Point) float32 {
+	switch g {
+	case "checker":
+		return checkerCube
+	case "gradient":
+		return gradientCube
+	case "sin":
+		return sinCube
+	default:
+		return sinCube
+	}
+}
+
+func checkerCube(p *pb.Point) float32 {
+
+	x, y, z := int(math.Floor(float64(p.X))), int(math.Floor(float64(p.Y))), int(math.Floor(float64(p.Z)))
+
+	mx, my, mz := x%2 == 0, y%2 == 0, z%2 == 0
+
+	if mx != my {
+		if mz {
+			return 0.0
+		}
+		return 1.0
+
+	}
+	if mz {
+		return 1.0
+	}
+	return 0.0
+
+}
+
+func gradientCube(p *pb.Point) float32 {
+
+	return p.Z
+}
+
+func sinCube(p *pb.Point) float32 {
+
+	return float32(math.Sin(float64(p.Z)))
+}
+
 func (s *coreServer) StitchSurface(ctx context.Context, in *pb.SurfaceRequest) (*pb.SurfaceReply, error) {
 
 	fmt.Println("stitching on cube ", in.Basename)
 	repl := &pb.SurfaceReply{
 		I: make([]uint64, 0),
 		V: make([]float32, 0)}
+	cube := genFunc(in.Basename)
 	fmt.Println("size of surface is ", len(in.Surface.Points))
-	for idx, val := range in.Surface.Points {
+	for idx, p := range in.Surface.Points {
 		repl.I = append(repl.I, uint64(idx))
-		repl.V = append(repl.V, float32(math.Sin(float64(val.Z))))
+		repl.V = append(repl.V, cube(p))
 	}
 	fmt.Println("size of repl is ", len(repl.I))
 	return repl, nil
