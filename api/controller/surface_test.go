@@ -41,6 +41,8 @@ func TestSurfaceControllerUpload(t *testing.T) {
 			req.Body = ioutil.NopCloser(r)
 			buf := bytes.NewBuffer(make([]byte, 0))
 			writer := NewMockWriter(buf)
+			writer.On("Header").Return(http.Header{}).Once()
+			writer.On("WriteHeader", 200).Return().Once()
 			ctx.BeginRequest(writer, req)
 
 			ctx.Params().Set("userID", tt.userID)
@@ -102,6 +104,8 @@ func TestSurfaceControllerList(t *testing.T) {
 			req := &http.Request{}
 			buf := bytes.NewBuffer(make([]byte, 0))
 			writer := NewMockWriter(buf)
+			writer.On("Header").Return(http.Header{}).Once()
+			writer.On("WriteHeader", 200).Return().Once()
 			ctx.BeginRequest(writer, req)
 
 			c.List(ctx)
@@ -152,6 +156,8 @@ func TestSurfaceControllerDownload(t *testing.T) {
 			req.Body = ioutil.NopCloser(r)
 			buf := bytes.NewBuffer(make([]byte, 0))
 			writer := NewMockWriter(buf)
+			writer.On("Header").Return(http.Header{}).Once()
+			writer.On("WriteHeader", 200).Return().Once()
 			ctx.BeginRequest(writer, req)
 
 			ctx.Params().Set("surfaceID", tt.wantSurfaceID)

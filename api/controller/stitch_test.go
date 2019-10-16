@@ -15,53 +15,49 @@ import (
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	irisCtx "github.com/kataras/iris/context"
+	"github.com/stretchr/testify/mock"
 )
 
 type MockWriter struct {
 	io.Writer
+	mock.Mock
 }
 
-type MockManifestStore struct{}
-
-func (*MockManifestStore) Fetch(ctx goctx.Context, id string) (store.Manifest, error) {
-	return store.Manifest{
-		Basename:   "mock",
-		Cubexs:     1,
-		Cubeys:     1,
-		Cubezs:     1,
-		Fragmentxs: 1,
-		Fragmentys: 1,
-		Fragmentzs: 1,
-	}, nil
+type MockManifestStore struct {
+	mock.Mock
 }
 
-func (*MockManifestStore) List(ctx goctx.Context) ([]store.Manifest, error) {
-	return nil, nil
+func (m *MockManifestStore) Fetch(id string) (store.Manifest, error) {
+	args := m.Called(id)
+	return args.Get(0).(store.Manifest), args.Error(1)
 }
 
 func NewMockWriter(w io.Writer) MockWriter {
-	return MockWriter{w}
+	return MockWriter{w, mock.Mock{}}
 }
 
 func (m MockWriter) Header() http.Header {
-	return http.Header{}
+	args := m.Called()
+	return args.Get(0).(http.Header)
 }
 
 func (m MockWriter) WriteHeader(statusCode int) {
-	return
+	m.Called(statusCode)
 }
 
-type EchoStitch string
+type MockStitch struct {
+	mock.Mock
+}
 
-func (es EchoStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
-
+func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
 	_, err := io.Copy(out, in)
-	return string("ECHO"), err
+	args := m.Called(ctx, ms, out, in)
+	return args.String(0), err
 }
 
 func TestStitch(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	echoCtx := irisCtx.NewContext(nil)
+	ctx := irisCtx.NewContext(nil)
 	have :=
 		`VLiFrhfjz7O5Zt1VD0Wd
 		MBECw6JWO0oEsbkz4Qqv
@@ -74,17 +70,32 @@ func TestStitch(t *testing.T) {
 		S0wpZgBZYp5HK1dCF9sL
 		kcmmZTNurGRSYkOJS9xn`
 
-	echoReq := &http.Request{}
-	echoReq.Body = ioutil.NopCloser(strings.NewReader(have))
+	req := &http.Request{}
+	req.Body = ioutil.NopCloser(strings.NewReader(have))
 	buf := bytes.NewBuffer([]byte{})
-	echoWriter := NewMockWriter(buf)
-	echoCtx.BeginRequest(echoWriter, echoReq)
-	echoCtx.Params().Set("manifestID", "12345")
+	writer := NewMockWriter(buf)
+	writer.On("Header").Return(http.Header{})
+	writer.On("WriteHeader", 200).Return().Once()
+	ctx.BeginRequest(writer, req)
+	ctx.Params().Set("manifestID", "12345")
+	manifest := store.Manifest{
+		Basename:   "mock",
+		Cubexs:     1,
+		Cubeys:     1,
+		Cubezs:     1,
+		Fragmentxs: 1,
+		Fragmentys: 1,
+		Fragmentzs: 1,
+	}
+
+	stitch := MockStitch{}
+	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
+
 	ms := &MockManifestStore{}
-	// ms, _ := store.NewManifestStore(map[string][]byte{"12345": []byte("MANIFEST")})
-	echoStitch := StitchController(
+	ms.On("Fetch", "12345").Return(manifest, nil)
+	stitchController := StitchController(
 		ms,
-		EchoStitch("Echo Stitch"))
+		stitch)
 	type args struct {
 		ctx irisCtx.Context
 	}
@@ -92,15 +103,14 @@ func TestStitch(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		resp MockWriter
 	}{
-		{name: "Echo little ", args: args{echoCtx}},
+		{name: "Echo little ", args: args{ctx}},
 	}
 
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			echoStitch(tt.args.ctx)
+			stitchController(tt.args.ctx)
 			got, err := ioutil.ReadAll(buf)
 			if err != nil {
 				t.Errorf("Stitch() Readall err %v", err)
@@ -121,14 +131,25 @@ func TestStitchSurfaceController(t *testing.T) {
 		manID  string
 		surfID string
 	}
+	manifest := store.Manifest{
+		Basename:   "mock",
+		Cubexs:     1,
+		Cubeys:     1,
+		Cubezs:     1,
+		Fragmentxs: 1,
+		Fragmentys: 1,
+		Fragmentzs: 1,
+	}
 	ms := &MockManifestStore{}
-	// ms, _ := store.NewManifestStore(map[string][]byte{"man-1": []byte("MANIFEST")})
+	ms.On("Fetch", "man-1").Return(manifest, nil)
+	stitch := MockStitch{}
+	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
 	ss, err := store.NewSurfaceStore(map[string][]byte{"surf-2": []byte("SURFACE")})
 	if err != nil {
 		t.Errorf("StitchSurfaceController() = Error making new Surface: %v", err)
 		return
 	}
-	ssC := StitchSurfaceController(ms, ss, EchoStitch("Echo Stitch"))
+	ssC := StitchSurfaceController(ms, ss, stitch)
 	tests := []struct {
 		name string
 		args args
@@ -145,7 +166,10 @@ func TestStitchSurfaceController(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := irisCtx.NewContext(nil)
 			buf := &bytes.Buffer{}
-			ctx.BeginRequest(NewMockWriter(buf), &http.Request{})
+			writer := NewMockWriter(buf)
+			writer.On("Header").Return(http.Header{})
+			writer.On("WriteHeader", 200).Return().Once()
+			ctx.BeginRequest(writer, &http.Request{})
 			ctx.Params().Set("manifestID", tt.args.manID)
 			ctx.Params().Set("surfaceID", tt.args.surfID)
 
