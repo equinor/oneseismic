@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	goctx "context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -53,6 +54,16 @@ func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, 
 	_, err := io.Copy(out, in)
 	args := m.Called(ctx, ms, out, in)
 	return args.String(0), err
+}
+
+type MockContext struct {
+	mock.Mock
+	irisCtx.Context
+}
+
+func (ctx *MockContext) StatusCode(statusCode int) {
+	ctx.Called(statusCode)
+	ctx.ResponseWriter().WriteHeader(statusCode)
 }
 
 func TestStitch(t *testing.T) {
@@ -186,4 +197,26 @@ func TestStitchSurfaceController(t *testing.T) {
 		})
 
 	}
+}
+
+func TestStitchMissingManifest(t *testing.T) {
+	req := &http.Request{}
+	l.SetLogSink(os.Stdout, events.DebugLevel)
+	buf := &bytes.Buffer{}
+	writer := NewMockWriter(buf)
+	writer.On("Header").Return(http.Header{})
+	writer.On("WriteHeader", 404).Return().Once()
+	ctx := &MockContext{mock.Mock{}, irisCtx.NewContext(nil)}
+	ctx.BeginRequest(writer, req)
+	ctx.Params().Set("manifestID", "12345")
+	ctx.On("StatusCode", 404).Return().Once()
+	stitch := MockStitch{}
+	ms := &MockManifestStore{}
+	ms.On("Fetch", "12345").Return(store.Manifest{}, errors.New(""))
+
+	stitchController := StitchController(
+		ms,
+		stitch)
+	stitchController(ctx)
+	ctx.AssertExpectations(t)
 }
