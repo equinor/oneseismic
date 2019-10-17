@@ -8,20 +8,19 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/equinor/seismic-cloud/api/events"
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/kataras/iris"
 	irisCtx "github.com/kataras/iris/context"
 	"github.com/stretchr/testify/mock"
 )
 
-type MockWriter struct {
-	io.Writer
-	mock.Mock
+func NewTestingSurfaceStore() (store.SurfaceStore, error) {
+	return store.NewSurfaceStore(map[string][]byte{})
 }
 
 type MockManifestStore struct {
@@ -33,18 +32,24 @@ func (m *MockManifestStore) Fetch(id string) (store.Manifest, error) {
 	return args.Get(0).(store.Manifest), args.Error(1)
 }
 
-func NewMockWriter(w io.Writer) MockWriter {
-	return MockWriter{w, mock.Mock{}}
+type MockWriter struct {
+	header http.Header
+	buffer *bytes.Buffer
+}
+
+func NewMockWriter() MockWriter {
+	return MockWriter{http.Header{}, bytes.NewBuffer(make([]byte, 0))}
+}
+
+func (m MockWriter) Write(b []byte) (int, error) {
+	return m.buffer.Write(b)
 }
 
 func (m MockWriter) Header() http.Header {
-	args := m.Called()
-	return args.Get(0).(http.Header)
+	return m.header
 }
 
-func (m MockWriter) WriteHeader(statusCode int) {
-	m.Called(statusCode)
-}
+func (m MockWriter) WriteHeader(statusCode int) {}
 
 type MockStitch struct {
 	mock.Mock
@@ -56,19 +61,11 @@ func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, 
 	return args.String(0), err
 }
 
-type MockContext struct {
-	mock.Mock
-	irisCtx.Context
+func NewMockContext() irisCtx.Context {
+	return irisCtx.NewContext(iris.Default())
 }
 
-func (ctx *MockContext) StatusCode(statusCode int) {
-	ctx.Called(statusCode)
-	ctx.ResponseWriter().WriteHeader(statusCode)
-}
-
-func TestStitch(t *testing.T) {
-	l.SetLogSink(os.Stdout, events.DebugLevel)
-	ctx := irisCtx.NewContext(nil)
+func NewGarbageRequest() *http.Request {
 	have :=
 		`VLiFrhfjz7O5Zt1VD0Wd
 		MBECw6JWO0oEsbkz4Qqv
@@ -80,16 +77,12 @@ func TestStitch(t *testing.T) {
 		TiAdXYPNBfNkqzi5nBRk
 		S0wpZgBZYp5HK1dCF9sL
 		kcmmZTNurGRSYkOJS9xn`
+	req, _ := http.NewRequest("GET", "test.com", ioutil.NopCloser(strings.NewReader(have)))
+	return req
+}
 
-	req := &http.Request{}
-	req.Body = ioutil.NopCloser(strings.NewReader(have))
-	buf := bytes.NewBuffer([]byte{})
-	writer := NewMockWriter(buf)
-	writer.On("Header").Return(http.Header{})
-	writer.On("WriteHeader", 200).Return().Once()
-	ctx.BeginRequest(writer, req)
-	ctx.Params().Set("manifestID", "12345")
-	manifest := store.Manifest{
+func NewTestManifest() store.Manifest {
+	return store.Manifest{
 		Basename:   "mock",
 		Cubexs:     1,
 		Cubeys:     1,
@@ -98,125 +91,82 @@ func TestStitch(t *testing.T) {
 		Fragmentys: 1,
 		Fragmentzs: 1,
 	}
+}
+
+func TestStitchControllerSuccess(t *testing.T) {
+	l.SetLogSink(os.Stdout, events.DebugLevel)
+	ctx := NewMockContext()
+
+	manifest := NewTestManifest()
 
 	stitch := MockStitch{}
 	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
 
 	ms := &MockManifestStore{}
 	ms.On("Fetch", "12345").Return(manifest, nil)
-	stitchController := StitchController(
-		ms,
-		stitch)
-	type args struct {
-		ctx irisCtx.Context
+
+	stitchController := StitchController(ms, stitch)
+
+	ctx.BeginRequest(NewMockWriter(), NewGarbageRequest())
+	ctx.Params().Set("manifestID", "12345")
+
+	stitchController(ctx)
+
+	if code := ctx.GetStatusCode(); code != 200 {
+		t.Errorf("Expected Status Code 200 got %v", code)
 	}
 
-	tests := []struct {
-		name string
-		args args
-	}{
-		{name: "Echo little ", args: args{ctx}},
+	ctx.EndRequest()
+}
+
+func TestStitchMissingManifestNotFoundCode(t *testing.T) {
+	l.SetLogSink(os.Stdout, events.DebugLevel)
+	ctx := NewMockContext()
+
+	stitch := MockStitch{}
+
+	ms := &MockManifestStore{}
+	ms.On("Fetch", "12345").Return(store.Manifest{}, errors.New(""))
+
+	ctx.BeginRequest(NewMockWriter(), NewGarbageRequest())
+	ctx.Params().Set("manifestID", "12345")
+	stitchController := StitchController(ms, stitch)
+	stitchController(ctx)
+
+	if code := ctx.GetStatusCode(); code != 404 {
+		t.Errorf("Expected Status Code 404 got %v", code)
 	}
 
-	for _, tt := range tests {
-
-		t.Run(tt.name, func(t *testing.T) {
-			stitchController(tt.args.ctx)
-			got, err := ioutil.ReadAll(buf)
-			if err != nil {
-				t.Errorf("Stitch() Readall err %v", err)
-				return
-			}
-			if string(got) != have {
-				t.Errorf("Stitch() got = %v, want %v", string(got), have)
-			}
-			tt.args.ctx.EndRequest()
-
-		})
-	}
+	ctx.EndRequest()
 }
 
 func TestStitchSurfaceController(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	type args struct {
-		manID  string
-		surfID string
-	}
-	manifest := store.Manifest{
-		Basename:   "mock",
-		Cubexs:     1,
-		Cubeys:     1,
-		Cubezs:     1,
-		Fragmentxs: 1,
-		Fragmentys: 1,
-		Fragmentzs: 1,
-	}
+	manifest := NewTestManifest()
+
 	ms := &MockManifestStore{}
 	ms.On("Fetch", "man-1").Return(manifest, nil)
+
 	stitch := MockStitch{}
 	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
-	ss, err := store.NewSurfaceStore(map[string][]byte{"surf-2": []byte("SURFACE")})
+
+	ss, err := NewTestingSurfaceStore()
+
 	if err != nil {
-		t.Errorf("StitchSurfaceController() = Error making new Surface: %v", err)
+		t.Errorf("Error making TestingSurfaceStore: %v", err)
 		return
 	}
+
 	ssC := StitchSurfaceController(ms, ss, stitch)
-	tests := []struct {
-		name string
-		args args
-		want []byte
-	}{
-		{
-			"Reply from exisiting manifest and surface",
-			args{manID: "man-1", surfID: "surf-2"},
-			[]byte("SURFACE"),
-		},
-	}
-	for _, tt := range tests {
 
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := irisCtx.NewContext(nil)
-			buf := &bytes.Buffer{}
-			writer := NewMockWriter(buf)
-			writer.On("Header").Return(http.Header{})
-			writer.On("WriteHeader", 200).Return().Once()
-			ctx.BeginRequest(writer, &http.Request{})
-			ctx.Params().Set("manifestID", tt.args.manID)
-			ctx.Params().Set("surfaceID", tt.args.surfID)
+	ctx := NewMockContext()
+	ss.Upload(goctx.Background(), "surf-1", "test-user", strings.NewReader("SURFACE"))
 
-			ssC(ctx)
+	ctx.BeginRequest(NewMockWriter(), NewGarbageRequest())
+	ctx.Params().Set("manifestID", "man-1")
+	ctx.Params().Set("surfaceID", "surf-1")
 
-			got, err := ioutil.ReadAll(buf)
-			if err != nil {
-				t.Errorf("StitchSurfaceController() = Error %v", err)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StitchSurfaceController() = %v, want %v", got, tt.want)
-			}
-			ctx.EndRequest()
-		})
+	ssC(ctx)
 
-	}
-}
-
-func TestStitchMissingManifest(t *testing.T) {
-	req := &http.Request{}
-	l.SetLogSink(os.Stdout, events.DebugLevel)
-	buf := &bytes.Buffer{}
-	writer := NewMockWriter(buf)
-	writer.On("Header").Return(http.Header{})
-	writer.On("WriteHeader", 404).Return().Once()
-	ctx := &MockContext{mock.Mock{}, irisCtx.NewContext(nil)}
-	ctx.BeginRequest(writer, req)
-	ctx.Params().Set("manifestID", "12345")
-	ctx.On("StatusCode", 404).Return().Once()
-	stitch := MockStitch{}
-	ms := &MockManifestStore{}
-	ms.On("Fetch", "12345").Return(store.Manifest{}, errors.New(""))
-
-	stitchController := StitchController(
-		ms,
-		stitch)
-	stitchController(ctx)
-	ctx.AssertExpectations(t)
+	ctx.EndRequest()
 }
