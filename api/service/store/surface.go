@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"sort"
 	"sync"
 	"time"
@@ -91,11 +92,17 @@ func azBlobStorage(accountName, accountKey, containerName string) (*surfaceBlobS
 }
 
 func localStorage(localPath string) (*surfaceLocalStore, error) {
+	op := events.Op("service.localStorage")
 	if len(localPath) == 0 {
-		return &surfaceLocalStore{localPath: "tmp"}, nil
-	} else if _, err := os.Stat(localPath); os.IsNotExist(err) {
-		os.MkdirAll(localPath, 0700)
+		return nil, events.E(op, "localPath cannot be empty")
 	}
+
+	if _, err := os.Stat(localPath); os.IsNotExist(err) {
+		os.MkdirAll(localPath, 0700)
+	} else {
+		return nil, events.E(op, "accessing localPath failed", err)
+	}
+
 	return &surfaceLocalStore{localPath: localPath}, nil
 }
 
@@ -167,7 +174,7 @@ func (az *surfaceBlobStore) Download(ctx context.Context, fileName string) (io.R
 
 func (local *surfaceLocalStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
 
-	file, err := os.Open(local.localPath)
+	file, err := os.Open(path.Join(local.localPath, fileName))
 	if err != nil {
 		return nil, err
 	}
