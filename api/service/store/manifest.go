@@ -117,7 +117,7 @@ func (m *manifestFileStore) List(ctx context.Context) ([]Manifest, error) {
 
 	for _, file := range files {
 		var mani Manifest
-		b, _ := ioutil.ReadFile(m.basePath + file.Name())
+		b, _ := ioutil.ReadFile(path.Join(m.basePath, file.Name()))
 		err = json.Unmarshal(b, &mani)
 		if err == nil {
 			res = append(res, mani)
