@@ -36,7 +36,8 @@ func SetDefaults() {
 	viper.SetDefault("MANIFEST_DB_URI", "mongodb://")
 	viper.SetDefault("AZURE_STORAGE_ACCOUNT", "")
 	viper.SetDefault("AZURE_STORAGE_ACCESS_KEY", "")
-	viper.SetDefault("AZURE_CONTAINER_NAME", "scblob")
+	viper.SetDefault("AZURE_SURFACE_CONTAINER", "scblob")
+	viper.SetDefault("AZURE_MANIFEST_CONTAINER", "scmanifest")
 	viper.SetDefault("AZURE_STORAGE_URL", "https://%s.blob.core.windows.net/%s")
 	viper.SetDefault("LOCAL_SURFACE_PATH", "tmp/")
 	viper.SetDefault("LOGDB_CONNSTR", "")
@@ -108,8 +109,12 @@ func AzStorageURL() string {
 	return viper.GetString("AZURE_STORAGE_URL")
 }
 
-func AzContainerName() string {
-	return viper.GetString("AZURE_CONTAINER_NAME")
+func AzSurfaceContainerName() string {
+	return viper.GetString("AZURE_SURFACE_CONTAINER")
+}
+
+func AzManifestContainerName() string {
+	return viper.GetString("AZURE_MANIFEST_CONTAINER")
 }
 
 func LocalSurfacePath() string {
