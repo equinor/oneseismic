@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	goctx "context"
 	"io"
 	"io/ioutil"
@@ -15,6 +16,7 @@ import (
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris"
 	irisCtx "github.com/kataras/iris/context"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -40,20 +42,8 @@ func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, 
 	return args.String(0), err
 }
 
-func NewGarbageRequest() *http.Request {
-	have :=
-		`VLiFrhfjz7O5Zt1VD0Wd
-		MBECw6JWO0oEsbkz4Qqv
-		pEHK1urgtb8SC5gGs3po
-		D5wzMivWXHiDvqHIKE4s
-		djHkWdeZUB8JsacIhbnK
-		HoTYPAQZ7ZoXAL2YVvoT
-		j1sDu7eF9m1DNXFBy5cf
-		TiAdXYPNBfNkqzi5nBRk
-		S0wpZgBZYp5HK1dCF9sL
-		kcmmZTNurGRSYkOJS9xn`
-	req := httptest.NewRequest("GET", "/stitch", ioutil.NopCloser(strings.NewReader(have)))
-	return req
+func NewSurfaceTestGetRequest(surfaceData []byte) *http.Request {
+	return httptest.NewRequest("GET", "/surface", ioutil.NopCloser(bytes.NewReader(surfaceData)))
 }
 
 func NewTestManifest() store.Manifest {
@@ -68,77 +58,120 @@ func NewTestManifest() store.Manifest {
 	}
 }
 
+type TestSetup struct {
+	surfaceStore      store.SurfaceStore
+	manifestStore     store.ManifestStore
+	surfaceController *SurfaceController
+	manifests         map[string]store.Manifest
+	stitch            MockStitch
+	ctx               irisCtx.Context
+	recorder          *httptest.ResponseRecorder
+}
+
+func NewTestSetup() *TestSetup {
+	stitch := MockStitch{}
+	ctx := NewTestingContext()
+	manifests := map[string]store.Manifest{}
+	ms, _ := NewTestingManifestStore(manifests)
+	recorder := httptest.NewRecorder()
+	ss, _ := NewTestingSurfaceStore()
+	c := NewSurfaceController(ss)
+
+	return &TestSetup{ss, ms, c, manifests, stitch, ctx, recorder}
+}
+
+func (ts *TestSetup) AddManifest(manifestID string, m store.Manifest) {
+	ts.manifests[manifestID] = m
+}
+
+func (ts *TestSetup) AddSurface(surfaceID string, userID string, surface io.Reader) {
+	ts.surfaceStore.Upload(goctx.Background(), surfaceID, userID, surface)
+}
+
+func (ts *TestSetup) BeginRequest(r *http.Request) {
+	r.ParseForm()
+	ts.ctx.BeginRequest(ts.recorder, r)
+}
+
+func (ts *TestSetup) EndRequest() {
+	ts.ctx.EndRequest()
+}
+
+func (ts *TestSetup) SetParam(id string, v string) {
+	ts.ctx.Params().Set(id, v)
+}
+
+func (ts *TestSetup) OnStitch(v ...interface{}) *mock.Call {
+	return ts.stitch.On("Stitch", v...)
+}
+
+func (ts *TestSetup) Result() *http.Response {
+	return ts.recorder.Result()
+}
+
 func TestStitchControllerSuccess(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	ctx := NewTestingContext()
 
 	manifest := NewTestManifest()
+	ts := NewTestSetup()
+	ts.AddManifest("12345", manifest)
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
 
-	stitch := MockStitch{}
-	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
+	have :=
+		`VLiFrhfjz7O5Zt1VD0Wd
+		MBECw6JWO0oEsbkz4Qqv
+		pEHK1urgtb8SC5gGs3po
+		D5wzMivWXHiDvqHIKE4s
+		djHkWdeZUB8JsacIhbnK
+		HoTYPAQZ7ZoXAL2YVvoT
+		j1sDu7eF9m1DNXFBy5cf
+		TiAdXYPNBfNkqzi5nBRk
+		S0wpZgBZYp5HK1dCF9sL
+		kcmmZTNurGRSYkOJS9xn`
+	req := httptest.NewRequest("POST", "/stitch/12345", ioutil.NopCloser(strings.NewReader(have)))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "12345")
 
-	ms, _ := NewTestingManifestStore(map[string]store.Manifest{"12345": manifest})
+	StitchController(ts.manifestStore, ts.stitch)(ts.ctx)
 
-	stitchController := StitchController(ms, stitch)
+	assert.Equal(t, ts.ctx.GetStatusCode(), 200, "Should give ok status code")
+	got, _ := ioutil.ReadAll(ts.recorder.Body)
+	assert.Equal(t, string(got), have, "garbage in, garbage out")
 
-	ctx.BeginRequest(httptest.NewRecorder(), NewGarbageRequest())
-	ctx.Params().Set("manifestID", "12345")
-
-	stitchController(ctx)
-
-	if code := ctx.GetStatusCode(); code != 200 {
-		t.Errorf("Expected Status Code 200 got %v", code)
-	}
-
-	ctx.EndRequest()
+	ts.EndRequest()
 }
 
 func TestStitchMissingManifestNotFoundCode(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	ctx := NewTestingContext()
+	ts := NewTestSetup()
 
-	stitch := MockStitch{}
+	req := httptest.NewRequest("POST", "/stitch/12345", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "12345")
 
-	ms, _ := NewTestingManifestStore(map[string]store.Manifest{})
+	StitchController(ts.manifestStore, ts.stitch)(ts.ctx)
 
-	ctx.BeginRequest(httptest.NewRecorder(), NewGarbageRequest())
-	ctx.Params().Set("manifestID", "12345")
-	stitchController := StitchController(ms, stitch)
-	stitchController(ctx)
+	assert.Equal(t, ts.ctx.GetStatusCode(), 404, "Should give not found status code")
 
-	if code := ctx.GetStatusCode(); code != 404 {
-		t.Errorf("Expected Status Code 404 got %v", code)
-	}
-
-	ctx.EndRequest()
+	ts.EndRequest()
 }
 
 func TestStitchSurfaceController(t *testing.T) {
-	l.SetLogSink(os.Stdout, events.DebugLevel)
 	manifest := NewTestManifest()
 
-	ms, err := NewTestingManifestStore(map[string]store.Manifest{"man-1": manifest})
+	ts := NewTestSetup()
+	ts.AddSurface("surf-1", "test-user", strings.NewReader("SURFACE"))
+	ts.AddManifest("man-1", manifest)
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
 
-	stitch := MockStitch{}
-	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
+	req := httptest.NewRequest("POST", "/stitch/man-1/surf-1", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "man-1")
+	ts.SetParam("surfaceID", "surf-1")
 
-	ss, err := NewTestingSurfaceStore()
+	StitchSurfaceController(ts.manifestStore, ts.surfaceStore, ts.stitch)(ts.ctx)
 
-	if err != nil {
-		t.Errorf("Error making TestingSurfaceStore: %v", err)
-		return
-	}
+	assert.Equal(t, ts.ctx.GetStatusCode(), 200, "Should give ok status code")
 
-	ssC := StitchSurfaceController(ms, ss, stitch)
-
-	ctx := NewTestingContext()
-	ss.Upload(goctx.Background(), "surf-1", "test-user", strings.NewReader("SURFACE"))
-
-	ctx.BeginRequest(httptest.NewRecorder(), NewGarbageRequest())
-	ctx.Params().Set("manifestID", "man-1")
-	ctx.Params().Set("surfaceID", "surf-1")
-
-	ssC(ctx)
-
-	ctx.EndRequest()
+	ts.EndRequest()
 }

@@ -4,66 +4,40 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/http/httptest"
-	"reflect"
-	"strings"
 	"testing"
 
-	l "github.com/equinor/seismic-cloud/api/logger"
-
 	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/stretchr/testify/assert"
 )
 
-func NewSurfaceTestGetRequest(surfaceData []byte) *http.Request {
-	return httptest.NewRequest("GET", "/surface", ioutil.NopCloser(bytes.NewReader(surfaceData)))
-}
-
 func TestSurfaceControllerUpload(t *testing.T) {
-
-	ss, _ := NewTestingSurfaceStore()
-
 	surfaceData := []byte("blob blob, I'm a fish!\n")
-	surfaceID := "testblob"
-	userID := "test-user"
+	ts := NewTestSetup()
+	req := httptest.NewRequest("POST", "/surface/testblob", ioutil.NopCloser(bytes.NewReader(surfaceData)))
 
-	ssc := NewSurfaceController(ss)
-	ctx := NewTestingContext()
+	ts.BeginRequest(req)
+	ts.SetParam("surfaceID", "testblob")
 
-	req := NewSurfaceTestGetRequest(surfaceData)
-	ctx.BeginRequest(httptest.NewRecorder(), req)
-	ctx.Params().Set("userID", userID)
-	ctx.Params().Set("surfaceID", surfaceID)
+	ts.surfaceController.Upload(ts.ctx)
 
-	ssc.Upload(ctx)
+	assert.Equal(t, ts.ctx.GetStatusCode(), 200)
 
-	if gotStatus := ctx.GetStatusCode(); gotStatus != 200 {
-		t.Errorf("SurfaceController.Upload : Status = %v, want %v", gotStatus, 200)
-	}
+	ts.EndRequest()
 
-	buf, err := ss.Download(context.Background(), surfaceID)
-	if err != nil {
-		t.Errorf("surface store download failed err %v", err)
-		return
-	}
-
-	ctx.EndRequest()
+	buf, err := ts.surfaceStore.Download(context.Background(), "testblob")
+	assert.Nil(t, err)
 
 	gotSurface, err := ioutil.ReadAll(buf)
-	if err != nil {
-		t.Errorf("SurfaceController.Upload Readall err %v", err)
-		return
-	}
-	if strings.HasSuffix(string(gotSurface), surfaceID) {
-		t.Errorf("SurfaceController.Upload : SurfaceID = %v, want %v", string(gotSurface), surfaceID)
-	}
-}
+	assert.Nil(t, err)
 
+	assert.Equal(t, gotSurface, surfaceData)
+
+}
 func TestSurfaceControllerList(t *testing.T) {
-	userID := "test-user"
-	surfaceData := []byte("blob blob, I'm a Fish!\n")
+	surfaceData := []byte("blob blob, I'm a fish!\n")
+
 	surfaces := make([]store.SurfaceMeta, 0)
 	surfaces = append(surfaces, store.SurfaceMeta{
 		SurfaceID: "blobtest",
@@ -73,79 +47,45 @@ func TestSurfaceControllerList(t *testing.T) {
 		Link:      "blobtest_2",
 	})
 
-	ss, _ := NewTestingSurfaceStore()
-
-	c := NewSurfaceController(ss)
-	ctx := NewTestingContext()
-
-	writer := httptest.NewRecorder()
-	req := NewSurfaceTestGetRequest(surfaceData)
-	ctx.BeginRequest(writer, req)
-	ctx.Params().Set("userID", userID)
+	ts := NewTestSetup()
 
 	for _, ms := range surfaces {
-		ss.Upload(context.Background(), ms.SurfaceID, userID, bytes.NewReader(surfaceData))
+		ts.AddSurface(ms.SurfaceID, "test-user", bytes.NewReader(surfaceData))
 	}
 
-	c.List(ctx)
+	req := httptest.NewRequest("GET", "/surface", nil)
+	ts.BeginRequest(req)
 
-	if gotStatus := ctx.GetStatusCode(); gotStatus != 200 {
-		t.Errorf("SurfaceController.List : Status = %v, want %v", gotStatus, 200)
-	}
+	ts.surfaceController.List(ts.ctx)
+	assert.Equal(t, ts.ctx.GetStatusCode(), 200)
 
-	gotSurfaces, err := ioutil.ReadAll(writer.Result().Body)
-	if err != nil {
-		t.Errorf("SurfaceController.List Readall err %v", err)
-		return
-	}
+	ts.EndRequest()
+
+	gotSurfaces, err := ioutil.ReadAll(ts.Result().Body)
+	assert.Nil(t, err)
+
 	surf := make([]store.SurfaceMeta, 0)
-	l.LogI("test", fmt.Sprintf("Got: %v\n", string(gotSurfaces)))
 	err = json.Unmarshal(gotSurfaces, &surf)
-	if err != nil {
-		t.Errorf("SurfaceController.List json unmarshal err %v", err)
-		return
-	}
+	assert.Nil(t, err)
 
-	if !reflect.DeepEqual(surf, surfaces) {
-		t.Errorf("SurfaceController.List : Surfaces = %v, want %v", surf, surfaces)
-	}
-
-	ctx.EndRequest()
+	assert.Equal(t, surf, surfaces)
 }
 
 func TestSurfaceControllerDownload(t *testing.T) {
-	userID := "test-user"
 	surfaceData := []byte("blob blob, I'm a Fish!\n")
-	surfaceID := "blobtest"
 
-	ss, _ := NewTestingSurfaceStore()
+	ts := NewTestSetup()
+	ts.AddSurface("blobtest", "test-user", bytes.NewReader(surfaceData))
 
-	c := NewSurfaceController(ss)
-	ctx := NewTestingContext()
+	req := httptest.NewRequest("GET", "/surface/blobtest", nil)
+	ts.BeginRequest(req)
+	ts.SetParam("surfaceID", "blobtest")
 
-	writer := httptest.NewRecorder()
-	req := NewSurfaceTestGetRequest(surfaceData)
-	ctx.BeginRequest(writer, req)
-	ctx.Params().Set("userID", userID)
-	ctx.Params().Set("surfaceID", surfaceID)
+	ts.surfaceController.Download(ts.ctx)
 
-	ss.Upload(context.Background(), surfaceID, userID, bytes.NewReader(surfaceData))
+	ts.EndRequest()
+	gotData, err := ioutil.ReadAll(ts.Result().Body)
+	assert.Nil(t, err)
 
-	c.Download(ctx)
-
-	if gotStatus := ctx.GetStatusCode(); gotStatus != 200 {
-		t.Errorf("SurfaceController.Download : Status = %v, want %v", gotStatus, 200)
-	}
-
-	gotData, err := ioutil.ReadAll(writer.Result().Body)
-	if err != nil {
-		t.Errorf("SurfaceController.Download Readall err %v", err)
-		return
-	}
-	if !reflect.DeepEqual(gotData, surfaceData) {
-		t.Errorf("SurfaceController.Download : data = %v, want %v", string(gotData), string(surfaceData))
-	}
-
-	ctx.EndRequest()
-
+	assert.Equal(t, gotData, surfaceData)
 }
