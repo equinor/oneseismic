@@ -6,24 +6,47 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/equinor/seismic-cloud/api/events"
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/kataras/iris"
 	irisCtx "github.com/kataras/iris/context"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-type MockWriter struct {
-	io.Writer
+func NewTestingSurfaceStore() (store.SurfaceStore, error) {
+	return store.NewSurfaceStore(map[string][]byte{})
 }
 
-type MockManifestStore struct{}
+func NewTestingManifestStore(m map[string]store.Manifest) (store.ManifestStore, error) {
+	return store.NewManifestStore(m)
+}
 
-func (*MockManifestStore) Fetch(ctx goctx.Context, id string) (store.Manifest, error) {
+func NewTestingContext() irisCtx.Context {
+	return irisCtx.NewContext(iris.Default())
+}
+
+type MockStitch struct {
+	mock.Mock
+}
+
+func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
+	_, err := io.Copy(out, in)
+	args := m.Called(ctx, ms, out, in)
+	return args.String(0), err
+}
+
+func NewSurfaceTestGetRequest(surfaceData []byte) *http.Request {
+	return httptest.NewRequest("GET", "/surface", ioutil.NopCloser(bytes.NewReader(surfaceData)))
+}
+
+func NewTestManifest() store.Manifest {
 	return store.Manifest{
 		Basename:   "mock",
 		Cubexs:     1,
@@ -32,36 +55,68 @@ func (*MockManifestStore) Fetch(ctx goctx.Context, id string) (store.Manifest, e
 		Fragmentxs: 1,
 		Fragmentys: 1,
 		Fragmentzs: 1,
-	}, nil
+	}
 }
 
-func (*MockManifestStore) List(ctx goctx.Context) ([]store.Manifest, error) {
-	return nil, nil
+type TestSetup struct {
+	SurfaceStore      store.SurfaceStore
+	ManifestStore     store.ManifestStore
+	SurfaceController *SurfaceController
+	Manifests         map[string]store.Manifest
+	Stitch            MockStitch
+	Ctx               irisCtx.Context
+	Recorder          *httptest.ResponseRecorder
 }
 
-func NewMockWriter(w io.Writer) MockWriter {
-	return MockWriter{w}
+func NewTestSetup() *TestSetup {
+	stitch := MockStitch{}
+	ctx := NewTestingContext()
+	manifests := map[string]store.Manifest{}
+	ms, _ := NewTestingManifestStore(manifests)
+	recorder := httptest.NewRecorder()
+	ss, _ := NewTestingSurfaceStore()
+	c := NewSurfaceController(ss)
+
+	return &TestSetup{ss, ms, c, manifests, stitch, ctx, recorder}
 }
 
-func (m MockWriter) Header() http.Header {
-	return http.Header{}
+func (ts *TestSetup) AddManifest(manifestID string, m store.Manifest) {
+	ts.Manifests[manifestID] = m
 }
 
-func (m MockWriter) WriteHeader(statusCode int) {
-	return
+func (ts *TestSetup) AddSurface(surfaceID string, userID string, surface io.Reader) {
+	ts.SurfaceStore.Upload(goctx.Background(), surfaceID, userID, surface)
 }
 
-type EchoStitch string
-
-func (es EchoStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
-
-	_, err := io.Copy(out, in)
-	return string("ECHO"), err
+func (ts *TestSetup) BeginRequest(r *http.Request) {
+	r.ParseForm()
+	ts.Ctx.BeginRequest(ts.Recorder, r)
 }
 
-func TestStitch(t *testing.T) {
+func (ts *TestSetup) EndRequest() {
+	ts.Ctx.EndRequest()
+}
+
+func (ts *TestSetup) SetParam(id string, v string) {
+	ts.Ctx.Params().Set(id, v)
+}
+
+func (ts *TestSetup) OnStitch(v ...interface{}) *mock.Call {
+	return ts.Stitch.On("Stitch", v...)
+}
+
+func (ts *TestSetup) Result() *http.Response {
+	return ts.Recorder.Result()
+}
+
+func TestStitchControllerSuccess(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	echoCtx := irisCtx.NewContext(nil)
+
+	manifest := NewTestManifest()
+	ts := NewTestSetup()
+	ts.AddManifest("12345", manifest)
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
+
 	have :=
 		`VLiFrhfjz7O5Zt1VD0Wd
 		MBECw6JWO0oEsbkz4Qqv
@@ -73,93 +128,50 @@ func TestStitch(t *testing.T) {
 		TiAdXYPNBfNkqzi5nBRk
 		S0wpZgBZYp5HK1dCF9sL
 		kcmmZTNurGRSYkOJS9xn`
+	req := httptest.NewRequest("POST", "/stitch/12345", ioutil.NopCloser(strings.NewReader(have)))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "12345")
 
-	echoReq := &http.Request{}
-	echoReq.Body = ioutil.NopCloser(strings.NewReader(have))
-	buf := bytes.NewBuffer([]byte{})
-	echoWriter := NewMockWriter(buf)
-	echoCtx.BeginRequest(echoWriter, echoReq)
-	echoCtx.Params().Set("manifestID", "12345")
-	ms := &MockManifestStore{}
-	// ms, _ := store.NewManifestStore(map[string][]byte{"12345": []byte("MANIFEST")})
-	echoStitch := StitchController(
-		ms,
-		EchoStitch("Echo Stitch"))
-	type args struct {
-		ctx irisCtx.Context
-	}
+	StitchController(ts.ManifestStore, ts.Stitch)(ts.Ctx)
 
-	tests := []struct {
-		name string
-		args args
-		resp MockWriter
-	}{
-		{name: "Echo little ", args: args{echoCtx}},
-	}
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 200, "Should give ok status code")
+	got, _ := ioutil.ReadAll(ts.Result().Body)
+	assert.Equal(t, string(got), have, "garbage in, garbage out")
 
-	for _, tt := range tests {
+	ts.EndRequest()
+}
 
-		t.Run(tt.name, func(t *testing.T) {
-			echoStitch(tt.args.ctx)
-			got, err := ioutil.ReadAll(buf)
-			if err != nil {
-				t.Errorf("Stitch() Readall err %v", err)
-				return
-			}
-			if string(got) != have {
-				t.Errorf("Stitch() got = %v, want %v", string(got), have)
-			}
-			tt.args.ctx.EndRequest()
+func TestStitchMissingManifestNotFoundCode(t *testing.T) {
+	l.SetLogSink(os.Stdout, events.DebugLevel)
+	ts := NewTestSetup()
 
-		})
-	}
+	req := httptest.NewRequest("POST", "/stitch/12345", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "12345")
+
+	StitchController(ts.ManifestStore, ts.Stitch)(ts.Ctx)
+
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 404, "Should give not found status code")
+
+	ts.EndRequest()
 }
 
 func TestStitchSurfaceController(t *testing.T) {
-	l.SetLogSink(os.Stdout, events.DebugLevel)
-	type args struct {
-		manID  string
-		surfID string
-	}
-	ms := &MockManifestStore{}
-	// ms, _ := store.NewManifestStore(map[string][]byte{"man-1": []byte("MANIFEST")})
-	ss, err := store.NewSurfaceStore(map[string][]byte{"surf-2": []byte("SURFACE")})
-	if err != nil {
-		t.Errorf("StitchSurfaceController() = Error making new Surface: %v", err)
-		return
-	}
-	ssC := StitchSurfaceController(ms, ss, EchoStitch("Echo Stitch"))
-	tests := []struct {
-		name string
-		args args
-		want []byte
-	}{
-		{
-			"Reply from exisiting manifest and surface",
-			args{manID: "man-1", surfID: "surf-2"},
-			[]byte("SURFACE"),
-		},
-	}
-	for _, tt := range tests {
+	manifest := NewTestManifest()
 
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := irisCtx.NewContext(nil)
-			buf := &bytes.Buffer{}
-			ctx.BeginRequest(NewMockWriter(buf), &http.Request{})
-			ctx.Params().Set("manifestID", tt.args.manID)
-			ctx.Params().Set("surfaceID", tt.args.surfID)
+	ts := NewTestSetup()
+	ts.AddSurface("surf-1", "test-user", strings.NewReader("SURFACE"))
+	ts.AddManifest("man-1", manifest)
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
 
-			ssC(ctx)
+	req := httptest.NewRequest("POST", "/stitch/man-1/surf-1", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "man-1")
+	ts.SetParam("surfaceID", "surf-1")
 
-			got, err := ioutil.ReadAll(buf)
-			if err != nil {
-				t.Errorf("StitchSurfaceController() = Error %v", err)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("StitchSurfaceController() = %v, want %v", got, tt.want)
-			}
-			ctx.EndRequest()
-		})
+	StitchSurfaceController(ts.ManifestStore, ts.SurfaceStore, ts.Stitch)(ts.Ctx)
 
-	}
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 200, "Should give ok status code")
+
+	ts.EndRequest()
 }
