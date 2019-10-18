@@ -14,6 +14,9 @@ spec:
   components:
     - name: corestub
       src: corestub
+      ports:
+        - name: http
+          port: 10000
       environmentConfig:
         - environment: prod
           replicas: 0
@@ -21,6 +24,9 @@ spec:
           replicas: 0
     - name: api
       src: api
+      ports:
+        - name: grpc
+          port: 8080
       environmentConfig:
         - environment: prod
           replicas: 0
