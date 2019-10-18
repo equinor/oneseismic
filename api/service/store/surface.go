@@ -99,7 +99,7 @@ func localStorage(localPath string) (*surfaceLocalStore, error) {
 
 	if _, err := os.Stat(localPath); os.IsNotExist(err) {
 		os.MkdirAll(localPath, 0700)
-	} else {
+	} else if err != nil {
 		return nil, events.E(op, "accessing localPath failed", err)
 	}
 
