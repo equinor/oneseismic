@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -16,8 +17,8 @@ import (
 	"github.com/equinor/seismic-cloud/api/service/store"
 )
 
-func NewSurfaceTestGetRequest(surfaceData []byte) (*http.Request, error) {
-	return http.NewRequest("GET", "equinorseismiccloud.com", ioutil.NopCloser(bytes.NewReader(surfaceData)))
+func NewSurfaceTestGetRequest(surfaceData []byte) *http.Request {
+	return httptest.NewRequest("GET", "/surface", ioutil.NopCloser(bytes.NewReader(surfaceData)))
 }
 
 func TestSurfaceControllerUpload(t *testing.T) {
@@ -29,10 +30,10 @@ func TestSurfaceControllerUpload(t *testing.T) {
 	userID := "test-user"
 
 	ssc := NewSurfaceController(ss)
-	ctx := NewMockContext()
+	ctx := NewTestingContext()
 
-	req, _ := NewSurfaceTestGetRequest(surfaceData)
-	ctx.BeginRequest(NewMockWriter(), req)
+	req := NewSurfaceTestGetRequest(surfaceData)
+	ctx.BeginRequest(httptest.NewRecorder(), req)
 	ctx.Params().Set("userID", userID)
 	ctx.Params().Set("surfaceID", surfaceID)
 
@@ -75,10 +76,10 @@ func TestSurfaceControllerList(t *testing.T) {
 	ss, _ := NewTestingSurfaceStore()
 
 	c := NewSurfaceController(ss)
-	ctx := NewMockContext()
+	ctx := NewTestingContext()
 
-	writer := NewMockWriter()
-	req, _ := NewSurfaceTestGetRequest(surfaceData)
+	writer := httptest.NewRecorder()
+	req := NewSurfaceTestGetRequest(surfaceData)
 	ctx.BeginRequest(writer, req)
 	ctx.Params().Set("userID", userID)
 
@@ -92,7 +93,7 @@ func TestSurfaceControllerList(t *testing.T) {
 		t.Errorf("SurfaceController.List : Status = %v, want %v", gotStatus, 200)
 	}
 
-	gotSurfaces, err := ioutil.ReadAll(writer.buffer)
+	gotSurfaces, err := ioutil.ReadAll(writer.Result().Body)
 	if err != nil {
 		t.Errorf("SurfaceController.List Readall err %v", err)
 		return
@@ -120,10 +121,10 @@ func TestSurfaceControllerDownload(t *testing.T) {
 	ss, _ := NewTestingSurfaceStore()
 
 	c := NewSurfaceController(ss)
-	ctx := NewMockContext()
+	ctx := NewTestingContext()
 
-	writer := NewMockWriter()
-	req, _ := NewSurfaceTestGetRequest(surfaceData)
+	writer := httptest.NewRecorder()
+	req := NewSurfaceTestGetRequest(surfaceData)
 	ctx.BeginRequest(writer, req)
 	ctx.Params().Set("userID", userID)
 	ctx.Params().Set("surfaceID", surfaceID)
@@ -136,7 +137,7 @@ func TestSurfaceControllerDownload(t *testing.T) {
 		t.Errorf("SurfaceController.Download : Status = %v, want %v", gotStatus, 200)
 	}
 
-	gotData, err := ioutil.ReadAll(writer.buffer)
+	gotData, err := ioutil.ReadAll(writer.Result().Body)
 	if err != nil {
 		t.Errorf("SurfaceController.Download Readall err %v", err)
 		return

@@ -1,12 +1,11 @@
 package controller
 
 import (
-	"bytes"
 	goctx "context"
-	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -23,33 +22,13 @@ func NewTestingSurfaceStore() (store.SurfaceStore, error) {
 	return store.NewSurfaceStore(map[string][]byte{})
 }
 
-type MockManifestStore struct {
-	mock.Mock
+func NewTestingManifestStore(m map[string]store.Manifest) (store.ManifestStore, error) {
+	return store.NewManifestStore(m)
 }
 
-func (m *MockManifestStore) Fetch(id string) (store.Manifest, error) {
-	args := m.Called(id)
-	return args.Get(0).(store.Manifest), args.Error(1)
+func NewTestingContext() irisCtx.Context {
+	return irisCtx.NewContext(iris.Default())
 }
-
-type MockWriter struct {
-	header http.Header
-	buffer *bytes.Buffer
-}
-
-func NewMockWriter() MockWriter {
-	return MockWriter{http.Header{}, bytes.NewBuffer(make([]byte, 0))}
-}
-
-func (m MockWriter) Write(b []byte) (int, error) {
-	return m.buffer.Write(b)
-}
-
-func (m MockWriter) Header() http.Header {
-	return m.header
-}
-
-func (m MockWriter) WriteHeader(statusCode int) {}
 
 type MockStitch struct {
 	mock.Mock
@@ -59,10 +38,6 @@ func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, 
 	_, err := io.Copy(out, in)
 	args := m.Called(ctx, ms, out, in)
 	return args.String(0), err
-}
-
-func NewMockContext() irisCtx.Context {
-	return irisCtx.NewContext(iris.Default())
 }
 
 func NewGarbageRequest() *http.Request {
@@ -77,7 +52,7 @@ func NewGarbageRequest() *http.Request {
 		TiAdXYPNBfNkqzi5nBRk
 		S0wpZgBZYp5HK1dCF9sL
 		kcmmZTNurGRSYkOJS9xn`
-	req, _ := http.NewRequest("GET", "test.com", ioutil.NopCloser(strings.NewReader(have)))
+	req := httptest.NewRequest("GET", "/stitch", ioutil.NopCloser(strings.NewReader(have)))
 	return req
 }
 
@@ -95,19 +70,18 @@ func NewTestManifest() store.Manifest {
 
 func TestStitchControllerSuccess(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	ctx := NewMockContext()
+	ctx := NewTestingContext()
 
 	manifest := NewTestManifest()
 
 	stitch := MockStitch{}
 	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
 
-	ms := &MockManifestStore{}
-	ms.On("Fetch", "12345").Return(manifest, nil)
+	ms, _ := NewTestingManifestStore(map[string]store.Manifest{"12345": manifest})
 
 	stitchController := StitchController(ms, stitch)
 
-	ctx.BeginRequest(NewMockWriter(), NewGarbageRequest())
+	ctx.BeginRequest(httptest.NewRecorder(), NewGarbageRequest())
 	ctx.Params().Set("manifestID", "12345")
 
 	stitchController(ctx)
@@ -121,14 +95,13 @@ func TestStitchControllerSuccess(t *testing.T) {
 
 func TestStitchMissingManifestNotFoundCode(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
-	ctx := NewMockContext()
+	ctx := NewTestingContext()
 
 	stitch := MockStitch{}
 
-	ms := &MockManifestStore{}
-	ms.On("Fetch", "12345").Return(store.Manifest{}, errors.New(""))
+	ms, _ := NewTestingManifestStore(map[string]store.Manifest{})
 
-	ctx.BeginRequest(NewMockWriter(), NewGarbageRequest())
+	ctx.BeginRequest(httptest.NewRecorder(), NewGarbageRequest())
 	ctx.Params().Set("manifestID", "12345")
 	stitchController := StitchController(ms, stitch)
 	stitchController(ctx)
@@ -144,8 +117,7 @@ func TestStitchSurfaceController(t *testing.T) {
 	l.SetLogSink(os.Stdout, events.DebugLevel)
 	manifest := NewTestManifest()
 
-	ms := &MockManifestStore{}
-	ms.On("Fetch", "man-1").Return(manifest, nil)
+	ms, err := NewTestingManifestStore(map[string]store.Manifest{"man-1": manifest})
 
 	stitch := MockStitch{}
 	stitch.On("Stitch", mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
@@ -159,10 +131,10 @@ func TestStitchSurfaceController(t *testing.T) {
 
 	ssC := StitchSurfaceController(ms, ss, stitch)
 
-	ctx := NewMockContext()
+	ctx := NewTestingContext()
 	ss.Upload(goctx.Background(), "surf-1", "test-user", strings.NewReader("SURFACE"))
 
-	ctx.BeginRequest(NewMockWriter(), NewGarbageRequest())
+	ctx.BeginRequest(httptest.NewRecorder(), NewGarbageRequest())
 	ctx.Params().Set("manifestID", "man-1")
 	ctx.Params().Set("surfaceID", "surf-1")
 
