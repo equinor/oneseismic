@@ -10,6 +10,8 @@ spec:
     - name: prod
       build:
         from: v0.1.0
+
+  components:
     - name: corestub
       src: corestub
       environmentConfig:
