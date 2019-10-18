@@ -20,13 +20,13 @@ func TestSurfaceControllerUpload(t *testing.T) {
 	ts.BeginRequest(req)
 	ts.SetParam("surfaceID", "testblob")
 
-	ts.surfaceController.Upload(ts.ctx)
+	ts.SurfaceController.Upload(ts.Ctx)
 
-	assert.Equal(t, ts.ctx.GetStatusCode(), 200)
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 200)
 
 	ts.EndRequest()
 
-	buf, err := ts.surfaceStore.Download(context.Background(), "testblob")
+	buf, err := ts.SurfaceStore.Download(context.Background(), "testblob")
 	assert.Nil(t, err)
 
 	gotSurface, err := ioutil.ReadAll(buf)
@@ -56,8 +56,8 @@ func TestSurfaceControllerList(t *testing.T) {
 	req := httptest.NewRequest("GET", "/surface", nil)
 	ts.BeginRequest(req)
 
-	ts.surfaceController.List(ts.ctx)
-	assert.Equal(t, ts.ctx.GetStatusCode(), 200)
+	ts.SurfaceController.List(ts.Ctx)
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 200)
 
 	ts.EndRequest()
 
@@ -81,7 +81,7 @@ func TestSurfaceControllerDownload(t *testing.T) {
 	ts.BeginRequest(req)
 	ts.SetParam("surfaceID", "blobtest")
 
-	ts.surfaceController.Download(ts.ctx)
+	ts.SurfaceController.Download(ts.Ctx)
 
 	ts.EndRequest()
 	gotData, err := ioutil.ReadAll(ts.Result().Body)

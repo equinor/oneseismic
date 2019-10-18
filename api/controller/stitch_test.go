@@ -59,13 +59,13 @@ func NewTestManifest() store.Manifest {
 }
 
 type TestSetup struct {
-	surfaceStore      store.SurfaceStore
-	manifestStore     store.ManifestStore
-	surfaceController *SurfaceController
-	manifests         map[string]store.Manifest
-	stitch            MockStitch
-	ctx               irisCtx.Context
-	recorder          *httptest.ResponseRecorder
+	SurfaceStore      store.SurfaceStore
+	ManifestStore     store.ManifestStore
+	SurfaceController *SurfaceController
+	Manifests         map[string]store.Manifest
+	Stitch            MockStitch
+	Ctx               irisCtx.Context
+	Recorder          *httptest.ResponseRecorder
 }
 
 func NewTestSetup() *TestSetup {
@@ -81,32 +81,32 @@ func NewTestSetup() *TestSetup {
 }
 
 func (ts *TestSetup) AddManifest(manifestID string, m store.Manifest) {
-	ts.manifests[manifestID] = m
+	ts.Manifests[manifestID] = m
 }
 
 func (ts *TestSetup) AddSurface(surfaceID string, userID string, surface io.Reader) {
-	ts.surfaceStore.Upload(goctx.Background(), surfaceID, userID, surface)
+	ts.SurfaceStore.Upload(goctx.Background(), surfaceID, userID, surface)
 }
 
 func (ts *TestSetup) BeginRequest(r *http.Request) {
 	r.ParseForm()
-	ts.ctx.BeginRequest(ts.recorder, r)
+	ts.Ctx.BeginRequest(ts.Recorder, r)
 }
 
 func (ts *TestSetup) EndRequest() {
-	ts.ctx.EndRequest()
+	ts.Ctx.EndRequest()
 }
 
 func (ts *TestSetup) SetParam(id string, v string) {
-	ts.ctx.Params().Set(id, v)
+	ts.Ctx.Params().Set(id, v)
 }
 
 func (ts *TestSetup) OnStitch(v ...interface{}) *mock.Call {
-	return ts.stitch.On("Stitch", v...)
+	return ts.Stitch.On("Stitch", v...)
 }
 
 func (ts *TestSetup) Result() *http.Response {
-	return ts.recorder.Result()
+	return ts.Recorder.Result()
 }
 
 func TestStitchControllerSuccess(t *testing.T) {
@@ -132,10 +132,10 @@ func TestStitchControllerSuccess(t *testing.T) {
 	ts.BeginRequest(req)
 	ts.SetParam("manifestID", "12345")
 
-	StitchController(ts.manifestStore, ts.stitch)(ts.ctx)
+	StitchController(ts.ManifestStore, ts.Stitch)(ts.Ctx)
 
-	assert.Equal(t, ts.ctx.GetStatusCode(), 200, "Should give ok status code")
-	got, _ := ioutil.ReadAll(ts.recorder.Body)
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 200, "Should give ok status code")
+	got, _ := ioutil.ReadAll(ts.Result().Body)
 	assert.Equal(t, string(got), have, "garbage in, garbage out")
 
 	ts.EndRequest()
@@ -149,9 +149,9 @@ func TestStitchMissingManifestNotFoundCode(t *testing.T) {
 	ts.BeginRequest(req)
 	ts.SetParam("manifestID", "12345")
 
-	StitchController(ts.manifestStore, ts.stitch)(ts.ctx)
+	StitchController(ts.ManifestStore, ts.Stitch)(ts.Ctx)
 
-	assert.Equal(t, ts.ctx.GetStatusCode(), 404, "Should give not found status code")
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 404, "Should give not found status code")
 
 	ts.EndRequest()
 }
@@ -169,9 +169,9 @@ func TestStitchSurfaceController(t *testing.T) {
 	ts.SetParam("manifestID", "man-1")
 	ts.SetParam("surfaceID", "surf-1")
 
-	StitchSurfaceController(ts.manifestStore, ts.surfaceStore, ts.stitch)(ts.ctx)
+	StitchSurfaceController(ts.ManifestStore, ts.SurfaceStore, ts.Stitch)(ts.Ctx)
 
-	assert.Equal(t, ts.ctx.GetStatusCode(), 200, "Should give ok status code")
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 200, "Should give ok status code")
 
 	ts.EndRequest()
 }
