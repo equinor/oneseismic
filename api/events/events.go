@@ -27,15 +27,15 @@ type EventKind int
 
 const (
 	UnknownError EventKind = iota
-	NotExists
+	NotFound
 )
 
 func (ek EventKind) String() string {
 	switch ek {
-	case NotExists:
-		return "item doesn't exist"
+	case NotFound:
+		return "not found"
 	default:
-		return "Unknown error kind"
+		return "unknown error"
 	}
 }
 
@@ -86,7 +86,15 @@ func (e *Event) isZero() bool {
 }
 
 func (e *Event) Error() string {
-	b := new(bytes.Buffer)
+	b := &bytes.Buffer{}
+	if e.Op != "" {
+		pad(b, ": ")
+		b.WriteString(string(e.Op))
+	}
+	if e.Kind != 0 {
+		pad(b, ": ")
+		b.WriteString(e.Kind.String())
+	}
 	if e.Err != nil {
 		if prevErr, ok := e.Err.(*Event); ok {
 			if !prevErr.isZero() {
@@ -99,10 +107,12 @@ func (e *Event) Error() string {
 		}
 	}
 	if b.Len() == 0 {
-		return ""
+		return "no error"
 	}
 	return b.String()
 }
+
+func (e *Event) Unwrap() error { return e.Err }
 
 func ParseLevel(s string) Severity {
 	if len(s) == 0 {
@@ -114,26 +124,26 @@ func ParseLevel(s string) Severity {
 		f = s[1]
 	}
 	switch f {
-	case 'D':
-	case 'T':
+	case 'D', 'T':
 		return DebugLevel
-	case 'I':
-	case 'L':
+	case 'I', 'L':
 		return InfoLevel
 	case 'W':
 		return WarnLevel
 	case 'E':
 		return ErrorLevel
-	case 'C':
-	case 'F':
+	case 'C', 'F':
 		return CriticalLevel
 	default:
 		return DebugLevel
 	}
-	return DebugLevel
+
 }
 
-func E(args ...interface{}) *Event {
+func E(args ...interface{}) error {
+	if len(args) == 0 {
+		panic("call to events.E with no arguments")
+	}
 	e := &Event{When: time.Now().UTC()}
 	for _, arg := range args {
 		switch arg := arg.(type) {
