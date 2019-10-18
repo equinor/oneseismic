@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path"
 	"sort"
@@ -16,7 +15,6 @@ import (
 	"github.com/equinor/seismic-cloud/api/events"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/equinor/seismic-cloud/api/config"
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/google/uuid"
 )
@@ -33,13 +31,12 @@ type (
 		Link         string    `json:"link"`
 		LastModified time.Time `json:"lastModified"`
 	}
-	surfaceBlobStore struct {
-		containerURL *azblob.ContainerURL
-		bufferSize   int
-		maxBuffers   int
-	}
 	surfaceLocalStore struct {
 		localPath string
+	}
+
+	surfaceBlobStore struct {
+		blobStore BlobStore
 	}
 
 	surfaceInMemoryStore struct {
@@ -48,47 +45,23 @@ type (
 	}
 )
 
-type AzureBlobSettings struct {
-	AccountName   string
-	AccountKey    string
-	ContainerName string
-}
-
 func NewSurfaceStore(persistance interface{}) (SurfaceStore, error) {
 	switch persistance.(type) {
 	case map[string][]byte:
 		return &surfaceInMemoryStore{m: persistance.(map[string][]byte)}, nil
-	case AzureBlobSettings:
-		azbs := persistance.(AzureBlobSettings)
-		return azBlobStorage(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
+	case AzBlobStorage:
+		azbs := persistance.(AzBlobStorage)
+		s, err := NewAzBlobStorage(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
+		if err != nil {
+			return nil, events.E(err)
+		}
+		return &surfaceBlobStore{blobStore: *s}, nil
 	case string:
 		return localStorage(persistance.(string))
 	default:
 		return nil, events.E("No surface store selected")
 	}
 
-}
-
-func azBlobStorage(accountName, accountKey, containerName string) (*surfaceBlobStore, error) {
-
-	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
-	if err != nil {
-		l.LogE("surfaceStore download", "Invalid credentials", err)
-	}
-	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
-
-	u, err := url.Parse(
-		fmt.Sprintf(config.AzStorageURL(),
-			accountName,
-			containerName))
-	if err != nil {
-		return nil, err
-	}
-	containerURL := azblob.NewContainerURL(*u, p)
-
-	return &surfaceBlobStore{containerURL: &containerURL,
-		bufferSize: 2 * 1024 * 1024,
-		maxBuffers: 100}, nil
 }
 
 func localStorage(localPath string) (*surfaceLocalStore, error) {
@@ -106,8 +79,8 @@ func localStorage(localPath string) (*surfaceLocalStore, error) {
 	return &surfaceLocalStore{localPath: localPath}, nil
 }
 
-func (az *surfaceBlobStore) List(ctx context.Context) ([]SurfaceMeta, error) {
-
+func (s *surfaceBlobStore) List(ctx context.Context) ([]SurfaceMeta, error) {
+	az := s.blobStore
 	var info []SurfaceMeta
 	for marker := (azblob.Marker{}); marker.NotDone(); {
 		listBlob, err := az.containerURL.ListBlobsFlatSegment(ctx, marker, azblob.ListBlobsSegmentOptions{})
@@ -157,8 +130,8 @@ func (inMem *surfaceInMemoryStore) List(ctx context.Context) ([]SurfaceMeta, err
 	return info, nil
 }
 
-func (az *surfaceBlobStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
-
+func (s *surfaceBlobStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
+	az := s.blobStore
 	blobURL := az.containerURL.NewBlockBlobURL(fileName)
 
 	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
@@ -181,7 +154,8 @@ func (local *surfaceLocalStore) Download(ctx context.Context, fileName string) (
 	return file, nil
 }
 
-func (az *surfaceBlobStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
+func (s *surfaceBlobStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
+	az := s.blobStore
 	blobURL := az.containerURL.NewBlockBlobURL(blobNameGenerator(fn))
 
 	_, err := azblob.UploadStreamToBlockBlob(ctx, r, blobURL, azblob.UploadStreamToBlockBlobOptions{BufferSize: az.bufferSize, MaxBuffers: az.maxBuffers})

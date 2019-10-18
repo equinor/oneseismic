@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/equinor/seismic-cloud/api/events"
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"go.mongodb.org/mongo-driver/bson"
@@ -26,32 +27,35 @@ type (
 		basePath string
 	}
 
-	manifestDbStore struct {
-		connString string
-	}
-
 	manifestInMemoryStore struct {
 		m    map[string]Manifest
 		lock sync.RWMutex
 	}
-)
 
-// ConnStr is the connectionstring a db would use
-type ConnStr string
+	manifestBlobStore struct {
+		blobStore BlobStore
+	}
+)
 
 // NewManifestStore provides a manifest store based on the persistance configuration given
 func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 	switch persistance.(type) {
 	case map[string]Manifest:
 		return &manifestInMemoryStore{m: persistance.(map[string]Manifest)}, nil
+	case AzBlobStorage:
+		azbs := persistance.(AzBlobStorage)
+		s, err := NewAzBlobStorage(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
+		if err != nil {
+			return nil, events.E(err)
+		}
+		return &manifestBlobStore{blobStore: *s}, nil
 	case ConnStr:
-		return &manifestDbStore{string(persistance.(ConnStr))}, nil
+
 	case string:
 		return &manifestFileStore{persistance.(string)}, nil
 	default:
 		return nil, events.E("No manifest store persistance selected")
 	}
-
 }
 
 type Manifest struct {
@@ -79,7 +83,9 @@ func (m *manifestFileStore) Fetch(ctx context.Context, id string) (Manifest, err
 	return mani, nil
 }
 
-func (m *manifestDbStore) Fetch(ctx context.Context, id string) (Manifest, error) {
+func (s *manifestBlobStore) Fetch(ctx context.Context, id string) (Manifest, error) {
+	m := s.blobStore
+
 	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var res Manifest
@@ -95,6 +101,19 @@ func (m *manifestDbStore) Fetch(ctx context.Context, id string) (Manifest, error
 	}
 	l.LogI("manifest fetch", fmt.Sprintf("Connected to manifest DB and fetched file %s", id))
 	return res, nil
+
+	az := s.blobStore
+	blobURL := az.containerURL.NewBlockBlobURL(fileName)
+
+	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+	if err != nil {
+		l.LogW("surface store download", "Surface download failed:", l.Wrap(err))
+		return nil, err
+	}
+	l.LogI("surfaceStore download", fmt.Sprintf("Download: surfaceLength: %d bytes\n", downloadResponse.ContentLength()))
+	retryReader := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
+
+	return retryReader, nil
 }
 
 func (inMem *manifestInMemoryStore) Fetch(ctx context.Context, id string) (Manifest, error) {
@@ -127,7 +146,8 @@ func (m *manifestFileStore) List(ctx context.Context) ([]Manifest, error) {
 	return res, nil
 }
 
-func (m *manifestDbStore) List(ctx context.Context) ([]Manifest, error) {
+func (s *manifestBlobStore) List(ctx context.Context) ([]Manifest, error) {
+	m := s.blobStore
 	op := "manifestDbStore list"
 	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

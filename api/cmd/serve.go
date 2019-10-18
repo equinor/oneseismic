@@ -46,14 +46,12 @@ func surfaceStoreConfig() interface{} {
 		return store.AzureBlobSettings{
 			AccountName:   config.AzStorageAccount(),
 			AccountKey:    config.AzStorageKey(),
-			ContainerName: config.AzContainerName(),
+			ContainerName: config.AzSurfaceContainerName(),
 		}
-
 	}
 
 	if len(config.LocalSurfacePath()) > 0 {
 		return config.LocalSurfacePath()
-
 	}
 
 	return make(map[string][]byte)
@@ -61,14 +59,21 @@ func surfaceStoreConfig() interface{} {
 }
 
 func manifestStoreConfig() interface{} {
+
+	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
+		return store.AzureBlobSettings{
+			AccountName:   config.AzStorageAccount(),
+			AccountKey:    config.AzStorageKey(),
+			ContainerName: config.AzManifestContainerName(),
+		}
+	}
+
 	if len(config.ManifestURI()) > len("mongodb://") {
 		return store.ConnStr(config.ManifestURI())
-
 	}
 
 	if len(config.ManifestStoragePath()) > 0 {
 		return config.ManifestStoragePath()
-
 	}
 
 	return nil

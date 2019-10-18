@@ -33,7 +33,13 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 		l.LogE(op, "Files can't be listed", err)
 		return
 	}
-	ctx.JSON(info)
+	if len(info) > 0 {
+		ctx.Header("Content-Type", "application/json")
+		ctx.JSON(info)
+	} else {
+		ctx.Header("Content-Type", "text/plain")
+		ctx.WriteString("No valid manifests in store")
+	}
 }
 
 // @Description get surface file
