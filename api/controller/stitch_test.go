@@ -66,6 +66,7 @@ type TestSetup struct {
 	SurfaceStore      store.SurfaceStore
 	ManifestStore     store.ManifestStore
 	SurfaceController *SurfaceController
+	ManifestController *ManifestController
 	Manifests         map[string]store.Manifest
 	Stitch            MockStitch
 	Ctx               irisCtx.Context
@@ -80,8 +81,9 @@ func NewTestSetup() *TestSetup {
 	recorder := httptest.NewRecorder()
 	ss, _ := NewTestingSurfaceStore()
 	c := NewSurfaceController(ss)
+	mc := NewManifestController(ms)
 
-	return &TestSetup{ss, ms, c, manifests, stitch, ctx, recorder}
+	return &TestSetup{ss, ms, c, mc, manifests, stitch, ctx, recorder}
 }
 
 func (ts *TestSetup) AddManifest(manifestID string, m store.Manifest) {
