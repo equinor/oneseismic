@@ -5,11 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/big"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/equinor/seismic-cloud/api/events"
 )
 
 // OpenIDConfig is the expected return from the well-known endpoint
@@ -62,14 +63,21 @@ type JWKS struct {
 var configClient = &http.Client{Timeout: 10 * time.Second}
 
 func getJSON(url *url.URL, target interface{}) error {
+	op := events.Op("service.getJSON")
 	r, err := configClient.Get(url.String())
 	if err != nil {
-		return err
+		return events.E(op, "http request failed", err)
 	}
 	defer r.Body.Close()
 
 	if r.StatusCode != 200 {
-		return fmt.Errorf("Json fetch error %s on %s", r.Status, url)
+		return events.E(op,
+			"http response failed",
+			fmt.Errorf(
+				"Json fetch error %s on %s",
+				r.Status,
+				url))
+
 	}
 
 	return json.NewDecoder(r.Body).Decode(target)
@@ -77,51 +85,68 @@ func getJSON(url *url.URL, target interface{}) error {
 
 // GetKey gets the authservers signing key
 func GetKeySet(authserver *url.URL) (map[string]interface{}, error) {
-
+	op := events.Op("service.GetKeySet")
+	if authserver == nil {
+		return nil, events.E(op, "authserver is not found", events.NotFound)
+	}
 	oidcConf := OpenIDConfig{}
 	u, err := url.Parse(authserver.String() + "/.well-known/openid-configuration")
 	if err != nil {
-		log.Panic("oidcConf url malformed", err)
+		return nil, events.E(op, "oidcConf url parse failed", err)
 	}
 	err = getJSON(u, &oidcConf)
 	if err != nil {
-		return nil, err
+		return nil, events.E(op, "fetching oidc config failed", err)
 	}
 
 	jwksURI := oidcConf.JwksURI
 	u, err = url.Parse(jwksURI)
 	if err != nil {
-		log.Panic("jwks url malformed", err)
+		return nil, events.E(op, "jwks url parse failed", err)
 	}
-	jwks := JWKS{}
-	err = getJSON(u, &jwks)
+	return createWebKeySet(u)
+}
+
+func fromB64(b64 string) (big.Int, error) {
+	op := events.Op("service.fromB64")
+	b, err := base64.RawURLEncoding.DecodeString(b64)
+	bi := big.Int{}
 	if err != nil {
-		return nil, err
+		return bi, events.E(op, " decoding B64 failed", err)
+	}
+
+	bi.SetBytes(b)
+	return bi, nil
+}
+
+func createWebKeySet(keysetURL *url.URL) (map[string]interface{}, error) {
+	op := events.Op("service.createWebKeySet")
+	jwks := JWKS{}
+	err := getJSON(keysetURL, &jwks)
+	if err != nil {
+		return nil, events.E(op, "fetching keyset failed", err)
 	}
 
 	if len(jwks.Keys) == 0 {
-		return nil, fmt.Errorf("No keys in key set: %s", jwksURI)
+		return nil, events.E(
+			op,
+			"Couldnt create keyset",
+			fmt.Errorf("no keys in key set"))
 	}
 	jwksMap := make(map[string]interface{})
 
 	for _, jwk := range jwks.Keys {
-		fromB64 := base64.RawURLEncoding.DecodeString
 
 		if jwk.Kty == "RSA" {
 
-			b, err := fromB64(jwk.E)
+			e, err := fromB64(jwk.E)
 			if err != nil {
-				return nil, err
+				return nil, events.E(op, "big int from  E", err)
 			}
-			e := big.Int{}
-			e.SetBytes(b)
-
-			b, err = fromB64(jwk.N)
+			n, err := fromB64(jwk.N)
 			if err != nil {
-				return nil, err
+				return nil, events.E(op, "big int from  N", err)
 			}
-			n := big.Int{}
-			n.SetBytes(b)
 
 			jwksMap[jwk.Kid] = &rsa.PublicKey{N: &n, E: int(e.Int64())}
 
@@ -129,4 +154,5 @@ func GetKeySet(authserver *url.URL) (map[string]interface{}, error) {
 	}
 
 	return jwksMap, nil
+
 }
