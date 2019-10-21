@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http/httptest"
-	"testing"
 	"os"
+	"testing"
 
 	"github.com/equinor/seismic-cloud/api/events"
 	l "github.com/equinor/seismic-cloud/api/logger"
