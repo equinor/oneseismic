@@ -151,6 +151,23 @@ func createHTTPServerOptions() ([]server.HttpServerOption, error) {
 	return opts, nil
 }
 
+func startServe(opts ...server.HttpServerOption) (*server.HttpServer, error) {
+	op := "serve.startServe"
+	hs, err := server.NewHttpServer(opts...)
+
+	if err != nil {
+		l.LogE(op, "Error configuring http server", err)
+		os.Exit(1)
+	}
+	err = hs.Serve()
+
+	if err != nil && err != http.ErrServerClosed {
+		l.LogE(op, "Error running http server", err)
+		os.Exit(1)
+	}
+	return hs, err
+}
+
 func runServe(cmd *cobra.Command, args []string) {
 	op := "serve.runServe"
 
@@ -200,18 +217,7 @@ func runServe(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	hs, err := server.NewHttpServer(opts...)
-
-	if err != nil {
-		l.LogE(op, "Error configuring http server", err)
-		os.Exit(1)
-	}
-	err = hs.Serve()
-
-	if err != nil && err != http.ErrServerClosed {
-		l.LogE(op, "Error running http server", err)
-		os.Exit(1)
-	}
+	startServe(opts...)
 
 	if p != nil {
 		p.Stop()

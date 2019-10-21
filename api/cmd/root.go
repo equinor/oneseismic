@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	l "github.com/equinor/seismic-cloud/api/logger"
@@ -43,9 +44,8 @@ func initConfig() {
 		}
 		viper.AddConfigPath(wd)
 		viper.SetConfigName(".sc-api")
+		fmt.Println(viper.ConfigFileUsed())
 	}
-	// config.SetDefaults()
-	// viper.AutomaticEnv()
 
 	err := viper.ReadInConfig()
 	if err != nil {

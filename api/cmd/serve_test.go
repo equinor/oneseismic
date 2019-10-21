@@ -11,11 +11,8 @@ import (
 	"github.com/equinor/seismic-cloud/api/service"
 )
 
-func TestServer(t *testing.T) {
-	//TODO: integration test
-}
-
 func Test_createHTTPServerOptions(t *testing.T) {
+	viper.Reset()
 	tests := []struct {
 		name        string
 		want        []server.HttpServerOption
