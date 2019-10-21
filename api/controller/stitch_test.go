@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	goctx "context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -39,7 +40,10 @@ type MockStitch struct {
 func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
 	_, err := io.Copy(out, in)
 	args := m.Called(ctx, ms, out, in)
-	return args.String(0), err
+	if err != nil {
+		return "", err
+	}
+	return args.String(0), args.Error(1)
 }
 
 func NewSurfaceTestGetRequest(surfaceData []byte) *http.Request {
@@ -142,7 +146,6 @@ func TestStitchControllerSuccess(t *testing.T) {
 }
 
 func TestStitchMissingManifestNotFoundCode(t *testing.T) {
-	l.SetLogSink(os.Stdout, events.DebugLevel)
 	ts := NewTestSetup()
 
 	req := httptest.NewRequest("POST", "/stitch/12345", ioutil.NopCloser(strings.NewReader("")))
@@ -156,7 +159,24 @@ func TestStitchMissingManifestNotFoundCode(t *testing.T) {
 	ts.EndRequest()
 }
 
-func TestStitchSurfaceController(t *testing.T) {
+func TestStitchControllerStitchError(t *testing.T) {
+	manifest := NewTestManifest()
+	ts := NewTestSetup()
+	ts.AddManifest("12345", manifest)
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", errors.New("Stitch failed"))
+
+	req := httptest.NewRequest("POST", "/stitch/12345", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "12345")
+
+	StitchController(ts.ManifestStore, ts.Stitch)(ts.Ctx)
+
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 500, "Should give internal Error")
+
+	ts.EndRequest()
+}
+
+func TestStitchSurfaceControllerSuccess(t *testing.T) {
 	manifest := NewTestManifest()
 
 	ts := NewTestSetup()
@@ -172,6 +192,64 @@ func TestStitchSurfaceController(t *testing.T) {
 	StitchSurfaceController(ts.ManifestStore, ts.SurfaceStore, ts.Stitch)(ts.Ctx)
 
 	assert.Equal(t, ts.Ctx.GetStatusCode(), 200, "Should give ok status code")
+
+	ts.EndRequest()
+}
+
+func TestStitchSurfaceControllerNoManifest(t *testing.T) {
+	manifest := NewTestManifest()
+
+	ts := NewTestSetup()
+	ts.AddSurface("surf-1", "test-user", strings.NewReader("SURFACE"))
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
+
+	req := httptest.NewRequest("POST", "/stitch/man-1/surf-1", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "man-1")
+	ts.SetParam("surfaceID", "surf-1")
+
+	StitchSurfaceController(ts.ManifestStore, ts.SurfaceStore, ts.Stitch)(ts.Ctx)
+
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 404, "Should give not found status code")
+
+	ts.EndRequest()
+}
+
+func TestStitchSurfaceControllerNoSurface(t *testing.T) {
+	manifest := NewTestManifest()
+
+	ts := NewTestSetup()
+	ts.AddManifest("man-1", manifest)
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", nil)
+
+	req := httptest.NewRequest("POST", "/stitch/man-1/surf-1", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "man-1")
+	ts.SetParam("surfaceID", "surf-1")
+
+	StitchSurfaceController(ts.ManifestStore, ts.SurfaceStore, ts.Stitch)(ts.Ctx)
+
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 404, "Should give not found status code")
+
+	ts.EndRequest()
+}
+
+func TestStitchSurfaceControllerStitchFailed(t *testing.T) {
+	manifest := NewTestManifest()
+
+	ts := NewTestSetup()
+	ts.AddSurface("surf-1", "test-user", strings.NewReader("SURFACE"))
+	ts.AddManifest("man-1", manifest)
+	ts.OnStitch(mock.Anything, manifest, mock.Anything, mock.Anything).Return("", errors.New("Stitch failed"))
+
+	req := httptest.NewRequest("POST", "/stitch/man-1/surf-1", ioutil.NopCloser(strings.NewReader("")))
+	ts.BeginRequest(req)
+	ts.SetParam("manifestID", "man-1")
+	ts.SetParam("surfaceID", "surf-1")
+
+	StitchSurfaceController(ts.ManifestStore, ts.SurfaceStore, ts.Stitch)(ts.Ctx)
+
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 500, "Should give server error status code")
 
 	ts.EndRequest()
 }
