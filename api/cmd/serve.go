@@ -155,8 +155,12 @@ func runServe(cmd *cobra.Command, args []string) {
 	op := "serve.runServe"
 
 	if viper.ConfigFileUsed() == "" {
+		viper.AutomaticEnv()
 		l.LogW(op, "Config from environment variables")
 	} else {
+		if err := config.Load(); err == nil {
+			l.LogI("root.initConfig", "Config loaded and validated "+viper.ConfigFileUsed())
+		}
 		l.LogI(op, "Config loaded and validated "+viper.ConfigFileUsed())
 	}
 

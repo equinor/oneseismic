@@ -5,8 +5,6 @@ import (
 
 	l "github.com/equinor/seismic-cloud/api/logger"
 
-	"github.com/equinor/seismic-cloud/api/config"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -46,12 +44,14 @@ func initConfig() {
 		viper.AddConfigPath(wd)
 		viper.SetConfigName(".sc-api")
 	}
-	config.SetDefaults()
-	viper.AutomaticEnv()
-	if err := viper.ReadInConfig(); err == nil {
+	// config.SetDefaults()
+	// viper.AutomaticEnv()
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		l.LogE("root.initConfig", "Config error", err)
+	} else {
 		l.LogI("root.initConfig", "Using config file")
 	}
-	if err := config.Load(); err == nil {
-		l.LogI("root.initConfig", "Config loaded and validated "+viper.ConfigFileUsed())
-	}
+
 }
