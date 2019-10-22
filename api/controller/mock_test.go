@@ -3,26 +3,35 @@ package controller
 import (
 	"bytes"
 	goctx "context"
-	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
-	"github.com/equinor/seismic-cloud/api/service/store"
-	"github.com/kataras/iris"
-	irisCtx "github.com/kataras/iris/context"
-	"github.com/stretchr/testify/mock"
+	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/equinor/seismic-cloud/api/events"
+	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/kataras/iris"
+	irisCtx "github.com/kataras/iris/context"
+	"github.com/stretchr/testify/mock"
 )
 
 func NewTestingSurfaceStore() (store.SurfaceStore, error) {
 	return store.NewSurfaceStore(map[string][]byte{})
 }
 
-func NewTestingManifestStore(m map[string]store.Manifest) (store.ManifestStore, error) {
-	return store.NewManifestStore(m)
+func NewTestingManifestStore() (store.ManifestStore, error) {
+	return store.NewManifestStore(map[string][]byte{
+		"12345": JSONManifest(NewTestManifest()),
+		"man-1": JSONManifest(NewTestManifest())})
+}
+
+func NewEmptyTestingManifestStore() (store.ManifestStore, error) {
+	return store.NewManifestStore(map[string][]byte{})
 }
 
 func NewTestingContext() irisCtx.Context {
@@ -63,7 +72,6 @@ type TestSetup struct {
 	ManifestStore      store.ManifestStore
 	SurfaceController  *SurfaceController
 	ManifestController *ManifestController
-	Manifests          map[string]store.Manifest
 	Stitch             MockStitch
 	Ctx                irisCtx.Context
 	Recorder           *httptest.ResponseRecorder
@@ -72,18 +80,21 @@ type TestSetup struct {
 func NewTestSetup() *TestSetup {
 	stitch := MockStitch{}
 	ctx := NewTestingContext()
-	manifests := map[string]store.Manifest{}
-	ms, _ := NewTestingManifestStore(manifests)
+	ms, _ := NewTestingManifestStore()
 	recorder := httptest.NewRecorder()
 	ss, _ := NewTestingSurfaceStore()
-	c := NewSurfaceController(ss)
+	sc := NewSurfaceController(ss)
 	mc := NewManifestController(ms)
 
-	return &TestSetup{ss, ms, c, mc, manifests, stitch, ctx, recorder}
+	return &TestSetup{ss, ms, sc, mc, stitch, ctx, recorder}
 }
 
-func (ts *TestSetup) AddManifest(manifestID string, m store.Manifest) {
-	ts.Manifests[manifestID] = m
+func JSONManifest(m store.Manifest) []byte {
+	b, err := json.Marshal(&m)
+	if err != nil {
+		fmt.Println("Could not marshal manifest", err)
+	}
+	return b
 }
 
 func (ts *TestSetup) AddSurface(surfaceID string, userID string, surface io.Reader) {

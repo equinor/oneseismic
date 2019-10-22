@@ -11,9 +11,7 @@ import (
 )
 
 func TestManifestControllerList(t *testing.T) {
-	manifest := NewTestManifest()
 	ts := NewTestSetup()
-	ts.AddManifest("12345", manifest)
 
 	req := httptest.NewRequest("GET", "/manifest", nil)
 	ts.BeginRequest(req)
@@ -29,18 +27,17 @@ func TestManifestControllerList(t *testing.T) {
 	readManifests := make([]store.Manifest, 0)
 	err = json.Unmarshal(gotManifests, &readManifests)
 	assert.Nil(t, err)
-
-	assert.Equal(t, readManifests, []store.Manifest{manifest})
+	expected := []store.Manifest{NewTestManifest(), NewTestManifest()}
+	assert.Equal(t, expected, readManifests)
 }
 
 func TestManifestControllerFetch(t *testing.T) {
 	manifest := NewTestManifest()
 	ts := NewTestSetup()
-	ts.AddManifest("12345", manifest)
 
 	req := httptest.NewRequest("GET", "/manifest/12345", nil)
 	ts.BeginRequest(req)
-    ts.SetParam("manifestID", "12345")
+	ts.SetParam("manifestID", "12345")
 
 	ts.ManifestController.Fetch(ts.Ctx)
 	assert.Equal(t, ts.Ctx.GetStatusCode(), 200)
@@ -54,15 +51,14 @@ func TestManifestControllerFetch(t *testing.T) {
 	err = json.Unmarshal(gotManifests, &readManifests)
 	assert.Nil(t, err)
 
-	assert.Equal(t, readManifests, manifest)
+	assert.Equal(t, manifest, readManifests)
 }
 
 func TestManifestControllerFetchMissing(t *testing.T) {
 	ts := NewTestSetup()
-
-	req := httptest.NewRequest("GET", "/manifest/12345", nil)
+	req := httptest.NewRequest("GET", "/manifest/notexist", nil)
 	ts.BeginRequest(req)
-    ts.SetParam("manifestID", "12345")
+	ts.SetParam("manifestID", "notexist")
 
 	ts.ManifestController.Fetch(ts.Ctx)
 	assert.Equal(t, ts.Ctx.GetStatusCode(), 404)
