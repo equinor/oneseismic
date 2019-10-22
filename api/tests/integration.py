@@ -44,27 +44,6 @@ def test_create_defaults():
         assert 'issuer: ""\n' in config
 
 
-def test_get_post():
-    test_manifest = '{"basename":"testmanifest","cubexs":1,"cubeys":1,"cubezs":1,"fragmentxs":1,"fragmentys":1,"fragmentzs":1}'
-    p = subprocess.Popen(["../api serve --config .sc-api.yaml"], shell=True)
-    sleep(0.5)
-    try:
-        r = requests.get('http://localhost:7020/')
-        assert r.status_code == 200
-
-        with open("sample", "w") as f:
-            f.write(test_manifest)
-        r = requests.post('http://localhost:7020/stitch/sample',
-                        data={'point': 'reply'})
-        want = b'M:\x69\x00\x00\x00'+bytes(test_manifest, encoding='utf-8')+b'point=reply'
-        if cmp_bytes(r.content, want) != 0:
-            print(cmp_bytes(r.content, want))
-        assert r.content == want
-    finally:
-        p.kill()
-
-
 if __name__ == "__main__":
     test_code_coverage()
     test_create_defaults()
-    test_get_post()
