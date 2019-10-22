@@ -7,3 +7,7 @@ uri = os.environ.get("SC_API_HOST_ADDR", "http://localhost:8080")
 
 def test_happy():
     requests.get(uri)
+
+def test_sad():
+    with pytest.raises(requests.exceptions.ConnectionError):
+        requests.get("http://some.other.url:666")
