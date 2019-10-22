@@ -38,7 +38,7 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 		ctx.JSON(info)
 	} else {
 		ctx.Header("Content-Type", "text/plain")
-		ctx.WriteString("No valid manifests in store")
+		ctx.WriteString("No valid surfaces in store")
 	}
 }
 

@@ -39,7 +39,7 @@ func SetDefaults() {
 	viper.SetDefault("AZURE_SURFACE_CONTAINER", "scblob")
 	viper.SetDefault("AZURE_MANIFEST_CONTAINER", "scmanifest")
 	viper.SetDefault("AZURE_STORAGE_URL", "https://%s.blob.core.windows.net/%s")
-	viper.SetDefault("LOCAL_SURFACE_PATH", "tmp/")
+	viper.SetDefault("LOCAL_SURFACE_PATH", "")
 	viper.SetDefault("LOGDB_CONNSTR", "")
 }
 
@@ -166,7 +166,7 @@ func Swagger() bool {
 func ManifestStoragePath() string {
 	return viper.GetString("MANIFEST_PATH")
 }
-func ManifestURI() string {
+func ManifestDbURI() string {
 	return viper.GetString("MANIFEST_DB_URI")
 }
 

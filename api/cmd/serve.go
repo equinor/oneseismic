@@ -51,7 +51,7 @@ func surfaceStoreConfig() interface{} {
 	}
 
 	if len(config.LocalSurfacePath()) > 0 {
-		return config.LocalSurfacePath()
+		return store.BasePath(config.LocalSurfacePath())
 	}
 
 	return make(map[string][]byte)
@@ -68,12 +68,12 @@ func manifestStoreConfig() interface{} {
 		}
 	}
 
-	if len(config.ManifestURI()) > len("mongodb://") {
-		return store.ConnStr(config.ManifestURI())
+	if len(config.ManifestDbURI()) > len("mongodb://") {
+		return store.ConnStr(config.ManifestDbURI())
 	}
 
 	if len(config.ManifestStoragePath()) > 0 {
-		return config.ManifestStoragePath()
+		return store.BasePath(config.ManifestStoragePath())
 	}
 
 	return nil
@@ -91,7 +91,6 @@ func createHTTPServerOptions() ([]server.HttpServerOption, error) {
 	}
 
 	if ms, err := store.NewManifestStore(manifestStoreConfig()); err != nil {
-
 		return nil, events.E(events.Op(op), "Accessing manifest store", err)
 	} else {
 		opts = append(

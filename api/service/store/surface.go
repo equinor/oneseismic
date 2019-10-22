@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/equinor/seismic-cloud/api/events"
@@ -25,71 +24,62 @@ type SurfaceStore interface {
 	Upload(context.Context, string, string, io.Reader) (string, error)
 }
 
+type SurfaceMeta struct {
+	SurfaceID    string    `json:"surfaceID"`
+	Link         string    `json:"link"`
+	LastModified time.Time `json:"lastModified"`
+}
+
 type (
-	SurfaceMeta struct {
-		SurfaceID    string    `json:"surfaceID"`
-		Link         string    `json:"link"`
-		LastModified time.Time `json:"lastModified"`
-	}
-	surfaceLocalStore struct {
-		localPath string
+	surfaceFileStore struct {
+		localStore LocalFileStore
 	}
 
 	surfaceBlobStore struct {
-		blobStore BlobStore
+		blobStore AzBlobStore
 	}
 
 	surfaceInMemoryStore struct {
-		m    map[string][]byte
-		lock sync.RWMutex
+		inMemoryStore InMemoryStore
 	}
 )
 
 func NewSurfaceStore(persistance interface{}) (SurfaceStore, error) {
 	switch persistance.(type) {
 	case map[string][]byte:
-		return &surfaceInMemoryStore{m: persistance.(map[string][]byte)}, nil
-	case AzBlobStorage:
-		azbs := persistance.(AzBlobStorage)
-		s, err := NewAzBlobStorage(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
+		s, err := NewInMemoryStore(persistance.(map[string][]byte))
+		if err != nil {
+			return nil, events.E(err)
+		}
+		return &surfaceInMemoryStore{inMemoryStore: *s}, nil
+	case AzureBlobSettings:
+		azbs := persistance.(AzureBlobSettings)
+		s, err := NewAzBlobStore(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
 		if err != nil {
 			return nil, events.E(err)
 		}
 		return &surfaceBlobStore{blobStore: *s}, nil
-	case string:
-		return localStorage(persistance.(string))
+	case BasePath:
+		s, err := NewLocalFileStore(persistance.(BasePath))
+		if err != nil {
+			return nil, events.E(err)
+		}
+		return &surfaceFileStore{localStore: *s}, nil
 	default:
-		return nil, events.E("No surface store selected")
+		return nil, events.E(events.Op("store.NewSurfaceStore"), "No surface store selected")
 	}
-
-}
-
-func localStorage(localPath string) (*surfaceLocalStore, error) {
-	op := events.Op("service.localStorage")
-	if len(localPath) == 0 {
-		return nil, events.E(op, "localPath cannot be empty")
-	}
-
-	if _, err := os.Stat(localPath); os.IsNotExist(err) {
-		os.MkdirAll(localPath, 0700)
-	} else if err != nil {
-		return nil, events.E(op, "accessing localPath failed", err)
-	}
-
-	return &surfaceLocalStore{localPath: localPath}, nil
 }
 
 func (s *surfaceBlobStore) List(ctx context.Context) ([]SurfaceMeta, error) {
+	const op = events.Op("store.surfaceBlobStore.List")
 	az := s.blobStore
 	var info []SurfaceMeta
 	for marker := (azblob.Marker{}); marker.NotDone(); {
 		listBlob, err := az.containerURL.ListBlobsFlatSegment(ctx, marker, azblob.ListBlobsSegmentOptions{})
 		if err != nil {
-			return nil, err
+			return nil, events.E(op, "Could not list blobs", err)
 		}
-
 		marker = listBlob.NextMarker
-
 		for _, blobInfo := range listBlob.Segment.BlobItems {
 			info = append(info, SurfaceMeta{
 				SurfaceID:    blobInfo.Name,
@@ -100,10 +90,12 @@ func (s *surfaceBlobStore) List(ctx context.Context) ([]SurfaceMeta, error) {
 	return info, nil
 }
 
-func (local *surfaceLocalStore) List(ctx context.Context) ([]SurfaceMeta, error) {
-	files, err := ioutil.ReadDir(local.localPath)
+func (s *surfaceFileStore) List(ctx context.Context) ([]SurfaceMeta, error) {
+	const op = events.Op("store.surfaceFileStore.List")
+	local := s.localStore
+	files, err := ioutil.ReadDir(string(local.basePath))
 	if err != nil {
-		return nil, err
+		return nil, events.E(op, "Invalid local file store", err, events.NotFound)
 	}
 	var info []SurfaceMeta
 	for _, file := range files {
@@ -112,15 +104,14 @@ func (local *surfaceLocalStore) List(ctx context.Context) ([]SurfaceMeta, error)
 			Link:         file.Name(),
 			LastModified: file.ModTime()})
 	}
-
 	return info, nil
 }
 
-func (inMem *surfaceInMemoryStore) List(ctx context.Context) ([]SurfaceMeta, error) {
-	inMem.lock.Lock()
-	defer inMem.lock.Unlock()
+func (s *surfaceInMemoryStore) List(ctx context.Context) ([]SurfaceMeta, error) {
+	s.inMemoryStore.lock.Lock()
+	defer s.inMemoryStore.lock.Unlock()
 	var info []SurfaceMeta
-	for k := range inMem.m {
+	for k := range s.inMemoryStore.m {
 		info = append(info, SurfaceMeta{
 			SurfaceID: k,
 			Link:      k})
@@ -131,12 +122,13 @@ func (inMem *surfaceInMemoryStore) List(ctx context.Context) ([]SurfaceMeta, err
 }
 
 func (s *surfaceBlobStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
+	const op = events.Op("store.surfaceBlobStore.Download")
 	az := s.blobStore
 	blobURL := az.containerURL.NewBlockBlobURL(fileName)
 
 	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
-		l.LogW("surface store download", "Surface download failed:", l.Wrap(err))
+		l.LogW(string(op), "Surface download failed", l.Wrap(err), l.Kind(events.NotFound))
 		return nil, err
 	}
 	l.LogI("surfaceStore download", fmt.Sprintf("Download: surfaceLength: %d bytes\n", downloadResponse.ContentLength()))
@@ -145,39 +137,43 @@ func (s *surfaceBlobStore) Download(ctx context.Context, fileName string) (io.Re
 	return retryReader, nil
 }
 
-func (local *surfaceLocalStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
-
-	file, err := os.Open(path.Join(local.localPath, fileName))
+func (s *surfaceFileStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
+	const op = events.Op("store.surfaceFileStore.Download")
+	local := s.localStore
+	file, err := os.Open(path.Join(string(local.basePath), fileName))
 	if err != nil {
-		return nil, err
+		return nil, events.E(op, "Could not open file from local store", err, events.NotFound)
 	}
 	return file, nil
 }
 
 func (s *surfaceBlobStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
+	const op = events.Op("store.surfaceBlobStore.Upload")
 	az := s.blobStore
 	blobURL := az.containerURL.NewBlockBlobURL(blobNameGenerator(fn))
 
 	_, err := azblob.UploadStreamToBlockBlob(ctx, r, blobURL, azblob.UploadStreamToBlockBlobOptions{BufferSize: az.bufferSize, MaxBuffers: az.maxBuffers})
 	if err != nil {
-		return "", err
+		return "", events.E(op, "Blob upload to block blob failed", err)
 	}
 
 	b := blobURL.URL()
 	return b.String(), nil
 }
 
-func (local *surfaceLocalStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
-	fo, err := os.Create(local.localPath + blobNameGenerator(fn))
+func (s *surfaceFileStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
+	const op = events.Op("store.surfaceFileStore.Upload")
+	local := s.localStore
+	fo, err := os.Create(string(local.basePath) + blobNameGenerator(fn))
 	if err != nil {
-		return "", nil
+		return "", events.E(op, "Could not create local file", err)
 	}
 
 	defer fo.Close()
 
 	_, err = io.Copy(fo, r)
 	if err != nil {
-		return "", nil
+		return "", events.E(op, "Could not copy to reader", err)
 	}
 
 	return fo.Name(), nil
@@ -187,30 +183,32 @@ func blobNameGenerator(fileName string) string {
 	return fileName + "_" + uuid.New().String()
 }
 
-func (inMem *surfaceInMemoryStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
-	inMem.lock.RLock()
-	defer inMem.lock.RUnlock()
-	surface, ok := inMem.m[fileName]
+func (s *surfaceInMemoryStore) Download(ctx context.Context, fileName string) (io.Reader, error) {
+	const op = events.Op("store.surfaceInMemoryStore.Download")
+	s.inMemoryStore.lock.RLock()
+	defer s.inMemoryStore.lock.RUnlock()
+	surface, ok := s.inMemoryStore.m[fileName]
 	if !ok {
-		return nil, events.E("Surface not found")
+		return nil, events.E(op, "Surface not found", events.NotFound)
 	}
 	buf := &bytes.Buffer{}
 	_, err := buf.Write(surface)
 	if err != nil {
-		return nil, err
+		return nil, events.E(op, "Surface write bytes error", err, events.Marshalling)
 	}
 	return buf, nil
 }
 
-func (inMem *surfaceInMemoryStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
-	inMem.lock.Lock()
-	defer inMem.lock.Unlock()
+func (s *surfaceInMemoryStore) Upload(ctx context.Context, fn string, userID string, r io.Reader) (string, error) {
+	const op = events.Op("store.surfaceInMemoryStore.Upload")
+	s.inMemoryStore.lock.Lock()
+	defer s.inMemoryStore.lock.Unlock()
 	buf := &bytes.Buffer{}
 
 	_, err := io.Copy(buf, r)
 	if err != nil {
-		return "", err
+		return "", events.E(op, "Surface write bytes error", err, events.Marshalling)
 	}
-	inMem.m[fn] = buf.Bytes()
+	s.inMemoryStore.m[fn] = buf.Bytes()
 	return fn, nil
 }

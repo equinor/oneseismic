@@ -28,6 +28,7 @@ type EventKind int
 const (
 	UnknownError EventKind = iota
 	NotFound
+	Marshalling
 )
 
 func (ek EventKind) String() string {
