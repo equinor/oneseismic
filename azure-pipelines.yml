@@ -80,3 +80,10 @@ jobs:
         displayName: 'Deploy seismic-cloud'
 
       - template: api/tests/publish-test-results.yaml
+
+  - job: Integration_tests
+    # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    steps:
+      - script: |
+          docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
+        displayName: 'Integration_tests'
