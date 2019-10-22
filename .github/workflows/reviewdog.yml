@@ -2,7 +2,7 @@ name: reviewdog
 on: [pull_request, push]
 jobs:
   golangci-lint:
-    name: runner / golangci-lint
+    name: golangci-lint
     runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
@@ -12,5 +12,5 @@ jobs:
         uses: docker://reviewdog/action-golangci-lint:v1
         with:
           github_token: ${{ secrets.github_token }}
-          golangci_lint_flags: "--no-config --disable-all -E gofmt api/..."
+          golangci_lint_flags: "--no-config --disable-all -E goimports api/... -v"
           level: "info"

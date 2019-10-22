@@ -19,7 +19,7 @@ var rootCmd = &cobra.Command{
 	Long:  `A server wrapper for seismic cloud`,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
+// Eecute adds all child commands to the root command and sets flags appropriately.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		l.LogE("root.Execute", "", err)
