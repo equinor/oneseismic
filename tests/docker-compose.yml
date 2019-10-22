@@ -19,4 +19,4 @@ services:
   test:
     build: "."
     environment:
-      - API_URI, "http://api:8080"
+      - SC_API_HOST_ADDRESS, "http://api:8080"

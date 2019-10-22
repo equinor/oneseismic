@@ -3,7 +3,7 @@ import subprocess
 import requests
 import os
 
-uri = os.environ.get("API_URI", "http://localhost:8080")
+uri = os.environ.get("SC_API_HOST_ADDRESS", "http://localhost:8080")
 
 def test_happy():
     requests.get(uri)
