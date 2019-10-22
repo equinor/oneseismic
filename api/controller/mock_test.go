@@ -30,10 +30,6 @@ func NewTestingManifestStore() (store.ManifestStore, error) {
 		"man-1": JSONManifest(NewTestManifest())})
 }
 
-func NewEmptyTestingManifestStore() (store.ManifestStore, error) {
-	return store.NewManifestStore(map[string][]byte{})
-}
-
 func NewTestingContext() irisCtx.Context {
 	return irisCtx.NewContext(iris.Default())
 }

@@ -40,12 +40,6 @@ type AzureBlobSettings struct {
 	ContainerName string
 }
 
-// func New(kind interface{}, backingStore interface{}) (*Store, error){
-// 	if kint.type == Manifest
-// 		return manifeststore(backingStore)
-
-// }
-
 func NewAzBlobStore(accountName, accountKey, containerName string) (*AzBlobStore, error) {
 
 	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)

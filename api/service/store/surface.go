@@ -45,28 +45,29 @@ type (
 )
 
 func NewSurfaceStore(persistance interface{}) (SurfaceStore, error) {
+	const op = events.Op("store.NewSurfaceStore")
 	switch persistance.(type) {
 	case map[string][]byte:
 		s, err := NewInMemoryStore(persistance.(map[string][]byte))
 		if err != nil {
-			return nil, events.E(err)
+			return nil, events.E(op, "new inmem store", err)
 		}
 		return &surfaceInMemoryStore{inMemoryStore: *s}, nil
 	case AzureBlobSettings:
 		azbs := persistance.(AzureBlobSettings)
 		s, err := NewAzBlobStore(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
 		if err != nil {
-			return nil, events.E(err)
+			return nil, events.E(op, "new azure blob store", err)
 		}
 		return &surfaceBlobStore{blobStore: *s}, nil
 	case BasePath:
 		s, err := NewLocalFileStore(persistance.(BasePath))
 		if err != nil {
-			return nil, events.E(err)
+			return nil, events.E(op, "new local store", err)
 		}
 		return &surfaceFileStore{localStore: *s}, nil
 	default:
-		return nil, events.E(events.Op("store.NewSurfaceStore"), "No surface store selected")
+		return nil, events.E(op, "No surface store selected")
 	}
 }
 
