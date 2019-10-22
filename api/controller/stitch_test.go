@@ -30,8 +30,7 @@ func TestStitchControllerSuccess(t *testing.T) {
 	req := httptest.NewRequest("POST", "/stitch/12345", ioutil.NopCloser(strings.NewReader(have)))
 	ts.BeginRequest(req)
 	ts.SetParam("manifestID", "12345")
-	st := StitchController(ts.ManifestStore, ts.Stitch)
-	st(ts.Ctx)
+	StitchController(ts.ManifestStore, ts.Stitch)(ts.Ctx)
 
 	assert.Equal(t, ts.Ctx.GetStatusCode(), 200, "Should give ok status code")
 	got, _ := ioutil.ReadAll(ts.Result().Body)
