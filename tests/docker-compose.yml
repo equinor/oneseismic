@@ -18,3 +18,5 @@ services:
 
   test:
     build: "."
+    environment:
+      - API_URI, "http://api:8080"

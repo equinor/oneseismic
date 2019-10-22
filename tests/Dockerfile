@@ -1,4 +1,3 @@
-
 FROM python:3-alpine
 WORKDIR /code
 RUN pip install pytest
