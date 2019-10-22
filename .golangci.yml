@@ -1,0 +1,28 @@
+service:
+  project-path: github.com/equinor/seismic-cloud/api
+  analyzed-paths:
+    - api/...
+
+linters-settings:
+  gocyclo:
+    min-complexity: 10
+  golint:
+    min-confidence: 0
+  govet:
+    check-shadowing: true
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  lll:
+    line-length: 90
+  maligned:
+    suggest-new: true
+  misspell:
+    locale: NO
+
+linters:
+  enable-all: false
+  disable:
+    # prealloc is not recommended by `golangci-lint` developers.
+    - prealloc
+    - gochecknoglobals
