@@ -1,0 +1,22 @@
+version: "3.0"
+services:
+
+  corestub:
+    build: "../corestub"
+    environment:
+      - SC_GRPC_HOST_ADDR=0.0.0.0:10000
+
+  api:
+    build: "../api"
+    ports:
+      - "8080:8080"
+    environment:
+      - NO_AUTH=true
+      - HTTP_ONLY=true
+      - HOST_ADDR=0.0.0.0:8080
+      - STITCH_GRPC_ADDR=corestub:10000
+
+  test:
+    build: "."
+    environment:
+      - SC_API_HOST_ADDR, "http://api:8080"
