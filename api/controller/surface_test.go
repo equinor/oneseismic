@@ -13,8 +13,8 @@ import (
 )
 
 func TestSurfaceControllerUpload(t *testing.T) {
-	surfaceData := []byte("blob blob, I'm a fish!\n")
 	ts := NewTestSetup()
+	surfaceData := []byte("blob blob, I'm a fish!\n")
 	req := httptest.NewRequest("POST", "/surface/testblob", ioutil.NopCloser(bytes.NewReader(surfaceData)))
 
 	ts.BeginRequest(req)
@@ -33,9 +33,10 @@ func TestSurfaceControllerUpload(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, gotSurface, surfaceData)
-
 }
+
 func TestSurfaceControllerList(t *testing.T) {
+	ts := NewTestSetup()
 	surfaceData := []byte("blob blob, I'm a fish!\n")
 
 	surfaces := make([]store.SurfaceMeta, 0)
@@ -46,8 +47,6 @@ func TestSurfaceControllerList(t *testing.T) {
 		SurfaceID: "blobtest_2",
 		Link:      "blobtest_2",
 	})
-
-	ts := NewTestSetup()
 
 	for _, ms := range surfaces {
 		ts.AddSurface(ms.SurfaceID, "test-user", bytes.NewReader(surfaceData))
@@ -72,9 +71,9 @@ func TestSurfaceControllerList(t *testing.T) {
 }
 
 func TestSurfaceControllerDownload(t *testing.T) {
+	ts := NewTestSetup()
 	surfaceData := []byte("blob blob, I'm a Fish!\n")
 
-	ts := NewTestSetup()
 	ts.AddSurface("blobtest", "test-user", bytes.NewReader(surfaceData))
 
 	req := httptest.NewRequest("GET", "/surface/blobtest", nil)
@@ -88,4 +87,18 @@ func TestSurfaceControllerDownload(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, gotData, surfaceData)
+}
+
+func TestSurfaceControllerDownloadMissingSurface(t *testing.T) {
+	ts := NewTestSetup()
+
+	req := httptest.NewRequest("GET", "/surface/blobtest", nil)
+	ts.BeginRequest(req)
+	ts.SetParam("surfaceID", "blobtest")
+
+	ts.SurfaceController.Download(ts.Ctx)
+
+	assert.Equal(t, ts.Ctx.GetStatusCode(), 404, "Should give not found status code")
+
+	ts.EndRequest()
 }
