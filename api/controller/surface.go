@@ -37,6 +37,7 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 		ctx.Header("Content-Type", "application/json")
 		ctx.JSON(info)
 	} else {
+		ctx.StatusCode(http.StatusNotFound)
 		ctx.Header("Content-Type", "text/plain")
 		ctx.WriteString("No valid surfaces in store")
 	}
@@ -63,7 +64,7 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 
 	_, err = io.Copy(ctx.ResponseWriter(), reader)
 	if err != nil {
-
+		ctx.StatusCode(404)
 		l.LogE(op, fmt.Sprintf("Error writing to response, surfaceID %s", surfaceID), err)
 		return
 	}
