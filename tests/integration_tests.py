@@ -10,4 +10,4 @@ def test_happy():
 
 def test_sad():
     with pytest.raises(requests.exceptions.ConnectionError):
-        requests.get(uri+"0")
+        requests.get("http://some.other.url:666")
