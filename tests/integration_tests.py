@@ -8,7 +8,7 @@ import math
 import json
 
 uri = os.environ.get("SC_API_HOST_ADDR", "http://localhost:8080")
-fixtures = os.environ.get("MANIFEST_PATH", "/fixtures")
+fixtures = os.environ.get("MANIFEST_PATH")
 
 
 def test_happy():
@@ -23,12 +23,6 @@ def test_sad():
 def test_get_post():
     manifest = {
         "basename":"testmanifest",
-        "cubexs":1,
-        "cubeys":1,
-        "cubezs":1,
-        "fragmentxs":1,
-        "fragmentys":1,
-        "fragmentzs":1
     }
     r = requests.get(uri)
     assert r.status_code == 200
