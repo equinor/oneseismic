@@ -15,10 +15,19 @@ services:
       - HTTP_ONLY=true
       - HOST_ADDR=0.0.0.0:8080
       - STITCH_GRPC_ADDR=corestub:10000
-      - MANIFEST_PATH=/
-      - MANIFEST_src=path
+      - MANIFEST_PATH=${MANIFEST_PATH}
+    volumes:
+      - "fixture_vol:${MANIFEST_PATH}"
 
   test:
     build: .
     environment:
       - SC_API_HOST_ADDR=http://api:8080
+      - MANIFEST_PATH=${MANIFEST_PATH}
+    volumes:
+      - "fixture_vol:${MANIFEST_PATH}"
+volumes:
+  fixture_vol:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
