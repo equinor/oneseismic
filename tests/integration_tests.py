@@ -26,7 +26,7 @@ def test_get_post():
     }
     r = requests.get(uri)
     assert r.status_code == 200
-    with open(fixtures+"/sample", "+w") as f:
+    with open(fixtures+"/sample", "w") as f:
         json.dump(manifest, f)
     data = (1,2,3)
     r = requests.post(uri + "/stitch/sample", data=pack("<fff", *data))
