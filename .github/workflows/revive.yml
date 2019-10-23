@@ -13,6 +13,6 @@ jobs:
         with:
           config: .github/revive_config.toml
           path: "api/..."
-        # env:
-          # # GitHub token for annotations (optional)
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          # GitHub token for annotations (optional)lala
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
