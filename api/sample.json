@@ -1,6 +1,7 @@
 {
     "basename":"testmanifest",
-    "cubexs":1,"cubeys":1,
+    "cubexs":1,
+    "cubeys":1,
     "cubezs":1,
     "fragmentxs":1,
     "fragmentys":1,
