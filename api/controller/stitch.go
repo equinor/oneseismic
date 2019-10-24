@@ -21,7 +21,7 @@ import (
 func StitchController(
 	ms store.ManifestStore,
 	stitcher service.Stitcher) func(ctx iris.Context) {
-	op := "stich.file"
+	op := "stitch.file"
 	return func(ctx iris.Context) {
 		manifestID := ctx.Params().Get("manifestID")
 		bgCtx := context.Background()
