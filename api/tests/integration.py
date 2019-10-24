@@ -4,7 +4,6 @@ import os
 import subprocess
 from time import sleep
 
-import pytest
 import requests
 from bs4 import BeautifulSoup
 
@@ -43,7 +42,7 @@ def test_code_coverage():
 
 def test_create_defaults():
     subprocess.call(["../api defaults --config .sc-api.yaml"], shell=True)
-    assert os.path.exists(".sc-api.yaml") == True
+    assert os.path.exists(".sc-api.yaml")
     with open(".sc-api.yaml", "r") as f:
         config = f.read()
         assert "authserver: http://oauth2.example.com" in config
