@@ -55,7 +55,6 @@ func (m mockWriter) Header() http.Header {
 
 func (m mockWriter) WriteHeader(statusCode int) {
 	m.statusCode = statusCode
-	return
 }
 
 func TestClaimsMiddleware_Validate(t *testing.T) {
@@ -115,7 +114,7 @@ func TestClaimsMiddleware_Validate(t *testing.T) {
 			ctx := context.NewContext(testApp)
 
 			ctx.BeginRequest(newMockWriter(bytes.NewBuffer([]byte{})), new(http.Request))
-			ctx.Values().Set("jwt", jwt.NewWithClaims(jwt.GetSigningMethod("RS256"), tt.claims))
+			ctx.Values().Set("user-jwt", jwt.NewWithClaims(jwt.GetSigningMethod("RS256"), tt.claims))
 			tt.m.Validate(ctx)
 			ctx.EndRequest()
 			got := ctx.GetStatusCode()

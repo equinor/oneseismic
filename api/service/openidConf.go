@@ -84,7 +84,7 @@ func getJSON(url *url.URL, target interface{}) error {
 }
 
 // GetKey gets the authservers signing key
-func GetKeySet(authserver *url.URL) (map[string]interface{}, error) {
+func GetOIDCKeySet(authserver *url.URL) (map[string]interface{}, error) {
 	op := events.Op("service.GetKeySet")
 	if authserver == nil {
 		return nil, events.E(op, "authserver is not found", events.NotFound)

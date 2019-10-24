@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net/url"
 	"strings"
@@ -16,6 +17,7 @@ var cfg *Config
 
 func SetDefaults() {
 	viper.SetDefault("NO_AUTH", false)
+	viper.SetDefault("API_SECRET", "")
 	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
 	viper.SetDefault("ISSUER", "")
 	viper.SetDefault("HOST_ADDR", "localhost:8080")
@@ -171,4 +173,15 @@ func ManifestDbURI() string {
 
 func LogDBConnStr() string {
 	return viper.GetString("LOGDB_CONNSTR")
+}
+
+func ApiSecret() string {
+	sec := viper.GetString("API_SECRET")
+
+	if len(sec) < 8 {
+		b := make([]byte, 20)
+		rand.Read(b)
+		sec = string(b)
+	}
+	return sec
 }

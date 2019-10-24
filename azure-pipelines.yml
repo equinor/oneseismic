@@ -41,12 +41,6 @@ jobs:
       # Minimum ercentage of code that has to be tested
       COVERAGE_LIMIT: 40
     steps:
-      - task: CacheBeta@0
-        inputs:
-          key: $(Agent.OS) | api/go.sum
-          path: $(GOPATH)/pkg
-        displayName: Cache go.sum
-
       - script: |
           go mod download
         displayName: 'Download modules'
