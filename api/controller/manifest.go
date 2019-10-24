@@ -37,6 +37,7 @@ func (msc *ManifestController) List(ctx iris.Context) {
 		ctx.Header("Content-Type", "application/json")
 		ctx.JSON(info)
 	} else {
+		ctx.StatusCode(http.StatusNotFound)
 		ctx.Header("Content-Type", "text/plain")
 		ctx.WriteString("No valid manifests in store")
 	}
