@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import os
-import pytest
-import requests
 import subprocess
 from time import sleep
+
+import pytest
+import requests
 from bs4 import BeautifulSoup
 
 COVERAGE_LIMIT = int(os.environ["COVERAGE_LIMIT"])
