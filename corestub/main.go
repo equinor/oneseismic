@@ -17,47 +17,75 @@ type coreServer struct {
 	storeAddr string
 }
 
-func genFunc(g string) func(p *pb.Point) float32 {
+func bound(x, y, z float32) func(p *pb.Point) bool {
+
+	return func(p *pb.Point) bool {
+		if p.X < 0 || p.Y < 0 || p.Z < 0 {
+			return false
+		}
+		if p.X > x || p.Y > y || p.Z > z {
+			return false
+		}
+		return true
+	}
+}
+
+func genFunc(g string, x, y, z uint32) func(p *pb.Point) float32 {
+
+	b := bound(float32(x), float32(y), float32(z))
 	switch g {
 	case "checker":
-		return checkerCube
+		return checkerCube(b)
 	case "gradient":
-		return gradientCube
+		return gradientCube(b)
 	case "sin":
-		return sinCube
+		return sinCube(b)
 	default:
-		return sinCube
+		return sinCube(b)
 	}
 }
 
-func checkerCube(p *pb.Point) float32 {
+func checkerCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
 
-	x, y, z := int(math.Floor(float64(p.X))), int(math.Floor(float64(p.Y))), int(math.Floor(float64(p.Z)))
-
-	mx, my, mz := x%2 == 0, y%2 == 0, z%2 == 0
-
-	if mx != my {
-		if mz {
+	return func(p *pb.Point) float32 {
+		if !b(p) {
 			return 0.0
 		}
-		return 1.0
+		x, y, z := int(math.Floor(float64(p.X))), int(math.Floor(float64(p.Y))), int(math.Floor(float64(p.Z)))
+
+		mx, my, mz := x%2 == 0, y%2 == 0, z%2 == 0
+
+		if mx != my {
+			if mz {
+				return 0.0
+			}
+			return 1.0
+
+		}
+		if mz {
+			return 1.0
+		}
+		return 0.0
 
 	}
-	if mz {
-		return 1.0
+}
+
+func gradientCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
+	return func(p *pb.Point) float32 {
+		if !b(p) {
+			return 0.0
+		}
+		return p.Z
 	}
-	return 0.0
-
 }
 
-func gradientCube(p *pb.Point) float32 {
-
-	return p.Z
-}
-
-func sinCube(p *pb.Point) float32 {
-
-	return float32(math.Sin(float64(p.Z)))
+func sinCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
+	return func(p *pb.Point) float32 {
+		if !b(p) {
+			return 0.0
+		}
+		return float32(math.Sin(float64(p.Z)))
+	}
 }
 
 func (s *coreServer) StitchSurface(ctx context.Context, in *pb.SurfaceRequest) (*pb.SurfaceReply, error) {
@@ -66,7 +94,7 @@ func (s *coreServer) StitchSurface(ctx context.Context, in *pb.SurfaceRequest) (
 	repl := &pb.SurfaceReply{
 		I: make([]uint64, 0),
 		V: make([]float32, 0)}
-	cube := genFunc(in.Basename)
+	cube := genFunc(in.Basename, in.Cubexs, in.Cubeys, in.Cubezs)
 	fmt.Println("size of surface is ", len(in.Surface.Points))
 	for idx, p := range in.Surface.Points {
 		repl.I = append(repl.I, uint64(idx))
@@ -81,6 +109,7 @@ func (s *coreServer) ShatterLink(ctx context.Context, in *pb.ShatterLinkRequest)
 }
 
 func main() {
+
 	cs := &coreServer{storeAddr: ""}
 
 	hostAddr := os.Getenv("SC_GRPC_HOST_ADDR")
