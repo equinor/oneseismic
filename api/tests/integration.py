@@ -7,7 +7,7 @@ from time import sleep
 import requests
 from bs4 import BeautifulSoup
 
-COVERAGE_LIMIT = int(os.environ["COVERAGE_LIMIT"])
+COVERAGE_LIMIT = int(os.environ.get("COVERAGE_LIMIT",100))
 
 os.environ["STITCH_CMD"] = "/bin/cat"
 os.environ["MANIFEST_SRC"] = "path"
