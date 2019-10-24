@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	pprof "net/http/pprof"
-	"net/url"
 	"regexp"
 
 	"github.com/equinor/seismic-cloud/api/controller"
@@ -20,6 +19,7 @@ import (
 	"github.com/iris-contrib/swagger/v12"
 	"github.com/iris-contrib/swagger/v12/swaggerFiles"
 	"github.com/kataras/iris/v12"
+	irisCtx "github.com/kataras/iris/v12/context"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -107,32 +107,54 @@ func NewHTTPServer(opts ...HTTPServerOption) (hs *HTTPServer, err error) {
 	return hs, nil
 }
 
-func WithOAuth2(authServer *url.URL, audience, issuer string) HTTPServerOption {
+func WithOAuth2(oauthOpt OAuth2Option) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) error {
-		sigKeySet, err := service.GetKeySet(authServer)
+		sigKeySet, err := service.GetOIDCKeySet(oauthOpt.AuthServer)
 		if err != nil {
 			return fmt.Errorf("Couldn't get keyset: %v", err)
 		}
 
-		jwtHandler := jwtmiddleware.New(jwtmiddleware.Config{
+		rsaJWTHandler := jwtmiddleware.New(jwtmiddleware.Config{
 			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
+
 				if t.Method.Alg() != "RS256" {
 					return nil, fmt.Errorf("unexpected jwt signing method=%v", t.Header["alg"])
 				}
 				return sigKeySet[t.Header["kid"].(string)], nil
-			},
 
+			},
+			ContextKey:    "user-jwt",
 			SigningMethod: jwt.SigningMethodRS256,
 		})
 
-		if len(issuer) == 0 {
-			issuer = authServer.String()
+		hmacJWTHandler := jwtmiddleware.New(jwtmiddleware.Config{
+			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
+
+				if t.Method.Alg() != "HS256" {
+					return nil, fmt.Errorf("unexpected jwt signing method=%v", t.Header["alg"])
+				}
+				return oauthOpt.ApiSecret, nil
+			},
+			ContextKey:    "service-jwt",
+			SigningMethod: jwt.SigningMethodHS256,
+		})
+
+		if len(oauthOpt.Issuer) == 0 {
+			oauthOpt.Issuer = oauthOpt.AuthServer.String()
 		}
 
-		claimsHandler := claimsmiddleware.New(audience, issuer)
+		claimsHandler := claimsmiddleware.New(oauthOpt.Audience, oauthOpt.Issuer)
 
-		hs.app.Use(jwtHandler.Serve)
+		auth := func(ctx irisCtx.Context) {
+			hmacJWTHandler.Serve(ctx)
+			serviceToken := ctx.Values().Get("service-jwt")
+			if serviceToken == nil {
+				rsaJWTHandler.Serve(ctx)
+			}
+
+		}
+		hs.app.Use(auth)
 		hs.app.Use(claimsHandler.Validate)
 		return nil
 	})
@@ -156,7 +178,10 @@ func (hs *HTTPServer) registerEndpoints() {
 	hs.app.Get("/surface/{surfaceID:string idString() else 502}", sc.Download)
 	hs.app.Get("/surface", sc.List)
 	hs.app.Get("/", func(ctx iris.Context) {
-		ctx.HTML("Seismic cloud API v0.1.0")
+		_, err := ctx.HTML("Seismic cloud API v0.1.0")
+		if err != nil {
+			ctx.StatusCode(500)
+		}
 	})
 
 	mc := controller.NewManifestController(hs.service.manifestStore)

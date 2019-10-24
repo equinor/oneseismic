@@ -3,9 +3,9 @@ package claims
 import (
 	"crypto/subtle"
 	"fmt"
-	"log"
 
 	"github.com/dgrijalva/jwt-go"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/context"
 )
@@ -35,10 +35,25 @@ func New(audience, issuer string, validators ...ClaimsValidator) *Middleware {
 }
 
 func (m *Middleware) Validate(ctx context.Context) {
-	user := ctx.Values().Get("jwt").(*jwt.Token)
+	op := "claims.Validate"
+	serviceToken := ctx.Values().Get("service-jwt")
+	if serviceToken != nil {
+		l.LogI(op, "Have service token")
+		ctx.Next()
+		return
+	}
 
-	if user.Claims == nil {
-		log.Println("No claims")
+	userToken := ctx.Values().Get("user-jwt")
+	if userToken == nil {
+		l.LogE(op, "Get token from context", fmt.Errorf("No user token"))
+		ctx.StatusCode(iris.StatusUnauthorized)
+		ctx.StopExecution()
+		return
+	}
+	user, ok := userToken.(*jwt.Token)
+
+	if !ok || user.Claims == nil {
+		l.LogE(op, "Check user claims", fmt.Errorf("No claims"))
 		ctx.StatusCode(iris.StatusUnauthorized)
 		ctx.StopExecution()
 		return
@@ -58,7 +73,7 @@ func (m *Middleware) Validate(ctx context.Context) {
 
 	if len(validationErrors) > 0 {
 		for _, e := range validationErrors {
-			log.Println("Claims invalid", e)
+			l.LogE(op, "Validate claims", e)
 		}
 		ctx.StatusCode(iris.StatusUnauthorized)
 		ctx.StopExecution()

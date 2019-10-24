@@ -1,5 +1,7 @@
 package server
 
+import "net/url"
+
 type EmptyOption struct{}
 
 func (EmptyOption) apply(*HTTPServer) (err error) { return }
@@ -17,4 +19,11 @@ func newFuncOption(f func(*HTTPServer) error) *funcOption {
 	return &funcOption{
 		f: f,
 	}
+}
+
+type OAuth2Option struct {
+	AuthServer *url.URL
+	Audience   string
+	Issuer     string
+	ApiSecret  []byte
 }

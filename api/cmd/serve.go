@@ -85,7 +85,12 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 
 	if config.UseAuth() {
 		opts = append(opts,
-			server.WithOAuth2(config.AuthServer(), config.ResourceID(), config.Issuer()))
+			server.WithOAuth2(server.OAuth2Option{
+				AuthServer: config.AuthServer(),
+				Audience:   config.ResourceID(),
+				Issuer:     config.Issuer(),
+				ApiSecret:  []byte(config.ApiSecret()),
+			}))
 	}
 
 	ms, err := store.NewManifestStore(manifestStoreConfig())

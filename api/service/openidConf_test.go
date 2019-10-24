@@ -88,14 +88,14 @@ func TestGetKey(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetKeySet(tt.args.authserver)
+			got, err := GetOIDCKeySet(tt.args.authserver)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetKeySet() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetOIDCKeySet() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if !reflect.DeepEqual(got, tt.want) && !tt.wantErr {
-				t.Errorf("GetKeySet() = %v, want %v", got, tt.want)
+				t.Errorf("GetOIDCKeySet() = %v, want %v", got, tt.want)
 			}
 		})
 	}
