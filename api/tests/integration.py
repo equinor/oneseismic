@@ -52,7 +52,7 @@ def test_create_defaults():
 
 def test_get_post():
     test_manifest = '{"basename":"testmanifest","cubexs":1,"cubeys":1,"cubezs":1,"fragmentxs":1,"fragmentys":1,"fragmentzs":1}'
-    p = subprocess.Popen(["../api serve --config .sc-api.yaml"], shell=True)
+    p = subprocess.Popen(["../api", "serve", "--config", ".sc-api.yaml"])
     sleep(0.5)
     try:
         r = requests.get("http://localhost:7020/")
