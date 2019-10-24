@@ -7,7 +7,7 @@ from time import sleep
 import requests
 from bs4 import BeautifulSoup
 
-COVERAGE_LIMIT = int(os.environ.get("COVERAGE_LIMIT",100))
+COVERAGE_LIMIT = int(os.environ.get("COVERAGE_LIMIT", 100))
 
 os.environ["STITCH_CMD"] = "/bin/cat"
 os.environ["MANIFEST_SRC"] = "path"
@@ -58,7 +58,7 @@ def test_get_post():
         r = requests.get("http://localhost:7020/")
         assert r.status_code == 200
 
-        with open("sample", "w") as f:
+        with open("sample.manifest", "w") as f:
             f.write(test_manifest)
         r = requests.post(
             "http://localhost:7020/stitch/sample", data={"point": "reply"}
