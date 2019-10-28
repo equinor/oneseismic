@@ -29,7 +29,7 @@ func TestConfig(t *testing.T) {
 		{"ResourceID", "RESOURCE_ID", ResourceID, "test", "", "test"},
 		{"CertFile", "CERT_FILE", CertFile, "cert.crt", "", "cert.crt"},
 		{"KeyFile", "KEY_FILE", KeyFile, "cert.key", "", "cert.key"},
-		{"HttpOnly", "HTTP_ONLY", HttpOnly, true, false, true},
+		{"HTTPOnly", "HTTP_ONLY", HTTPOnly, true, false, true},
 		{"UseTLS", "TLS", UseTLS, true, false, true},
 		{"UseLetsEncrypt", "LETSENCRYPT", UseLetsEncrypt, true, false, true},
 		{"Profiling", "PROFILING", Profiling, true, false, true},
