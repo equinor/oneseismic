@@ -120,7 +120,7 @@ func LocalSurfacePath() string {
 	return viper.GetString("LOCAL_SURFACE_PATH")
 }
 
-func HttpOnly() bool {
+func HTTPOnly() bool {
 	return viper.GetBool("HTTP_ONLY")
 }
 

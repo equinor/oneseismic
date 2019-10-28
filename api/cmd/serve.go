@@ -122,10 +122,10 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 			server.WithHostAddr(config.HostAddr()))
 	}
 
-	if config.HttpOnly() {
+	if config.HTTPOnly() {
 		opts = append(
 			opts,
-			server.WithHttpOnly())
+			server.WithHTTPOnly())
 	}
 
 	if config.UseLetsEncrypt() {

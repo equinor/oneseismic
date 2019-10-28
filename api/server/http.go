@@ -257,7 +257,7 @@ func WithHostAddr(hostAddr string) HTTPServerOption {
 	})
 }
 
-func WithHttpOnly() HTTPServerOption {
+func WithHTTPOnly() HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.chosenMode = INSECURE
