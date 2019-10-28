@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/kataras/golog"
-	_ "github.com/lib/pq" // db driver
+	_ "github.com/lib/pq"
 
 	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/events"
