@@ -306,6 +306,12 @@ func WithProfiling() HTTPServerOption {
 
 		m := prometheusmiddleware.New("Metrics", 0.3, 1.2, 5.0)
 		hs.app.Use(m.ServeHTTP)
+		hs.app.OnAnyErrorCode(func(ctx iris.Context) {
+			// error code handlers are not sharing the same middleware as other routes, so we have
+			// to call them inside their body.
+			m.ServeHTTP(ctx)
+
+		})
 		return
 	})
 }
