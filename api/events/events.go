@@ -91,6 +91,10 @@ func (e *Event) Error() string {
 		pad(b, ": ")
 		b.WriteString(string(e.Op))
 	}
+	if len(e.Message) > 0 {
+		pad(b, ": ")
+		b.WriteString(e.Message)
+	}
 	if e.Kind != 0 {
 		pad(b, ": ")
 		b.WriteString(e.Kind.String())

@@ -134,7 +134,7 @@ func TestEvent_Error(t *testing.T) {
 				NotFound,
 				UserID("ANON"),
 				uuid.New()).(*Event),
-			"foo: not found: bar"},
+			"foo: foobar: not found: bar"},
 		{"Double error",
 			E(Op("foo"), ErrorLevel,
 				E(Op("bar"), ErrorLevel,
@@ -147,7 +147,7 @@ func TestEvent_Error(t *testing.T) {
 				NotFound,
 				UserID("ANON"),
 				uuid.New()).(*Event),
-			"foo: not found-> bar: not found: baz"},
+			"foo: foobar: not found-> bar: barbaz: not found: baz"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
