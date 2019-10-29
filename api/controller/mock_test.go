@@ -12,8 +12,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris"
 	irisCtx "github.com/kataras/iris/context"
@@ -119,7 +117,6 @@ func (ts *TestSetup) Result() *http.Response {
 }
 
 func TestMain(m *testing.M) {
-	l.SetLogSink(os.Stdout, events.DebugLevel)
 	runTests := m.Run()
 	os.Exit(runTests)
 }
