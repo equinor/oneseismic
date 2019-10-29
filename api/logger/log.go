@@ -20,7 +20,7 @@ type logger interface {
 	log(*events.Event)
 }
 
-var innerLogger logger = &fileLogger{file: os.Stdout, verbosity: events.InfoLevel}
+var innerLogger logger = &fileLogger{file: os.Stdout, verbosity: events.DebugLevel}
 
 func DbOpener() (*sql.DB, error) {
 	db, err := sql.Open("postgres", config.LogDBConnStr())
