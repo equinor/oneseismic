@@ -73,7 +73,7 @@ func waitForServer(url string, timeout time.Duration) error {
 	}
 }
 
-func TestServer(t *testing.T) {
+func TestDefaultAPI(t *testing.T) {
 	opts := createHTTPServerOptionsTest()
 
 	go func() {
