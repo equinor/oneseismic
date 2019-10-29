@@ -52,22 +52,24 @@ func createHTTPServerOptionsTest() []server.HTTPServerOption {
 	return opts
 }
 
-func waitForServer(url string, timeout time.Duration) (*http.Response, error) {
-	ch := make(chan *http.Response, 1)
+func waitForServer(url string, timeout time.Duration) error {
+	ch := make(chan error, 1)
 	go func() {
 		for true {
 			time.Sleep(time.Millisecond * 10)
 			res, err := http.Get(url)
 			if err == nil {
-				ch <- res
+				if res.StatusCode == 200 {
+					ch <- nil
+				}
 			}
 		}
 	}()
 	select {
 	case re := <-ch:
-		return re, nil
+		return re
 	case <-time.After(timeout):
-		return nil, errors.New("Server not started")
+		return errors.New("Server not started")
 	}
 }
 
@@ -79,14 +81,11 @@ func TestServer(t *testing.T) {
 	}()
 	timeout := time.Second
 	httpURL := "http://" + url
-	res, err := waitForServer(httpURL, timeout)
+	err := waitForServer(httpURL, timeout)
 
 	if err != nil {
 		t.Errorf("Could not start server within timeout of %v", timeout)
 		return
-	}
-	if res.StatusCode != 200 {
-		t.Errorf("Server not OK: %v, StatusCode %v", httpURL, res.StatusCode)
 	}
 
 }
