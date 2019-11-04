@@ -14,12 +14,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSetLogSink(t *testing.T) {
-	err := SetLogSink(os.Stdout, events.DebugLevel)
-	assert.NoError(t, err, fmt.Sprint("Error setting LogSink"))
-
-	err = SetLogSink("invalid log sink", events.DebugLevel)
+func TestLogSourceAndSink(t *testing.T) {
+	err := SetLogSink("invalid log sink", events.DebugLevel)
 	assert.EqualError(t, err, "logger.factory: no logger defined for sink")
+
+	AddLoggerSource("test.log", log.SetOutput)
+	r, w, _ := os.Pipe()
+	err = SetLogSink(w, events.DebugLevel)
+	assert.NoError(t, err, "Setting log sink failed")
+	log.Print("dummy__using builtin logger")
+	time.Sleep(100 * time.Millisecond)
+	w.Close()
+	out, err := ioutil.ReadAll(r)
+	assert.NoError(t, err, "Reading from log sink failed")
+	expect := "DEBG test.log: using builtin logger \n"
+	assert.Contains(t, string(out), expect)
 }
 
 func TestErrToLog(t *testing.T) {
@@ -52,21 +61,6 @@ func TestParseIrisSeverity(t *testing.T) {
 			assert.Equal(t, tt.want, sev)
 		})
 	}
-}
-
-func TestAddLoggerSource(t *testing.T) {
-	AddLoggerSource("test.log", log.SetOutput)
-	r, w, _ := os.Pipe()
-	err := SetLogSink(w, events.DebugLevel)
-	assert.NoError(t, err, "Setting log sink failed")
-	log.Print("dummy__using builtin logger")
-	time.Sleep(100 * time.Millisecond)
-	w.Close()
-	out, err := ioutil.ReadAll(r)
-	assert.NoError(t, err, "Reading from log sink failed")
-	fmt.Println(string(out))
-	expect := "DEBG test.log: using builtin logger \n"
-	assert.Contains(t, string(out), expect)
 }
 
 func TestLog(t *testing.T) {
