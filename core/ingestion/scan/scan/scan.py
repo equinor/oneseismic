@@ -3,6 +3,7 @@ import io
 
 import segyio
 import segyio._segyio
+import numpy as np
 
 textheader_size = 3200
 binary_size = 400
@@ -83,9 +84,10 @@ def scan_binary(stream, endian):
         raise NotImplementedError(msg.format(fmt))
 
     return {
-        'dataSampleFormatCode': fmt,
-        'sampleCount': intp.parse(binary[segyio.su.hns]),
-        'sampleInterval': intp.parse(binary[segyio.su.hdt]),
+        'format': fmt,
+        'samples': intp.parse(binary[segyio.su.hns]),
+        'sampleinterval': intp.parse(binary[segyio.su.hdt]),
+        'byteoffset-first-trace': 3600 + exth * 3200,
     }
 
 def updated_count_interval(header, d, endian):
@@ -114,35 +116,13 @@ def updated_count_interval(header, d, endian):
     updated = {}
 
     intp = parseint(endian = endian, default_length = 2)
-    if d.get('sampleCount', 0) == 0:
-        updated['sampleCount'] = intp.parse(header[segyio.su.ns])
+    if d.get('samples', 0) == 0:
+        updated['samples'] = intp.parse(header[segyio.su.ns])
 
-    if d.get('sampleInterval', 0) == 0:
-        updated['sampleInterval'] = intp.parse(header[segyio.su.dt])
+    if d.get('sampleinterval', 0) == 0:
+        updated['sampleinterval'] = intp.parse(header[segyio.su.dt])
 
     return updated
-
-word_widths = {
-    1:   'FourByte',
-    5:   'FourByte',
-    17:  'FourByte',
-    21:  'FourByte',
-    25:  'FourByte',
-    29:  'TwoByte',
-    71:  'TwoByte',
-    73:  'FourByte',
-    77:  'FourByte',
-    81:  'FourByte',
-    84:  'FourByte',
-    89:  'TwoByte',
-    109: 'TwoByte',
-    115: 'TwoByte',
-    117: 'TwoByte',
-    181: 'FourByte',
-    185: 'FourByte',
-    189: 'FourByte',
-    193: 'FourByte',
-}
 
 format_size = {
     1:  4,
@@ -158,95 +138,15 @@ format_size = {
     16: 1,
 }
 
-word_numerals = {
-    'TraceSequenceNumber': 1,
-    'TraceSequenceNumberWithinFile': 5,
-    'EnergySourcePointNumber': 17,
-    'EnsembleNumber': 21,
-    'TraceNumberWithinEnsemble': 25,
-    'TraceIdentificationCode': 29,
-
-    'scalar':          71,
-    'Scalar':          71,
-    'CoordinateScale': 71,
-
-    'source-x':          73,
-    'Source-X':          73,
-    'sourcex':           73,
-    'SourceX':           73,
-    'SourceXCoordinate': 73,
-
-    'source-y':          77,
-    'Source-Y':          77,
-    'sourcey':           77,
-    'SourceY':           77,
-    'SourceYCoordinate': 77,
-
-    'Group-X':             81,
-    'group-x':             81,
-    'GroupX':              81,
-    'groupx':              81,
-    'ReceiverXCoordinate': 81,
-    'Receiver-X':          81,
-    'ReceiverX':           81,
-    'receiver-x':          81,
-    'receiverx':           81,
-    'GroupXCoordinate':    81,
-
-    'Group-Y':             84,
-    'group-y':             84,
-    'GroupY':              84,
-    'groupy':              84,
-    'ReceiverYCoordinate': 84,
-    'Receiver-Y':          84,
-    'ReceiverY':           84,
-    'receiver-y':          84,
-    'receivery':           84,
-    'GroupyCoordinate':    84,
-
-    'CoordinateUnits': 89,
-    'StartTime': 109,
-    'NumSamples': 115,
-    'SampleInterval': 117,
-
-    'cdp-x':               181,
-    'cdpx':                181,
-    'CDP-X':               181,
-    'CDPXCoordinate':      181,
-    'easting':             181,
-    'Easting':             181,
-    'EnsembleXCoordinate': 181,
-
-    'cdp-y':               185,
-    'cdpy':                185,
-    'CDP-Y':               185,
-    'CDPYCoordinate':      185,
-    'northing':            185,
-    'Northing':            185,
-    'EnsembleYCoordinate': 185,
-
-    'inline':       189,
-    'Inline':       189,
-    'InLine':       189,
-    'InlineNumber': 189,
-    'InLineNumber': 189,
-
-    'crossline':       193,
-    'Crossline':       193,
-    'CrossLine':       193,
-    'CrosslineNumber': 193,
-    'CrossLineNumber': 193,
-}
-
 def resolve_endianness(big, little):
     if big is None and little is None:
-        return 'BigEndian'
+        return 'big'
 
     if big and not little:
-        return 'BigEndian'
+        return 'little'
 
     if little and not big:
-        return 'LittleEndian'
+        return 'little'
 
     msg = 'big and little endian specified, but options are exclusive'
     raise ValueError(msg)
@@ -300,24 +200,14 @@ def scan(args, stream):
     Returns
     -------
     d : dict
-        openvds compatible dict describing the structure of the file
     """
-    primary = args.primary_word or word_numerals[args.primary]
-    secondary = args.secondary_word or word_numerals[args.secondary]
+    primary = args.primary_word or 189
+    secondary = args.secondary_word or 193
 
-    endianness = resolve_endianness(args.big_endian, args.little_endian)
+    endian = resolve_endianness(args.big_endian, args.little_endian)
     out = {
-        'primaryKey': [primary, word_widths[primary]],
-        'secondaryKey': [secondary, word_widths[secondary]],
-        'headerEndianness': endianness,
+        'byteorder': endian,
     }
-
-    # openvds uses the values Little/BigEndian, but all python functions take
-    # little and big
-    endian = {
-        'LittleEndian': 'little',
-        'BigEndian': 'big',
-    }[endianness]
 
     stream = hashio(stream)
     stream.seek(textheader_size, whence = io.SEEK_CUR)
@@ -329,14 +219,14 @@ def scan(args, stream):
 
     out.update(updated_count_interval(header, out, endian))
     # convert to milliseconds
-    out['sampleInterval'] /= 1000.0
-    tracelen = out['sampleCount'] * format_size[out['dataSampleFormatCode']]
+    out['sampleinterval'] /= 1000.0
+    tracelen = out['samples'] * format_size[out['format']]
 
     seg = segmenter(
-            primary = primary,
-            secondary = secondary,
-            endian = endian,
-        )
+        primary = primary,
+        secondary = secondary,
+        endian = endian,
+    )
 
     seg.add(header)
     stream.seek(tracelen, whence = io.SEEK_CUR)
@@ -344,7 +234,6 @@ def scan(args, stream):
     while True:
         chunk = stream.read(header_size)
         if len(chunk) == 0:
-            seg.commit()
             break
 
         if len(chunk) != header_size:
@@ -355,7 +244,12 @@ def scan(args, stream):
         seg.add(header)
         stream.seek(tracelen, whence = io.SEEK_CUR)
 
-    out['persistentID'] = stream.hexdigest()
-    out['segmentInfo'] = seg.segments
-    out['traceCount'] = seg.traceno
+    out['guid'] = stream.hexdigest()
+    interval = out['sampleinterval']
+    samples = np.arange(0, out['samples'] * interval, interval)
+    out['dimensions'] = [
+        seg.primaries,
+        seg.secondaries,
+        list(samples),
+    ]
     return out
