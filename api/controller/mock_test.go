@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/equinor/seismic-cloud/api/service/store"
-	"github.com/kataras/iris"
-	irisCtx "github.com/kataras/iris/context"
+	"github.com/kataras/iris/v12"
+	irisCtx "github.com/kataras/iris/v12/context"
 	"github.com/stretchr/testify/mock"
 )
 

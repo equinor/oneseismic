@@ -17,9 +17,9 @@ import (
 	"github.com/equinor/seismic-cloud/api/service/store"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 	prometheusmiddleware "github.com/iris-contrib/middleware/prometheus"
-	"github.com/iris-contrib/swagger"
-	"github.com/iris-contrib/swagger/swaggerFiles"
-	"github.com/kataras/iris"
+	"github.com/iris-contrib/swagger/v12"
+	"github.com/iris-contrib/swagger/v12/swaggerFiles"
+	"github.com/kataras/iris/v12"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

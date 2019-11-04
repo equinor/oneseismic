@@ -7,7 +7,7 @@ import (
 
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
-	"github.com/kataras/iris"
+	"github.com/kataras/iris/v12"
 )
 
 type ManifestController struct {
