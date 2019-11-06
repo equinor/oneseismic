@@ -128,6 +128,13 @@ func WithOAuth2(oauthOpt OAuth2Option) HTTPServerOption {
 			SigningMethod: jwt.SigningMethodRS256,
 		})
 
+		onRS256Pass := func(ctx irisCtx.Context, err error) {
+
+			if err == nil || err.Error() == "unexpected jwt signing method=RS256" {
+				return
+			}
+			jwtmiddleware.OnError(ctx, err)
+		}
 		hmacJWTHandler := jwtmiddleware.New(jwtmiddleware.Config{
 			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
 
@@ -138,6 +145,7 @@ func WithOAuth2(oauthOpt OAuth2Option) HTTPServerOption {
 			},
 			ContextKey:    "service-jwt",
 			SigningMethod: jwt.SigningMethodHS256,
+			ErrorHandler:  onRS256Pass,
 		})
 
 		if len(oauthOpt.Issuer) == 0 {
