@@ -14,5 +14,5 @@ FROM scratch as deploy
 COPY --from=builder /bin/sc-api /bin/sc-api
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-EXPOSE 8080
+EXPOSE 8080 8081
 ENTRYPOINT ["sc-api","serve"]
