@@ -21,6 +21,44 @@ info:
   title: '{{.Title}}'
   version: '{{.Version}}'
 paths:
+  /manifest/:
+    get:
+      description: get list of available manifests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.fileBytes'
+            type: object
+        "502":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.APIError'
+            type: object
+  /manifest/{manifest_id}:
+    get:
+      description: get manifest file
+      parameters:
+      - description: File ID
+        in: path
+        name: surfaceID
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.fileBytes'
+            type: object
+        "502":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.APIError'
+            type: object
   /stitch/{manifest_id}:
     post:
       consumes:
