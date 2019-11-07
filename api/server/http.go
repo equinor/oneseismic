@@ -50,7 +50,6 @@ const (
 
 type HTTPServer struct {
 	service     APIService
-	stitchCmd   []string
 	app         *iris.Application
 	hostAddr    string
 	chosenMode  serverMode
@@ -228,7 +227,9 @@ func (hs *HTTPServer) Serve() error {
 
 	if hs.profile {
 		// Activate Prometheus middleware if profiling is on
-		metrics := iris.New()
+		metrics := iris.Default()
+
+		l.AddGoLogSource(metrics.Logger().SetOutput)
 		metrics.Get("/metrics", iris.FromStd(promhttp.Handler()))
 		metrics.Get("/debug/pprof", iris.FromStd(pprof.Index))
 		metrics.Get("/debug/pprof/cmdline", iris.FromStd(pprof.Cmdline))
