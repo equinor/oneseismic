@@ -1,0 +1,10 @@
+version: "3.0"
+services:
+
+  corestub:
+    image: lambdaville.azurecr.io/corestub:latest
+    build: corestub
+
+  api:
+    image: lambdaville.azurecr.io/api:latest
+    build: api
