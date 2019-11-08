@@ -32,9 +32,12 @@ install:
 
 script:
     - if [[ -n "${TRAVIS_PYTHON_VERSION+1}" ]]; then
-        cd core/ingestion/scan &&
+        pushd core/ingestion/scan &&
         pip install -r requirements-dev.txt &&
-        python setup.py test;
+        python setup.py test && popd;
+        pushd core/ingestion/upload &&
+        pip install -r requirements-dev.txt &&
+        python setup.py test && popd;
       fi
 
     - if [[ -z $TRAVIS_PYTHON_VERSION ]]; then

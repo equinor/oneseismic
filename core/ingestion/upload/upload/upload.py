@@ -5,83 +5,174 @@ import numpy as np
 import segyio
 import segyio._segyio
 
-def limit(lane, end, lane_width):
-    """TODO: docstr
+def segment_limit(segment, end, max_width):
+    """ Unpadded segment width
+
+    The segment width of the source array. This is equal to the destination
+    arrays segment width for all but the last segment.
     """
-    return min((lane + 1) * lane_width, end) - (lane * lane_width)
+    return min((segment + 1) * max_width, end) - (segment * max_width)
 
-def partition(args, meta, lane, f):
-    samples = meta['samples']
-    dims = meta['dimensions']
-    size = [args.size, args.size, args.size]
 
-    srcdims = (
-        limit(lane, len(dims[0]), size[0]),
-        len(dims[1]),
-        len(dims[2]),
+def load_segment(cube_dims, segment_width, segment, format, f):
+    """ Load a segment from stream
+
+    A segment consists of a part of the data, split along the first axis.
+
+    Parameters
+    ----------
+    cube_dims : tuple of int
+        dimensions of the entire unpadded cube
+
+    segment_width : int
+        dimensions of the fragments the cube is to be split into
+
+    segment : int
+        the segment to be loaded
+
+    format : int
+        formating code used by the segyio library to interpret the data
+
+    f : stream_like
+        an open io.IOBase like stream
+
+    Returns
+    -------
+    segment : numpy.ndarray
+
+    """
+    segment_dims = (
+        segment_limit(segment, cube_dims[0], segment_width),
+        cube_dims[1],
+        cube_dims[2],
     )
-    srcshape = srcdims[:-1]
+    shape = segment_dims[:-1]
+
+    # Datatype corresponding to the layout of a trace in the SEGY file
+    # [<header>|<samples>]. This allows for a segment of the file to be
+    # memcopied into an array and the traces to be extracted using numpy array
+    # slicing. Since we are not using the header it is treated as a blob.
     srcdtype = np.dtype([
         ('header', 'b', 240),
-        ('samples', 'f4', srcdims[-1]),
+        ('samples', 'f4', segment_dims[-1]),
     ])
 
-    dstshape = (
-        size[0],
-        int(math.ceil(len(dims[1]) / size[1])) * size[1],
-        int(math.ceil(len(dims[2]) / size[2])) * size[2],
-    )
-    dstdtype = np.dtype('f4')
-
-    src = np.empty(shape = srcshape, dtype = srcdtype)
-    dst = np.zeros(shape = dstshape, dtype = dstdtype)
+    src = np.empty(shape = shape, dtype = srcdtype)
 
     f.seek(
-        lane * (size[0] * len(dims[1])) * (srcdtype.itemsize),
+        segment * (segment_width * cube_dims[1] * srcdtype.itemsize),
         io.SEEK_CUR,
     )
     f.readinto(src)
-    samples = src['samples']
-    dst[:srcdims[0], :srcdims[1], :srcdims[2]] = samples[:, :, :]
 
     return segyio.tools.native(
-        data = dst,
-        format = meta['format'],
-        copy = False,
+        data = src['samples'],
+        format = format
     )
 
+
+def pad(fragment_dims, src):
+    r""" Pad array so that dimensions are a multiple of fragment_dims
+
+    The dimensions of the destinatin ndarray (dst1, dst2, dst3) is set to be a
+    multiple of the fragment_dims along the corrresponding axis such that the
+    source dimensions (src1, src2, src3) are src1 <= dst1, src2 <= dst2,
+    src3 <= dst3.
+
+    The source data is split along the first axis such that a segment of maximum
+    width sz1 is extracted.
+
+                            dst1       ...        dst1
+                             ^                     ^
+                      /¨¨¨¨¨¨ ¨¨¨¨¨¨\       /¨¨¨¨¨¨ ¨¨¨¨¨¨\
+                            src1       ...      src1
+                             ^                   ^
+                      /¨¨¨¨¨¨ ¨¨¨¨¨¨\       /¨¨¨¨ ¨¨¨¨\
+              /   /   . – . – . – . +  ...  . – . – . – # +
+              |   |   |             |  ...  |         ¦   |
+              |   |   .             .  ...  .         ¦   #
+              |   |   |             |  ...  |         ¦   |
+              |   |   .             .  ...  .         ¦   #
+              |   |   |             |  ...  |         ¦   |
+              |   |   . – . – . – . +  ...  . – . – . – # +
+              |   |   |             |  ...  |         ¦   |
+    src2      |  <    .             .  ...  .         ¦   #
+              |   |   |             |  ...  |         ¦   |
+    dst2     <    |   .             .  ...  .         ¦   #
+              |   |   |             |  ...  |         ¦   |
+              |   |   . – . – . – . +  ...  . – . – . – # +
+              |   |   |             |  ...  |         ¦   |
+              |   |   .             .  ...  .         ¦   #
+              |   |   |             |  ...  |         ¦   |
+              |   \   .-------------.  ...  .---------+   #
+              |       #             #  ...  #             #
+              \       # – # – # – # +  ...  # – # – # – # +
+
+    Parameters
+    ----------
+    fragment_dims : tuple of int
+        after the padding has been added, the resulting cube can be split up in
+        fragments of this dimensionality
+
+    src : numpy.ndarray
+
+    Returns
+    -------
+    dst : numpy.ndarray
+
+    """
+
+    srcdims = src.shape
+
+    dstshape = (
+        int(math.ceil(srcdims[0] / fragment_dims[0])) * fragment_dims[0],
+        int(math.ceil(srcdims[1] / fragment_dims[1])) * fragment_dims[1],
+        int(math.ceil(srcdims[2] / fragment_dims[2])) * fragment_dims[2],
+    )
+    dstdtype = np.dtype('f4')
+
+    dst = np.zeros(shape = dstshape, dtype = dstdtype)
+
+    dst[:srcdims[0], :srcdims[1], :srcdims[2]] = src[:, :, :]
+
+    return dst
+
+
 def upload(args, meta, f):
-    samples = meta['samples']
     dims = meta['dimensions']
+    format = meta['format']
     f.seek(meta['byteoffset-first-trace'], io.SEEK_CUR)
 
-    lane = 0
+    segment = 0
 
-    dst = partition(args, meta, lane, f)
-    size = (args.size, args.size, args.size)
+    fragment_dims = (args.fragment_dims, args.fragment_dims, args.fragment_dims)
+    cube_dims = (len(dims[0]), len(dims[1]), len(dims[2]))
+
+    src = load_segment(cube_dims, fragment_dims, segment, format, f)
+    dst = pad(cube_dims, fragment_dims, src)
 
     for i, d in enumerate(dst.shape):
-        if d % size[i] != 0:
-            msg = 'inconsistency in dimension {} (shape = {}) and size {}'
-            raise RuntimeError(msg.format(i, d, size[i]))
+        if d % fragment_dims[i] != 0:
+            msg = 'inconsistency in dimension {} (shape = {}) and fragment_dims {}'
+            raise RuntimeError(msg.format(i, d, fragment_dims[i]))
 
     xyz = [
         (x, y, z)
         for x in [lane]
-        for y in range(dst.shape[1] // size[1])
-        for z in range(dst.shape[2] // size[2])
+        for y in range(dst.shape[1] // fragment_dims[1])
+        for z in range(dst.shape[2] // fragment_dims[2])
     ]
 
     basename = '{}/{}/{}-{}-{}'.format(
         meta['guid'],
         'src',
-        size[0], size[1], size[2],
+        fragment_dims[0], fragment_dims[1], fragment_dims[2],
     )
 
     for i, (x, y, z) in enumerate(xyz):
         fname = '{}-{}-{}.f32'.format(x, y, z)
-        a = np.memmap(fname, dtype = dst.dtype, mode = 'w+', shape = size)
-        x = slice(x * size[0], (x + 1) * size[0])
-        y = slice(y * size[1], (y + 1) * size[1])
-        z = slice(z * size[2], (z + 1) * size[2])
+        a = np.memmap(fname, dtype = dst.dtype, mode = 'w+', shape = subcube_dims)
+        x = slice(x * subcube_dims[0], (x + 1) * subcube_dims[0])
+        y = slice(y * subcube_dims[1], (y + 1) * subcube_dims[1])
+        z = slice(z * subcube_dims[2], (z + 1) * subcube_dims[2])
         a[:] = dst[x, y, z]
