@@ -36,9 +36,5 @@ def test_regular_intervals(inlines, crosslines):
 
     for header in headers:
         seg.add(header)
-    seg.commit()
 
-    for segment in seg.segments:
-        fst = segment['traceStart']
-        lst = segment['traceStop']
-        assert lst - fst == crosslines - 1
+    assert len(seg.secondaries) == crosslines 

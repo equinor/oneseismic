@@ -37,36 +37,36 @@ def header():
 def test_sans_count_sans_interval(header, endian):
     head = header(endian)
     d = updated_count_interval(head, {}, endian)
-    assert d['sampleCount'] == 25
-    assert d['sampleInterval'] == 4000
+    assert d['samples'] == 25
+    assert d['sampleinterval'] == 4000
 
 @pytest.mark.parametrize('endian', ['little', 'big'])
 def test_with_count_sans_interval(header, endian):
     head = header(endian)
     prev = {
-        'sampleCount': 1,
+        'samples': 1,
     }
     d = updated_count_interval(head, prev, endian)
-    assert 'sampleCount' not in d
-    assert d['sampleInterval'] == 4000
+    assert 'samples' not in d
+    assert d['sampleinterval'] == 4000
 
 @pytest.mark.parametrize('endian', ['little', 'big'])
 def test_sans_count_with_interval(header, endian):
     head = header(endian)
     prev = {
-        'sampleInterval': 1,
+        'sampleinterval': 1,
     }
     d = updated_count_interval(head, prev, endian)
-    assert d['sampleCount'] == 25
-    assert 'sampleInterval' not in d
+    assert d['samples'] == 25
+    assert 'sampleinterval' not in d
 
 @pytest.mark.parametrize('endian', ['little', 'big'])
 def test_with_count_with_interval(header, endian):
     head = header(endian)
     prev = {
-        'sampleCount': 1,
-        'sampleInterval': 1,
+        'samples': 1,
+        'sampleinterval': 1,
     }
     d = updated_count_interval(head, prev, endian)
-    assert 'sampleCount' not in d
-    assert 'sampleInterval' not in d
+    assert 'samples' not in d
+    assert 'sampleinterval' not in d
