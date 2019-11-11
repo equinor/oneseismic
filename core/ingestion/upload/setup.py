@@ -10,6 +10,7 @@ setuptools.setup(
     install_requires = [
         'segyio',
         'numpy',
+        'azure-storage',
     ],
 
     setup_requires = [

@@ -1,5 +1,7 @@
 import io
 import math
+import logging
+import os
 
 import numpy as np
 import segyio
@@ -138,12 +140,11 @@ def pad(fragment_dims, src):
     return dst
 
 
-def upload(args, meta, f):
+def upload(params, meta, segment, blob, f):
+    samples = meta['samples']
     dims = meta['dimensions']
     format = meta['format']
     f.seek(meta['byteoffset-first-trace'], io.SEEK_CUR)
-
-    segment = 0
 
     fragment_dims = (args.fragment_dims, args.fragment_dims, args.fragment_dims)
     cube_dims = (len(dims[0]), len(dims[1]), len(dims[2]))
@@ -158,7 +159,7 @@ def upload(args, meta, f):
 
     xyz = [
         (x, y, z)
-        for x in [lane]
+        for x in [segment]
         for y in range(dst.shape[1] // fragment_dims[1])
         for z in range(dst.shape[2] // fragment_dims[2])
     ]
@@ -169,10 +170,18 @@ def upload(args, meta, f):
         fragment_dims[0], fragment_dims[1], fragment_dims[2],
     )
 
+    container = params['container']
     for i, (x, y, z) in enumerate(xyz):
         fname = '{}-{}-{}.f32'.format(x, y, z)
-        a = np.memmap(fname, dtype = dst.dtype, mode = 'w+', shape = subcube_dims)
         x = slice(x * subcube_dims[0], (x + 1) * subcube_dims[0])
         y = slice(y * subcube_dims[1], (y + 1) * subcube_dims[1])
         z = slice(z * subcube_dims[2], (z + 1) * subcube_dims[2])
-        a[:] = dst[x, y, z]
+        blob_name = '{}/{}'.format(basename, fname)
+        logging.info('uploading %s to %s', blob_name, container)
+        # TODO: consider implications and consequences and how to handle an
+        # already-existing fragment with this ID
+        blob.create_blob_from_bytes(
+            container_name = container,
+            blob_name = blob_name,
+            blob = bytes(dst[x, y, z]),
+        )
