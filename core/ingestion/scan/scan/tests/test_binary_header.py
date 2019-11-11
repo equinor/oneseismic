@@ -61,7 +61,7 @@ def test_supported_formats(textbin, endian, fmt):
     textbin.seek(3200)
 
     out = scan_binary(textbin, endian = endian)
-    assert out['dataSampleFormatCode'] == fmt[1]
+    assert out['format'] == fmt[1]
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @given(integers(min_value = 0, max_value = math.pow(2, 15) - 1))
@@ -83,7 +83,7 @@ def test_get_sample_count(textbin, endian, val):
     textbin.seek(3200)
 
     out = scan_binary(textbin, endian = endian)
-    assert out['sampleCount'] == val
+    assert out['samples'] == val
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @given(integers(min_value = 0, max_value = math.pow(2, 15) - 1))
@@ -105,4 +105,4 @@ def test_get_sample_interval(textbin, endian, val):
     textbin.seek(3200)
 
     out = scan_binary(textbin, endian = endian)
-    assert out['sampleInterval'] == val
+    assert out['sampleinterval'] == val

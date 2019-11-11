@@ -43,7 +43,7 @@ class parseint:
         return int.from_bytes(chunk, byteorder = self.endian, signed = True)
 
 def scan_binary(stream, endian):
-    """ Read OpenVDS info from the binary header
+    """ Read info from the binary header
 
     Read the necessary information from the binary header, and, if necessary,
     seek past the extended textual headers.
@@ -57,8 +57,8 @@ def scan_binary(stream, endian):
     Returns
     -------
     out : dict
-        dict of the OpenVDS keys dataSampleFormatCode, sampleCount, and
-        sampleInterval
+        dict of the keys format, samples, sampleinterval and
+        byteoffset-first-trace
 
     Notes
     -----
@@ -143,7 +143,7 @@ def resolve_endianness(big, little):
         return 'big'
 
     if big and not little:
-        return 'little'
+        return 'big'
 
     if little and not big:
         return 'little'
@@ -186,9 +186,6 @@ def scan(args, stream):
 
     Scan a stream, and produce an index for building a job schedule in further
     ingestion.
-
-    The output is compatible with what openvds' SEGYScan outputs, except the
-    persistentID does not describe the run, but rather the input file (sha256).
 
     Parameters
     ----------
