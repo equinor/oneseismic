@@ -5,46 +5,21 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"io"
-	"net"
-	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
 	pb "github.com/equinor/seismic-cloud/api/proto"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"google.golang.org/grpc"
 )
 
 type Stitcher interface {
-	Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error)
+	Stitch(ctx context.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error)
 }
 
 func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 	op := events.Op("service.NewStich")
 	switch stype.(type) {
-	case []string:
-		cmdArgs := stype.([]string)
-		if len(cmdArgs) < 1 {
-			return nil, events.E(op, events.ErrorLevel, "No command given")
-		}
-		execName := cmdArgs[0]
-		inf, err := os.Stat(execName)
-		if err != nil {
-			msg := "Cannot use executable: `" + execName + "`"
-			return nil, events.E(op, events.ErrorLevel, msg, err)
-		}
-		if inf.IsDir() {
-			msg := "Cannot use directory as executable: `" + execName + "`"
-			return nil, events.E(op, events.ErrorLevel, msg)
-		}
-		return &execStitch{cmdArgs, profile}, nil
-	case TCPAddr:
-		addr := stype.(TCPAddr)
-		return &tCPStitch{TCPAddr(string(addr))}, nil
 	case GrpcOpts:
 		addr := stype.(GrpcOpts).Addr
 		opts := make([]grpc.DialOption, 0)
@@ -55,24 +30,6 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 	default:
 		return nil, events.E(op, events.ErrorLevel, "Invalid stitch type")
 	}
-}
-
-func decodeSurface(in io.Reader) (pb.Surface, error) {
-	var surface pb.Surface
-	for {
-		var p struct {
-			X, Y, Z float32
-		}
-		err := binary.Read(in, binary.LittleEndian, &p)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return surface, err
-		}
-		surface.Points = append(surface.Points, &pb.Point{X: p.X, Y: p.Y, Z: p.Z})
-	}
-	return surface, nil
 }
 
 func manifestReader(ms store.Manifest) (*bytes.Buffer, error) {
@@ -87,59 +44,6 @@ func manifestReader(ms store.Manifest) (*bytes.Buffer, error) {
 	return bytes.NewBuffer(nb), nil
 }
 
-type execStitch struct {
-	cmd     []string
-	profile bool
-}
-
-func (es *execStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
-	op := "execStitch.stitch"
-	var e *exec.Cmd
-	var pBuf *bytes.Buffer
-
-	if es.profile {
-
-		pr, pw, err := NewNamedPipe()
-		if err != nil {
-			return "", fmt.Errorf("Error opening profiling pipe: %v", err)
-		}
-		defer pw.Close()
-
-		b := append(es.cmd[1:], "--profile", pr.Name())
-		e = exec.Command(es.cmd[0], b...)
-		pBuf = bytes.NewBuffer(make([]byte, 0))
-		go func() {
-			defer pr.Close()
-			defer os.Remove(pr.Name())
-
-			if _, err := io.Copy(pBuf, pr); err != nil {
-				l.LogE(op, "Profiling stitch failed", err)
-			}
-		}()
-	} else {
-		e = exec.Command(es.cmd[0], es.cmd[1:]...)
-	}
-	buf, err := manifestReader(ms)
-	mr := io.MultiReader(buf, in)
-	errBuf := bytes.NewBuffer(make([]byte, 0))
-	e.Stdout = out
-	e.Stdin = mr
-	e.Stderr = errBuf
-
-	err = e.Run()
-	if err != nil {
-		return "", fmt.Errorf("Execute stitch failed: %v - %v ", err, string(errBuf.Bytes()))
-	}
-	e.Wait()
-
-	if es.profile {
-		return pBuf.String(), nil
-	}
-
-	return "", nil
-
-}
-
 type gRPCStitch struct {
 	grpcAddr string
 	opts     []grpc.DialOption
@@ -149,13 +53,9 @@ type GrpcOpts struct {
 	Insecure bool
 }
 
-func (gs *gRPCStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
-	surface, err := decodeSurface(in)
-	if err != nil {
-		return "", err
-	}
+func (gs *gRPCStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error) {
 	req := &pb.SurfaceRequest{
-		Surface:    &surface,
+		Surfaceid:  surfaceID,
 		Basename:   ms.Basename,
 		Cubexs:     ms.Cubexs,
 		Cubeys:     ms.Cubeys,
@@ -180,12 +80,12 @@ func (gs *gRPCStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writ
 	}
 	buf := &bytes.Buffer{}
 
-	for i := range r.I {
-		err = binary.Write(buf, binary.LittleEndian, r.I[i])
+	for _, val := range r.SurfaceReplyValues {
+		err = binary.Write(buf, binary.LittleEndian, val.I)
 		if err != nil {
 			return "", err
 		}
-		err = binary.Write(buf, binary.LittleEndian, r.V[i])
+		err = binary.Write(buf, binary.LittleEndian, val.V)
 		if err != nil {
 			return "", err
 		}
@@ -196,67 +96,4 @@ func (gs *gRPCStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writ
 	}
 
 	return "", nil
-}
-
-type tCPStitch struct {
-	tcpAddr TCPAddr
-}
-
-type TCPAddr string
-
-func (ts *tCPStitch) Stitch(ctx context.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", string(ts.tcpAddr))
-	if err != nil {
-		return "", err
-	}
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close()
-	rxErrChan := make(chan string)
-	txErrChan := make(chan string)
-	buf, err := manifestReader(ms)
-	if err != nil {
-		return "", err
-	}
-	mr := io.MultiReader(buf, in)
-	go func() {
-		if _, err := io.Copy(conn, mr); err != nil {
-			txErrChan <- fmt.Sprintf("Sending to tcp stitch failed: %v", err)
-		} else {
-			txErrChan <- ""
-		}
-		conn.CloseWrite()
-
-	}()
-	go func() {
-		if _, err := io.Copy(out, conn); err != nil {
-			rxErrChan <- fmt.Sprintf("Receiving from tcp stitch failed: %v", err)
-		} else {
-			rxErrChan <- ""
-		}
-		conn.CloseRead()
-
-	}()
-	errs := make([]string, 0)
-	for i := 0; i < 2; i++ {
-		select {
-		case e := <-rxErrChan:
-			if len(e) > 0 {
-				errs = append(errs, e)
-			}
-		case e := <-txErrChan:
-			if len(e) > 0 {
-				errs = append(errs, e)
-
-			}
-		}
-	}
-	if len(errs) > 0 {
-		return "", fmt.Errorf("%s", strings.Join(errs, "\n"))
-	}
-
-	return "", nil
-
 }

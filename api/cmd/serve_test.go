@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,9 +21,9 @@ import (
 
 var url = "localhost:8080"
 
-func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
-	_, err := io.Copy(out, in)
-	args := m.Called(ctx, ms, out, in)
+func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error) {
+	_, err := io.Copy(out, strings.NewReader(surfaceID))
+	args := m.Called(ctx, ms, out, surfaceID)
 	if err != nil {
 		return "", err
 	}
@@ -124,11 +125,6 @@ func Test_stitchConfig(t *testing.T) {
 		want      interface{}
 	}{
 		{"No stitchconfig", func() { return }, nil},
-		{"Cmd stitchconfig",
-			func() {
-				viper.SetDefault("STITCH_CMD", "FOO BAR")
-				return
-			}, []string{"FOO", "BAR"}},
 		{"GRPC stitchconfig",
 			func() {
 				viper.SetDefault("STITCH_GRPC_ADDR", "localhost:10000")

@@ -24,17 +24,9 @@ var serveCmd = &cobra.Command{
 }
 
 func stitchConfig() interface{} {
-	sCmd := config.StitchCmd()
-	sTCP := config.StitchTCPAddr()
 	sGRPC := config.StitchGrpcAddr()
 	if len(sGRPC) > 0 {
 		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
-	}
-	if len(sTCP) > 0 {
-		return service.TCPAddr(sTCP)
-	}
-	if len(sCmd) > 0 && len(sCmd[0]) > 0 {
-		return sCmd
 	}
 	return nil
 }
@@ -112,7 +104,7 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 
 	st, err := service.NewStitch(stitchConfig(), config.Profiling())
 	if err != nil {
-		return nil, events.E(events.Op(op), "Stitch tcp error", err)
+		return nil, events.E(events.Op(op), "Stitch error", err)
 
 	}
 	opts = append(

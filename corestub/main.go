@@ -10,6 +10,7 @@ import (
 	"net"
 
 	pb "github.com/equinor/seismic-cloud/corestub/proto"
+	"github.com/equinor/seismic-cloud/corestub/store"
 	"google.golang.org/grpc"
 )
 
@@ -17,9 +18,11 @@ type coreServer struct {
 	storeAddr string
 }
 
-func bound(x, y, z float32) func(p *pb.Point) bool {
+var ss store.SurfaceStore
 
-	return func(p *pb.Point) bool {
+func bound(x, y, z uint64) func(p *store.Point) bool {
+
+	return func(p *store.Point) bool {
 		if p.X < 0 || p.Y < 0 || p.Z < 0 {
 			return false
 		}
@@ -30,9 +33,9 @@ func bound(x, y, z float32) func(p *pb.Point) bool {
 	}
 }
 
-func genFunc(g string, x, y, z uint32) func(p *pb.Point) float32 {
+func genFunc(g string, x, y, z uint32) func(p *store.Point) float32 {
 
-	b := bound(float32(x), float32(y), float32(z))
+	b := bound(uint64(x), uint64(y), uint64(z))
 	switch g {
 	case "checker":
 		return checkerCube(b)
@@ -45,13 +48,13 @@ func genFunc(g string, x, y, z uint32) func(p *pb.Point) float32 {
 	}
 }
 
-func checkerCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
+func checkerCube(b func(p *store.Point) bool) func(p *store.Point) float32 {
 
-	return func(p *pb.Point) float32 {
+	return func(p *store.Point) float32 {
 		if !b(p) {
 			return 0.0
 		}
-		x, y, z := int(math.Floor(float64(p.X))), int(math.Floor(float64(p.Y))), int(math.Floor(float64(p.Z)))
+		x, y, z := p.X, p.Y, p.Z
 
 		mx, my, mz := x%2 == 0, y%2 == 0, z%2 == 0
 
@@ -62,6 +65,7 @@ func checkerCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
 			return 1.0
 
 		}
+
 		if mz {
 			return 1.0
 		}
@@ -70,17 +74,17 @@ func checkerCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
 	}
 }
 
-func gradientCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
-	return func(p *pb.Point) float32 {
+func gradientCube(b func(p *store.Point) bool) func(p *store.Point) float32 {
+	return func(p *store.Point) float32 {
 		if !b(p) {
-			return 0.0
+			return 0
 		}
-		return p.Z
+		return float32(p.Z)
 	}
 }
 
-func sinCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
-	return func(p *pb.Point) float32 {
+func sinCube(b func(p *store.Point) bool) func(p *store.Point) float32 {
+	return func(p *store.Point) float32 {
 		if !b(p) {
 			return 0.0
 		}
@@ -91,16 +95,21 @@ func sinCube(b func(p *pb.Point) bool) func(p *pb.Point) float32 {
 func (s *coreServer) StitchSurface(ctx context.Context, in *pb.SurfaceRequest) (*pb.SurfaceReply, error) {
 
 	fmt.Println("stitching on cube ", in.Basename)
-	repl := &pb.SurfaceReply{
-		I: make([]uint64, 0),
-		V: make([]float32, 0)}
+	vals := []*pb.SurfaceReplyValue{}
 	cube := genFunc(in.Basename, in.Cubexs, in.Cubeys, in.Cubezs)
-	fmt.Println("size of surface is ", len(in.Surface.Points))
-	for idx, p := range in.Surface.Points {
-		repl.I = append(repl.I, uint64(idx))
-		repl.V = append(repl.V, cube(p))
+
+	surf, err := ss.Download(in.Surfaceid)
+	if err != nil {
+		fmt.Println("surface download failed")
 	}
-	fmt.Println("size of repl is ", len(repl.I))
+
+	fmt.Println("size of surface is ", len(surf.Points))
+	for idx, p := range surf.Points {
+		val := &pb.SurfaceReplyValue{I: uint64(idx), V: cube(p)}
+		vals = append(vals, val)
+	}
+	fmt.Println("size of repl is ", len(vals))
+	repl := &pb.SurfaceReply{SurfaceReplyValues: vals}
 	return repl, nil
 }
 
@@ -109,6 +118,12 @@ func (s *coreServer) ShatterLink(ctx context.Context, in *pb.ShatterLinkRequest)
 }
 
 func main() {
+
+	var err error
+	ss, err = store.NewSurfaceStore(surfaceStoreConfig())
+	if err != nil {
+		panic(fmt.Errorf("No surface store, error: %v", err))
+	}
 
 	cs := &coreServer{storeAddr: ""}
 
@@ -126,4 +141,22 @@ func main() {
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterCoreServer(grpcServer, cs)
 	grpcServer.Serve(lis)
+}
+
+func surfaceStoreConfig() interface{} {
+
+	if len(os.Getenv("AZURE_STORAGE_ACCOUNT")) > 0 && len(os.Getenv("AZURE_STORAGE_ACCESS_KEY")) > 0 {
+		return store.AzureBlobSettings{
+			AccountName:   os.Getenv("AZURE_STORAGE_ACCOUNT"),
+			AccountKey:    os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
+			ContainerName: "scblob",
+		}
+	}
+
+	if len(os.Getenv("LOCAL_SURFACE_PATH")) > 0 {
+		return os.Getenv("LOCAL_SURFACE_PATH")
+	}
+
+	return make(map[string][]byte)
+
 }
