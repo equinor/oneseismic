@@ -75,6 +75,16 @@ jobs:
 
       - template: api/tests/publish-test-results.yaml
 
+  - job: docker_push
+    steps:
+      - script: |
+          docker-compose build
+          echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
+          docker-compose push
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        displayName: "Push docker images"
+
+
   - job: Integration_tests
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     steps:
