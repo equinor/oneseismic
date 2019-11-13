@@ -169,7 +169,7 @@ func WithOAuth2(oauthOpt OAuth2Option) HTTPServerOption {
 }
 
 func (hs *HTTPServer) registerMacros() {
-	manifestIDExpr := "^[a-zA-Z0-9\\-\\_\\.]{1,100}$"
+	manifestIDExpr := "^[a-zA-Z0-9\\-\\_]{1,100}$"
 	manifestIDRegex, err := regexp.Compile(manifestIDExpr)
 	if err != nil {
 		panic(err)
