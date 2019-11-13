@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/equinor/seismic-cloud/api/service/store"
@@ -36,9 +37,9 @@ type MockStitch struct {
 	mock.Mock
 }
 
-func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, in io.Reader) (string, error) {
-	_, err := io.Copy(out, in)
-	args := m.Called(ctx, ms, out, in)
+func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error) {
+	_, err := io.Copy(out, strings.NewReader(surfaceID))
+	args := m.Called(ctx, ms, out, surfaceID)
 	if err != nil {
 		return "", err
 	}

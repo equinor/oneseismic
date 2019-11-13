@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -23,9 +22,7 @@ func SetDefaults() {
 	viper.SetDefault("HOST_ADDR", "localhost:8080")
 	viper.SetDefault("DOMAIN_LIST", "")
 	viper.SetDefault("DOMAIN_MAIL", "")
-	viper.SetDefault("STITCH_TCP_ADDR", "")
 	viper.SetDefault("STITCH_GRPC_ADDR", "")
-	viper.SetDefault("STITCH_CMD", "")
 	viper.SetDefault("RESOURCE_ID", "")
 	viper.SetDefault("CERT_FILE", "cert.crt")
 	viper.SetDefault("KEY_FILE", "cert.key")
@@ -88,14 +85,6 @@ func UseAuth() bool {
 
 func HostAddr() string {
 	return viper.GetString("HOST_ADDR")
-}
-
-func StitchCmd() []string {
-	return strings.Split(viper.GetString("STITCH_CMD"), " ")
-}
-
-func StitchTCPAddr() string {
-	return viper.GetString("STITCH_TCP_ADDR")
 }
 
 func StitchGrpcAddr() string {

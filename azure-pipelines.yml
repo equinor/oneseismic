@@ -39,7 +39,7 @@ jobs:
     variables:
       GOPATH: $(Pipeline.Workspace)/go
       # Minimum ercentage of code that has to be tested
-      COVERAGE_LIMIT: 39
+      COVERAGE_LIMIT: 35
     steps:
       - script: |
           go mod download
@@ -52,6 +52,11 @@ jobs:
         workingDirectory: api
 
       - script: |
+          protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
+        displayName: 'Generating grpc server stubs'
+        workingDirectory: corestub
+
+      - script: |
           swag init
         displayName: Generate docs
         workingDirectory: api
@@ -60,6 +65,11 @@ jobs:
           go build -tags prod
         displayName: 'Build seismic-cloud-api'
         workingDirectory: api
+
+      - script: |
+          go build
+        displayName: 'Build seismic-cloud-corestub'
+        workingDirectory: corestub
 
       - script: |
           go test -race -v ./...

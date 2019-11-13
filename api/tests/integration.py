@@ -10,12 +10,14 @@ import requests
 import subprocess
 from time import sleep, time
 from bs4 import BeautifulSoup
+from struct import pack 
 
 COVERAGE_LIMIT = int(os.environ["COVERAGE_LIMIT"])
 
-os.environ["STITCH_CMD"] = "/bin/cat"
+os.environ["STITCH_GRPC_ADDR"] = "0.0.0.0:10000"
 os.environ["MANIFEST_SRC"] = "path"
 os.environ["MANIFEST_PATH"] = "./"
+os.environ["LOCAL_SURFACE_PATH"] = "./"
 os.environ["AUTHSERVER"] = "https://login.microsoftonline.com/common"
 os.environ["API_SECRET"] = "SECRET_KEY"
 os.environ["HTTP_ONLY"] = "True"
@@ -74,27 +76,34 @@ def test_create_defaults():
 
 
 def test_get_post():
-    test_manifest = '{"basename":"testmanifest","cubexs":1,"cubeys":1,"cubezs":1,"fragmentxs":1,"fragmentys":1,"fragmentzs":1}'
-    p = subprocess.Popen(["../api", "serve", "--config",
+    test_manifest = '{"basename":"checker","cubexs":2,"cubeys":2,"cubezs":2,"fragmentxs":2,"fragmentys":2,"fragmentzs":2}'
+    surface = b'\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00'
+    want = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80?\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    api = subprocess.Popen(["../api", "serve", "--config",
                           ".sc-api.yaml"], shell=False)
+
+    cs = subprocess.Popen(["../../corestub/corestub"], shell=False)
+            
     sleep(2)
     try:
         r = requests.get('http://localhost:7020/',
                          headers={'Authorization': 'Bearer '+authzToken()})
         assert (r.status_code == 200), authzToken()
 
-        with open("sample", "w") as f:
+        with open("manifest", "w") as f:
             f.write(test_manifest)
-        r = requests.post('http://localhost:7020/stitch/sample',
-                          data={'point': 'reply'},
+
+        with open("surface", "wb") as f:
+            f.write(surface)
+        r = requests.get('http://localhost:7020/stitch/manifest/surface',
                           headers={'Authorization': 'Bearer '+authzToken()})
-        want = b'M:\x69\x00\x00\x00' + \
-            bytes(test_manifest, encoding='utf-8')+b'point=reply'
+
         if cmp_bytes(r.content, want) != 0:
             print(cmp_bytes(r.content, want))
         assert r.content == want
     finally:
-        p.kill()
+        api.kill()
+        cs.kill()
 
 
 if __name__ == "__main__":

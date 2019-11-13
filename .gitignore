@@ -5,4 +5,5 @@ build
 *.exe
 tmp
 api/api
+corestub/corestub
 settings.json
