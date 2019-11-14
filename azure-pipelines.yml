@@ -91,3 +91,11 @@ jobs:
       - script: |
           docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
         displayName: 'Integration_tests'
+
+schedules:
+- cron: "* 6 * * *"
+  displayName: nightly build
+  branches:
+    include:
+    - master
+  always: true
