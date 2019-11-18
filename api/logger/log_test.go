@@ -70,11 +70,31 @@ func TestLog(t *testing.T) {
 		expects  []string
 		callArgs []interface{}
 	}{
-		{"Debug", LogD, []string{"DEBG", "TestLogD", "TestingD", "errorD"}, []interface{}{"TestLogD", "TestingD", Wrap(errors.New("errorD"))}},
-		{"Info", LogI, []string{"INFO", "TestLogI", "TestingI", "not found"}, []interface{}{"TestLogI", "TestingI", Kind(events.NotFound)}},
-		{"Warning", LogW, []string{"WARN", "TestLogW", "TestingW"}, []interface{}{"TestLogW", "TestingW", EmptyOption{}}},
-		{"Error", LogE, []string{"ERRO", "TestLogE", "TestingE", "errorE", "not found"}, []interface{}{"TestLogE", "TestingE", errors.New("errorE"), Kind(events.NotFound)}},
-		{"Critical", LogC, []string{"CRIT", "TestLogC", "TestingC", "errorC", "not found"}, []interface{}{"TestLogC", "TestingC", errors.New("errorC"), Kind(events.NotFound)}},
+		{"Debug",
+			LogD,
+			[]string{"DEBG", "TestLogD", "TestingD", "errorD"},
+			[]interface{}{"TestLogD", "TestingD", Wrap(errors.New("errorD"))}},
+		{"Info",
+			LogI,
+			[]string{"INFO", "TestLogI", "TestingI", "not found"},
+			[]interface{}{"TestLogI", "TestingI", Kind(events.NotFound)}},
+		{"Warning",
+			LogW,
+			[]string{"WARN", "TestLogW", "TestingW"},
+			[]interface{}{"TestLogW", "TestingW", EmptyOption{}}},
+		{"Error",
+			LogE,
+			[]string{"ERRO", "TestLogE", "TestingE", "errorE", "not found"},
+			[]interface{}{"TestLogE", "TestingE", errors.New("errorE"), Kind(events.NotFound)}},
+		{"Critical",
+			LogC,
+			[]string{"CRIT", "TestLogC", "TestingC", "errorC", "not found"},
+			[]interface{}{
+				"TestLogC",
+				"TestingC",
+				errors.New("errorC"),
+				Kind(events.NotFound),
+			}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,12 +108,15 @@ func TestLog(t *testing.T) {
 				argv[idx] = reflect.ValueOf(arg)
 			}
 			_ = v.Call(argv)
+			time.Sleep(100 * time.Millisecond)
 			w.Close()
+
 			out, err := ioutil.ReadAll(reader)
 			assert.NoError(t, err, "Reading from log sink failed")
 			for _, expect := range tt.expects {
 				assert.Contains(t, string(out), expect)
 			}
+
 		})
 	}
 }

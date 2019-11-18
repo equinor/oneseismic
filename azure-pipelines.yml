@@ -39,7 +39,7 @@ jobs:
     variables:
       GOPATH: $(Pipeline.Workspace)/go
       # Minimum ercentage of code that has to be tested
-      COVERAGE_LIMIT: 40
+      COVERAGE_LIMIT: 39
     steps:
       - script: |
           go mod download
@@ -82,8 +82,7 @@ jobs:
           echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
           docker-compose push
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-        displayName: "Push docker images"
-
+        displayName: 'Push docker images'
 
   - job: Integration_tests
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
