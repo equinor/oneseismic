@@ -203,7 +203,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	}
 	if len(config.LogDBConnStr()) > 0 {
 		l.LogI(op, "Switch log sink from os.Stdout to psqlDB")
-		db, err := l.DbOpener()
+		db, err := l.DbOpener(config.LogDBConnStr())
 		if err != nil {
 			l.LogE(op, "Unable to connect to log db", err)
 			return

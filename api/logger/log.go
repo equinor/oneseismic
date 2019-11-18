@@ -7,41 +7,44 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/kataras/golog"
-	_ "github.com/lib/pq"
-
-	"github.com/equinor/seismic-cloud/api/config"
+	queue "github.com/enriquebris/goconcurrentqueue"
 	"github.com/equinor/seismic-cloud/api/events"
+	"github.com/kataras/golog"
+	pq "github.com/lib/pq"
 )
 
 type logger interface {
-	log(*events.Event)
+	log(*events.Event) error
 }
 
 var innerLogger logger = &fileLogger{file: os.Stdout, verbosity: events.DebugLevel}
+var logMut = &sync.Mutex{}
 
-func DbOpener() (*sql.DB, error) {
-	db, err := sql.Open("postgres", config.LogDBConnStr())
+type ConnString string
+
+func DbOpener(connStr string) (ConnString, error) {
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	rows, err := db.Query("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'log'")
 	if err != nil || rows == nil {
-		return nil, err
+		return "", err
 	}
 	defer rows.Close()
-	return db, nil
+	return ConnString(connStr), nil
 }
 
 // Create logger to sink
 func SetLogSink(sink interface{}, verbosity events.Severity) error {
-	switch sink.(type) {
+	switch sink := sink.(type) {
 	case *os.File:
-		innerLogger = &fileLogger{file: sink.(*os.File), verbosity: verbosity}
-	case *sql.DB:
-		innerLogger = &dbLogger{pool: sink.(*sql.DB), verbosity: verbosity}
+		innerLogger = &fileLogger{file: sink, verbosity: verbosity}
+	case ConnString:
+		innerLogger = &dbLogger{connStr: string(sink), verbosity: verbosity, eventBuffer: queue.NewFIFO()}
 	default:
 		return events.E(events.Op("logger.factory"), fmt.Errorf("no logger defined for sink"))
 	}
@@ -134,58 +137,153 @@ func AddGoLogSource(output func(io.Writer) *golog.Logger) {
 }
 
 type fileLogger struct {
-	file      io.Writer
+	file      *os.File
 	verbosity events.Severity
 }
 
-func (fl *fileLogger) log(err *events.Event) {
-	if err.Level < fl.verbosity {
-		return
+func (fl *fileLogger) log(ev *events.Event) error {
+	if ev.Level < fl.verbosity {
+		return nil
 	}
 
-	_, wErr := fl.file.Write([]byte(errToLog(err)))
+	_, wErr := fl.file.Write([]byte(errToLog(ev)))
 	if wErr != nil {
-		panic(fmt.Errorf("Error logging to file: %v, %v", wErr, err))
+		return wErr
 	}
+	_ = fl.file.Sync()
+	return nil
 }
 
 type dbLogger struct {
-	pool      *sql.DB
-	verbosity events.Severity
+	connStr     string
+	verbosity   events.Severity
+	eventBuffer *queue.FIFO
 }
 
-func (dl *dbLogger) log(ev *events.Event) {
+var doOnce sync.Once
+
+func (dl *dbLogger) log(ev *events.Event) error {
 	if ev.Level < dl.verbosity {
-		return
+		return nil
+	}
+	doOnce.Do(func() {
+
+		go func() {
+			ticker := time.NewTicker(2000 * time.Millisecond)
+			for range ticker.C {
+
+				err := dl.bulkInsert()
+				if err != nil {
+					fmt.Println(
+						events.E(
+							events.Op("log.bulkInsert"),
+							"Writing event to db sink",
+							err,
+							events.ErrorLevel))
+				}
+
+			}
+		}()
+
+	})
+
+	err := dl.eventBuffer.Enqueue(ev)
+	return err
+}
+
+func (dl *dbLogger) bulkInsert() error {
+
+	evs := make([]*events.Event, 0)
+	for {
+		it, qErr := dl.eventBuffer.Dequeue()
+		if qErr != nil {
+			break
+		}
+		evs = append(evs, it.(*events.Event))
+	}
+	if len(evs) == 0 {
+		return nil
 	}
 
-	_, wErr := dl.pool.Query(
-		"INSERT INTO log (time, operation, error, message, severity, userid, ctxid, eventkind) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-		ev.When,
-		ev.Op,
-		ev.Error(),
-		ev.Message,
-		ev.Level.String(),
-		ev.UserID,
-		ev.ContextID(),
-		ev.Kind.String(),
-	)
-	if wErr != nil {
-		panic(fmt.Errorf("Error logging to db: %v, %v", wErr, ev))
+	db, err := sql.Open("postgres", dl.connStr)
+	if err != nil {
+		return err
 	}
+	defer db.Close()
+
+	txn, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := txn.Prepare(
+		pq.CopyIn("log",
+			"time",
+			"operation",
+			"error",
+			"message",
+			"severity",
+			"userid",
+			"ctxid",
+			"eventkind"))
+	if err != nil {
+		return err
+	}
+
+	for _, ev := range evs {
+		_, err = stmt.Exec(
+			ev.When,
+			ev.Op,
+			ev.Error(),
+			ev.Message,
+			ev.Level.String(),
+			ev.UserID,
+			ev.ContextID(),
+			ev.Kind.String(),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = stmt.Exec()
+	if err != nil {
+		return err
+	}
+
+	err = stmt.Close()
+	if err != nil {
+		return err
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func logToSink(ev *events.Event) {
+	op := events.Op("logging.log")
+	go func(ev *events.Event) {
+		logMut.Lock()
+		err := innerLogger.log(ev)
+		if err != nil {
+			fmt.Println(events.E(op, "Writing event to sink", err, events.ErrorLevel))
+		}
+		logMut.Unlock()
+	}(ev)
 }
 
 func Kind(kind events.EventKind) LogEventOption {
 	return newFuncOption(func(ev *events.Event) {
 		ev.Kind = kind
-		return
 	})
 }
 
 func Wrap(err error) LogEventOption {
 	return newFuncOption(func(ev *events.Event) {
 		ev.Err = err
-		return
 	})
 }
 
@@ -195,7 +293,7 @@ func LogD(op, msg string, opts ...LogEventOption) {
 	for _, opt := range opts {
 		opt.apply(e)
 	}
-	innerLogger.log(e)
+	logToSink(e)
 }
 
 // LogI Info
@@ -204,7 +302,7 @@ func LogI(op, msg string, opts ...LogEventOption) {
 	for _, opt := range opts {
 		opt.apply(e)
 	}
-	innerLogger.log(e)
+	logToSink(e)
 }
 
 // LogW Warning
@@ -213,7 +311,7 @@ func LogW(op, msg string, opts ...LogEventOption) {
 	for _, opt := range opts {
 		opt.apply(e)
 	}
-	innerLogger.log(e)
+	logToSink(e)
 }
 
 // LogE Error
@@ -222,7 +320,7 @@ func LogE(op, msg string, err error, opts ...LogEventOption) {
 	for _, opt := range opts {
 		opt.apply(e)
 	}
-	innerLogger.log(e)
+	logToSink(e)
 }
 
 // LogC Critical
@@ -231,10 +329,10 @@ func LogC(op, msg string, err error, opts ...LogEventOption) {
 	for _, opt := range opts {
 		opt.apply(e)
 	}
-	innerLogger.log(e)
+	logToSink(e)
 }
 
 // Log sends error to chosen sink
 func Log(err *events.Event) {
-	innerLogger.log(err)
+	logToSink(err)
 }
