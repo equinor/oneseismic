@@ -8,37 +8,12 @@ resources:
       image: lambdaville/go-python:latest
 
 jobs:
-  - job: Build_Core
-    steps:
-      - script: |
-          git clone https://github.com/equinor/segyio
-          mkdir -p segyio/build
-          cd segyio/build
-          cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
-          sudo make install -j2
-        displayName: 'Build segyio'
-      - script: |
-          sudo pip install scikit-build pybind11
-          mkdir build
-          cd build
-          cmake ../core -DCMAKE_BUILD_TYPE=Release
-        displayName: 'Setup seismic-cloud'
-
-      - script: |
-          make
-        displayName: 'Build seismic-cloud'
-        workingDirectory: build
-
-      - script: |
-          ctest --output-on-failure
-        displayName: 'Test seismic-cloud'
-        workingDirectory: build
-
   - job: Build_API
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     container: b1
     variables:
       GOPATH: $(Pipeline.Workspace)/go
-      # Minimum ercentage of code that has to be tested
+      # Minimum percentage of code that has to be tested
       COVERAGE_LIMIT: 39
     steps:
       - script: |
@@ -78,11 +53,14 @@ jobs:
   - job: docker_push
     steps:
       - script: |
+          docker build api
+        displayName: 'docker build api'
+      - script: |
           docker-compose build
           echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
           docker-compose push
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-        displayName: 'Push docker images'
+        displayName: 'docker-compose build and push'
 
   - job: Integration_tests
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
