@@ -9,12 +9,10 @@ resources:
 
 jobs:
   - job: Build_API
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     container: b1
     variables:
       GOPATH: $(Pipeline.Workspace)/go
-      # Minimum percentage of code that has to be tested
-      COVERAGE_LIMIT: 39
     steps:
       - script: |
           go mod download
@@ -43,14 +41,7 @@ jobs:
 
       - template: api/tests/pipeline-tests.yaml
 
-      - script: |
-          echo 'Deploy'
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
-        displayName: 'Deploy seismic-cloud'
-
-      - template: api/tests/publish-test-results.yaml
-
-  - job: docker_push
+  - job: Build_API_in_docker
     steps:
       - script: |
           docker build api
