@@ -57,7 +57,7 @@ jobs:
         workingDirectory: api
 
       - script: |
-          go build
+          go build -tags prod
         displayName: 'Build seismic-cloud-api'
         workingDirectory: api
 
@@ -92,9 +92,9 @@ jobs:
         displayName: 'Integration_tests'
 
 schedules:
-- cron: "* 6 * * *"
-  displayName: nightly build
-  branches:
-    include:
-    - master
-  always: true
+  - cron: '* 6 * * *'
+    displayName: nightly build
+    branches:
+      include:
+        - master
+    always: true
