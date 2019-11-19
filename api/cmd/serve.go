@@ -82,6 +82,7 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 	op := "serve.getHTTPServerOptions"
 
 	opts := make([]server.HTTPServerOption, 0)
+	opts = append(opts, server.WithAPIVersion(config.Version()))
 
 	if config.UseAuth() {
 		opts = append(opts,
