@@ -102,7 +102,7 @@ jobs:
         displayName: 'Integration_tests'
 
 schedules:
-  - cron: '* 6 * * *'
+  - cron: '0 6 * * *'
     displayName: nightly build
     branches:
       include:
