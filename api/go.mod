@@ -3,6 +3,7 @@ module github.com/equinor/seismic-cloud/api
 go 1.13
 
 require (
+	github.com/AlekSi/gocov-xml v0.0.0-20190121064608-3a14fb1c4737 // indirect
 	github.com/Azure/azure-pipeline-go v0.2.2 // indirect
 	github.com/Azure/azure-storage-blob-go v0.8.0
 	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
@@ -25,6 +26,7 @@ require (
 	github.com/iris-contrib/middleware/prometheus v0.0.0-20191028172159-41f72a73786a
 	github.com/iris-contrib/swagger/v12 v12.0.0
 	github.com/json-iterator/go v1.1.8 // indirect
+	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/juju/errors v0.0.0-20190930114154-d42613fe1ab9 // indirect
 	github.com/juju/loggo v0.0.0-20190526231331-6e530bcce5d8 // indirect
 	github.com/juju/testing v0.0.0-20191001232224-ce9dec17d28b // indirect
@@ -34,6 +36,7 @@ require (
 	github.com/klauspost/compress v1.9.1 // indirect
 	github.com/lib/pq v1.2.0
 	github.com/mailru/easyjson v0.7.0 // indirect
+	github.com/matm/gocov-html v0.0.0-20191111163307-9ee104d84c82 // indirect
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-ieproxy v0.0.0-20190805055040-f9202b1cfdeb // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect
