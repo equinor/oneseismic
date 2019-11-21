@@ -11,8 +11,14 @@ import (
 	"github.com/equinor/seismic-cloud/api/config"
 )
 
+var MajVer, MinVer, PatchVer string
+
 func init() {
 
+	if len(MajVer) > 0 {
+		config.SetDevVersion(MajVer, MinVer, PatchVer)
+		return
+	}
 	cmd := exec.Command("git", "describe", "--tags", "--long")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -53,12 +52,6 @@ type Point struct {
 
 func NewSurfaceStore(persistance interface{}) (SurfaceStore, error) {
 	switch persistance.(type) {
-	case map[string][]byte:
-		s, err := NewInMemoryStore(persistance.(map[string][]byte))
-		if err != nil {
-			return nil, err
-		}
-		return s, nil
 	case AzureBlobSettings:
 		azbs := persistance.(AzureBlobSettings)
 		s, err := NewAzBlobStore(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
@@ -88,7 +81,7 @@ func decodeSurface(in io.Reader) (Surface, error) {
 			break
 		}
 		if err != nil {
-			return surface, err
+			return surface, fmt.Errorf("decoding surface: %w", err)
 		}
 		surface.Points = append(surface.Points, &Point{X: p.X, Y: p.Y, Z: p.Z})
 	}
@@ -101,33 +94,13 @@ func (az *SurfaceBlobStore) Download(surfaceID string) (Surface, error) {
 	ctx := context.Background()
 	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
-		return surf, err
+		return surf, fmt.Errorf("downloading surface: %w", err)
 	}
 	fmt.Printf("Download: surfaceLength: %d bytes\n", downloadResponse.ContentLength())
 	retryReader := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
 	surf, err = decodeSurface(retryReader)
 	if err != nil {
-		fmt.Println("decode fail")
-	}
-	return surf, nil
-}
-
-func (s *SurfaceInMemoryStore) Download(surfaceID string) (Surface, error) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	var surf Surface
-	surface, ok := s.m[surfaceID]
-	if !ok {
-		return surf, fmt.Errorf("Surface not found")
-	}
-	buf := &bytes.Buffer{}
-	_, err := buf.Write(surface)
-	if err != nil {
-		return surf, err
-	}
-	surf, err = decodeSurface(buf)
-	if err != nil {
-		fmt.Println("decode fail")
+		return surf, fmt.Errorf("downloading surface: %w", err)
 	}
 	return surf, nil
 }
@@ -136,11 +109,12 @@ func (s *LocalFileStore) Download(surfaceID string) (Surface, error) {
 	var surf Surface
 	file, err := os.Open(path.Join(string(s.basePath), surfaceID))
 	if err != nil {
-		return surf, err
+		return surf, fmt.Errorf("downloading surface: %w", err)
 	}
 	surf, err = decodeSurface(file)
 	if err != nil {
-		fmt.Println("decode fail")
+
+		return surf, fmt.Errorf("downloading surface: %w", err)
 	}
 	return surf, nil
 }

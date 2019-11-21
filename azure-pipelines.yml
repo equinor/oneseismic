@@ -95,12 +95,9 @@ jobs:
           docker-compose push
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Push docker images'
-
-  - job: Integration_tests
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-    steps:
       - script: |
           docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Integration_tests'
 
 schedules:

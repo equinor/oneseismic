@@ -101,6 +101,7 @@ func (s *coreServer) StitchSurface(ctx context.Context, in *pb.SurfaceRequest) (
 	surf, err := ss.Download(in.Surfaceid)
 	if err != nil {
 		fmt.Println("surface download failed")
+		return nil, err
 	}
 
 	fmt.Println("size of surface is ", len(surf.Points))
