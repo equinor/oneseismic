@@ -2,10 +2,8 @@ trigger:
   - master
   - release
 
-resources:
-  containers:
-    - container: b1
-      image: lambdaville/go-python:latest
+pool:
+  vmImage: 'ubuntu-18.04'
 
 jobs:
   - job: Build_Core
@@ -39,45 +37,53 @@ jobs:
   - job: Build_API
     container: b1
     variables:
-      GOPATH: $(Pipeline.Workspace)/go
+      GOPATH: '$(system.defaultWorkingDirectory)/gopath'
       TEST_COVERAGE_LIMIT: 35
     steps:
+      - bash: |
+          echo "##vso[task.prependpath]$(GOPATH)/bin"
+        displayName: Update PATH
+
+      - task: GoTool@0
+        inputs:
+          version: '1.13.4'
+          goPath: '$(GOPATH)'
+          goBin: '$(GOPATH)/bin'
+
       - script: |
           go mod download
         displayName: 'Download modules'
         workingDirectory: api
 
       - script: |
+          sudo apt-get install -y protobuf-compiler
+          go get -u github.com/golang/protobuf/protoc-gen-go
+
           protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
         displayName: 'Generating grpc client stubs'
         workingDirectory: api
 
       - script: |
-          protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
-        displayName: 'Generating grpc server stubs'
-        workingDirectory: corestub
-
-      - script: |
-          swag init
-        displayName: Generate docs
-        workingDirectory: api
-
-      - script: |
-          go build -tags prod
-        displayName: 'Build api'
-        workingDirectory: api
-
-      - script: |
-          go build
-        displayName: 'Build corestub'
-        workingDirectory: corestub
-
-      - script: |
-          go test -race -v ./...
+          go test -race ./...
         workingDirectory: api
         displayName: 'Run unit tests'
 
       - script: |
+          go build
+        workingDirectory: api
+        displayName: 'Build api'
+
+      - script: |
+          go get github.com/swaggo/swag/cmd/swag
+          swag init
+        workingDirectory: api
+        displayName: 'Generate OpenAPI spec'
+
+      - script: |
+          go get github.com/jstemmer/go-junit-report
+          go get github.com/axw/gocov/gocov
+          go get github.com/AlekSi/gocov-xml
+          go get github.com/matm/gocov-html
           go test -v -coverprofile=coverage.txt -covermode count 2>&1 ./... | go-junit-report > report.xml
           gocov convert coverage.txt > coverage.json
           gocov-xml < coverage.json > coverage.xml
@@ -105,18 +111,22 @@ jobs:
         displayName: 'Coverage limit'
         workingDirectory: api
 
-  - job: docker_push
+  - job: Integration_tests
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     steps:
       - script: |
           docker-compose build
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        displayName: 'Build docker images'
+      - script: |
+          docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        displayName: 'Run integration tests'
+      - script: |
           echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
           docker-compose push
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Push docker images'
-      - script: |
-          docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-        displayName: 'Integration_tests'
 
 schedules:
   - cron: '0 6 * * *'

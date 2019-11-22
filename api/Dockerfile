@@ -1,4 +1,6 @@
-FROM golang as builder
+FROM golang:alpine as builder
+RUN apk update && apk upgrade && apk add --no-cache ca-certificates
+RUN update-ca-certificates
 
 WORKDIR /src
 COPY go.mod .

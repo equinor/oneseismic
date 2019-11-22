@@ -1,4 +1,4 @@
-FROM golang as builder
+FROM golang:alpine as builder
 
 WORKDIR /src
 COPY go.mod .
@@ -9,7 +9,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s"  -o /bin/sc-
 
 FROM scratch as deploy
 COPY --from=builder /bin/sc-corestub /bin/sc-corestub
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 EXPOSE 10000
 ENTRYPOINT ["sc-corestub","serve"]
