@@ -5,6 +5,11 @@ trigger:
 pool:
   vmImage: 'ubuntu-18.04'
 
+variables:
+  GOPATH: '$(system.defaultWorkingDirectory)/gopath'
+  GOVERSION: '1.13.4'
+  TEST_COVERAGE_LIMIT: 35
+
 jobs:
   - job: Build_Core
     steps:
@@ -46,15 +51,9 @@ jobs:
 
       - task: GoTool@0
         inputs:
-          version: '1.13.4'
+          version: '$(GOVERSION)'
           goPath: '$(GOPATH)'
           goBin: '$(GOPATH)/bin'
-
-      - script: |
-          go mod download
-        displayName: 'Download modules'
-        workingDirectory: api
-
       - script: |
           sudo apt-get install -y protobuf-compiler
           go get -u github.com/golang/protobuf/protoc-gen-go
@@ -62,22 +61,45 @@ jobs:
           protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
         displayName: 'Generating grpc client stubs'
         workingDirectory: api
-
       - script: |
-          go test -race ./...
+          go get github.com/swaggo/swag/cmd/swag
+          swag init
         workingDirectory: api
-        displayName: 'Run unit tests'
+        displayName: 'Generate OpenAPI spec'
 
       - script: |
           go build
         workingDirectory: api
         displayName: 'Build api'
 
+  - job: Run_unit_tests
+    steps:
+      - bash: |
+          echo "##vso[task.prependpath]$(GOPATH)/bin"
+        displayName: Update PATH
+
+      - task: GoTool@0
+        inputs:
+          version: '$(GOVERSION)'
+          goPath: '$(GOPATH)'
+          goBin: '$(GOPATH)/bin'
+
       - script: |
-          go get github.com/swaggo/swag/cmd/swag
-          swag init
+          go test -race ./...
         workingDirectory: api
-        displayName: 'Generate OpenAPI spec'
+        displayName: 'Run unit tests'
+
+  - job: Test_coverage
+    steps:
+      - bash: |
+          echo "##vso[task.prependpath]$(GOPATH)/bin"
+        displayName: Update PATH
+
+      - task: GoTool@0
+        inputs:
+          version: '$(GOVERSION)'
+          goPath: '$(GOPATH)'
+          goBin: '$(GOPATH)/bin'
 
       - script: |
           go get github.com/jstemmer/go-junit-report
