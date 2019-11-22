@@ -9,8 +9,8 @@ import (
 	"math"
 	"net"
 
-	pb "github.com/equinor/seismic-cloud/corestub/proto"
-	"github.com/equinor/seismic-cloud/corestub/store"
+	pb "github.com/equinor/seismic-cloud-api/corestub/proto"
+	"github.com/equinor/seismic-cloud-api/corestub/store"
 	"google.golang.org/grpc"
 )
 

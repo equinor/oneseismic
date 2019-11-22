@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/equinor/seismic-cloud/api/config"
+	"github.com/equinor/seismic-cloud-api/api/config"
 )
 
 var MajVer, MinVer, PatchVer string

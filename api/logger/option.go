@@ -1,6 +1,6 @@
 package logger
 
-import "github.com/equinor/seismic-cloud/api/events"
+import "github.com/equinor/seismic-cloud-api/api/events"
 
 type LogEventOption interface {
 	apply(*events.Event)

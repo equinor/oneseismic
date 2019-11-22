@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/equinor/seismic-cloud-api/api/service/store"
 	"github.com/stretchr/testify/assert"
 )
 

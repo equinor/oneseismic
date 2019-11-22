@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/equinor/seismic-cloud/api/cmd"
-	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/equinor/seismic-cloud-api/api/cmd"
+	l "github.com/equinor/seismic-cloud-api/api/logger"
 	jww "github.com/spf13/jwalterweatherman"
 )
 

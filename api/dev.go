@@ -7,7 +7,7 @@ import (
 	"log"
 	"os/exec"
 
-	"github.com/equinor/seismic-cloud/api/config"
+	"github.com/equinor/seismic-cloud-api/api/config"
 )
 
 func init() {

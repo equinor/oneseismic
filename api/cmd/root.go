@@ -3,9 +3,9 @@ package cmd
 import (
 	"os"
 
-	l "github.com/equinor/seismic-cloud/api/logger"
+	l "github.com/equinor/seismic-cloud-api/api/logger"
 
-	"github.com/equinor/seismic-cloud/api/config"
+	"github.com/equinor/seismic-cloud-api/api/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/equinor/seismic-cloud/api/events"
-	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/equinor/seismic-cloud-api/api/events"
+	"github.com/equinor/seismic-cloud-api/api/service/store"
 	"google.golang.org/grpc"
 	"gotest.tools/assert"
 )

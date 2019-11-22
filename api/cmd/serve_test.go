@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/equinor/seismic-cloud/api/config"
-	"github.com/equinor/seismic-cloud/api/server"
-	"github.com/equinor/seismic-cloud/api/service"
-	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/equinor/seismic-cloud-api/api/config"
+	"github.com/equinor/seismic-cloud-api/api/server"
+	"github.com/equinor/seismic-cloud-api/api/service"
+	"github.com/equinor/seismic-cloud-api/api/service/store"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/mock"
 )

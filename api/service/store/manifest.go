@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/equinor/seismic-cloud-api/api/events"
+	l "github.com/equinor/seismic-cloud-api/api/logger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

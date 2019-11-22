@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/equinor/seismic-cloud/api/config"
-	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/equinor/seismic-cloud-api/api/config"
+	"github.com/equinor/seismic-cloud-api/api/events"
+	l "github.com/equinor/seismic-cloud-api/api/logger"
 )
 
 type (
