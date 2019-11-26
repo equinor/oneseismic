@@ -68,6 +68,7 @@ jobs:
         displayName: 'Generate OpenAPI spec'
 
       - script: |
+          git config --global url."https://$(GITHUB_TOKEN):x-oauth-basic@github.com/equinor".insteadOf "https://github.com/equinor"
           go build
         workingDirectory: api
         displayName: 'Build api'
@@ -85,6 +86,7 @@ jobs:
           goBin: '$(GOPATH)/bin'
 
       - script: |
+          git config --global url."https://$(GITHUB_TOKEN):x-oauth-basic@github.com/equinor".insteadOf "https://github.com/equinor"
           go test -race ./...
         workingDirectory: api
         displayName: 'Run unit tests'
@@ -102,6 +104,7 @@ jobs:
           goBin: '$(GOPATH)/bin'
 
       - script: |
+          git config --global url."https://$(GITHUB_TOKEN):x-oauth-basic@github.com/equinor".insteadOf "https://github.com/equinor"
           go get github.com/jstemmer/go-junit-report
           go get github.com/axw/gocov/gocov
           go get github.com/AlekSi/gocov-xml
