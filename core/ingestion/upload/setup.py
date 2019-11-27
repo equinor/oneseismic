@@ -10,11 +10,16 @@ setuptools.setup(
     install_requires = [
         'segyio',
         'numpy',
+        'azure-storage',
     ],
 
     setup_requires = [
+        'pytest-runner',
     ],
 
     tests_require = [
+        'pytest',
+        'hypothesis',
+        'segyio',
     ],
 )
