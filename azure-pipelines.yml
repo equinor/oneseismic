@@ -139,7 +139,7 @@ jobs:
     # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     steps:
       - script: |
-          docker-compose build --build-arg GITHUB_TOKEN=$(GITHUB_TOKEN)
+          GITHUB_TOKEN=$(GITHUB_TOKEN) docker-compose build
         # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Build docker images'
       - script: |
