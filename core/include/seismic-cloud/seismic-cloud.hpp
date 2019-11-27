@@ -1,6 +1,7 @@
 #ifndef SEISMIC_CLOUD_HPP
 #define SEISMIC_CLOUD_HPP
 
+#include <iostream>
 #include <vector>
 
 namespace sc {
@@ -75,6 +76,11 @@ struct basic_point : triple_comparison< Point > {
     basic_point() noexcept (true) = default;
     basic_point(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
         x(x), y(y), z(z) {}
+
+    friend std::ostream&
+    operator << (std::ostream& o, const basic_point< Point >& p) {
+        return o << "(" << p.x << ", " << p.y << ", " << p.z << ")";
+    }
 };
 
 struct cube_point : basic_point< cube_point > {
