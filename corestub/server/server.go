@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
-	"os"
 
 	"fmt"
 	"log"
@@ -162,13 +161,9 @@ func (s *coreServer) ShatterLink(ctx context.Context, in *pb.ShatterLinkRequest)
 	return nil, nil
 }
 
-func StartServer(hostAddr string) {
+func StartServer(hostAddr string, surfaceStore store.SurfaceStore) {
 
-	var err error
-	ss, err = store.NewSurfaceStore(surfaceStoreConfig())
-	if err != nil {
-		panic(fmt.Errorf("No surface store, error: %v", err))
-	}
+	ss = surfaceStore
 
 	cs := &coreServer{storeAddr: ""}
 
@@ -181,22 +176,4 @@ func StartServer(hostAddr string) {
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterCoreServer(grpcServer, cs)
 	grpcServer.Serve(lis)
-}
-
-func surfaceStoreConfig() interface{} {
-
-	if len(os.Getenv("AZURE_STORAGE_ACCOUNT")) > 0 && len(os.Getenv("AZURE_STORAGE_ACCESS_KEY")) > 0 {
-		return store.AzureBlobSettings{
-			AccountName:   os.Getenv("AZURE_STORAGE_ACCOUNT"),
-			AccountKey:    os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
-			ContainerName: "scblob",
-		}
-	}
-
-	if len(os.Getenv("LOCAL_SURFACE_PATH")) > 0 {
-		return store.BasePath(os.Getenv("LOCAL_SURFACE_PATH"))
-	}
-
-	return store.BasePath("/tmp/")
-
 }

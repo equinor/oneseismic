@@ -55,7 +55,6 @@ jobs:
           goPath: '$(GOPATH)'
           goBin: '$(GOPATH)/bin'
       - script: |
-          git config --global url."https://$(GITHUB_TOKEN):x-oauth-basic@github.com/equinor".insteadOf "https://github.com/equinor"
           sudo apt-get install -y protobuf-compiler
           go get -u github.com/golang/protobuf/protoc-gen-go
           protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
