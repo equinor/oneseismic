@@ -2,6 +2,8 @@
 #define SEISMIC_CLOUD_HPP
 
 #include <iostream>
+#include <iterator>
+#include <tuple>
 #include <vector>
 
 namespace sc {
@@ -112,6 +114,10 @@ struct frag_dim : basic_dim< cube_dim > {
     std::size_t to_offset(frag_point p) const noexcept (true);
 };
 
+struct dimension {
+    // TODO: add assert on construction that v <= supported dimensions?
+    std::size_t v;
+};
 
 /*
  * Map between different reference systems
@@ -177,6 +183,17 @@ class cubecoords {
          * get the ID of the fragment that contains the global coordinate
          */
         fragment_id frag_id(cube_point) const noexcept (true);
+
+        /*
+         * get the fragment-IDs for a slice through the cube. Please note that
+         * this operates on fragment grid resolution, so the pin refers to the
+         * *fragment*, not the line.
+         */
+        std::vector< fragment_id >
+        slice(dimension dim, std::size_t pin)
+        noexcept (false);
+
+        std::size_t size(dimension) const noexcept (false);
 
         /*
          * map a fragment and coordinate-in-fragment to the global coordinate

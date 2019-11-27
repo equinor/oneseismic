@@ -3,6 +3,7 @@
 #include <seismic-cloud/seismic-cloud.hpp>
 #include "generators.hpp"
 
+using namespace Catch::Matchers;
 
 SCENARIO( "Converting between global and local coordinates" ) {
 
@@ -86,4 +87,90 @@ SCENARIO( "Converting between global and local coordinates" ) {
             }
         }
     }
+}
+
+TEST_CASE("Generate the fragments capturing an inline") {
+    auto cube = sc::cubecoords {
+        sc::cube_dim { 9, 15, 23 },
+        sc::frag_dim { 3,  9,  5 },
+    };
+
+    CHECK(cube.size(sc::dimension{0}) == 3);
+    CHECK(cube.size(sc::dimension{1}) == 2);
+    CHECK(cube.size(sc::dimension{2}) == 5);
+
+    const auto expected = std::vector< sc::fragment_id > {
+        sc::fragment_id { 0, 0, 0 },
+        sc::fragment_id { 0, 0, 1 },
+        sc::fragment_id { 0, 0, 2 },
+        sc::fragment_id { 0, 0, 3 },
+        sc::fragment_id { 0, 0, 4 },
+        sc::fragment_id { 0, 1, 0 },
+        sc::fragment_id { 0, 1, 1 },
+        sc::fragment_id { 0, 1, 2 },
+        sc::fragment_id { 0, 1, 3 },
+        sc::fragment_id { 0, 1, 4 },
+    };
+
+    const auto result = cube.slice(sc::dimension{0}, 0);
+    CHECK_THAT(result, Equals(expected));
+}
+
+TEST_CASE("Generate the fragments capturing a crossline") {
+    auto cube = sc::cubecoords {
+        sc::cube_dim { 9, 15, 23 },
+        sc::frag_dim { 3,  9,  5 },
+    };
+
+    CHECK(cube.size(sc::dimension{0}) == 3);
+    CHECK(cube.size(sc::dimension{1}) == 2);
+    CHECK(cube.size(sc::dimension{2}) == 5);
+
+    const auto expected = std::vector< sc::fragment_id > {
+        sc::fragment_id { 0, 1, 0 },
+        sc::fragment_id { 0, 1, 1 },
+        sc::fragment_id { 0, 1, 2 },
+        sc::fragment_id { 0, 1, 3 },
+        sc::fragment_id { 0, 1, 4 },
+
+        sc::fragment_id { 1, 1, 0 },
+        sc::fragment_id { 1, 1, 1 },
+        sc::fragment_id { 1, 1, 2 },
+        sc::fragment_id { 1, 1, 3 },
+        sc::fragment_id { 1, 1, 4 },
+
+        sc::fragment_id { 2, 1, 0 },
+        sc::fragment_id { 2, 1, 1 },
+        sc::fragment_id { 2, 1, 2 },
+        sc::fragment_id { 2, 1, 3 },
+        sc::fragment_id { 2, 1, 4 },
+    };
+
+    const auto result = cube.slice(sc::dimension{1}, 1);
+    CHECK_THAT(result, Equals(expected));
+}
+
+TEST_CASE("Generate the fragments capturing a time slice") {
+    auto cube = sc::cubecoords {
+        sc::cube_dim { 9, 15, 23 },
+        sc::frag_dim { 3,  9,  5 },
+    };
+
+    CHECK(cube.size(sc::dimension{0}) == 3);
+    CHECK(cube.size(sc::dimension{1}) == 2);
+    CHECK(cube.size(sc::dimension{2}) == 5);
+
+    const auto expected = std::vector< sc::fragment_id > {
+        sc::fragment_id { 0, 0, 3 },
+        sc::fragment_id { 0, 1, 3 },
+
+        sc::fragment_id { 1, 0, 3 },
+        sc::fragment_id { 1, 1, 3 },
+
+        sc::fragment_id { 2, 0, 3 },
+        sc::fragment_id { 2, 1, 3 },
+    };
+
+    const auto result = cube.slice(sc::dimension{2}, 3);
+    CHECK_THAT(result, Equals(expected));
 }
