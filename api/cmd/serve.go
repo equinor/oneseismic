@@ -198,16 +198,20 @@ func runServe(cmd *cobra.Command, args []string) {
 		l.LogI(op, "Switch log sink from os.Stdout to psqlDB")
 		db, err := l.DbOpener(config.LogDBConnStr())
 		if err != nil {
-			l.LogE(op, "Unable to connect to log db", err)
+			l.LogE(op, "Opening db", err)
 			return
 		}
-		l.SetLogSink(db, events.DebugLevel)
+		err = l.SetLogSink(db, events.DebugLevel)
+		if err != nil {
+			l.LogE(op, "Switching log sink", err)
+			return
+		}
 
 	}
 
 	opts, err := createHTTPServerOptions()
 	if err != nil {
-		l.LogE(op, "Error creating http server options", err)
+		l.LogE(op, "Creating http server options", err)
 		os.Exit(1)
 	}
 

@@ -24,50 +24,50 @@ type ManifestStore interface {
 
 type (
 	manifestFileStore struct {
-		localStore LocalFileStore
+		localStore *LocalFileStore
 	}
 
 	manifestInMemoryStore struct {
-		inMemoryStore InMemoryStore
+		inMemoryStore *InMemoryStore
 	}
 
 	manifestDbStore struct {
-		dbStore MongoDbStore
+		dbStore *MongoDbStore
 	}
 
 	manifestBlobStore struct {
-		blobStore AzBlobStore
+		blobStore *AzBlobStore
 	}
 )
 
 func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 	const op = events.Op("store.NewManifestStore")
-	switch persistance.(type) {
+	switch persistance := persistance.(type) {
 	case map[string][]byte:
-		s, err := NewInMemoryStore(persistance.(map[string][]byte))
+		s, err := NewInMemoryStore(persistance)
 		if err != nil {
 			return nil, events.E(op, "new inmem store", err)
 		}
-		return &manifestInMemoryStore{inMemoryStore: *s}, nil
+		return &manifestInMemoryStore{inMemoryStore: s}, nil
 	case AzureBlobSettings:
-		azbs := persistance.(AzureBlobSettings)
-		s, err := NewAzBlobStore(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
+
+		s, err := NewAzBlobStore(persistance.AccountName, persistance.AccountKey, persistance.ContainerName)
 		if err != nil {
 			return nil, events.E(op, "new azure blob store", err)
 		}
-		return &manifestBlobStore{blobStore: *s}, nil
+		return &manifestBlobStore{blobStore: s}, nil
 	case ConnStr:
-		s, err := NewMongoDbStore(persistance.(ConnStr))
+		s, err := NewMongoDbStore(persistance)
 		if err != nil {
 			return nil, events.E(op, "new mongo db store", err)
 		}
-		return &manifestDbStore{dbStore: *s}, nil
+		return &manifestDbStore{dbStore: s}, nil
 	case BasePath:
-		s, err := NewLocalFileStore(persistance.(BasePath))
+		s, err := NewLocalFileStore(persistance)
 		if err != nil {
 			return nil, events.E(op, "new local store", err)
 		}
-		return &manifestFileStore{localStore: *s}, nil
+		return &manifestFileStore{localStore: s}, nil
 	default:
 		return nil, events.E(op, "No manifest store persistance selected")
 	}
@@ -106,17 +106,18 @@ func (s *manifestBlobStore) Fetch(ctx context.Context, id string) (Manifest, err
 	blobURL := az.containerURL.NewBlockBlobURL(id)
 	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
-		l.LogW(string(op), "Manifest download failed:", l.Wrap(err), l.Kind(events.NotFound))
-		return mani, err
+		return mani, events.E(op, "Manifest download ", err)
 	}
 	l.LogI(string(op), fmt.Sprintf("Download: manifestLength: %d bytes\n", downloadResponse.ContentLength()))
 	retryReader := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(retryReader)
+	buf := &bytes.Buffer{}
+	_, err = buf.ReadFrom(retryReader)
+	if err != nil {
+		return mani, events.E(op, "Buffer read", err)
+	}
 	err = json.Unmarshal(buf.Bytes(), &mani)
 	if err != nil {
-		l.LogW(string(op), "Manifest unmarshal failed:", l.Wrap(err), l.Kind(events.NotFound))
-		return mani, err
+		return mani, events.E(op, "Manifest unmarshal", err)
 	}
 	return mani, nil
 }
@@ -131,9 +132,14 @@ func (s *manifestDbStore) Fetch(ctx context.Context, id string) (Manifest, error
 	if err != nil {
 		return res, err
 	}
-	defer client.Disconnect(dbCtx)
+	defer func() {
+		err := client.Disconnect(dbCtx)
+		if err != nil {
+			l.LogE(string(op), "Disconnect manifest store", err)
+		}
+	}()
 	collection := client.Database("seismiccloud").Collection("manifests")
-	err = collection.FindOne(dbCtx, bson.D{{"basename", id}}).Decode(&res)
+	err = collection.FindOne(dbCtx, bson.D{bson.E{Key: "basename", Value: id}}).Decode(&res)
 	if err != nil {
 		return res, events.E(op, "Finding and unmarshaling to Manifest", err, events.Marshalling)
 	}
@@ -207,7 +213,12 @@ func (s *manifestDbStore) List(ctx context.Context) ([]Manifest, error) {
 	if err != nil {
 		return res, err
 	}
-	defer client.Disconnect(dbCtx)
+	defer func() {
+		err := client.Disconnect(dbCtx)
+		if err != nil {
+			l.LogE(string(op), "Disconnect manifest store", err)
+		}
+	}()
 	collection := client.Database("seismiccloud").Collection("manifests")
 	find, err := collection.Find(dbCtx, bson.D{})
 	if err != nil {

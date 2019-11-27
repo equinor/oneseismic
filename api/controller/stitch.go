@@ -13,7 +13,7 @@ import (
 // @Description post surface query to stitch
 // @Produce  application/octet-stream
 // @Param   some_id     path    string     true        "Some ID"
-// @Success 200 {object} controller.fileBytes OK
+// @Success 200 {object} controller.Bytes OK
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 400 {object} controller.APIError "Surface id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"

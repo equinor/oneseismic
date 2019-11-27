@@ -7,10 +7,7 @@ definitions:
       errorMessage:
         type: string
     type: object
-  controller.bloburl:
-    items: {}
-    type: array
-  controller.fileBytes:
+  controller.Bytes:
     items: {}
     type: array
 host: '{{.Host}}'
@@ -30,7 +27,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controller.fileBytes'
+            $ref: '#/definitions/controller.Bytes'
             type: object
         "502":
           description: Internal Server Error
@@ -52,38 +49,9 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controller.fileBytes'
+            $ref: '#/definitions/controller.Bytes'
             type: object
         "502":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/controller.APIError'
-            type: object
-  /stitch/{manifest_id}:
-    post:
-      consumes:
-      - application/octet-stream
-      description: post surface query to stitch
-      parameters:
-      - description: Some ID
-        in: path
-        name: some_id
-        required: true
-        type: string
-      produces:
-      - application/octet-stream
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/controller.fileBytes'
-            type: object
-        "400":
-          description: Manifest id not found
-          schema:
-            $ref: '#/definitions/controller.APIError'
-            type: object
-        "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
@@ -103,7 +71,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controller.fileBytes'
+            $ref: '#/definitions/controller.Bytes'
             type: object
         "400":
           description: Surface id not found
@@ -124,9 +92,8 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controller.fileBytes'
-            type: object
-        "502":
+            type: string
+        "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
@@ -146,7 +113,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controller.fileBytes'
+            $ref: '#/definitions/controller.Bytes'
+            type: object
+        "404":
+          description: Not found
+          schema:
+            $ref: '#/definitions/controller.APIError'
             type: object
         "502":
           description: Internal Server Error
@@ -169,7 +141,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/controller.bloburl'
+            $ref: '#/definitions/controller.Bytes'
             type: object
         "500":
           description: Internal Server Error

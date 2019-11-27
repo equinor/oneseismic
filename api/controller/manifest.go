@@ -20,7 +20,7 @@ func NewManifestController(ms store.ManifestStore) *ManifestController {
 
 // @Description get list of available manifests
 // @Produce  application/json
-// @Success 200 {object} controller.fileBytes OK
+// @Success 200 {object} controller.Bytes OK
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @Router /manifest/ [get]
 func (msc *ManifestController) List(ctx iris.Context) {
@@ -29,24 +29,26 @@ func (msc *ManifestController) List(ctx iris.Context) {
 	info, err := msc.ms.List(bgctx)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
-		l.LogE(op, "Files can't be listed", err)
+		l.LogE(op, "Get manifests", err)
 		return
 	}
 
 	if len(info) > 0 {
 		ctx.Header("Content-Type", "application/json")
-		ctx.JSON(info)
-	} else {
-		ctx.StatusCode(http.StatusNotFound)
-		ctx.Header("Content-Type", "text/plain")
-		ctx.WriteString("No valid manifests in store")
+		_, err = ctx.JSON(info)
+		if err != nil {
+			ctx.StatusCode(http.StatusInternalServerError)
+			l.LogE(op, "JSON Encoding manifests", err)
+			return
+
+		}
 	}
 }
 
 // @Description get manifest file
 // @Produce  application/octet-stream
 // @Param   surfaceID  path    string     true        "File ID"
-// @Success 200 {object} controller.fileBytes OK
+// @Success 200 {object} controller.Bytes OK
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @Router /manifest/{manifest_id} [get]
 func (msc *ManifestController) Fetch(ctx iris.Context) {
@@ -63,6 +65,7 @@ func (msc *ManifestController) Fetch(ctx iris.Context) {
 	ctx.Header("Content-Type", "application/json")
 	_, err = ctx.JSON(manifest)
 	if err != nil {
+		ctx.StatusCode(http.StatusInternalServerError)
 		l.LogE(op, fmt.Sprintf("Error writing to response, manifestID %s", manifestID), err)
 		return
 	}

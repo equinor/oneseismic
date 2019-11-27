@@ -1,12 +1,10 @@
 package controller
 
 import (
-	"bytes"
 	goctx "context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -37,17 +35,13 @@ type MockStitch struct {
 	mock.Mock
 }
 
-func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error) {
+func (m *MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error) {
 	_, err := io.Copy(out, strings.NewReader(surfaceID))
 	args := m.Called(ctx, ms, out, surfaceID)
 	if err != nil {
 		return "", err
 	}
 	return args.String(0), args.Error(1)
-}
-
-func NewSurfaceTestGetRequest(surfaceData []byte) *http.Request {
-	return httptest.NewRequest("GET", "/surface", ioutil.NopCloser(bytes.NewReader(surfaceData)))
 }
 
 func NewTestManifest() store.Manifest {
@@ -67,13 +61,13 @@ type TestSetup struct {
 	ManifestStore      store.ManifestStore
 	SurfaceController  *SurfaceController
 	ManifestController *ManifestController
-	Stitch             MockStitch
+	Stitch             *MockStitch
 	Ctx                irisCtx.Context
 	Recorder           *httptest.ResponseRecorder
 }
 
 func NewTestSetup() *TestSetup {
-	stitch := MockStitch{}
+	stitch := &MockStitch{}
 	ctx := NewTestingContext()
 	ms, _ := NewTestingManifestStore()
 	recorder := httptest.NewRecorder()
@@ -93,11 +87,11 @@ func JSONManifest(m store.Manifest) []byte {
 }
 
 func (ts *TestSetup) AddSurface(surfaceID string, userID string, surface io.Reader) {
-	ts.SurfaceStore.Upload(goctx.Background(), surfaceID, userID, surface)
+	_, _ = ts.SurfaceStore.Upload(goctx.Background(), surfaceID, userID, surface)
 }
 
 func (ts *TestSetup) BeginRequest(r *http.Request) {
-	r.ParseForm()
+	_ = r.ParseForm()
 	ts.Ctx.BeginRequest(ts.Recorder, r)
 }
 

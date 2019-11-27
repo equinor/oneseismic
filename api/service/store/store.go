@@ -75,9 +75,12 @@ func NewLocalFileStore(basePath BasePath) (*LocalFileStore, error) {
 	}
 
 	if _, err := os.Stat(basePathStr); os.IsNotExist(err) {
-		os.MkdirAll(basePathStr, 0700)
+		err = os.MkdirAll(basePathStr, 0700)
+		if err != nil {
+			return nil, events.E(op, "Make basePath", err)
+		}
 	} else if err != nil {
-		return nil, events.E(op, "accessing basePath failed", err)
+		return nil, events.E(op, "accessing basePath", err)
 	}
 
 	return &LocalFileStore{basePath}, nil

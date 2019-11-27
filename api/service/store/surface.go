@@ -32,40 +32,40 @@ type SurfaceMeta struct {
 
 type (
 	surfaceFileStore struct {
-		localStore LocalFileStore
+		localStore *LocalFileStore
 	}
 
 	surfaceBlobStore struct {
-		blobStore AzBlobStore
+		blobStore *AzBlobStore
 	}
 
 	surfaceInMemoryStore struct {
-		inMemoryStore InMemoryStore
+		inMemoryStore *InMemoryStore
 	}
 )
 
 func NewSurfaceStore(persistance interface{}) (SurfaceStore, error) {
 	const op = events.Op("store.NewSurfaceStore")
-	switch persistance.(type) {
+	switch pers := persistance.(type) {
 	case map[string][]byte:
-		s, err := NewInMemoryStore(persistance.(map[string][]byte))
+		s, err := NewInMemoryStore(pers)
 		if err != nil {
 			return nil, events.E(op, "new inmem store", err)
 		}
-		return &surfaceInMemoryStore{inMemoryStore: *s}, nil
+		return &surfaceInMemoryStore{inMemoryStore: s}, nil
 	case AzureBlobSettings:
-		azbs := persistance.(AzureBlobSettings)
-		s, err := NewAzBlobStore(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
+
+		s, err := NewAzBlobStore(pers.AccountName, pers.AccountKey, pers.ContainerName)
 		if err != nil {
 			return nil, events.E(op, "new azure blob store", err)
 		}
-		return &surfaceBlobStore{blobStore: *s}, nil
+		return &surfaceBlobStore{blobStore: s}, nil
 	case BasePath:
-		s, err := NewLocalFileStore(persistance.(BasePath))
+		s, err := NewLocalFileStore(pers)
 		if err != nil {
 			return nil, events.E(op, "new local store", err)
 		}
-		return &surfaceFileStore{localStore: *s}, nil
+		return &surfaceFileStore{localStore: s}, nil
 	default:
 		return nil, events.E(op, "No surface store selected")
 	}

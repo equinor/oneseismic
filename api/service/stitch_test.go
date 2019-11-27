@@ -8,14 +8,8 @@ import (
 
 	"github.com/equinor/seismic-cloud-api/api/events"
 	"github.com/equinor/seismic-cloud-api/api/service/store"
-	"google.golang.org/grpc"
 	"gotest.tools/assert"
 )
-
-type mockGRPCStitch struct {
-	grpcAddr string
-	opts     []grpc.DialOption
-}
 
 func TestEncodeManifest(t *testing.T) {
 	want := store.Manifest{

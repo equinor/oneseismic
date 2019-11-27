@@ -19,9 +19,9 @@ type Stitcher interface {
 
 func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 	op := events.Op("service.NewStich")
-	switch stype.(type) {
+	switch stitcher := stype.(type) {
 	case GrpcOpts:
-		addr := stype.(GrpcOpts).Addr
+		addr := stitcher.Addr
 		opts := make([]grpc.DialOption, 0)
 		if stype.(GrpcOpts).Insecure {
 			opts = append(opts, grpc.WithInsecure())

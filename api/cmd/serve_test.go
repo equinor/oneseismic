@@ -21,7 +21,7 @@ import (
 
 var url = "localhost:8080"
 
-func (m MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error) {
+func (m *MockStitch) Stitch(ctx goctx.Context, ms store.Manifest, out io.Writer, surfaceID string) (string, error) {
 	_, err := io.Copy(out, strings.NewReader(surfaceID))
 	args := m.Called(ctx, ms, out, surfaceID)
 	if err != nil {
@@ -46,7 +46,7 @@ func createHTTPServerOptionsTest() []server.HTTPServerOption {
 	opts := []server.HTTPServerOption{
 		server.WithManifestStore(ms),
 		server.WithSurfaceStore(ss),
-		server.WithStitcher(MockStitch{}),
+		server.WithStitcher(&MockStitch{}),
 		server.WithHostAddr(url),
 		server.WithHTTPOnly()}
 
@@ -56,7 +56,7 @@ func createHTTPServerOptionsTest() []server.HTTPServerOption {
 func waitForServer(url string, timeout time.Duration) error {
 	ch := make(chan error, 1)
 	go func() {
-		for true {
+		for {
 			time.Sleep(time.Millisecond * 10)
 			res, err := http.Get(url)
 			if err == nil {
@@ -78,7 +78,10 @@ func TestServer(t *testing.T) {
 	opts := createHTTPServerOptionsTest()
 
 	go func() {
-		serve(opts)
+		err := serve(opts)
+		if err != nil {
+			t.Errorf("Serve %w", err)
+		}
 	}()
 	timeout := time.Second
 	httpURL := "http://" + url
@@ -124,12 +127,11 @@ func Test_stitchConfig(t *testing.T) {
 		setConfig func()
 		want      interface{}
 	}{
-		{"No stitchconfig", func() { return }, nil},
+		{"No stitchconfig", func() {}, nil},
 		{"GRPC stitchconfig",
 			func() {
-				viper.SetDefault("STITCH_GRPC_ADDR", "localhost:10000")
-				return
-			}, service.GrpcOpts{Addr: "localhost:10000", Insecure: true}},
+				viper.SetDefault("STITCH_GRPC_ADDR", "example.com:12345")
+			}, service.GrpcOpts{Addr: "example.com:12345", Insecure: true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

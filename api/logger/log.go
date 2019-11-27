@@ -323,6 +323,7 @@ func LogE(op, msg string, err error, opts ...LogEventOption) {
 	logToSink(e)
 }
 
+
 // LogC Critical
 func LogC(op, msg string, err error, opts ...LogEventOption) {
 	e := events.E(events.Op(op), events.CriticalLevel, err, msg).(*events.Event)

@@ -173,7 +173,10 @@ func ApiSecret() string {
 
 	if len(sec) < 8 {
 		b := make([]byte, 20)
-		rand.Read(b)
+		_, err := rand.Read(b)
+		if err != nil {
+			panic(err)
+		}
 		sec = string(b)
 	}
 	return sec
