@@ -117,7 +117,7 @@ add_executable(check_shatters src/check_shatters.cpp)
 target_link_libraries(check_shatters
     json
     clara
-    segyio
+    segyio::segyio
     ${OpenMP_EXE_LINKER_FLAGS}
     ${OpenMP_CXX_FLAGS}
 )
@@ -127,7 +127,7 @@ target_compile_options(check_shatters
 )
 
 add_executable(shatter src/shatter.cpp)
-target_link_libraries(shatter seismic-cloud json clara segyio)
+target_link_libraries(shatter seismic-cloud json clara segyio::segyio)
 
 add_executable(generate_surfaces src/generate_surfaces.cpp)
 target_link_libraries(generate_surfaces clara)
