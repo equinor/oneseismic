@@ -39,31 +39,3 @@ struct IjkGenerator : Catch::Generators::IGenerator< T > {
         return p;
     }
 };
-
-using PointGenerator = IjkGenerator< sc::point >;
-using PointGeneratorWrapper = Catch::Generators::GeneratorWrapper< sc::point >;
-
-PointGeneratorWrapper random_points() {
-    return PointGeneratorWrapper(std::make_unique< PointGenerator >());
-}
-
-PointGeneratorWrapper random_points( std::size_t x_max,
-                                     std::size_t y_max,
-                                     std::size_t z_max ) {
-    auto gen = std::make_unique< PointGenerator >(x_max, y_max, z_max);
-    return PointGeneratorWrapper(std::move(gen));
-}
-
-using DimensionGenerator = IjkGenerator< sc::dimension >;
-using DimensionGeneratorWrapper = Catch::Generators::GeneratorWrapper< sc::dimension >;
-
-DimensionGeneratorWrapper random_dimensions() {
-    return DimensionGeneratorWrapper(std::make_unique< DimensionGenerator >());
-}
-
-DimensionGeneratorWrapper random_dimensions(std::size_t x_max,
-                                            std::size_t y_max,
-                                            std::size_t z_max) {
-    auto gen = std::make_unique< DimensionGenerator >(x_max, y_max, z_max);
-    return DimensionGeneratorWrapper(std::move(gen));
-}
