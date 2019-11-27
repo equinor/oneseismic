@@ -1,7 +1,10 @@
 version: '3.0'
 services:
   corestub:
-    build: ../corestub
+    build:
+      context: ../corestub
+      args:
+        - GITHUB_TOKEN
     environment:
       - SC_GRPC_HOST_ADDR=0.0.0.0:10000
       - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces

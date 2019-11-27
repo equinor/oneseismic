@@ -1,5 +1,5 @@
 FROM golang:alpine as builder
-RUN apk update && apk upgrade && apk add --no-cache ca-certificates
+RUN apk update && apk upgrade && apk add --no-cache ca-certificates git
 RUN update-ca-certificates
 
 WORKDIR /src

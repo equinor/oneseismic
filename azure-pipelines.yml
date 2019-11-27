@@ -136,15 +136,15 @@ jobs:
         workingDirectory: api
 
   - job: Integration_tests
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     steps:
       - script: |
-          docker-compose build
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+          docker-compose build --build-arg GITHUB_TOKEN=$(GITHUB_TOKEN)
+        # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Build docker images'
       - script: |
-          docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+          GITHUB_TOKEN=$(GITHUB_TOKEN) docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
+        # condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Run integration tests'
       - script: |
           echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin

@@ -1,9 +1,12 @@
-version: "3.0"
+version: '3.0'
 services:
 
   corestub:
     image: lambdaville.azurecr.io/corestub:latest
-    build: corestub
+    build: 
+      context: corestub
+      args:
+        - GITHUB_TOKEN
 
   api:
     image: lambdaville.azurecr.io/api:latest
