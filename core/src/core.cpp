@@ -15,7 +15,7 @@ std::ostream& operator << (std::ostream& o, const dimension& rhs) {
     return o << "(" << rhs.x << ", " << rhs.y << ", " << rhs.z << ")";
 }
 
-cube_point root_point::operator + (frag_point p) const noexcept (true) {
+cube_point fragment_id::operator + (frag_point p) const noexcept (true) {
     return {
         this->x + p.x,
         this->y + p.y,
@@ -40,7 +40,7 @@ frag_point cubecoords::to_local(cube_point p) const noexcept (true) {
     };
 }
 
-cube_point cubecoords::to_global(root_point r, frag_point p)
+cube_point cubecoords::to_global(fragment_id r, frag_point p)
 const noexcept (true)
 {
     const auto cp = r + p;
@@ -50,7 +50,7 @@ const noexcept (true)
     return cp;
 }
 
-root_point cubecoords::root_of(cube_point p) const noexcept (true) {
+fragment_id cubecoords::frag_id(cube_point p) const noexcept (true) {
     assert(p.x < global_dims.x);
     assert(p.y < global_dims.y);
     assert(p.z < global_dims.z);
@@ -95,7 +95,7 @@ std::size_t get_offset(Point p, Dim dim) noexcept (true) {
 std::size_t cube_dim::to_offset(cube_point p) const noexcept (true) {
     return get_offset(p, *this);
 }
-std::size_t cube_dim::to_offset(root_point p) const noexcept (true) {
+std::size_t cube_dim::to_offset(fragment_id p) const noexcept (true) {
     return get_offset(p, *this);
 }
 std::size_t frag_dim::to_offset(frag_point p) const noexcept (true) {

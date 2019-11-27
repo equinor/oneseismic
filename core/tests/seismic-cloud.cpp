@@ -44,7 +44,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
             }
 
             THEN("The point can be converted back to global coordinates") {
-                auto root = co.root_of(p);
+                auto root = co.frag_id(p);
                 auto result = co.to_global(root, local);
                 CHECK(result == p);
             }
@@ -87,7 +87,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
             }
 
             THEN("The point can be converted back to global coordiantes") {
-                const auto root = co.root_of(p);
+                const auto root = co.frag_id(p);
                 const auto result = co.to_global(root, local);
                 CHECK(result == p);
             }
@@ -145,8 +145,8 @@ SCENARIO( "Converting between global and local coordinates" ) {
             }
 
             THEN("The point can be converted back to global coordinates") {
-                const auto root1 = co1.root_of(p1);
-                const auto root2 = co2.root_of(p2);
+                const auto root1 = co1.frag_id(p1);
+                const auto root2 = co2.frag_id(p2);
 
                 const auto result1 = co1.to_global(root1, local1);
                 const auto result2 = co2.to_global(root2, local2);
@@ -353,11 +353,11 @@ SCENARIO( "Converting from local to global offset" ) {
                                                              root );
 
             THEN( "The offsets are converted correctly" ) {
-                const std::size_t root_offset = 109*300*533 + 300*533 + 473;
-                CHECK( global_offset1 == root_offset );
-                CHECK( global_offset2 == root_offset + 9*533 + 13 );
-                CHECK( global_offset3 == root_offset + 21*300*533 + 29*533 );
-                CHECK( global_offset4 == root_offset + 3*300*533 + 3*533 + 3 );
+                const std::size_t frag_idfset = 109*300*533 + 300*533 + 473;
+                CHECK( global_offset1 == frag_idfset );
+                CHECK( global_offset2 == frag_idfset + 9*533 + 13 );
+                CHECK( global_offset3 == frag_idfset + 21*300*533 + 29*533 );
+                CHECK( global_offset4 == frag_idfset + 3*300*533 + 3*533 + 3 );
             }
         }
     }

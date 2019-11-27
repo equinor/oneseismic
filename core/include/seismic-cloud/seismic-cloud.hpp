@@ -87,9 +87,9 @@ struct frag_point : basic_point< frag_point > {
     constexpr static const char* name = "frag_point";
 };
 
-struct root_point : basic_point< root_point > {
+struct fragment_id : basic_point< fragment_id > {
     using basic_point::basic_point;
-    constexpr static const char* name = "root_point";
+    constexpr static const char* name = "fragment_id";
 
     cube_point operator + (frag_point) const noexcept (true);
 };
@@ -118,7 +118,7 @@ struct basic_dim : triple_comparison< Dim > {
 struct cube_dim : basic_dim< cube_dim > {
     using basic_dim::basic_dim;
     std::size_t to_offset(cube_point p) const noexcept (true);
-    std::size_t to_offset(root_point p) const noexcept (true);
+    std::size_t to_offset(fragment_id p) const noexcept (true);
 };
 
 struct frag_dim : basic_dim< cube_dim > {
@@ -193,14 +193,14 @@ class cubecoords {
         /*
          * get the root (fragment-ID) of any global coordinate
          */
-        root_point root_of(cube_point) const noexcept (true);
+        fragment_id frag_id(cube_point) const noexcept (true);
 
         /*
          * map a root and local coordinate to the global coordinate. This is
-         * the inverse operation of root_of and to_local,
-         * x == root_of(x) + to_local(x)
+         * the inverse operation of frag_id and to_local,
+         * x == frag_id(x) + to_local(x)
          */
-        cube_point to_global(root_point, frag_point) const noexcept (true);
+        cube_point to_global(fragment_id, frag_point) const noexcept (true);
 
         /*
          * get the point of an offset, assuming the cube is flattened to a
