@@ -43,7 +43,11 @@ frag_point cubecoords::to_local(cube_point p) const noexcept (true) {
 cube_point cubecoords::to_global(fragment_id r, frag_point p)
 const noexcept (true)
 {
-    const auto cp = r + p;
+    const auto cp = cube_point {
+        (r.x * this->fragment_dims.x) + p.x,
+        (r.y * this->fragment_dims.y) + p.y,
+        (r.z * this->fragment_dims.z) + p.z,
+    };
     assert(cp.x < this->global_dims.x);
     assert(cp.y < this->global_dims.y);
     assert(cp.z < this->global_dims.z);
@@ -57,9 +61,9 @@ fragment_id cubecoords::frag_id(cube_point p) const noexcept (true) {
 
     const auto frag = this->fragment_dims;
     return {
-        (p.x / frag.x) * frag.x,
-        (p.y / frag.y) * frag.y,
-        (p.z / frag.z) * frag.z,
+        p.x / frag.x,
+        p.y / frag.y,
+        p.z / frag.z,
     };
 }
 

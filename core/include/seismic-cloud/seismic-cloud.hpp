@@ -171,8 +171,8 @@ std::ostream& operator << (std::ostream& o, const dimension& rhs);
  *
  *
  * The global coordinate 3,4 would map to fragment 5, coordinates 1,1. Each
- * fragment is identified by it's root coordinate, the fragment-local 0,0 in
- * the top-left coorner.
+ * fragment is named and identified by its position in the grid of *fragments*,
+ * i.e. top-left fragment is (0,0), next to the right is (0,1) etc.
  *
  * Names
  * -----
@@ -183,10 +183,9 @@ std::ostream& operator << (std::ostream& o, const dimension& rhs);
  *  local, frag:
  *      The names local and frag always refer to the individual fragments
  *      (subcubes) and their dimensions
- *  root, anchor:
- *      The names root and anchors work as identifiers for individual
- *      fragments, and is the upper-left corner (0,0) in the global system of a
- *      specific fragment
+ *  frag_id, anchor:
+ *      IDs for fragments, which is also the coordinate of the fragment in the
+ *      (coarsened) grid of fragments.
  */
 class cubecoords {
     public:
@@ -197,14 +196,12 @@ class cubecoords {
          */
         frag_point to_local(cube_point) const noexcept (true);
         /*
-         * get the root (fragment-ID) of any global coordinate
+         * get the ID of the fragment that contains the global coordinate
          */
         fragment_id frag_id(cube_point) const noexcept (true);
 
         /*
-         * map a root and local coordinate to the global coordinate. This is
-         * the inverse operation of frag_id and to_local,
-         * x == frag_id(x) + to_local(x)
+         * map a fragment and coordinate-in-fragment to the global coordinate
          */
         cube_point to_global(fragment_id, frag_point) const noexcept (true);
 
