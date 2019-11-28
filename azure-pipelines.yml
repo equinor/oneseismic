@@ -11,13 +11,6 @@ jobs:
   - job: Build_Core
     steps:
       - script: |
-          git clone https://github.com/equinor/segyio
-          mkdir -p segyio/build
-          cd segyio/build
-          cmake .. -DBUILD_PYTHON=OFF -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=ON -DBUILD_TESTING=OFF
-          sudo make install -j2
-        displayName: 'Build segyio'
-      - script: |
           sudo pip install scikit-build pybind11
           mkdir build
           cd build

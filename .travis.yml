@@ -18,18 +18,6 @@ matrix:
           packages:
             - libomp-dev
 
-install:
-    - if [[ -z $TRAVIS_PYTHON_VERSION ]]; then
-        git clone https://github.com/statoil/segyio &&
-        pushd segyio &&
-        cmake . -DEXPERIMENTAL=ON -DBUILD_PYTHON=OFF
-                -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=OFF &&
-        make &&
-        sudo make install &&
-        popd &&
-        sudo pip install scikit-build pybind11;
-      fi
-
 script:
     - if [[ -n "${TRAVIS_PYTHON_VERSION+1}" ]]; then
         pushd core/ingestion/scan &&

@@ -1,99 +1,199 @@
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 #include <seismic-cloud/seismic-cloud.hpp>
 
 namespace sc {
 
-cube_point fragment_id::operator + (frag_point p) const noexcept (true) {
-    return {
-        this->x + p.x,
-        this->y + p.y,
-        this->z + p.z,
-    };
-}
-
-cubecoords::cubecoords(cube_dim cube, frag_dim frag) noexcept (true) :
+template < std::size_t Dims >
+cubecoords< Dims >::cubecoords(Cube_dimension cube, Frag_dimension frag) noexcept (true) :
     global_dims(cube),
     fragment_dims(frag)
 {}
 
-frag_point cubecoords::to_local(cube_point p) const noexcept (true) {
-    assert(p.x < global_dims.x);
-    assert(p.y < global_dims.y);
-    assert(p.z < global_dims.z);
+template < std::size_t Dims >
+frag_point< Dims >
+cubecoords< Dims >::to_local(Cube_point p)
+const noexcept (true) {
+    for (int i = 0; i < Dims; ++i)
+        assert(p[i] < this->global_dims[i]);
 
-    return {
-        p.x % this->fragment_dims.x,
-        p.y % this->fragment_dims.y,
-        p.z % this->fragment_dims.z,
-    };
+    Frag_point tmp;
+    for (int i = 0; i < Dims; ++i)
+        tmp[i] = p[i] % this->fragment_dims[i];
+
+    return tmp;
 }
 
-cube_point cubecoords::to_global(fragment_id r, frag_point p)
-const noexcept (true)
-{
-    const auto cp = cube_point {
-        (r.x * this->fragment_dims.x) + p.x,
-        (r.y * this->fragment_dims.y) + p.y,
-        (r.z * this->fragment_dims.z) + p.z,
-    };
-    assert(cp.x < this->global_dims.x);
-    assert(cp.y < this->global_dims.y);
-    assert(cp.z < this->global_dims.z);
+template < std::size_t Dims >
+cube_point< Dims > cubecoords< Dims >::to_global(Fragment_id r, Frag_point p)
+const noexcept (true) {
+    auto cp = Cube_point();
+    for (int i = 0; i < Dims; ++i)
+        cp[i] = (r[i] * this->fragment_dims[i]) + p[i];
+
+    for (int i = 0; i < Dims; ++i)
+        assert(cp[i] < this->global_dims[i]);
+
     return cp;
 }
 
-fragment_id cubecoords::frag_id(cube_point p) const noexcept (true) {
-    assert(p.x < global_dims.x);
-    assert(p.y < global_dims.y);
-    assert(p.z < global_dims.z);
+template < std::size_t Dims >
+fragment_id< Dims > cubecoords< Dims >::frag_id(Cube_point p) const noexcept (true) {
+    for (int i = 0; i < Dims; ++i)
+        assert(p[i] < this->global_dims[i]);
 
     const auto frag = this->fragment_dims;
-    return {
-        p.x / frag.x,
-        p.y / frag.y,
-        p.z / frag.z,
-    };
+    Fragment_id tmp;
+    for (int i = 0; i < Dims; ++i)
+        tmp[i] = p[i] / frag[i];
+
+    return tmp;
 }
 
-cube_point cubecoords::from_offset(std::size_t o) const noexcept (true) {
-    assert(o < this->global_size());
-    const auto dim = this->global_dims;
-    return {
-        (o / (dim.y * dim.z)),
-        (o % (dim.y * dim.z)) / dim.z,
-        (o % (dim.y * dim.z)) % dim.z
-    };
+//template < std::size_t Dims >
+//cube_point< Dims > cubecoords< Dims >::from_offset(std::size_t o) const noexcept (true) {
+//    assert(o < this->global_size());
+//    const auto dim = this->global_dims;
+//
+//    return {
+//        (o / (dim.y * dim.z)),
+//        (o % (dim.y * dim.z)) / dim.z,
+//        (o % (dim.y * dim.z)) % dim.z
+//    };
+//}
+
+template < std::size_t Dims >
+std::size_t cubecoords< Dims >::global_size() const noexcept (true) {
+    return std::accumulate(
+        std::begin(this->global_dims),
+        std::end(this->global_dims),
+        1,
+        // TODO: derive from array
+        std::multiplies< std::size_t >()
+    );
 }
 
-std::size_t cubecoords::global_size() const noexcept (true) {
-    return this->global_dims.x
-         * this->global_dims.y
-         * this->global_dims.z
-    ;
+template < std::size_t Dims >
+std::size_t cubecoords< Dims >::size(Dimension dim) const noexcept (false) {
+    const auto global = this->global_dims[dim.v];
+    const auto local  = this->fragment_dims[dim.v];
+    return (global + (local - 1)) / local;
 }
 
-std::size_t cubecoords::size(dimension dim) const noexcept (false) {
-    auto segments = [](std::size_t global, std::size_t local) noexcept(true) {
-        // integer division galore!
-        return (global + (local - 1)) / local;
-    };
-    switch (dim.v) {
-        case 0: return segments(this->global_dims.x, this->fragment_dims.x);
-        case 1: return segments(this->global_dims.y, this->fragment_dims.y);
-        case 2: return segments(this->global_dims.z, this->fragment_dims.z);
-        default:
-            throw std::invalid_argument(
-                "unsupported dimension " + std::to_string(dim.v)
-            );
-    }
+namespace {
+
+/*
+ * N-dimensional cartesian product
+ *
+ * This is a bit whacky. It's certainly possible to compile-time generate
+ * arbitrary depths of nested loops, but it's not pretty [1], and it's even
+ * worse without C++17. From a few simple tests, it looks like it generates
+ * pretty much the same assembly as hand-written nested loops, but the code
+ * being more complex means more opportunities for the compiler to mess up -
+ * also, the code is quite hard to read.
+ *
+ * We assume that the number of dimensions are fairly limited, so by hand
+ * implement the cartesian product. It's a bit tedious, but likely a one-time
+ * job, but has the benefit of giving the compiler a much easier time
+ * unrolling, and is straight-forward to understand.
+ *
+ * [1] https://stackoverflow.com/questions/34535795/n-dimensionally-nested-metaloops-with-templates/34601545
+ */
+template < typename Fn >
+void cartesian_product(
+    Fn&& push_back,
+    const std::array< std::size_t, 1 >& begins,
+    const std::array< std::size_t, 1 >& ends) {
+
+    std::array< std::size_t, 1 > frame;
+    for (frame[0] = begins[0]; frame[0] < ends[0]; ++frame[0])
+        push_back(frame);
 }
 
-std::vector< fragment_id >
-cubecoords::slice(dimension dim, std::size_t pin)
+template < typename Fn >
+void cartesian_product(
+    Fn&& push_back,
+    const std::array< std::size_t, 2 >& begins,
+    const std::array< std::size_t, 2 >& ends) {
+
+    std::array< std::size_t, 2 > frame;
+    for (frame[0] = begins[0]; frame[0] < ends[0]; ++frame[0])
+    for (frame[1] = begins[1]; frame[1] < ends[1]; ++frame[1])
+        push_back(frame);
+}
+
+template < typename Fn >
+void cartesian_product(
+    Fn&& push_back,
+    const std::array< std::size_t, 3 >& begins,
+    const std::array< std::size_t, 3 >& ends) {
+
+    std::array< std::size_t, 3 > frame;
+    for (frame[0] = begins[0]; frame[0] < ends[0]; ++frame[0])
+    for (frame[1] = begins[1]; frame[1] < ends[1]; ++frame[1])
+    for (frame[2] = begins[2]; frame[2] < ends[2]; ++frame[2])
+        push_back(frame);
+}
+
+template < typename Fn >
+void cartesian_product(
+    Fn&& push_back,
+    const std::array< std::size_t, 4 >& begins,
+    const std::array< std::size_t, 4 >& ends) {
+
+    std::array< std::size_t, 4 > frame;
+    for (frame[0] = begins[0]; frame[0] < ends[0]; ++frame[0])
+    for (frame[1] = begins[1]; frame[1] < ends[1]; ++frame[1])
+    for (frame[2] = begins[2]; frame[2] < ends[2]; ++frame[2])
+    for (frame[3] = begins[3]; frame[3] < ends[3]; ++frame[3])
+        push_back(frame);
+}
+
+template < typename Fn >
+void cartesian_product(
+    Fn&& push_back,
+    const std::array< std::size_t, 5 >& begins,
+    const std::array< std::size_t, 5 >& ends) {
+
+    std::array< std::size_t, 5 > frame;
+    for (frame[0] = begins[0]; frame[0] < ends[0]; ++frame[0])
+    for (frame[1] = begins[1]; frame[1] < ends[1]; ++frame[1])
+    for (frame[2] = begins[2]; frame[2] < ends[2]; ++frame[2])
+    for (frame[3] = begins[3]; frame[3] < ends[3]; ++frame[3])
+    for (frame[4] = begins[4]; frame[4] < ends[4]; ++frame[4])
+        push_back(frame);
+}
+
+template < typename Fn, std::size_t Dims >
+void cartesian_product(
+    Fn&&,
+    const std::array< std::size_t, Dims >&,
+    const std::array< std::size_t, Dims >&) {
+    /*
+     * static-assert the fallthrough cases (0, unsupported dims) to give better
+     * compile error messages
+     */
+    static_assert(
+        Dims != 0,
+        "0 dimensions does not make sense, probably a template value issue"
+    );
+
+    static_assert(not Dims,
+        "Unsupported dimensions: to add support for more dimensions, "
+        "add another overload of cartesian_product"
+    );
+}
+
+}
+
+template < std::size_t Dims >
+std::vector< fragment_id< Dims > >
+cubecoords< Dims >::slice(Dimension dim, std::size_t pin)
 noexcept (false) {
     /*
      * A fairly straight-forward (although a bit slower than it had to) way of
@@ -105,30 +205,40 @@ noexcept (false) {
      * all dimensions, except the pinned one (range of 1).
      */
 
-    if (pin >= this->size(dimension{dim.v}))
+    if (pin >= this->size(dim))
         throw std::invalid_argument("dimension out-of-range");
 
-    const auto minx = dim.v == 0 ? pin : 0;
-    const auto miny = dim.v == 1 ? pin : 0;
-    const auto minz = dim.v == 2 ? pin : 0;
+    const auto begins = [&] () noexcept (true) {
+        std::array< std::size_t, Dims > xs = {};
+        xs[dim.v] = pin;
+        return xs;
+    }();
 
-    const auto maxx = dim.v == 0 ? (pin + 1) : this->size(dimension{0});
-    const auto maxy = dim.v == 1 ? (pin + 1) : this->size(dimension{1});
-    const auto maxz = dim.v == 2 ? (pin + 1) : this->size(dimension{2});
+    const auto ends = [&, this] () noexcept (true) {
+        std::array< std::size_t, Dims > xs;
+        for (std::size_t i = 0; i < std::size_t(Dims); ++i)
+            xs[i] = this->size(Dimension(i));
+        xs[dim.v] = pin + 1;
+        return xs;
+    }();
 
-    assert(maxx <= this->size(dimension{0}));
-    assert(maxy <= this->size(dimension{1}));
-    assert(maxz <= this->size(dimension{2}));
+    /* (max1 - min1) * (max2 - min2) ... */
+    const auto elems = std::inner_product(
+        std::begin(ends),
+        std::end(ends),
+        std::begin(begins),
+        1,
+        std::multiplies<>(),
+        std::minus<>()
+    );
 
-    const auto elems = (maxx - minx) * (maxy - miny) * (maxz - minz);
-    auto result = std::vector< fragment_id >();
+    auto result = std::vector< Fragment_id >();
     result.reserve(elems);
+    auto push_back = [&](auto val) {
+        result.emplace_back(val);
+    };
 
-    for (auto x = minx; x < maxx; ++x)
-    for (auto y = miny; y < maxy; ++y)
-    for (auto z = minz; z < maxz; ++z)
-        result.emplace_back(x, y, z);
-
+    cartesian_product(push_back, begins, ends);
     assert(result.size() == elems && "fragments should be exactly this many");
     return result;
 }
@@ -136,23 +246,53 @@ noexcept (false) {
 namespace {
 
 template < typename Point, typename Dim >
-std::size_t get_offset(Point p, Dim dim) noexcept (true) {
-    return p.x * dim.y * dim.z
-         + p.y * dim.z
-         + p.z
-    ;
+std::size_t get_offset(const Point& p, const Dim& d) noexcept (true) {
+    /*
+     * Equivalent to:
+     *  return p.x * dim.y * dim.z
+     *       + p.y * dim.z
+     *       + p.z
+     */
+    std::array< std::size_t, Dim::dimensions > dim_product;
+    dim_product.back() = 1;
+
+    std::partial_sum(
+        std::rbegin(d),
+        std::rend(d) - 1,
+        std::rbegin(dim_product) + 1,
+        std::multiplies<>()
+    );
+
+    return std::inner_product(
+        std::begin(p),
+        std::end(p),
+        std::begin(dim_product),
+        0
+    );
 }
 
 }
 
-std::size_t cube_dim::to_offset(cube_point p) const noexcept (true) {
+template < std::size_t Dims >
+std::size_t cube_dimension< Dims >::to_offset(cube_point< Dims > p)
+const noexcept (true) {
     return get_offset(p, *this);
 }
-std::size_t cube_dim::to_offset(fragment_id p) const noexcept (true) {
+
+template < std::size_t Dims >
+std::size_t cube_dimension< Dims >::to_offset(fragment_id< Dims > p)
+const noexcept (true) {
     return get_offset(p, *this);
 }
-std::size_t frag_dim::to_offset(frag_point p) const noexcept (true) {
+
+template < std::size_t Dims >
+std::size_t frag_dimension< Dims >::to_offset(frag_point< Dims > p)
+const noexcept (true) {
     return get_offset(p, *this);
 }
+
+template class cubecoords     < 3 >;
+template class cube_dimension < 3 >;
+template class frag_dimension < 3 >;
 
 }
