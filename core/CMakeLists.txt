@@ -16,6 +16,8 @@ target_include_directories(json INTERFACE external/nlohmann)
 add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
+find_package(fmt REQUIRED)
+
 if (NOT MSVC)
     # openmp is pretty broken on MSVC with only super old versions. Accept the
     # performance loss, and don't bother searching for it

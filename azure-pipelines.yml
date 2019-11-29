@@ -11,6 +11,14 @@ jobs:
   - job: Build_Core
     steps:
       - script: |
+          wget https://github.com/fmtlib/fmt/releases/download/6.0.0/fmt-6.0.0.zip
+          unzip fmt-6.0.0.zip
+          mkdir -p fmt-6.0.0/build
+          cd fmt-6.0.0/build
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          sudo make install -j2
+        displayName: 'Build fmt'
+      - script: |
           sudo pip install scikit-build pybind11
           mkdir build
           cd build
