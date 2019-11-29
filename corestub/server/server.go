@@ -31,6 +31,8 @@ type Point struct {
 
 var ss store.SurfaceStore
 
+var grpcServer *grpc.Server
+
 func wrapSurfaceReader(in io.Reader) (Surface, error) {
 	var surf Surface
 	surf, err := decodeSurface(in)
@@ -170,10 +172,19 @@ func StartServer(hostAddr string, surfaceStore store.SurfaceStore) {
 	fmt.Println("starting server on ", hostAddr)
 	lis, err := net.Listen("tcp", hostAddr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("tcp listen: %v", err)
 	}
 	var opts []grpc.ServerOption
-	grpcServer := grpc.NewServer(opts...)
+	grpcServer = grpc.NewServer(opts...)
 	pb.RegisterCoreServer(grpcServer, cs)
-	grpcServer.Serve(lis)
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		log.Fatalf("serve grpc server: %v", err)
+	}
+}
+
+func StopServer() {
+	if grpcServer != nil {
+		grpcServer.GracefulStop()
+	}
 }
