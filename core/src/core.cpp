@@ -5,9 +5,18 @@
 #include <numeric>
 #include <vector>
 
+#include <fmt/core.h>
+#include <fmt/ranges.h>
+
 #include <seismic-cloud/seismic-cloud.hpp>
 
 namespace sc {
+
+template < typename Base, std::size_t Dims >
+std::string basic_tuple< Base, Dims >::string() const {
+    const auto& self = static_cast< const base_type& >(*this);
+    return fmt::format("{}", fmt::join(self, "-"));
+}
 
 template < std::size_t Dims >
 cubecoords< Dims >::cubecoords(Cube_dimension cube, Frag_dimension frag) noexcept (true) :
@@ -294,5 +303,7 @@ const noexcept (true) {
 template class cubecoords     < 3 >;
 template class cube_dimension < 3 >;
 template class frag_dimension < 3 >;
+template class fragment_id    < 3 >;
+template class basic_tuple< fragment_id< 3 >, 3 >;
 
 }

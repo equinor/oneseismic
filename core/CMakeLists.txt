@@ -60,6 +60,7 @@ target_compile_options(seismic-cloud
 )
 target_link_libraries(seismic-cloud
     PUBLIC
+        fmt::fmt
         ${OpenMP_EXE_LINKER_FLAGS}
         ${OpenMP_CXX_FLAGS}
 )

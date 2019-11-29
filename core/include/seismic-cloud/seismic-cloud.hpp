@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <iostream>
+#include <string>
 #include <vector>
 
 namespace sc {
@@ -62,6 +63,8 @@ public:
     using base_type::rbegin;
     using base_type::rend;
     using base_type::size;
+
+    std::string string() const;
 
     /*
      * Comparisons, but only within same type - no conversion!

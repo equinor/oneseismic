@@ -181,3 +181,8 @@ TEST_CASE("Figure out an global offset [0, len(survey)) from a point") {
     auto result = cube.to_offset(p);
     CHECK(result == expected);
 }
+
+TEST_CASE("fragment-id string generation") {
+    const auto id = sc::fragment_id< 3 >(3, 5, 7);
+    CHECK("3-5-7" == id.string());
+}
