@@ -9,14 +9,15 @@ import (
 )
 
 type Event struct {
-	When    time.Time
-	Op      Op
-	Err     error
-	Message string
-	Level   Severity
-	UserID  UserID
-	CtxID   uuid.UUID
-	Kind    EventKind
+	When     time.Time
+	Op       Op
+	Err      error
+	Message  string
+	Level    Severity
+	UserID   UserID
+	CtxID    uuid.UUID
+	Kind     EventKind
+	Unknowns []interface{}
 }
 
 type Op string
@@ -110,6 +111,9 @@ func (e *Event) Error() string {
 			b.WriteString(e.Err.Error())
 		}
 	}
+	if len(e.Unknowns) > 0 {
+		b.WriteString("Unknown error")
+	}
 	if b.Len() == 0 {
 		return "no error"
 	}
@@ -144,19 +148,14 @@ func ParseLevel(s string) Severity {
 
 }
 
-func E(args ...interface{}) error {
-	if len(args) == 0 {
-		panic("call to events.E with no arguments")
-	}
+func E(op Op, msg string, args ...interface{}) error {
 	e := &Event{When: time.Now().UTC()}
+	e.Op = op
+	e.Message = msg
 	for _, arg := range args {
 		switch arg := arg.(type) {
-		case Op:
-			e.Op = arg
 		case error:
 			e.Err = arg
-		case string:
-			e.Message = arg
 		case Severity:
 			e.Level = arg
 		case UserID:
@@ -166,7 +165,7 @@ func E(args ...interface{}) error {
 		case EventKind:
 			e.Kind = arg
 		default:
-			panic("bad call to E")
+			e.Unknowns = append(e.Unknowns, arg)
 		}
 	}
 	return e

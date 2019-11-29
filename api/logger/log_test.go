@@ -27,7 +27,7 @@ func TestLogSourceAndSink(t *testing.T) {
 	w.Close()
 	out, err := ioutil.ReadAll(r)
 	assert.NoError(t, err, "Reading from log sink failed")
-	expect := "DEBG test.log: using builtin logger \n"
+	expect := "DEBG test.log: using builtin logger"
 	assert.Contains(t, string(out), expect)
 }
 

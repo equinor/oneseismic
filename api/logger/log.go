@@ -46,7 +46,7 @@ func SetLogSink(sink interface{}, verbosity events.Severity) error {
 	case ConnString:
 		innerLogger = &dbLogger{connStr: string(sink), verbosity: verbosity, eventBuffer: queue.NewFIFO()}
 	default:
-		return events.E(events.Op("logger.factory"), fmt.Errorf("no logger defined for sink"))
+		return events.E(events.Op("logger.factory"), "no logger defined for sink", events.CriticalLevel)
 	}
 	return nil
 }
@@ -79,7 +79,7 @@ func AddLoggerSource(loggerName string, output func(io.Writer)) {
 			}
 			sev := events.ParseLevel(level)
 
-			nErr := events.E(events.Op(loggerName), sev, fmt.Errorf("%s", s)).(*events.Event)
+			nErr := events.E(events.Op(loggerName), s, sev).(*events.Event)
 			logtime := time.Date(
 				year,
 				time.Month(month),
@@ -126,7 +126,7 @@ func AddGoLogSource(output func(io.Writer) *golog.Logger) {
 				// Remove severity and timestamp
 				s = s[29:]
 			}
-			nErr := events.E(events.Op("iris.log"), sev, fmt.Errorf("%s", s)).(*events.Event)
+			nErr := events.E(events.Op("iris.log"), s, sev).(*events.Event)
 
 			Log(nErr)
 		}
@@ -289,7 +289,7 @@ func Wrap(err error) LogEventOption {
 
 // LogD Debug
 func LogD(op, msg string, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.DebugLevel, msg).(*events.Event)
+	e := events.E(events.Op(op), msg, events.DebugLevel).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -298,7 +298,7 @@ func LogD(op, msg string, opts ...LogEventOption) {
 
 // LogI Info
 func LogI(op, msg string, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.InfoLevel, msg).(*events.Event)
+	e := events.E(events.Op(op), msg, events.InfoLevel).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -307,7 +307,7 @@ func LogI(op, msg string, opts ...LogEventOption) {
 
 // LogW Warning
 func LogW(op, msg string, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.WarnLevel, msg).(*events.Event)
+	e := events.E(events.Op(op), msg, events.WarnLevel).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -316,7 +316,7 @@ func LogW(op, msg string, opts ...LogEventOption) {
 
 // LogE Error
 func LogE(op, msg string, err error, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.ErrorLevel, err, msg).(*events.Event)
+	e := events.E(events.Op(op), msg, events.ErrorLevel, err).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -326,7 +326,7 @@ func LogE(op, msg string, err error, opts ...LogEventOption) {
 
 // LogC Critical
 func LogC(op, msg string, err error, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.CriticalLevel, err, msg).(*events.Event)
+	e := events.E(events.Op(op), msg, events.CriticalLevel, err).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}

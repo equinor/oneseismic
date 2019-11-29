@@ -11,7 +11,7 @@ import (
 )
 
 func TestError(t *testing.T) {
-	err := E(Op("foo"), ErrorLevel, fmt.Errorf("bar"), "foobar", NotFound, UserID("ANON"), uuid.New())
+	err := E(Op("foo"), "foobar", ErrorLevel, fmt.Errorf("bar"), NotFound, UserID("ANON"), uuid.New())
 
 	var ev *Event
 	if !errors.As(err, &ev) {
@@ -128,22 +128,24 @@ func TestEvent_Error(t *testing.T) {
 	}{
 		{"Single error",
 			E(Op("foo"),
+				"foobar",
 				ErrorLevel,
 				fmt.Errorf("bar"),
-				"foobar",
 				NotFound,
 				UserID("ANON"),
 				uuid.New()).(*Event),
 			"foo: foobar: not found: bar"},
 		{"Double error",
-			E(Op("foo"), ErrorLevel,
-				E(Op("bar"), ErrorLevel,
-					fmt.Errorf("baz"),
+			E(Op("foo"),
+				"foobar",
+				ErrorLevel,
+				E(Op("bar"),
 					"barbaz",
+					ErrorLevel,
+					fmt.Errorf("baz"),
 					NotFound,
 					UserID("ANON"),
 					uuid.New()),
-				"foobar",
 				NotFound,
 				UserID("ANON"),
 				uuid.New()).(*Event),
