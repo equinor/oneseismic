@@ -9,7 +9,7 @@ expected = {
     'samples': 50,
     'sampleinterval': 4.0,
     'byteoffset-first-trace': 3600,
-    'guid': 'e939ed45a8258f1fbaf3c21ca83f54369c4c4def79384b4cb0fc069a4eb1a191',
+    'guid': '86f5f8f783fabe2773531d5529226d37b6c9bdcf',
     'dimensions': [[1, 2, 3, 4, 5],
                    [20, 21, 22, 23, 24],
                    [0.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0, 28.0, 32.0, 36.0,
@@ -24,29 +24,29 @@ expected = {
 expected_lsb = expected.copy()
 expected_lsb.update({
     'byteorder' : 'little',
-    'guid': 'f93a0b5102b1891039badf432e92f53df2f30218340617453c5dc23024521973'
+    'guid': '2efb1a0bebb577b27a9e0503b06cf0935eebca78'
 })
 
 expected_il5_xl21 = expected.copy()
 expected_il5_xl21.update({
-    'guid': 'f53a4af4ffa57e1e00b47f1a07ad31263f345cfae44a43a356b9ca0650eae41a'
+    'guid': '35368c1a2aec523c324ae1fd1fb42f1994f46fbe'
 })
 
 expected_il5_xl21_lsb = expected.copy()
 expected_il5_xl21_lsb.update({
     'byteorder' : 'little',
-    'guid': '1fedca281874fb195031669019ba7c430c6a3695cf3e48dd92dd28b833150cc9'
+    'guid': 'd3f1e9fa8b1ebaae26c55fa3e9beba0b4fe57287'
 })
 
 expected_2byte_keys = expected.copy()
 expected_2byte_keys.update({
-    'guid': 'ce39724dee2eac8038148f8823c008382815f0c2cf27be055861c226039568ad',
+    'guid': '526026c67842afbb37ac99e81371550258554665',
     'dimensions': expected['dimensions'].copy()
 })
 
 expected_missing_line_numbers = expected.copy()
 expected_missing_line_numbers.update({
-    'guid': 'b8aa885d4c3524f3651083a0a27433135f41bf4e1db53a7acdb2548e0d8d6c2c',
+    'guid': 'b9bff5837e3f654585cc8a730fedb9730309e4ee',
     'dimensions': expected['dimensions'].copy()
 })
 expected_missing_line_numbers['dimensions'][0] = [1, 2, 3, 5, 6]
