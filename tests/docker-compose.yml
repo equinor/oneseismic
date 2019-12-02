@@ -11,6 +11,11 @@ services:
     volumes:
       - fixture_vol:/tmp/fixtures
 
+  auth:
+    image: lambdaville/no-factor-auth:v0.0.5
+    ports:
+      - "8089:8089"
+
   api:
     build: ../api
     depends_on:
@@ -18,12 +23,13 @@ services:
     ports:
       - '8080:8080'
     environment:
-      - NO_AUTH=true
       - HTTP_ONLY=true
       - HOST_ADDR=0.0.0.0:8080
       - STITCH_GRPC_ADDR=corestub:10000
       - MANIFEST_PATH=/tmp/fixtures/manifests
       - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces
+      - AUTHSERVER=http://auth:8089/common
+      - ISSUER=auth:8089
     volumes:
       - fixture_vol:/tmp/fixtures
 
@@ -34,6 +40,7 @@ services:
     environment:
       - SC_API_HOST_ADDR=http://api:8080
       - FIXTURES_PATH=/tmp/fixtures
+      - AUTH_ADDR=http://auth:8089/common
     volumes:
       - fixture_vol:/tmp/fixtures
 volumes:
