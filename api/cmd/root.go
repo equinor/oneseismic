@@ -20,7 +20,10 @@ var rootCmd = &cobra.Command{
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-func Execute() {
+func Execute(app, v string) {
+	rootCmd.Use = app
+	rootCmd.Version = v
+
 	if err := rootCmd.Execute(); err != nil {
 		l.LogE("root.Execute", "", err)
 		os.Exit(1)
@@ -29,9 +32,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .sc-api.yaml)")
-
 }
 
 func initConfig() {

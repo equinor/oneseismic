@@ -69,7 +69,7 @@ func parseURL(s string) (*url.URL, error) {
 }
 
 func Version() string {
-	return fmt.Sprintf("Seismic Cloud API %s.%s.%s", majVer, minVer, patchVer)
+	return fmt.Sprintf("Seismic Cloud API %s", version)
 }
 
 func AuthServer() *url.URL {

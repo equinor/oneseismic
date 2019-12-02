@@ -7,8 +7,11 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags prod -ldflags="-w -s -X main.MajVer='v0' -X main.MinVer='1' -X main.PatchVer='0'"  -o /bin/sc-api
+ENV VERSION 'v0.1.0'
+RUN CGO_ENABLED=0\
+    GOOS=linux\
+    GOARCH=amd64 \
+    go build -ldflags="-w -s -X main.Version=${VERSION}"  -o /bin/sc-api
 
 FROM scratch as deployer
 COPY --from=builder /bin/sc-api /bin/sc-api

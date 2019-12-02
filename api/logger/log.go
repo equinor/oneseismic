@@ -23,19 +23,22 @@ type logger interface {
 var innerLogger logger = &fileLogger{file: os.Stdout, verbosity: events.DebugLevel}
 var logMut = &sync.Mutex{}
 
+var Version string
+
 type ConnString string
 
-func DbOpener(connStr string) (ConnString, error) {
+func pingDb(connStr string) error {
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		return "", err
+		return err
 	}
+	defer db.Close()
 	rows, err := db.Query("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'log'")
 	if err != nil || rows == nil {
-		return "", err
+		return err
 	}
 	defer rows.Close()
-	return ConnString(connStr), nil
+	return nil
 }
 
 // Create logger to sink
@@ -44,6 +47,10 @@ func SetLogSink(sink interface{}, verbosity events.Severity) error {
 	case *os.File:
 		innerLogger = &fileLogger{file: sink, verbosity: verbosity}
 	case ConnString:
+		err := pingDb(string(sink))
+		if err != nil {
+			return events.E(events.Op("logger.SetLogSink"), "Pinging Db", err)
+		}
 		innerLogger = &dbLogger{connStr: string(sink), verbosity: verbosity, eventBuffer: queue.NewFIFO()}
 	default:
 		return events.E(events.Op("logger.factory"), "no logger defined for sink", events.CriticalLevel)
@@ -52,7 +59,11 @@ func SetLogSink(sink interface{}, verbosity events.Severity) error {
 }
 
 func errToLog(ev *events.Event) string {
-	return fmt.Sprintln(ev.When.Format(time.RFC3339), ev.Level, ev.Error(), ev.Message)
+	return fmt.Sprintf("%s [%s] %s\n",
+		ev.When.Format(time.RFC3339),
+		ev.Level,
+		ev.Error())
+
 }
 
 // adds log source to logger
@@ -145,8 +156,8 @@ func (fl *fileLogger) log(ev *events.Event) error {
 	if ev.Level < fl.verbosity {
 		return nil
 	}
-
-	_, wErr := fl.file.Write([]byte(errToLog(ev)))
+	s := errToLog(ev)
+	_, wErr := fl.file.Write([]byte(s))
 	if wErr != nil {
 		return wErr
 	}
@@ -322,7 +333,6 @@ func LogE(op, msg string, err error, opts ...LogEventOption) {
 	}
 	logToSink(e)
 }
-
 
 // LogC Critical
 func LogC(op, msg string, err error, opts ...LogEventOption) {
