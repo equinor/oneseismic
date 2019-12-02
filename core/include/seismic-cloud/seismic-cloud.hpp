@@ -1,133 +1,182 @@
 #ifndef SEISMIC_CLOUD_HPP
 #define SEISMIC_CLOUD_HPP
 
+#include <array>
+#include <cassert>
+#include <iostream>
+#include <string>
 #include <vector>
 
 namespace sc {
 
-template < typename T >
-struct triple_comparison {
-    bool operator < (const T& rhs) const noexcept (true) {
-        const auto& self = *static_cast< const T* >(this);
-        if (self.x < rhs.x) return true;
-        if (self.x > rhs.x) return false;
-        if (self.y < rhs.y) return true;
-        if (self.y > rhs.y) return false;
-        if (self.z < rhs.z) return true;
-        if (self.z > rhs.z) return false;
-        return false;
+template < typename Base, std::size_t Dims >
+class basic_tuple : private std::array< std::size_t, Dims > {
+    using base_type = std::array< std::size_t, Dims >;
+    static_assert(Dims > 0, "0-tuples are non-sensical, is this a bug?");
+
+    /*
+     * Dimensionalities and coordinates are all structurally identical, but
+     * semantically different. It makes perfect sense for them all to be
+     * different types, but it's quite tedious and difficult to maintain
+     * multiple identical implementations.
+     *
+     * Which means it's time to bring out the mixins with CRTP.
+     */
+
+public:
+
+    static constexpr const auto dimensions = Dims;
+
+    basic_tuple() = default;
+    basic_tuple(const base_type& t) : base_type(t) {}
+
+    template < typename... Vs >
+    basic_tuple(std::size_t v, Vs... vs) noexcept (true) :
+    basic_tuple(base_type{ v, static_cast< std::size_t >(vs) ... }) {
+        /*
+         * A super-duper hack to support brace-initialization, emplace back and
+         * similar.
+         *
+         * Really, this boils down to something along the lines of:
+         *
+         *  basic_tuple(std::size_t x, std::size_t y, std::size_t z) :
+         *      std::array<>({ x, y, z })
+         *  {}
+         *
+         * but for N dimensions. The first argument is fixed to size_t (and not
+         * variadic), otherwise arbitrary overloads are easily picked up on,
+         * and a compile error quickly follows.
+         *
+         * It delegates to the array constructor, in case more behaviour should
+         * be added to it.
+         */
+        static_assert(
+            sizeof...(vs) + 1 == Dims,
+            "constructor must have exactly Dims arguments"
+        );
     }
 
-    bool operator > (const T& rhs) const noexcept (true) {
-        const auto& self = *static_cast< const T* >(this);
-        if (self.x > rhs.x) return true;
-        if (self.x < rhs.x) return false;
-        if (self.y > rhs.y) return true;
-        if (self.y < rhs.y) return false;
-        if (self.z > rhs.z) return true;
-        if (self.z < rhs.z) return false;
-        return false;
+    /* inherit methods from std::array */
+    using base_type::operator [];
+    using base_type::begin;
+    using base_type::end;
+    using base_type::rbegin;
+    using base_type::rend;
+    using base_type::size;
+
+    std::string string() const;
+
+    /*
+     * Comparisons, but only within same type - no conversion!
+     */
+    friend
+    bool operator != (const Base& left, const Base& right) noexcept (true) {
+        const auto& lhs = static_cast< const base_type& >(left);
+        const auto& rhs = static_cast< const base_type& >(right);
+        return lhs != rhs;
     }
 
-    bool operator <= (const T& rhs) const noexcept (true) {
-        const auto& self = *static_cast< const T* >(this);
-        return self < rhs or self == rhs;
+    friend
+    bool operator == (const Base& left, const Base& right) noexcept (true) {
+        const auto& lhs = static_cast< const base_type& >(left);
+        const auto& rhs = static_cast< const base_type& >(right);
+        return lhs == rhs;
     }
 
-    bool operator >= (const T& rhs) const noexcept (true) {
-        const auto& self = *static_cast< const T* >(this);
-        return self > rhs or self == rhs;
+    friend
+    bool operator < (const Base& left, const Base& right) noexcept (true) {
+        const auto& lhs = static_cast< const base_type& >(left);
+        const auto& rhs = static_cast< const base_type& >(right);
+        return lhs < rhs;
     }
 
-    bool operator == (const T& rhs) const noexcept (true) {
-        const auto& self = *static_cast< const T* >(this);
-        return self.x == rhs.x
-           and self.y == rhs.y
-           and self.z == rhs.z
-        ;
+    friend
+    bool operator <= (const Base& left, const Base& right) noexcept (true) {
+        const auto& lhs = static_cast< const base_type& >(left);
+        const auto& rhs = static_cast< const base_type& >(right);
+        return lhs <= rhs;
     }
 
-    bool operator != (const T& rhs) const noexcept (true) {
-        const auto& self = *static_cast< const T* >(this);
-        return self.x != rhs.x
-            or self.y != rhs.y
-            or self.z != rhs.z
-        ;
+    friend
+    bool operator > (const Base& left, const Base& right) noexcept (true) {
+        const auto& lhs = static_cast< const base_type& >(left);
+        const auto& rhs = static_cast< const base_type& >(right);
+        return lhs > rhs;
+    }
+
+    friend
+    bool operator >= (const Base& left, const Base& right) noexcept (true) {
+        const auto& lhs = static_cast< const base_type& >(left);
+        const auto& rhs = static_cast< const base_type& >(right);
+        return lhs > rhs;
+    }
+
+    friend std::ostream&
+    operator << (std::ostream& o, const Base& p) {
+        static_assert(
+            Dims > 1,
+            "ostream << is only implemented for Dims > 1, "
+            "fix it by writing a better join");
+
+        /*
+         * C++ :------------)
+         *
+         * '(' + ', '.join(*this) + ')'
+         */
+        o << '(';
+        for (auto x = p.begin(); x != p.end() - 1; ++x)
+            o << *x << ", ";
+        return o << *(p.end() - 1) << ')';
     }
 };
 
-struct point : triple_comparison< point > {
-    std::size_t x;
-    std::size_t y;
-    std::size_t z;
-
-    point() = default;
-    point(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
-        x(x), y(y), z(z) {}
+/*
+ * TODO: these types deserve better naming and vocabulary
+ */
+template < std::size_t Dims >
+struct cube_point : public basic_tuple< cube_point< Dims >, Dims > {
+    using base_type = basic_tuple< cube_point, Dims >;
+    using base_type::base_type;
 };
 
-template < typename Point >
-struct basic_point : triple_comparison< Point > {
-    std::size_t x;
-    std::size_t y;
-    std::size_t z;
-
-    basic_point() noexcept (true) = default;
-    basic_point(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
-        x(x), y(y), z(z) {}
+template < std::size_t Dims >
+struct frag_point : public basic_tuple< frag_point< Dims >, Dims > {
+    using base_type = basic_tuple< frag_point, Dims >;
+    using base_type::base_type;
 };
 
-struct cube_point : basic_point< cube_point > {
-    using basic_point::basic_point;
-    constexpr static const char* name = "cube_point";
+template < std::size_t Dims >
+struct fragment_id : public basic_tuple< fragment_id< Dims >, Dims > {
+    using base_type = basic_tuple< fragment_id, Dims >;
+    using base_type::base_type;
 };
 
-struct frag_point : basic_point< frag_point > {
-    using basic_point::basic_point;
-    constexpr static const char* name = "frag_point";
+template< std::size_t Dims >
+struct cube_dimension : public basic_tuple< cube_dimension< Dims >, Dims > {
+    using base_type = basic_tuple< cube_dimension, Dims >;
+    using base_type::base_type;
+
+    std::size_t to_offset(cube_point< Dims > p)  const noexcept (true);
+    std::size_t to_offset(fragment_id< Dims > p) const noexcept (true);
 };
 
-struct root_point : basic_point< root_point > {
-    using basic_point::basic_point;
-    constexpr static const char* name = "root_point";
+template< std::size_t Dims >
+struct frag_dimension : public basic_tuple< frag_dimension< Dims >, Dims > {
+    using base_type = basic_tuple< frag_dimension, Dims >;
+    using base_type::base_type;
 
-    cube_point operator + (frag_point) const noexcept (true);
+    std::size_t to_offset(frag_point< Dims > p) const noexcept (true);
 };
 
-struct dimension : triple_comparison< dimension > {
-    std::size_t x;
-    std::size_t y;
-    std::size_t z;
+template < std::size_t Dims >
+struct dimension {
+    dimension(std::size_t x) noexcept (false) : v(x) {
+        if (x >= Dims)
+            throw std::invalid_argument("invalid dimension");
+    }
 
-    dimension() = default;
-    dimension(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
-        x(x), y(y), z(z) {}
+    std::size_t v;
 };
-
-template < typename Dim >
-struct basic_dim : triple_comparison< Dim > {
-    std::size_t x;
-    std::size_t y;
-    std::size_t z;
-
-    basic_dim() = default;
-    basic_dim(std::size_t x, std::size_t y, std::size_t z) noexcept (true) :
-        x(x), y(y), z(z) {}
-};
-
-struct cube_dim : basic_dim< cube_dim > {
-    using basic_dim::basic_dim;
-    std::size_t to_offset(cube_point p) const noexcept (true);
-    std::size_t to_offset(root_point p) const noexcept (true);
-};
-
-struct frag_dim : basic_dim< cube_dim > {
-    using basic_dim::basic_dim;
-    std::size_t to_offset(frag_point p) const noexcept (true);
-};
-
-std::ostream& operator << (std::ostream& o, const point& rhs);
-std::ostream& operator << (std::ostream& o, const dimension& rhs);
 
 /*
  * Map between different reference systems
@@ -165,8 +214,8 @@ std::ostream& operator << (std::ostream& o, const dimension& rhs);
  *
  *
  * The global coordinate 3,4 would map to fragment 5, coordinates 1,1. Each
- * fragment is identified by it's root coordinate, the fragment-local 0,0 in
- * the top-left coorner.
+ * fragment is named and identified by its position in the grid of *fragments*,
+ * i.e. top-left fragment is (0,0), next to the right is (0,1) etc.
  *
  * Names
  * -----
@@ -177,36 +226,52 @@ std::ostream& operator << (std::ostream& o, const dimension& rhs);
  *  local, frag:
  *      The names local and frag always refer to the individual fragments
  *      (subcubes) and their dimensions
- *  root, anchor:
- *      The names root and anchors work as identifiers for individual
- *      fragments, and is the upper-left corner (0,0) in the global system of a
- *      specific fragment
+ *  frag_id, anchor:
+ *      IDs for fragments, which is also the coordinate of the fragment in the
+ *      (coarsened) grid of fragments.
  */
+template < std::size_t Dims >
 class cubecoords {
     public:
-        cubecoords(cube_dim, frag_dim) noexcept (true);
+        using Cube_dimension    = cube_dimension< Dims >;
+        using Frag_dimension    = frag_dimension< Dims >;
+        using Cube_point        = cube_point< Dims >;
+        using Fragment_id       = fragment_id< Dims >;
+        using Frag_point        = frag_point< Dims >;
+        using Dimension         = dimension< Dims >;
+
+        cubecoords(Cube_dimension, Frag_dimension) noexcept (true);
 
         /*
          * map global x, y, z -> m, n, k in the fragment
          */
-        frag_point to_local(cube_point) const noexcept (true);
+        Frag_point to_local(Cube_point) const noexcept (true);
         /*
-         * get the root (fragment-ID) of any global coordinate
+         * get the ID of the fragment that contains the global coordinate
          */
-        root_point root_of(cube_point) const noexcept (true);
+        Fragment_id frag_id(Cube_point) const noexcept (true);
 
         /*
-         * map a root and local coordinate to the global coordinate. This is
-         * the inverse operation of root_of and to_local,
-         * x == root_of(x) + to_local(x)
+         * get the fragment-IDs for a slice through the cube. Please note that
+         * this operates on fragment grid resolution, so the pin refers to the
+         * *fragment*, not the line.
          */
-        cube_point to_global(root_point, frag_point) const noexcept (true);
+        std::vector< Fragment_id >
+        slice(Dimension dim, std::size_t pin)
+        noexcept (false);
+
+        std::size_t size(Dimension) const noexcept (false);
+
+        /*
+         * map a fragment and coordinate-in-fragment to the global coordinate
+         */
+        Cube_point to_global(Fragment_id, Frag_point) const noexcept (true);
 
         /*
          * get the point of an offset, assuming the cube is flattened to a
          * large array, zs first.
          */
-        cube_point from_offset(std::size_t) const noexcept (true);
+        //Cube_point from_offset(std::size_t) const noexcept (true);
 
         /*
          * the number of (x,y,z) triples, or points, in the cube
@@ -214,57 +279,9 @@ class cubecoords {
         std::size_t global_size() const noexcept (true);
 
     private:
-        cube_dim global_dims;
-        frag_dim fragment_dims;
+        Cube_dimension global_dims;
+        Frag_dimension fragment_dims;
 };
-
-point global_to_local(point global, dimension fragment_size) noexcept (true);
-point local_to_global(point local, point root)               noexcept (true);
-point global_to_root(point global, dimension fragment_size)  noexcept (true);
-
-point offset_to_point(std::size_t offset, dimension dim) noexcept (true);
-std::size_t point_to_offset( point p, dimension dim )    noexcept (true);
-std::size_t local_to_global(std::size_t local,
-                            dimension fragment_size,
-                            dimension cube_size,
-                            point root) noexcept (true);
-
-struct bins {
-    std::vector< point > keys;
-    std::vector< std::size_t > itrs;
-    std::vector< std::size_t > data;
-
-    using iterator = decltype(data.cbegin());
-
-    struct bin {
-        point key;
-        iterator first;
-        iterator last;
-
-        bin() = default;
-        bin(iterator fst, iterator lst) : first(fst), last(lst) {}
-
-        iterator begin() const noexcept (true) {
-            return this->first;
-        }
-
-        iterator end() const noexcept (true) {
-            return this->last;
-        }
-    };
-
-    bin at(std::size_t i) const noexcept (true) {
-        bin x;
-        x.first = this->data.begin() + this->itrs[i];
-        x.last  = this->data.begin() + this->itrs[i + 1];
-        x.key   = this->keys[i];
-        return x;
-    }
-};
-
-bins bin(dimension fragment_size,
-         dimension cube_size,
-         const std::vector< point >& xs) noexcept (false);
 
 }
 
