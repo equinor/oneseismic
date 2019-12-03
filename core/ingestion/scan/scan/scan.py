@@ -154,7 +154,7 @@ def resolve_endianness(big, little):
 class hashio:
     """Read stream, and calculate running hash
 
-    The sha256 of the file is used as a global, unique identifier, but has to
+    The sha1 of the file is used as a global, unique identifier, but has to
     be computed. Since scanning for geometry is necessary anyway, and not
     really parallelisable, so it is a good time to also compute the hash.
 
@@ -164,11 +164,11 @@ class hashio:
     """
     def __init__(self, stream):
         self.stream = stream
-        self.sha256 = hashlib.sha256()
+        self.sha1 = hashlib.sha1()
 
     def read(self, *args):
         chunk = self.stream.read(*args)
-        self.sha256.update(chunk)
+        self.sha1.update(chunk)
         return chunk
 
     def seek(self, offset, whence = io.SEEK_SET):
@@ -177,7 +177,7 @@ class hashio:
         _ = self.read(offset)
 
     def hexdigest(self):
-        return self.sha256.hexdigest()
+        return self.sha1.hexdigest()
 
 from .segmenter import segmenter
 

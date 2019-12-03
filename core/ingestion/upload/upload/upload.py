@@ -6,6 +6,8 @@ import os
 import numpy as np
 import segyio
 import segyio._segyio
+import azure.storage.blob
+import tqdm
 
 def segment_limit(segment, end, max_width):
     """ Unpadded segment width
@@ -144,13 +146,13 @@ def upload(params, meta, segment, blob, f):
     samples = meta['samples']
     dims = meta['dimensions']
     format = meta['format']
+    fragment_dims = params['subcube-dims']
     f.seek(meta['byteoffset-first-trace'], io.SEEK_CUR)
 
-    fragment_dims = (args.fragment_dims, args.fragment_dims, args.fragment_dims)
     cube_dims = (len(dims[0]), len(dims[1]), len(dims[2]))
 
-    src = load_segment(cube_dims, fragment_dims, segment, format, f)
-    dst = pad(cube_dims, fragment_dims, src)
+    src = load_segment(cube_dims, fragment_dims[0], segment, format, f)
+    dst = pad(fragment_dims, src)
 
     for i, d in enumerate(dst.shape):
         if d % fragment_dims[i] != 0:
@@ -164,18 +166,34 @@ def upload(params, meta, segment, blob, f):
         for z in range(dst.shape[2] // fragment_dims[2])
     ]
 
-    basename = '{}/{}/{}-{}-{}'.format(
-        meta['guid'],
+    container = meta['guid']
+    basename = '{}/{}-{}-{}'.format(
         'src',
         fragment_dims[0], fragment_dims[1], fragment_dims[2],
     )
 
-    container = params['container']
-    for i, (x, y, z) in enumerate(xyz):
+    exists = blob.create_container(
+        container_name = container,
+        # public_access = 'off',
+    )
+
+    if not exists:
+        # TODO: this should not be a hard fail, but rather check if the upload
+        # is incomplete, or this is a new fragmentation if the upload actually
+        # was complete, exit (maybe as success (fast-forward), returning the
+        # cube ID)
+        raise RuntimeError('container {} already exists'.format(container))
+
+    tqdm_opts = {
+        'desc': 'uploading segment {}'.format(segment),
+        'unit': ' fragment',
+        'total': len(xyz),
+    }
+    for x, y, z in tqdm.tqdm(xyz, **tqdm_opts):
         fname = '{}-{}-{}.f32'.format(x, y, z)
-        x = slice(x * subcube_dims[0], (x + 1) * subcube_dims[0])
-        y = slice(y * subcube_dims[1], (y + 1) * subcube_dims[1])
-        z = slice(z * subcube_dims[2], (z + 1) * subcube_dims[2])
+        x = slice(x * fragment_dims[0], (x + 1) * fragment_dims[0])
+        y = slice(y * fragment_dims[1], (y + 1) * fragment_dims[1])
+        z = slice(z * fragment_dims[2], (z + 1) * fragment_dims[2])
         blob_name = '{}/{}'.format(basename, fname)
         logging.info('uploading %s to %s', blob_name, container)
         # TODO: consider implications and consequences and how to handle an
