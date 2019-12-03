@@ -6,6 +6,7 @@ import os
 import numpy as np
 import segyio
 import segyio._segyio
+import azure.storage.blob
 
 def segment_limit(segment, end, max_width):
     """ Unpadded segment width
@@ -164,13 +165,24 @@ def upload(params, meta, segment, blob, f):
         for z in range(dst.shape[2] // fragment_dims[2])
     ]
 
-    basename = '{}/{}/{}-{}-{}'.format(
-        meta['guid'],
+    container = meta['guid']
+    basename = '{}/{}-{}-{}'.format(
         'src',
         fragment_dims[0], fragment_dims[1], fragment_dims[2],
     )
 
-    container = params['container']
+    exists = blob.create_container(
+        container_name = container,
+        # public_access = 'off',
+    )
+
+    if not exists:
+        # TODO: this should not be a hard fail, but rather check if the upload
+        # is incomplete, or this is a new fragmentation if the upload actually
+        # was complete, exit (maybe as success (fast-forward), returning the
+        # cube ID)
+        raise RuntimeError('container {} already exists'.format(container))
+
     for i, (x, y, z) in enumerate(xyz):
         fname = '{}-{}-{}.f32'.format(x, y, z)
         x = slice(x * fragment_dims[0], (x + 1) * fragment_dims[0])

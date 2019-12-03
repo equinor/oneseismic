@@ -10,14 +10,12 @@ def main(argv):
     parser = argparse.ArgumentParser('Ingest SEG-Y')
     parser.add_argument('meta', type = str, help = 'metadata json')
     parser.add_argument('input', type = str, help = 'input SEG-Y file')
-    parser.add_argument('--container', type = str, default = 'fragments')
     parser.add_argument('--subcube-dim-0', type = int, default = 120)
     parser.add_argument('--subcube-dim-1', type = int, default = 120)
     parser.add_argument('--subcube-dim-2', type = int, default = 120)
     args = parser.parse_args(argv)
 
     params = {
-        'container': args.container,
         'subcube-dims': (
             args.subcube_dim_0,
             args.subcube_dim_1,
