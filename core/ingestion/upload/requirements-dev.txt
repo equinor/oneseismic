@@ -1,3 +1,4 @@
 pytest-runner
 hypothesis
 segyio
+azure-storage
