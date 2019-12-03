@@ -7,6 +7,7 @@ import numpy as np
 import segyio
 import segyio._segyio
 import azure.storage.blob
+import tqdm
 
 def segment_limit(segment, end, max_width):
     """ Unpadded segment width
@@ -183,7 +184,12 @@ def upload(params, meta, segment, blob, f):
         # cube ID)
         raise RuntimeError('container {} already exists'.format(container))
 
-    for i, (x, y, z) in enumerate(xyz):
+    tqdm_opts = {
+        'desc': 'uploading segment {}'.format(segment),
+        'unit': ' fragment',
+        'total': len(xyz),
+    }
+    for x, y, z in tqdm.tqdm(xyz, **tqdm_opts):
         fname = '{}-{}-{}.f32'.format(x, y, z)
         x = slice(x * fragment_dims[0], (x + 1) * fragment_dims[0])
         y = slice(y * fragment_dims[1], (y + 1) * fragment_dims[1])

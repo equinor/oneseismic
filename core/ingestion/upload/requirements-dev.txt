@@ -2,3 +2,4 @@ pytest-runner
 hypothesis
 segyio
 azure-storage
+tqdm

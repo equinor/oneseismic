@@ -11,6 +11,7 @@ setuptools.setup(
         'segyio',
         'numpy',
         'azure-storage',
+        'tqdm',
     ],
 
     setup_requires = [
