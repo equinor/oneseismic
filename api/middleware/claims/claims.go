@@ -35,17 +35,16 @@ func New(audience, issuer string, validators ...ClaimsValidator) *Middleware {
 }
 
 func (m *Middleware) Validate(ctx context.Context) {
-	op := "claims.Validate"
 	serviceToken := ctx.Values().Get("service-jwt")
 	if serviceToken != nil {
-		l.LogI(op, "Have service token")
+		l.LogI("Have service token")
 		ctx.Next()
 		return
 	}
 
 	userToken := ctx.Values().Get("user-jwt")
 	if userToken == nil {
-		l.LogE(op, "Get token from context", fmt.Errorf("No user token"))
+		l.LogE("Get token from context", fmt.Errorf("No user token"))
 		ctx.StatusCode(iris.StatusUnauthorized)
 		ctx.StopExecution()
 		return
@@ -53,7 +52,7 @@ func (m *Middleware) Validate(ctx context.Context) {
 	user, ok := userToken.(*jwt.Token)
 
 	if !ok || user.Claims == nil {
-		l.LogE(op, "Check user claims", fmt.Errorf("No claims"))
+		l.LogE("Check user claims", fmt.Errorf("No claims"))
 		ctx.StatusCode(iris.StatusUnauthorized)
 		ctx.StopExecution()
 		return
@@ -73,7 +72,7 @@ func (m *Middleware) Validate(ctx context.Context) {
 
 	if len(validationErrors) > 0 {
 		for _, e := range validationErrors {
-			l.LogE(op, "Validate claims", e)
+			l.LogE("Validate claims", e)
 		}
 		ctx.StatusCode(iris.StatusUnauthorized)
 		ctx.StopExecution()

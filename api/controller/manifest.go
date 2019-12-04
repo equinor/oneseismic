@@ -24,12 +24,11 @@ func NewManifestController(ms store.ManifestStore) *ManifestController {
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @Router /manifest/ [get]
 func (msc *ManifestController) List(ctx iris.Context) {
-	op := "manifest.list"
 	bgctx := context.Background()
 	info, err := msc.ms.List(bgctx)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
-		l.LogE(op, "Get manifests", err)
+		l.LogE("Get manifests", err)
 		return
 	}
 
@@ -38,7 +37,7 @@ func (msc *ManifestController) List(ctx iris.Context) {
 		_, err = ctx.JSON(info)
 		if err != nil {
 			ctx.StatusCode(http.StatusInternalServerError)
-			l.LogE(op, "JSON Encoding manifests", err)
+			l.LogE("JSON Encoding manifests", err)
 			return
 
 		}
@@ -52,13 +51,12 @@ func (msc *ManifestController) List(ctx iris.Context) {
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @Router /manifest/{manifest_id} [get]
 func (msc *ManifestController) Fetch(ctx iris.Context) {
-	op := "manifest.download"
 	manifestID := ctx.Params().Get("manifestID")
 	bgctx := context.Background()
 	manifest, err := msc.ms.Fetch(bgctx, manifestID)
 	if err != nil {
 		ctx.StatusCode(404)
-		l.LogE(op, fmt.Sprintf("Could not download manifest: %s", manifestID), err)
+		l.LogE(fmt.Sprintf("Could not download manifest: %s", manifestID), err)
 		return
 	}
 
@@ -66,7 +64,7 @@ func (msc *ManifestController) Fetch(ctx iris.Context) {
 	_, err = ctx.JSON(manifest)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
-		l.LogE(op, fmt.Sprintf("Error writing to response, manifestID %s", manifestID), err)
+		l.LogE(fmt.Sprintf("Error writing to response, manifestID %s", manifestID), err)
 		return
 	}
 }

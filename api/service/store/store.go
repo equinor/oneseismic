@@ -44,7 +44,7 @@ func NewAzBlobStore(accountName, accountKey, containerName string) (*AzBlobStore
 
 	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
-		l.LogE("blobStore AzBlobStorage", "Invalid credentials", err)
+		l.LogE("Checking az credentials", err)
 	}
 	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
 
@@ -68,19 +68,18 @@ func NewMongoDbStore(connStr ConnStr) (*MongoDbStore, error) {
 }
 
 func NewLocalFileStore(basePath BasePath) (*LocalFileStore, error) {
-	op := events.Op("store.NewLocalFileStore")
 	basePathStr := string(basePath)
 	if len(basePath) == 0 {
-		return nil, events.E(op, "basePath cannot be empty")
+		return nil, events.E("basePath cannot be empty", events.ErrorLevel)
 	}
 
 	if _, err := os.Stat(basePathStr); os.IsNotExist(err) {
 		err = os.MkdirAll(basePathStr, 0700)
 		if err != nil {
-			return nil, events.E(op, "Make basePath", err)
+			return nil, events.E("Make basePath", err)
 		}
 	} else if err != nil {
-		return nil, events.E(op, "accessing basePath", err)
+		return nil, events.E("accessing basePath", err)
 	}
 
 	return &LocalFileStore{basePath}, nil

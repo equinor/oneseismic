@@ -17,7 +17,7 @@ var defaultsCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := viper.WriteConfig()
 		if err != nil {
-			l.LogE("cmd.Defaults", "Writing defaults config", err)
+			l.LogE("Writing config defaults", err)
 		}
 	},
 }

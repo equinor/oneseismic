@@ -25,7 +25,7 @@ func Execute(app, v string) {
 	rootCmd.Version = v
 
 	if err := rootCmd.Execute(); err != nil {
-		l.LogE("root.Execute", "", err)
+		l.LogE("Executing command", err)
 		os.Exit(1)
 	}
 }
@@ -41,7 +41,7 @@ func initConfig() {
 	} else {
 		wd, err := os.Getwd()
 		if err != nil {
-			l.LogE("root.initConfig", "Open working dir", err)
+			l.LogE("Open working dir", err)
 			os.Exit(1)
 		}
 		viper.AddConfigPath(wd)
@@ -50,9 +50,9 @@ func initConfig() {
 	config.SetDefaults()
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err == nil {
-		l.LogI("root.initConfig", "Using config file")
+		l.LogI("Reading config file")
 	}
 	if err := config.Load(); err == nil {
-		l.LogI("root.initConfig", "Config loaded and validated "+viper.ConfigFileUsed())
+		l.LogI("Config loaded and validated " + viper.ConfigFileUsed())
 	}
 }

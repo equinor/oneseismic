@@ -63,15 +63,14 @@ type JWKS struct {
 var configClient = &http.Client{Timeout: 10 * time.Second}
 
 func getJSON(url *url.URL, target interface{}) error {
-	op := events.Op("service.getJSON")
 	r, err := configClient.Get(url.String())
 	if err != nil {
-		return events.E(op, "http request failed", err)
+		return events.E("http request failed", err)
 	}
 	defer r.Body.Close()
 
 	if r.StatusCode != 200 {
-		return events.E(op,
+		return events.E(
 			"http response failed",
 			fmt.Errorf(
 				"Json fetch error %s on %s",
@@ -85,34 +84,32 @@ func getJSON(url *url.URL, target interface{}) error {
 
 // GetKey gets the authservers signing key
 func GetOIDCKeySet(authserver *url.URL) (map[string]interface{}, error) {
-	op := events.Op("service.GetKeySet")
 	if authserver == nil {
-		return nil, events.E(op, "authserver is not found", events.NotFound)
+		return nil, events.E("authserver is not found", events.NotFound)
 	}
 	oidcConf := OpenIDConfig{}
 	u, err := url.Parse(authserver.String() + "/.well-known/openid-configuration")
 	if err != nil {
-		return nil, events.E(op, "oidcConf url parse failed", err)
+		return nil, events.E("oidcConf url parse failed", err)
 	}
 	err = getJSON(u, &oidcConf)
 	if err != nil {
-		return nil, events.E(op, "fetching oidc config failed", err)
+		return nil, events.E("fetching oidc config failed", err)
 	}
 
 	jwksURI := oidcConf.JwksURI
 	u, err = url.Parse(jwksURI)
 	if err != nil {
-		return nil, events.E(op, "jwks url parse failed", err)
+		return nil, events.E("jwks url parse failed", err)
 	}
 	return createWebKeySet(u)
 }
 
 func fromB64(b64 string) (big.Int, error) {
-	op := events.Op("service.fromB64")
 	b, err := base64.RawURLEncoding.DecodeString(b64)
 	bi := big.Int{}
 	if err != nil {
-		return bi, events.E(op, " decoding B64 failed", err)
+		return bi, events.E(" decoding B64 failed", err)
 	}
 
 	bi.SetBytes(b)
@@ -120,16 +117,14 @@ func fromB64(b64 string) (big.Int, error) {
 }
 
 func createWebKeySet(keysetURL *url.URL) (map[string]interface{}, error) {
-	op := events.Op("service.createWebKeySet")
 	jwks := JWKS{}
 	err := getJSON(keysetURL, &jwks)
 	if err != nil {
-		return nil, events.E(op, "fetching keyset failed", err)
+		return nil, events.E("fetching keyset failed", err)
 	}
 
 	if len(jwks.Keys) == 0 {
 		return nil, events.E(
-			op,
 			"Couldnt create keyset",
 			fmt.Errorf("no keys in key set"))
 	}
@@ -141,11 +136,11 @@ func createWebKeySet(keysetURL *url.URL) (map[string]interface{}, error) {
 
 			e, err := fromB64(jwk.E)
 			if err != nil {
-				return nil, events.E(op, "big int from  E", err)
+				return nil, events.E("big int from  E", err)
 			}
 			n, err := fromB64(jwk.N)
 			if err != nil {
-				return nil, events.E(op, "big int from  N", err)
+				return nil, events.E("big int from  N", err)
 			}
 
 			jwksMap[jwk.Kid] = &rsa.PublicKey{N: &n, E: int(e.Int64())}

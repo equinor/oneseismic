@@ -44,7 +44,8 @@ func (ek EventKind) String() string {
 type Severity int
 
 const (
-	DebugLevel Severity = iota
+	NoLevel Severity = iota
+	DebugLevel
 	InfoLevel
 	WarnLevel
 	ErrorLevel
@@ -143,19 +144,20 @@ func ParseLevel(s string) Severity {
 	case 'C', 'F':
 		return CriticalLevel
 	default:
-		return DebugLevel
+		return NoLevel
 	}
 
 }
 
-func E(op Op, msg string, args ...interface{}) error {
+func E(msg string, args ...interface{}) error {
 	e := &Event{When: time.Now().UTC()}
-	e.Op = op
 	e.Message = msg
 	for _, arg := range args {
 		switch arg := arg.(type) {
 		case error:
 			e.Err = arg
+		case Op:
+			e.Op = arg
 		case Severity:
 			e.Level = arg
 		case UserID:
@@ -168,5 +170,12 @@ func E(op Op, msg string, args ...interface{}) error {
 			e.Unknowns = append(e.Unknowns, arg)
 		}
 	}
+	if e.Op == "" {
+		e.Op = Op(getCaller(isInternal))
+	}
+	if e.Err != nil && e.Level == NoLevel {
+		e.Level = ErrorLevel
+	}
+
 	return e
 }

@@ -59,4 +59,5 @@ func init() {
 func main() {
 
 	cmd.Execute(AppName, Version)
+	l.Wait()
 }

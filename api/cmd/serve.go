@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/equinor/seismic-cloud-api/api/events"
 	l "github.com/equinor/seismic-cloud-api/api/logger"
@@ -71,8 +70,6 @@ func manifestStoreConfig() interface{} {
 }
 
 func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
-	op := "serve.getHTTPServerOptions"
-
 	opts := make([]server.HTTPServerOption, 0)
 	opts = append(opts, server.WithAPIVersion(config.Version()))
 
@@ -88,7 +85,7 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 
 	ms, err := store.NewManifestStore(manifestStoreConfig())
 	if err != nil {
-		return nil, events.E(events.Op(op), "Accessing manifest store", err)
+		return nil, events.E("Accessing manifest store", err)
 	}
 	opts = append(
 		opts,
@@ -96,7 +93,7 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 
 	ssC, err := store.NewSurfaceStore(surfaceStoreConfig())
 	if err != nil {
-		return nil, events.E(events.Op(op), "Accessing surface store", err)
+		return nil, events.E("Accessing surface store", err)
 
 	}
 	opts = append(
@@ -105,7 +102,7 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 
 	st, err := service.NewStitch(stitchConfig(), config.Profiling())
 	if err != nil {
-		return nil, events.E(events.Op(op), "Stitch error", err)
+		return nil, events.E("Stitch error", err)
 
 	}
 	opts = append(
@@ -152,32 +149,31 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 }
 
 func serve(opts []server.HTTPServerOption) error {
-	op := "serve.serve"
+
 	hs, err := server.NewHTTPServer(opts...)
 
 	if err != nil {
-		return events.E(events.Op(op), "Error configuring http server", err)
+		return events.E("Error configuring http server", err)
 	}
 	err = hs.Serve()
 
 	if err != nil && err != http.ErrServerClosed {
-		return events.E(events.Op(op), "Error running http server", err)
+		return events.E("Error running http server", err)
 	}
 	return nil
 }
 
 func runServe(cmd *cobra.Command, args []string) {
-	op := "serve.runServe"
 
 	if viper.ConfigFileUsed() == "" {
-		l.LogW(op, "Config from environment variables")
+		l.LogW("Config from environment variables")
 	} else {
-		l.LogI(op, "Config loaded and validated "+viper.ConfigFileUsed())
+		l.LogI("Config loaded and validated " + viper.ConfigFileUsed())
 	}
 
 	var p *profile.Profile
 	if config.Profiling() {
-		l.LogI(op, "Enabling profiling")
+		l.LogI("Enabling profiling")
 		pType := "mem"
 		pOpts := []func(*profile.Profile){
 			profile.ProfilePath("pprof"),
@@ -193,13 +189,14 @@ func runServe(cmd *cobra.Command, args []string) {
 		}
 
 		p = profile.Start(pOpts...).(*profile.Profile)
+		defer p.Stop()
 	}
 	if len(config.LogDBConnStr()) > 0 {
-		l.LogI(op, "Switch log sink from os.Stdout to psqlDB")
+		l.LogI("Switch log sink from os.Stdout to psqlDB")
 
 		err := l.SetLogSink(l.ConnString(config.LogDBConnStr()), events.DebugLevel)
 		if err != nil {
-			l.LogE(op, "Switching log sink", err)
+			l.LogE("Switching log sink", err)
 			return
 		}
 
@@ -207,17 +204,13 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	opts, err := createHTTPServerOptions()
 	if err != nil {
-		l.LogE(op, "Creating http server options", err)
-		os.Exit(1)
+		l.LogE("Creating http server options", err)
+		return
 	}
-
+	l.LogI("Starting server")
 	err = serve(opts)
 	if err != nil {
-		l.LogE(op, "Error starting http server", err)
-	}
-
-	if p != nil {
-		p.Stop()
+		l.LogE("Error starting http server", err)
 	}
 
 }

@@ -245,7 +245,7 @@ func (hs *HTTPServer) Serve() error {
 		go func() {
 			err := metricsServer.ListenAndServe()
 			if err != nil {
-				l.LogE("http.RunningProfileServer", "Server shutdown", err)
+				l.LogE("Server shutdown", err)
 			}
 		}()
 	}

@@ -18,7 +18,6 @@ type Stitcher interface {
 }
 
 func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
-	op := events.Op("service.NewStich")
 	switch stitcher := stype.(type) {
 	case GrpcOpts:
 		addr := stitcher.Addr
@@ -28,7 +27,7 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 		}
 		return &gRPCStitch{addr, opts}, nil
 	default:
-		return nil, events.E(op, "Invalid stitch type", events.ErrorLevel)
+		return nil, events.E("Invalid stitch type", events.ErrorLevel)
 	}
 }
 
