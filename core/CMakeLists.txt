@@ -39,7 +39,10 @@ endif ()
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_library(seismic-cloud src/core.cpp)
+add_library(seismic-cloud
+    src/base64.cpp
+    src/core.cpp
+)
 add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
     PUBLIC
