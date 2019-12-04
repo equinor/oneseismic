@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/equinor/seismic-cloud-api/api/service/store"
@@ -19,9 +19,9 @@ func main() {
 	var err error
 	ss, err := store.NewSurfaceStore(surfaceStoreConfig())
 	if err != nil {
-		panic(fmt.Errorf("No surface store, error: %v", err))
+		log.Fatalf("No surface store, error: %v", err)
 	}
-	server.StartServer(context.Background(), hostAddr, ss)
+	log.Fatalf(server.StartServer(context.Background(), hostAddr, ss))
 }
 
 func surfaceStoreConfig() interface{} {

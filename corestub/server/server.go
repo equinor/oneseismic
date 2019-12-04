@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"fmt"
-	"log"
 	"math"
 	"net"
 
@@ -163,7 +162,7 @@ func (s *coreServer) ShatterLink(ctx context.Context, in *pb.ShatterLinkRequest)
 	return nil, nil
 }
 
-func StartServer(ctx context.Context, hostAddr string, surfaceStore store.SurfaceStore) {
+func StartServer(ctx context.Context, hostAddr string, surfaceStore store.SurfaceStore) error {
 
 	ss = surfaceStore
 
@@ -172,7 +171,7 @@ func StartServer(ctx context.Context, hostAddr string, surfaceStore store.Surfac
 	fmt.Println("starting server on ", hostAddr)
 	lis, err := net.Listen("tcp", hostAddr)
 	if err != nil {
-		log.Fatalf("tcp listen: %v", err)
+		return fmt.Errorf("tcp listen: %w", err)
 	}
 	var opts []grpc.ServerOption
 	grpcServer = grpc.NewServer(opts...)
@@ -185,6 +184,6 @@ func StartServer(ctx context.Context, hostAddr string, surfaceStore store.Surfac
 	pb.RegisterCoreServer(grpcServer, cs)
 	err = grpcServer.Serve(lis)
 	if err != nil {
-		log.Fatalf("serve grpc server: %v", err)
+		return fmt.Errorf("serve grpc server: %w", err)
 	}
 }
