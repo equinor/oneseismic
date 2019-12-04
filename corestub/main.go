@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("No surface store, error: %v", err)
 	}
-	log.Fatalf(server.StartServer(context.Background(), hostAddr, ss))
+	log.Fatalf("Starting corestub server: %w", server.StartServer(context.Background(), hostAddr, ss))
 }
 
 func surfaceStoreConfig() interface{} {
