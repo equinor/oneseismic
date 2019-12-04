@@ -186,4 +186,5 @@ func StartServer(ctx context.Context, hostAddr string, surfaceStore store.Surfac
 	if err != nil {
 		return fmt.Errorf("serve grpc server: %w", err)
 	}
+	return nil
 }
