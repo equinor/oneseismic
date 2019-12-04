@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -20,9 +21,7 @@ func main() {
 	if err != nil {
 		panic(fmt.Errorf("No surface store, error: %v", err))
 	}
-
-	server.StartServer(hostAddr, ss)
-
+	server.StartServer(context.Background(), hostAddr, ss)
 }
 
 func surfaceStoreConfig() interface{} {

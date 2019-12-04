@@ -163,7 +163,7 @@ func (s *coreServer) ShatterLink(ctx context.Context, in *pb.ShatterLinkRequest)
 	return nil, nil
 }
 
-func StartServer(hostAddr string, surfaceStore store.SurfaceStore) {
+func StartServer(ctx context.Context, hostAddr string, surfaceStore store.SurfaceStore) {
 
 	ss = surfaceStore
 
@@ -176,15 +176,15 @@ func StartServer(hostAddr string, surfaceStore store.SurfaceStore) {
 	}
 	var opts []grpc.ServerOption
 	grpcServer = grpc.NewServer(opts...)
+	go func() {
+		<-ctx.Done()
+		grpcServer.GracefulStop()
+
+	}()
+
 	pb.RegisterCoreServer(grpcServer, cs)
 	err = grpcServer.Serve(lis)
 	if err != nil {
 		log.Fatalf("serve grpc server: %v", err)
-	}
-}
-
-func StopServer() {
-	if grpcServer != nil {
-		grpcServer.GracefulStop()
 	}
 }
