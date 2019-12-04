@@ -19,7 +19,6 @@ import (
 
 type ManifestStore interface {
 	Fetch(context.Context, string) (Manifest, error)
-	List(context.Context) ([]Manifest, error)
 }
 
 type (
@@ -160,94 +159,7 @@ func (s *manifestInMemoryStore) Fetch(ctx context.Context, id string) (Manifest,
 	return mani, nil
 }
 
-func (s *manifestFileStore) List(ctx context.Context) ([]Manifest, error) {
-
-	m := s.localStore
-	var res []Manifest
-	files, err := ioutil.ReadDir(string(m.basePath))
-	if err != nil {
-		return nil, events.E("Invalid local file store", err, events.NotFound)
-	}
-	for _, file := range files {
-		var mani Manifest
-		b, _ := ioutil.ReadFile(path.Join(string(m.basePath), file.Name()))
-		err = json.Unmarshal(b, &mani)
-		if err == nil {
-			res = append(res, mani)
-		}
-	}
-	l.LogI(fmt.Sprintf("Fetched %d files from local store", len(res)))
-	return res, nil
-}
-
-func (s *manifestBlobStore) List(ctx context.Context) ([]Manifest, error) {
-	az := s.blobStore
-	var manis []Manifest
-	for marker := (azblob.Marker{}); marker.NotDone(); {
-		listBlob, err := az.containerURL.ListBlobsFlatSegment(ctx, marker, azblob.ListBlobsSegmentOptions{})
-		if err != nil {
-			return nil, events.E("List blobs", err)
-		}
-		marker = listBlob.NextMarker
-		for _, blobInfo := range listBlob.Segment.BlobItems {
-			mani, err := s.Fetch(ctx, blobInfo.Name)
-			if err == nil {
-				manis = append(manis, mani)
-			}
-		}
-	}
-	return manis, nil
-}
-
-func (s *manifestDbStore) List(ctx context.Context) ([]Manifest, error) {
-	m := s.dbStore
-	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	var res []Manifest
-	client, err := mongo.Connect(dbCtx, options.Client().ApplyURI(string(m.connString)))
-	if err != nil {
-		return res, err
-	}
-	defer func() {
-		err := client.Disconnect(dbCtx)
-		if err != nil {
-			l.LogE("Disconnect manifest store", err)
-		}
-	}()
-	collection := client.Database("seismiccloud").Collection("manifests")
-	find, err := collection.Find(dbCtx, bson.D{})
-	if err != nil {
-		return res, events.E("Find in DB error", err, events.NotFound)
-	}
-
-	for find.Next(dbCtx) {
-		var mani Manifest
-		err := find.Decode(&mani)
-		if err == nil {
-			res = append(res, mani)
-		}
-	}
-	l.LogI(fmt.Sprintf("Connected to manifest DB and fetched %d files", len(res)))
-	return res, nil
-}
-
-func (s *manifestInMemoryStore) List(ctx context.Context) ([]Manifest, error) {
-	s.inMemoryStore.lock.RLock()
-	defer s.inMemoryStore.lock.RUnlock()
-	var res []Manifest
-	for _, v := range s.inMemoryStore.m {
-		var mani Manifest
-		err := json.Unmarshal(v, &mani)
-		if err == nil {
-			res = append(res, mani)
-		}
-	}
-	l.LogI(fmt.Sprintf("Fetched %d files from memory store", len(res)))
-	return res, nil
-}
-
 func (m Manifest) ToJSON() (string, error) {
-	const op = events.Op("store.ToJSON")
 	b, err := json.Marshal(m)
 	if err != nil {
 		return "", events.E("Manifest to JSON", err, events.Marshalling)

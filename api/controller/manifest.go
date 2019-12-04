@@ -18,32 +18,6 @@ func NewManifestController(ms store.ManifestStore) *ManifestController {
 	return &ManifestController{ms: ms}
 }
 
-// @Description get list of available manifests
-// @Produce  application/json
-// @Success 200 {object} controller.Bytes OK
-// @Failure 502 {object} controller.APIError "Internal Server Error"
-// @Router /manifest/ [get]
-func (msc *ManifestController) List(ctx iris.Context) {
-	bgctx := context.Background()
-	info, err := msc.ms.List(bgctx)
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		l.LogE("Get manifests", err)
-		return
-	}
-
-	if len(info) > 0 {
-		ctx.Header("Content-Type", "application/json")
-		_, err = ctx.JSON(info)
-		if err != nil {
-			ctx.StatusCode(http.StatusInternalServerError)
-			l.LogE("JSON Encoding manifests", err)
-			return
-
-		}
-	}
-}
-
 // @Description get manifest file
 // @Produce  application/octet-stream
 // @Param   surfaceID  path    string     true        "File ID"

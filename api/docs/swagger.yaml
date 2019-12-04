@@ -1,4 +1,3 @@
-basePath: '{{.BasePath}}'
 definitions:
   controller.APIError:
     properties:
@@ -10,30 +9,10 @@ definitions:
   controller.Bytes:
     items: {}
     type: array
-host: '{{.Host}}'
 info:
   contact: {}
-  description: '{{.Description}}'
   license: {}
-  title: '{{.Title}}'
-  version: '{{.Version}}'
 paths:
-  /manifest/:
-    get:
-      description: get list of available manifests
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/controller.Bytes'
-            type: object
-        "502":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/controller.APIError'
-            type: object
   /manifest/{manifest_id}:
     get:
       description: get manifest file
@@ -50,12 +29,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
-            type: object
         "502":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-            type: object
   /stitch/{manifest_id}/{surface_id}:
     get:
       description: post surface query to stitch
@@ -72,17 +49,14 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
-            type: object
         "400":
           description: Surface id not found
           schema:
             $ref: '#/definitions/controller.APIError'
-            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-            type: object
   /surface/:
     get:
       description: get list of available surfaces
@@ -97,7 +71,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-            type: object
   /surface/{surface_id}:
     get:
       description: get surface file
@@ -114,17 +87,14 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
-            type: object
         "404":
           description: Not found
           schema:
             $ref: '#/definitions/controller.APIError'
-            type: object
         "502":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-            type: object
     post:
       consumes:
       - application/octet-stream
@@ -142,10 +112,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
-            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
-            type: object
 swagger: "2.0"
