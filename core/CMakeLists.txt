@@ -17,6 +17,7 @@ add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
 find_package(fmt REQUIRED)
+find_package(GnuTLS REQUIRED)
 
 add_subdirectory(external/mio)
 
