@@ -13,10 +13,6 @@ matrix:
     - language: c++
       dist: xenial
       compiler: clang
-      addons:
-        apt:
-          packages:
-            - libomp-dev
 
 install:
   - sudo apt-get install -y libgnutls28-dev
