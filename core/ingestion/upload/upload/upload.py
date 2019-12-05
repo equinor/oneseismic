@@ -191,7 +191,6 @@ def upload(params, meta, segment, blob, f):
     }
     for x, y, z in tqdm.tqdm(xyz, **tqdm_opts):
         fname = '{}-{}-{}.f32'.format(x, y, z)
-        x = slice(x * fragment_dims[0], (x + 1) * fragment_dims[0])
         y = slice(y * fragment_dims[1], (y + 1) * fragment_dims[1])
         z = slice(z * fragment_dims[2], (z + 1) * fragment_dims[2])
         blob_name = '{}/{}'.format(basename, fname)
@@ -201,5 +200,5 @@ def upload(params, meta, segment, blob, f):
         blob.create_blob_from_bytes(
             container_name = container,
             blob_name = blob_name,
-            blob = bytes(dst[x, y, z]),
+            blob = bytes(dst[:, y, z]),
         )
