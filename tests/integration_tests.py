@@ -46,11 +46,6 @@ def test_surface_list():
     assert r.status_code == 200
 
 
-def test_manifest_list():
-    r = requests.get(sc_uri + "/manifest", headers=auth_header)
-    assert r.status_code == 200
-
-
 def test_surface_get():
     r = requests.get(sc_uri + "/surface/test-surface", headers=auth_header)
     assert r.status_code == 200
