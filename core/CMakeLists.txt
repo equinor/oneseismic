@@ -43,6 +43,7 @@ set(CMAKE_CXX_STANDARD 14)
 add_library(seismic-cloud
     src/base64.cpp
     src/core.cpp
+    src/url.cpp
 )
 add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
@@ -54,11 +55,12 @@ target_include_directories(seismic-cloud
 )
 target_compile_options(seismic-cloud
     PUBLIC
-        ${OpenMP_CXX_FLAGS}
+        ${GNUTLS_DEFINITIONS}
 )
 target_link_libraries(seismic-cloud
     PUBLIC
         fmt::fmt
+        ${GNUTLS_LIBRARIES}
 )
 
 install(TARGETS seismic-cloud
@@ -81,7 +83,11 @@ export(
 
 add_subdirectory(external/catch2)
 
-add_executable(tests tests/testsuite.cpp tests/seismic-cloud.cpp)
+add_executable(tests
+    tests/testsuite.cpp
+    tests/seismic-cloud.cpp
+    tests/request-generator.cpp
+)
 target_link_libraries(tests seismic-cloud catch2)
 
 add_test(NAME test COMMAND tests)
