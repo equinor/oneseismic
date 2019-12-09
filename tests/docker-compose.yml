@@ -17,7 +17,10 @@ services:
       - "8089:8089"
 
   api:
-    build: ../api
+    build:
+      context: ../api
+      args:
+        - GITHUB_TOKEN
     depends_on:
       - corestub
     ports:
