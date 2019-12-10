@@ -158,11 +158,3 @@ func (s *manifestInMemoryStore) Fetch(ctx context.Context, id string) (Manifest,
 	}
 	return mani, nil
 }
-
-func (m Manifest) ToJSON() (string, error) {
-	b, err := json.Marshal(m)
-	if err != nil {
-		return "", events.E("Manifest to JSON", err, events.Marshalling)
-	}
-	return string(b), nil
-}

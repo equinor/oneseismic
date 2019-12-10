@@ -1,11 +1,12 @@
 package store
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
 
-func TestToJSON(t *testing.T) {
+func TestManifestSerializable(t *testing.T) {
 
 	manifest := &Manifest{
 		Basename:   "mock",
@@ -17,26 +18,23 @@ func TestToJSON(t *testing.T) {
 		Fragmentzs: 1,
 	}
 
-	tests := []struct {
-		got  Manifest
-		want string
-	}{
-		{*manifest,
-			`{"basename":"mock","cubexs":1,"cubeys":1,"cubezs":1,"fragmentxs":1,"fragmentys":1,"fragmentzs":1}`},
+	jsonManifest, err := json.Marshal(manifest)
+
+	if err != nil {
+		t.Errorf("json marshal manifest: %v", err)
+		return
+	}
+	mani := new(Manifest)
+	err = json.Unmarshal(jsonManifest, mani)
+
+	if err != nil {
+		t.Errorf("json unmarshal manifest: %v", err)
+		return
 	}
 
-	for _, tt := range tests {
-		got, err := tt.got.ToJSON()
-
-		if err != nil {
-			t.Errorf("ManifestStore.ToJSON")
-			return
-		}
-
-		if !reflect.DeepEqual(tt.want, got) {
-			t.Errorf("ManifestStore.ToJSON : Got = %v, want %v", tt.want, got)
-			return
-		}
+	if !reflect.DeepEqual(manifest, mani) {
+		t.Errorf("ManifestStore.ToJSON : Got = %v, want %v", manifest, mani)
+		return
 	}
 
 }
