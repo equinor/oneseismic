@@ -14,7 +14,7 @@ class parseint:
         self.default_length  = default_length
         self.endian = endian
 
-    def parse(self, i, length = None):
+    def parse(self, i, length = None, signed = True):
         """ Parse endian-sourced integer when read from bytes as big-endian
 
         segyio reads from the byte buffer as if it was big endian always. However,
@@ -39,8 +39,8 @@ class parseint:
         if length is None:
             length = self.default_length
 
-        chunk = i.to_bytes(length = length, byteorder = 'big', signed = True)
-        return int.from_bytes(chunk, byteorder = self.endian, signed = True)
+        chunk = i.to_bytes(length = length, byteorder = 'big', signed = signed)
+        return int.from_bytes(chunk, byteorder = self.endian, signed = signed)
 
 def scan_binary(stream, endian):
     """ Read info from the binary header
@@ -85,7 +85,7 @@ def scan_binary(stream, endian):
 
     return {
         'format': fmt,
-        'samples': intp.parse(binary[segyio.su.hns]),
+        'samples': intp.parse(binary[segyio.su.hns], signed=False),
         'sampleinterval': intp.parse(binary[segyio.su.hdt]),
         'byteoffset-first-trace': 3600 + exth * 3200,
     }
