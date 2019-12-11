@@ -2,9 +2,8 @@ version: '3.0'
 services:
   corestub:
     build:
-      context: ../corestub
-      args:
-        - GITHUB_TOKEN
+      context: ../api
+      dockerfile: Dockerfile-corestub
     environment:
       - SC_GRPC_HOST_ADDR=0.0.0.0:10000
       - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces
@@ -14,13 +13,11 @@ services:
   auth:
     image: lambdaville/no-factor-auth:v0.0.5
     ports:
-      - "8089:8089"
+      - '8089:8089'
 
   api:
     build:
       context: ../api
-      args:
-        - GITHUB_TOKEN
     depends_on:
       - corestub
     ports:

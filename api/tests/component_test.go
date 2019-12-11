@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
+	cserver "github.com/equinor/seismic-cloud-api/api/corestub/server"
 	pb "github.com/equinor/seismic-cloud-api/api/proto"
 	server "github.com/equinor/seismic-cloud-api/api/server"
 	"github.com/equinor/seismic-cloud-api/api/service"
 	"github.com/equinor/seismic-cloud-api/api/service/store"
-	cserver "github.com/equinor/seismic-cloud-api/corestub/server"
 	"github.com/stretchr/testify/assert"
 )
 

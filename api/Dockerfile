@@ -1,10 +1,7 @@
 FROM golang:alpine as builder
 
-ARG GITHUB_TOKEN
-ENV GITHUB_TOKEN $GITHUB_TOKEN
 RUN apk update && apk upgrade && apk add --no-cache ca-certificates git
 RUN update-ca-certificates
-RUN git config --global url."https://${GITHUB_TOKEN}:x-oauth-basic@github.com/equinor".insteadOf "https://github.com/equinor"
 
 WORKDIR /src
 COPY go.mod .

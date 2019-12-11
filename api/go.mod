@@ -7,8 +7,8 @@ require (
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/enriquebris/goconcurrentqueue v0.0.0-20190719205347-3e5689c24f05
-	github.com/equinor/seismic-cloud-api/corestub v0.0.0-20191204134046-a67b86feec56
 	github.com/golang/protobuf v1.3.2
+	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/iris-contrib/middleware/jwt v0.0.0-20191111233249-6e1f5f92190e
 	github.com/iris-contrib/middleware/prometheus v0.0.0-20191111233249-6e1f5f92190e
@@ -26,6 +26,8 @@ require (
 	github.com/spf13/viper v1.5.0
 	github.com/stretchr/testify v1.4.0
 	github.com/swaggo/swag v1.6.3
+	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
+	github.com/xdg/stringprep v1.0.0 // indirect
 	go.mongodb.org/mongo-driver v1.1.3
 	golang.org/x/crypto v0.0.0-20191202143827-86a70503ff7e // indirect
 	golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a // indirect

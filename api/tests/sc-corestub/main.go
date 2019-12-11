@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/equinor/seismic-cloud-api/api/corestub/server"
 	"github.com/equinor/seismic-cloud-api/api/service/store"
-	"github.com/equinor/seismic-cloud-api/corestub/server"
 )
 
 func main() {

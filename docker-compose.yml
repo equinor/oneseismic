@@ -1,12 +1,10 @@
 version: '3.0'
 services:
-
   corestub:
     image: lambdaville.azurecr.io/corestub:latest
-    build: 
-      context: corestub
-      args:
-        - GITHUB_TOKEN
+    build:
+      context: api
+      dockerfile: Dockerfile-corestub
 
   api:
     image: lambdaville.azurecr.io/api:latest
