@@ -16,6 +16,7 @@ import (
 	"github.com/equinor/seismic-cloud-api/api/service"
 	"github.com/equinor/seismic-cloud-api/api/service/store"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -94,31 +95,15 @@ func TestServer(t *testing.T) {
 
 }
 
-func Test_createHTTPServerOptions(t *testing.T) {
-	tests := []struct {
-		name        string
-		want        []server.HTTPServerOption
-		setDefaults bool
-		wantErr     bool
-	}{
-		{"No config should fail", []server.HTTPServerOption{}, false, true},
-		{"Default config should fail", []server.HTTPServerOption{}, true, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.setDefaults {
-				config.SetDefaults()
-			}
-			got, err := createHTTPServerOptions()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("createHTTPServerOptions() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if len(got) != len(tt.want) {
-				t.Errorf("createHTTPServerOptions() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+func Test_HTTPServerOptionsNeedsConfig(t *testing.T) {
+	got, err := createHTTPServerOptions()
+	assert.Errorf(t, err, "No config should fail. Got: %v", got)
+}
+
+func Test_createHTTPServerOptionsDefaults(t *testing.T) {
+	config.SetDefaults()
+	got, err := createHTTPServerOptions()
+	assert.Errorf(t, err, "Default config should fail. Got options: %v", got)
 }
 
 func Test_stitchConfig(t *testing.T) {
