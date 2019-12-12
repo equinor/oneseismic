@@ -10,5 +10,3 @@ services:
     image: lambdaville.azurecr.io/api:latest
     build:
       context: api
-      args:
-        - GITHUB_TOKEN

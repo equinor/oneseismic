@@ -1,6 +1,5 @@
 FROM golang:alpine as builder
 
-RUN apk update && apk upgrade && apk add --no-cache git
 WORKDIR /src
 COPY go.mod .
 COPY go.sum .
