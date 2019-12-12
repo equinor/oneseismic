@@ -32,9 +32,9 @@ func (sm serverMode) String() string {
 	case INSECURE:
 		return "Insecure"
 	case SECURE:
-		return "Lets Encrypt"
-	case LETSENCRYPT:
 		return "Secure"
+	case LETSENCRYPT:
+		return "Lets Encrypt"
 	default:
 		return "Unknown"
 	}
