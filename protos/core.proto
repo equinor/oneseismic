@@ -3,34 +3,25 @@ package seismic_core;
 
 // The seismic core service definition.
 service Core {
-  rpc ShatterLink (ShatterLinkRequest) returns (ShatterReply) {}
-  rpc StitchSurface (SurfaceRequest) returns (SurfaceReply) {}
+  rpc Slice (Request) returns (Reply) {}
 }
 
-message  SurfaceRequest {
-    string  surfaceid  = 1;
-    string  basename   = 2;
-    uint32  cubexs     = 3;
-    uint32  cubeys     = 4;
-    uint32  cubezs     = 5;
-    uint32  fragmentxs = 6;
-    uint32  fragmentys = 7;
-    uint32  fragmentzs = 8;
+message Geometry {
+  string cubeid = 1;
+  repeated int64 dim0 = 2;
+  repeated int64 dim1 = 3;
+  repeated int64 dim2 = 4;
 }
 
-message SurfaceReply {
-    repeated SurfaceReplyValue surfaceReplyValues = 1;
+message  Request {
+    int32 dim = 1;
+    int64 lineno = 2;
+    Geometry geometry = 3;
 }
 
-message SurfaceReplyValue {
-    uint64 i = 1;
-    float v = 2;
+message Reply {
+    int64 dim0 = 1;
+    int64 dim1 = 2;
+    repeated float v = 3;
 }
 
-message ShatterLinkRequest {
-    string link = 1;
-}
-
-message ShatterReply {
-    string link = 1;
-}
