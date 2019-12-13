@@ -20,8 +20,6 @@ services:
       context: ../api
     depends_on:
       - corestub
-    ports:
-      - '8080:8080'
     environment:
       - HTTP_ONLY=true
       - HOST_ADDR=0.0.0.0:8080

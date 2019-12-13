@@ -1,3 +1,4 @@
+basePath: '{{.BasePath}}'
 definitions:
   controller.APIError:
     properties:
@@ -9,9 +10,13 @@ definitions:
   controller.Bytes:
     items: {}
     type: array
+host: '{{.Host}}'
 info:
   contact: {}
+  description: '{{.Description}}'
   license: {}
+  title: '{{.Title}}'
+  version: '{{.Version}}'
 paths:
   /manifest/{manifest_id}:
     get:
@@ -19,7 +24,7 @@ paths:
       parameters:
       - description: File ID
         in: path
-        name: surfaceID
+        name: manifestID
         required: true
         type: string
       produces:
@@ -29,10 +34,35 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            type: string
         "502":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
+    post:
+      description: post manifest
+      parameters:
+      - description: File ID
+        in: path
+        name: manifestID
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "502":
+          description: Internal Server Error
+          schema:
+            type: string
   /stitch/{manifest_id}/{surface_id}:
     get:
       description: post surface query to stitch
@@ -49,14 +79,44 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
+            type: object
         "400":
           description: Surface id not found
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
+  /stitch/{manifest_id}/dim/{dim}:
+    get:
+      description: post surface query to stitch
+      parameters:
+      - description: Some ID
+        in: path
+        name: some_id
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.Bytes'
+            type: object
+        "400":
+          description: Surface id not found
+          schema:
+            $ref: '#/definitions/controller.APIError'
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/controller.APIError'
+            type: object
   /surface/:
     get:
       description: get list of available surfaces
@@ -71,6 +131,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
   /surface/{surface_id}:
     get:
       description: get surface file
@@ -87,14 +148,17 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
+            type: object
         "404":
           description: Not found
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
         "502":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
     post:
       consumes:
       - application/octet-stream
@@ -112,8 +176,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/controller.Bytes'
+            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+            type: object
 swagger: "2.0"

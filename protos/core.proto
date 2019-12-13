@@ -1,6 +1,5 @@
 syntax = "proto3";
 package seismic_core;
-
 // The seismic core service definition.
 service Core {
   rpc Slice (Request) returns (Reply) {}

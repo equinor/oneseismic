@@ -1,9 +1,14 @@
 {
     "swagger": "2.0",
     "info": {
+        "description": "{{.Description}}",
+        "title": "{{.Title}}",
         "contact": {},
-        "license": {}
+        "license": {},
+        "version": "{{.Version}}"
     },
+    "host": "{{.Host}}",
+    "basePath": "{{.BasePath}}",
     "paths": {
         "/manifest/{manifest_id}": {
             "get": {
@@ -15,7 +20,7 @@
                     {
                         "type": "string",
                         "description": "File ID",
-                        "name": "surfaceID",
+                        "name": "manifestID",
                         "in": "path",
                         "required": true
                     }
@@ -24,12 +29,89 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.Bytes"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "502": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
+                            "$ref": "#/definitions/controller.APIError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "post manifest",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File ID",
+                        "name": "manifestID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "502": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/stitch/{manifest_id}/dim/{dim}": {
+            "get": {
+                "description": "post surface query to stitch",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Some ID",
+                        "name": "some_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "$ref": "#/definitions/controller.Bytes"
+                        }
+                    },
+                    "400": {
+                        "description": "Surface id not found",
+                        "schema": {
+                            "type": "object",
+                            "$ref": "#/definitions/controller.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -55,18 +137,21 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.Bytes"
                         }
                     },
                     "400": {
                         "description": "Surface id not found",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -89,6 +174,7 @@
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -114,18 +200,21 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.Bytes"
                         }
                     },
                     "404": {
                         "description": "Not found",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "502": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -152,12 +241,14 @@
                     "200": {
                         "description": "OK",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.Bytes"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
+                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }

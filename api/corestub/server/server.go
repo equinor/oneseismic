@@ -131,35 +131,23 @@ func sinCube(b func(p *Point) bool) func(p *Point) float32 {
 	}
 }
 
-func (s *coreServer) StitchSurface(ctx context.Context, in *pb.SurfaceRequest) (*pb.SurfaceReply, error) {
-
-	fmt.Println("stitching on cube ", in.Basename)
-	vals := []*pb.SurfaceReplyValue{}
-	cube := genFunc(in.Basename, in.Cubexs, in.Cubeys, in.Cubezs)
-	id := in.Surfaceid
-	r, err := ss.Download(ctx, id)
-	if err != nil {
-		fmt.Println("surface download failed")
-		return nil, err
+func g(d0, d1 int32) []float32 {
+	v := make([]float32, 0)
+	for i := int32(0); i < d0; i++ {
+		for j := int32(0); j < d1; j++ {
+			v = append(v, float32(d0)+float32(d1))
+		}
 	}
 
-	surf, err := wrapSurfaceReader(r)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println("size of surface is ", len(surf.Points))
-	for idx, p := range surf.Points {
-		val := &pb.SurfaceReplyValue{I: uint64(idx), V: cube(p)}
-		vals = append(vals, val)
-	}
-	fmt.Println("size of repl is ", len(vals))
-	repl := &pb.SurfaceReply{SurfaceReplyValues: vals}
-	return repl, nil
+	return v
 }
 
-func (s *coreServer) ShatterLink(ctx context.Context, in *pb.ShatterLinkRequest) (*pb.ShatterReply, error) {
-	return nil, nil
+func (s *coreServer) Slice(ctx context.Context, in *pb.Request) (*pb.Reply, error) {
+
+	fmt.Println("stitching on cube ", in.Geometry.Cubeid)
+
+	repl := &pb.Reply{Dim0: 100, Dim1: 100, V: g(100, 100)}
+	return repl, nil
 }
 
 func StartServer(ctx context.Context, hostAddr string, surfaceStore store.SurfaceStore) error {

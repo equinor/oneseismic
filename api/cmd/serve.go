@@ -51,9 +51,8 @@ func manifestStoreConfig() interface{} {
 
 	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
 		return store.AzureBlobSettings{
-			AccountName:   config.AzStorageAccount(),
-			AccountKey:    config.AzStorageKey(),
-			ContainerName: config.AzManifestContainerName(),
+			AccountName: config.AzStorageAccount(),
+			AccountKey:  config.AzStorageKey(),
 		}
 	}
 

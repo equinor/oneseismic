@@ -194,10 +194,15 @@ func (hs *HTTPServer) registerEndpoints() {
 
 	mc := controller.NewManifestController(hs.service.manifestStore)
 
-	hs.app.Get("/manifest/{manifestID:string idString() else 502}", mc.Fetch)
+	hs.app.Get("/manifest/{manifestID:string idString() else 502}", mc.Download)
+	hs.app.Post("/manifest/{manifestID:string idString() else 502}", mc.Upload)
 
 	hs.app.Get("/stitch/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
-		controller.StitchController(
+		controller.StitchSurfaceController(
+			hs.service.manifestStore,
+			hs.service.stitcher))
+	hs.app.Get("/stitch/{manifestID:string idString() else 502}/dim/{dim:uint32}",
+		controller.StitchDimController(
 			hs.service.manifestStore,
 			hs.service.stitcher))
 
