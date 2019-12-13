@@ -53,27 +53,38 @@ class segmenter:
         # The secondary wraps
         if key2 == self.secondaries[0]:
 
-            if key1 in self.primaries:
-                raise RuntimeError("The file ...")
-
             if self.previous_secondary != self.secondaries[-1]:
-                raise RuntimeError("The file ...")
+                msg = "The secondary key wrapped before reaching end of line "\
+                      "at trace: {} (primary: {}, secondary: {})."
+                raise RuntimeError(msg.format(self.traceno, key1, key2))
 
             self.primaries.append(key1)
             increment()
             return
 
-        # We are encountering a new secondary
+        # We should be encountering a new secondary
         if self.previous_secondary == self.secondaries[-1]:
 
+            if key1 in self.primaries and key2 in self.secondaries:
+                msg = "Duplicate (primary, secondary) pair detected at "\
+                      "trace: {} (primary: {}, secondary: {})."
+                raise RuntimeError(msg.format(self.traceno, key1, key2))
+
             if key2 in self.secondaries:
-                raise RuntimeError("The file ...")
+                msg = "Unexpected secondary key encountered at "\
+                      "trace: {} (primary: {}, secondary: {})."
+                raise RuntimeError(msg.format(self.traceno, key1, key2))
 
             if key1 != self.primaries[-1]:
-                raise RuntimeError("The file ...")
+                msg = "Primary key increment is expected to be accompanied by "\
+                      "wrapping of secondary key. At trace: {} (primary: {}, "\
+                      "secondary: {})."
+                raise RuntimeError(msg.format(self.traceno, key1, key2))
 
             if len(self.primaries) > 1:
-                raise RuntimeError("The file ...")
+                msg = "Encountered a unseen secondary key after the first "\
+                      "line at trace: {} (primary: {}, secondary: {})."
+                raise RuntimeError(msg.format(self.traceno, key1, key2))
 
             self.secondaries.append(key2)
             increment()
@@ -83,5 +94,7 @@ class segmenter:
         # not wrap. Check that it follows the pattern of previous segments
         key2_index = self.secondaries.index(key2)
         if  self.secondaries[key2_index - 1] != self.previous_secondary:
-            raise RuntimeError("The file ...")
+            msg = "Encountered secondary key pattern deviating from that of "\
+                  "previous lines at trace: {} (primary: {}, secondary: {})."
+            raise RuntimeError(msg.format(self.traceno, key1, key2))
         increment()
