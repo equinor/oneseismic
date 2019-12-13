@@ -57,7 +57,6 @@ func Load() error {
 }
 
 func parseURL(s string) (*url.URL, error) {
-
 	if len(s) == 0 {
 		return nil, fmt.Errorf("Url value empty")
 	}

@@ -57,16 +57,26 @@ func TestConfig(t *testing.T) {
 	viper.Reset()
 }
 
-func TestAuth(t *testing.T) {
-	assert.Equal(t, true, UseAuth(), fmt.Sprintf("UseAuth default value, expected: %v, actual: %v", true, UseAuth()))
-	assert.Empty(t, AuthServer(), fmt.Sprint("AuthServer default value should be empty"))
+func TestNoAuth(t *testing.T) {
+	viper.Reset()
+	assert.Equal(t, true, UseAuth())
+	viper.SetDefault("NO_AUTH", true)
+	assert.Equal(t, false, UseAuth())
+}
 
-	viper.SetDefault("NO_AUTH", false)
-	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
-	if err := Load(); err != nil {
-		assert.NoError(t, err, "Error loading config")
-	}
-	uExpected := &url.URL{Scheme: "http", Host: "oauth2.example.com"}
-	assert.Equal(t, true, UseAuth(), fmt.Sprintf("UseAuth after setting, expected: %v, actual: %v", true, UseAuth()))
-	assert.Equal(t, uExpected, AuthServer(), fmt.Sprintf("AuthServer after setting value, expected: %v, actual: %v", uExpected, AuthServer()))
+func TestAuthServer(t *testing.T) {
+	viper.Reset()
+	assert.Equal(t, (*url.URL)(nil), AuthServer())
+
+	anURL := &url.URL{Scheme: "http", Host: "some.host"}
+	viper.SetDefault("AUTHSERVER", anURL)
+	Load()
+	assert.Equal(t, anURL, AuthServer())
+
+	anotherURL := &url.URL{Scheme: "http", Host: "some.other.host"}
+	assert.NotEqual(t, anURL, anotherURL)
+	viper.SetDefault("AUTHSERVER", anotherURL)
+	Load()
+	assert.Equal(t, anotherURL, AuthServer())
+
 }
