@@ -11,16 +11,15 @@ class segmenter:
         self.intp = parseint(endian = endian, default_length = 4)
 
     def add(self, header):
-        """Add a record, possibly finalizing the current segment
+        """Add a record
 
         This function should be called once for every header, see the examples
         for intended use.
 
         This function assumes the primary key only changes on new segments
         (usually inlines), and that a primary key is never repeated outside its
-        segment. When a new primary key is encountered, the current segment is
-        finalized and commited, and the next segment begins. This makes it
-        necessary to call commit() after the last header has been added.
+        segment. Furthermore, it assumes that the secondary key follows the same
+        pattern in all segments.
 
         This function assumes the header keys are integers in big-endian.
 
@@ -35,7 +34,6 @@ class segmenter:
         >>> seg = segmenter(...)
         >>> for header in headers:
         ...     seg.add(header)
-        >>> seg.commit()
         """
 
         key1 = self.intp.parse(header[self.primary])
