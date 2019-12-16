@@ -130,6 +130,16 @@ public:
     }
 };
 
+template < std::size_t Dims >
+struct dimension {
+    dimension(std::size_t x) noexcept (false) : v(x) {
+        if (x >= Dims)
+            throw std::invalid_argument("invalid dimension");
+    }
+
+    std::size_t v;
+};
+
 /*
  * TODO: these types deserve better naming and vocabulary
  */
@@ -158,6 +168,7 @@ struct cube_dimension : public basic_tuple< cube_dimension< Dims >, Dims > {
 
     std::size_t to_offset(cube_point< Dims > p)  const noexcept (true);
     std::size_t to_offset(fragment_id< Dims > p) const noexcept (true);
+    std::size_t slice_size(dimension< Dims >) const noexcept (true);
 };
 
 template< std::size_t Dims >
@@ -166,16 +177,7 @@ struct frag_dimension : public basic_tuple< frag_dimension< Dims >, Dims > {
     using base_type::base_type;
 
     std::size_t to_offset(frag_point< Dims > p) const noexcept (true);
-};
-
-template < std::size_t Dims >
-struct dimension {
-    dimension(std::size_t x) noexcept (false) : v(x) {
-        if (x >= Dims)
-            throw std::invalid_argument("invalid dimension");
-    }
-
-    std::size_t v;
+    std::size_t slice_size(dimension< Dims >) const noexcept (true);
 };
 
 /*
@@ -240,6 +242,9 @@ class cubecoords {
         using Frag_point        = frag_point< Dims >;
         using Dimension         = dimension< Dims >;
 
+        /*
+         * Cube dimension is the *padded* cube dimensions
+         */
         cubecoords(Cube_dimension, Frag_dimension) noexcept (true);
 
         /*
@@ -260,6 +265,14 @@ class cubecoords {
         slice(Dimension dim, std::size_t pin)
         noexcept (false);
 
+        /*
+         * Number of *samples* in a (global) slice
+         */
+        std::size_t slice_size(Dimension) const noexcept (true);
+
+        /*
+         * The number of fragments in a direction
+         */
         std::size_t size(Dimension) const noexcept (false);
 
         /*
