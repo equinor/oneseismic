@@ -52,6 +52,7 @@ target_include_directories(seismic-cloud
         $<INSTALL_INTERFACE:include>
     PRIVATE
         include
+        ${GNUTLS_INCLUDE_DIR}
 )
 target_compile_options(seismic-cloud
     PUBLIC
