@@ -201,7 +201,7 @@ func (hs *HTTPServer) registerEndpoints() {
 		controller.StitchSurfaceController(
 			hs.service.manifestStore,
 			hs.service.stitcher))
-	hs.app.Get("/stitch/{manifestID:string idString() else 502}/dim/{dim:uint32}",
+	hs.app.Get("/stitch/{manifestID:string idString() else 502}/dim/{dim:uint32}/{lineno:uint64}",
 		controller.StitchDimController(
 			hs.service.manifestStore,
 			hs.service.stitcher))

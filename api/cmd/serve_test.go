@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
 func createHTTPServerOptionsTest() []server.HTTPServerOption {
 	s := tests.NewTestServiceSetup()
 	opts := []server.HTTPServerOption{
@@ -24,7 +23,6 @@ func createHTTPServerOptionsTest() []server.HTTPServerOption {
 
 	return opts
 }
-
 
 func Test_HTTPServerOptionsNeedsConfig(t *testing.T) {
 	got, err := createHTTPServerOptions()

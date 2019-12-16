@@ -81,6 +81,6 @@ def test_stitch():
     assert len(r.content) > 0
 
 def test_stitch_dim():
-    r = requests.get(sc_uri + "/stitch/exists/dim/1", headers=auth_header)
+    r = requests.get(sc_uri + "/stitch/exists/dim/1/2", headers=auth_header)
     assert r.status_code == 200
     assert len(r.content) > 0

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"io"
 
 	"github.com/equinor/seismic-cloud-api/api/events"
@@ -19,6 +18,7 @@ type Stitcher interface {
 
 type StitchParams struct {
 	Dim          int32
+	Lineno       int64
 	CubeManifest *store.Manifest
 }
 
@@ -36,18 +36,6 @@ func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
 	}
 }
 
-func manifestReader(ms store.Manifest) (*bytes.Buffer, error) {
-
-	b, err := json.Marshal(ms)
-	if err != nil {
-		return nil, err
-	}
-	nb := []byte("M:\x00\x00\x00\x00")
-	binary.LittleEndian.PutUint32(nb[2:], uint32(len(b)))
-	nb = append(nb, b...)
-	return bytes.NewBuffer(nb), nil
-}
-
 type gRPCStitch struct {
 	grpcAddr string
 	opts     []grpc.DialOption
@@ -63,6 +51,7 @@ func (gs *gRPCStitch) Stitch(
 	sp StitchParams) (string, error) {
 	req := &pb.Request{
 		Dim:      sp.Dim,
+		Lineno:   sp.Lineno,
 		Geometry: (*pb.Geometry)(sp.CubeManifest),
 	}
 	conn, err := grpc.Dial(string(gs.grpcAddr), gs.opts...)

@@ -60,9 +60,8 @@ func StitchSurfaceController(
 // @Param   some_id     path    string     true        "Some ID"
 // @Success 200 {object} controller.Bytes OK
 // @Failure 400 {object} controller.APIError "Manifest id not found"
-// @Failure 400 {object} controller.APIError "Surface id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
-// @Router /stitch/{manifest_id}/dim/{dim} [get]
+// @Router /stitch/{manifest_id}/dim/{dim}/{lineno} [get]
 func StitchDimController(
 	ms store.ManifestStore,
 	stitcher service.Stitcher) func(ctx iris.Context) {
@@ -78,12 +77,19 @@ func StitchDimController(
 		}
 
 		dim, ok := ctx.Params().GetIntUnslashed("dim")
+
 		if !ok {
 			ctx.StatusCode(400)
 			l.LogE("Dim convert", fmt.Errorf("Dim not found"))
 			return
 		}
 
+		lineno, ok := ctx.Params().GetIntUnslashed("lineno")
+		if !ok {
+			ctx.StatusCode(400)
+			l.LogE("Lineno convert", fmt.Errorf("Lineno not found"))
+			return
+		}
 		l.LogI(fmt.Sprintf("Stitching: manifest: %s, dim: %d\n",
 			manifestID,
 			dim))
@@ -93,6 +99,7 @@ func StitchDimController(
 			ctx.ResponseWriter(),
 			service.StitchParams{
 				Dim:          int32(dim),
+				Lineno:       int64(lineno),
 				CubeManifest: mani,
 			})
 		if err != nil {
