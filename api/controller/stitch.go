@@ -11,12 +11,16 @@ import (
 )
 
 // @Description post surface query to stitch
+// @ID stitch
 // @Produce  application/octet-stream
-// @Param   some_id     path    string     true        "Some ID"
-// @Success 200 {object} controller.Bytes OK
+// @Param   manifest_id     path    string     true        "The id of a manifest"
+// @Param   surface_id     path    string     true        "The id of a surface"
+// @Success 200 {string} string "byte stream"
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 400 {object} controller.APIError "Surface id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tags stitch
 // @Router /stitch/{manifest_id}/{surface_id} [get]
 func StitchSurfaceController(
 	ms store.ManifestStore,

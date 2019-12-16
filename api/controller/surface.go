@@ -20,9 +20,12 @@ func NewSurfaceController(ss store.SurfaceStore) *SurfaceController {
 }
 
 // @Description get list of available surfaces
+// @ID list_surfaces
 // @Produce  application/json
-// @Success 200 {string} controller.Bytes OK
+// @Success 200 {string} string "byte stream"
 // @Failure 500 {object}  controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tags surface
 // @Router /surface/ [get]
 func (ssc *SurfaceController) List(ctx iris.Context) {
 	bgctx := context.Background()
@@ -45,11 +48,14 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 }
 
 // @Description get surface file
+// @ID download_surface
 // @Produce  application/octet-stream
 // @Param   surfaceID  path    string     true        "File ID"
-// @Success 200 {object} controller.Bytes OK
+// @Success 200 {string} string "byte stream"
 // @Failure 404 {object} controller.APIError "Not found"
 // @Failure 502 {object} controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tags surface
 // @Router /surface/{surface_id} [get]
 func (ssc *SurfaceController) Download(ctx iris.Context) {
 	surfaceID := ctx.Params().Get("surfaceID")
@@ -72,11 +78,14 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 }
 
 // @Description post surface file
+// @ID upload_surface
 // @Accept  application/octet-stream
 // @Produce  application/octet-stream
 // @Param   surfaceID  path    string     true        "File ID"
-// @Success 200 {object} controller.Bytes OK
+// @Success 200 {string} string "byte stream"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tag surface
 // @Router /surface/{surface_id} [post]
 func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	userID, ok := ctx.Values().Get("userID").(string)

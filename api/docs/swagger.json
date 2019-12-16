@@ -1,40 +1,49 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "{{.Description}}",
-        "title": "{{.Title}}",
-        "contact": {},
-        "license": {},
-        "version": "{{.Version}}"
+        "description": "The Seismic Cloud Api",
+        "title": "Seismic Cloud Api",
+        "contact": {
+            "name": "Equinor"
+        },
+        "license": {
+            "name": "proprietary"
+        }
     },
-    "host": "{{.Host}}",
-    "basePath": "{{.BasePath}}",
     "paths": {
         "/manifest/{manifest_id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "get manifest file",
                 "produces": [
                     "application/octet-stream"
                 ],
+                "tags": [
+                    "manifest"
+                ],
+                "operationId": "download_manifest",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "File ID",
-                        "name": "manifestID",
+                        "name": "manifest_id",
                         "in": "path",
                         "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "byte stream",
                         "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/controller.Bytes"
+                            "$ref": "#/definitions/store.Manifest"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Manifest not found",
                         "schema": {
                             "type": "string"
                         }
@@ -42,7 +51,6 @@
                     "502": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -57,16 +65,16 @@
                     {
                         "type": "string",
                         "description": "File ID",
-                        "name": "manifestID",
+                        "name": "manifest_id",
                         "in": "path",
                         "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "byte stream",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/store.Manifest"
                         }
                     },
                     "502": {
@@ -97,21 +105,18 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.Bytes"
                         }
                     },
                     "400": {
                         "description": "Surface id not found",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -120,38 +125,51 @@
         },
         "/stitch/{manifest_id}/{surface_id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "post surface query to stitch",
                 "produces": [
                     "application/octet-stream"
                 ],
+                "tags": [
+                    "stitch"
+                ],
+                "operationId": "stitch",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Some ID",
-                        "name": "some_id",
+                        "description": "The id of a manifest",
+                        "name": "manifest_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The id of a surface",
+                        "name": "surface_id",
                         "in": "path",
                         "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "byte stream",
                         "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/controller.Bytes"
+                            "type": "string"
                         }
                     },
                     "400": {
                         "description": "Surface id not found",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -160,13 +178,22 @@
         },
         "/surface/": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "get list of available surfaces",
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "surface"
+                ],
+                "operationId": "list_surfaces",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "byte stream",
                         "schema": {
                             "type": "string"
                         }
@@ -174,7 +201,6 @@
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -183,10 +209,19 @@
         },
         "/surface/{surface_id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "get surface file",
                 "produces": [
                     "application/octet-stream"
                 ],
+                "tags": [
+                    "surface"
+                ],
+                "operationId": "download_surface",
                 "parameters": [
                     {
                         "type": "string",
@@ -198,29 +233,31 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "byte stream",
                         "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/controller.Bytes"
+                            "type": "string"
                         }
                     },
                     "404": {
                         "description": "Not found",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     },
                     "502": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "post surface file",
                 "consumes": [
                     "application/octet-stream"
@@ -228,6 +265,7 @@
                 "produces": [
                     "application/octet-stream"
                 ],
+                "operationId": "upload_surface",
                 "parameters": [
                     {
                         "type": "string",
@@ -239,16 +277,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "byte stream",
                         "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/controller.Bytes"
+                            "type": "string"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/controller.APIError"
                         }
                     }
@@ -271,6 +307,79 @@
         "controller.Bytes": {
             "type": "array",
             "items": {}
+        },
+        "seismic_core.Geometry": {
+            "type": "object",
+            "properties": {
+                "cubeid": {
+                    "type": "string"
+                },
+                "dim0": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "dim1": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "dim2": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "store.Manifest": {
+            "type": "object",
+            "properties": {
+                "cubeid": {
+                    "type": "string"
+                },
+                "dim0": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "dim1": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "dim2": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
         }
-    }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    },
+    "tags": [
+        {
+            "description": "Operations for manifests",
+            "name": "manifest"
+        },
+        {
+            "description": "Operations for surfaces",
+            "name": "surface"
+        },
+        {
+            "description": "Stitch together cube data",
+            "name": "stitch"
+        }
+    ]
 }

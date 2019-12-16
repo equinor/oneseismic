@@ -13,7 +13,7 @@ import (
 
 	"github.com/equinor/seismic-cloud-api/api/events"
 	l "github.com/equinor/seismic-cloud-api/api/logger"
-	sc_proto "github.com/equinor/seismic-cloud-api/api/proto"
+	"github.com/equinor/seismic-cloud-api/api/proto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -24,7 +24,7 @@ type ManifestStore interface {
 	Upload(context.Context, string, Manifest) error
 }
 
-type Manifest sc_proto.Geometry
+type Manifest seismic_core.Geometry
 
 type (
 	manifestFileStore struct {

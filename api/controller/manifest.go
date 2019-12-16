@@ -20,12 +20,16 @@ func NewManifestController(ms store.ManifestStore) *ManifestController {
 	return &ManifestController{ms: ms}
 }
 
+
 // @Description get manifest file
+// @ID download_manifest
 // @Produce  application/octet-stream
-// @Param   manifestID  path    string     true        "File ID"
-// @Success 200 {object} controller.Bytes OK
+// @Param   manifest_id  path    string     true        "File ID"
+// @Success 200 {object} store.Manifest "byte stream"
 // @Failure 404 {string} controller.APIError "Manifest not found"
 // @Failure 502 {object} controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tags manifest
 // @Router /manifest/{manifest_id} [get]
 func (msc *ManifestController) Download(ctx iris.Context) {
 	manifestID := ctx.Params().Get("manifestID")
@@ -48,8 +52,8 @@ func (msc *ManifestController) Download(ctx iris.Context) {
 
 // @Description post manifest
 // @Produce  application/octet-stream
-// @Param   manifestID  path    string     true        "File ID"
-// @Success 200 {string} controller.Bytes OK
+// @Param   manifest_id  path    string     true        "File ID"
+// @Success 200 {object} store.Manifest "byte stream"
 // @Failure 502 {string} controller.APIError "Internal Server Error"
 // @Router /manifest/{manifest_id} [post]
 func (msc *ManifestController) Upload(ctx iris.Context) {
