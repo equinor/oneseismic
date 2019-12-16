@@ -18,6 +18,8 @@ target_include_directories(clara INTERFACE external/clara)
 
 find_package(fmt REQUIRED)
 find_package(GnuTLS REQUIRED)
+find_package(CURL REQUIRED)
+find_package(Threads REQUIRED)
 
 add_subdirectory(external/mio)
 
@@ -44,12 +46,14 @@ add_library(seismic-cloud
     src/base64.cpp
     src/core.cpp
     src/url.cpp
+    src/fetch.cpp
 )
 add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
+        ${CURL_INCLUDE_DIRS}
     PRIVATE
         include
         ${GNUTLS_INCLUDE_DIR}
@@ -62,6 +66,7 @@ target_link_libraries(seismic-cloud
     PUBLIC
         fmt::fmt
         ${GNUTLS_LIBRARIES}
+        ${CURL_LIBRARIES}
 )
 
 install(TARGETS seismic-cloud
