@@ -3,12 +3,9 @@ package cmd
 import (
 	"os"
 
-	l "github.com/equinor/seismic-cloud-api/api/logger"
-
 	"github.com/equinor/seismic-cloud-api/api/config"
-
+	l "github.com/equinor/seismic-cloud-api/api/logger"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var cfgFile string
@@ -36,23 +33,8 @@ func init() {
 }
 
 func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		wd, err := os.Getwd()
-		if err != nil {
-			l.LogE("Open working dir", err)
-			os.Exit(1)
-		}
-		viper.AddConfigPath(wd)
-		viper.SetConfigName(".sc-api")
-	}
-	config.SetDefaults()
-	viper.AutomaticEnv()
-	if err := viper.ReadInConfig(); err == nil {
-		l.LogI("Reading config file")
-	}
-	if err := config.Load(); err == nil {
-		l.LogI("Config loaded and validated " + viper.ConfigFileUsed())
+	if err := config.Init(cfgFile); err != nil {
+		l.LogE("Init config", err)
+		os.Exit(1)
 	}
 }

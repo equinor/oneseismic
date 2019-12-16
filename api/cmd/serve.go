@@ -12,7 +12,6 @@ import (
 	"github.com/equinor/seismic-cloud-api/api/service/store"
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var serveCmd = &cobra.Command{
@@ -73,9 +72,13 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 	opts = append(opts, server.WithAPIVersion(config.Version()))
 
 	if config.UseAuth() {
+		authServer, err := config.AuthServer()
+		if err != nil {
+			return nil, events.E("AuthServer config", err)
+		}
 		opts = append(opts,
 			server.WithOAuth2(server.OAuth2Option{
-				AuthServer: config.AuthServer(),
+				AuthServer: authServer,
 				Audience:   config.ResourceID(),
 				Issuer:     config.Issuer(),
 				ApiSecret:  []byte(config.ApiSecret()),
@@ -163,12 +166,6 @@ func serve(opts []server.HTTPServerOption) error {
 }
 
 func runServe(cmd *cobra.Command, args []string) {
-
-	if viper.ConfigFileUsed() == "" {
-		l.LogW("Config from environment variables")
-	} else {
-		l.LogI("Config loaded and validated " + viper.ConfigFileUsed())
-	}
 
 	var p *profile.Profile
 	if config.Profiling() {

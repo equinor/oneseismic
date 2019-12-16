@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,35 +47,29 @@ func TestConfig(t *testing.T) {
 			v := reflect.ValueOf(tt.f)
 			r := v.Call(nil)
 			assert.Equal(t, tt.wantDefault, r[0].Interface(), fmt.Sprintf("Before setting any variables. wantDefault: %v, got: %v", tt.wantDefault, r[0].Interface()))
-			viper.SetDefault(tt.key, tt.set)
+			SetDefault(tt.key, tt.set)
 			v = reflect.ValueOf(tt.f)
 			r = v.Call(nil)
 			assert.Equal(t, tt.wantSet, r[0].Interface(), fmt.Sprintf("After setting variables. wantSet: %v, got: %v", tt.wantDefault, r[0].Interface()))
 		})
 	}
-	viper.Reset()
+	Reset()
 }
 
 func TestNoAuth(t *testing.T) {
-	viper.Reset()
+	Reset()
 	assert.Equal(t, true, UseAuth())
-	viper.SetDefault("NO_AUTH", true)
+	SetDefault("NO_AUTH", true)
 	assert.Equal(t, false, UseAuth())
 }
 
 func TestAuthServer(t *testing.T) {
-	viper.Reset()
-	assert.Equal(t, (*url.URL)(nil), AuthServer())
+	Reset()
+	_, err := AuthServer()
+	assert.Error(t, err)
 
 	anURL := &url.URL{Scheme: "http", Host: "some.host"}
-	viper.SetDefault("AUTHSERVER", anURL)
-	Load()
-	assert.Equal(t, anURL, AuthServer())
-
-	anotherURL := &url.URL{Scheme: "http", Host: "some.other.host"}
-	assert.NotEqual(t, anURL, anotherURL)
-	viper.SetDefault("AUTHSERVER", anotherURL)
-	Load()
-	assert.Equal(t, anotherURL, AuthServer())
-
+	SetDefault("AUTHSERVER", anURL)
+	u, err := AuthServer()
+	assert.Equal(t, anURL, u)
 }
