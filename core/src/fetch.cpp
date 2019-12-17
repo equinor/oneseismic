@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <ciso646>
 #include <cstdint>
 #include <future>
