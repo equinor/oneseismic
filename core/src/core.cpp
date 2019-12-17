@@ -77,6 +77,32 @@ fragment_id< Dims > cubecoords< Dims >::frag_id(Cube_point p) const noexcept (tr
 //}
 
 template < std::size_t Dims >
+std::size_t cube_dimension< Dims >::slice_size(dimension< Dims > dim)
+const noexcept (true) {
+    auto dims = *this;
+    dims[dim.v] = 1;
+    return std::accumulate(
+        std::begin(dims),
+        std::end(dims),
+        1,
+        std::multiplies< std::size_t >()
+    );
+}
+
+template < std::size_t Dims >
+std::size_t frag_dimension< Dims >::slice_size(dimension< Dims > dim)
+const noexcept (true) {
+    auto dims = *this;
+    dims[dim.v] = 1;
+    return std::accumulate(
+        std::begin(dims),
+        std::end(dims),
+        1,
+        std::multiplies< std::size_t >()
+    );
+}
+
+template < std::size_t Dims >
 std::size_t cubecoords< Dims >::global_size() const noexcept (true) {
     return std::accumulate(
         std::begin(this->global_dims),
