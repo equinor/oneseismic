@@ -22,12 +22,12 @@ type StitchParams struct {
 	CubeManifest *store.Manifest
 }
 
-func NewStitch(stype interface{}, profile bool) (Stitcher, error) {
+func NewStitch(stype interface{}) (Stitcher, error) {
 	switch stitcher := stype.(type) {
 	case GrpcOpts:
 		addr := stitcher.Addr
 		opts := make([]grpc.DialOption, 0)
-		if stype.(GrpcOpts).Insecure {
+		if stitcher.Insecure {
 			opts = append(opts, grpc.WithInsecure())
 		}
 		return &gRPCStitch{addr, opts}, nil
@@ -40,6 +40,7 @@ type gRPCStitch struct {
 	grpcAddr string
 	opts     []grpc.DialOption
 }
+
 type GrpcOpts struct {
 	Addr     string
 	Insecure bool

@@ -96,16 +96,14 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 	ssC, err := store.NewSurfaceStore(surfaceStoreConfig())
 	if err != nil {
 		return nil, events.E("Accessing surface store", err)
-
 	}
 	opts = append(
 		opts,
 		server.WithSurfaceStore(ssC))
 
-	st, err := service.NewStitch(stitchConfig(), config.Profiling())
+	st, err := service.NewStitch(stitchConfig())
 	if err != nil {
 		return nil, events.E("Stitch error", err)
-
 	}
 	opts = append(
 		opts,
