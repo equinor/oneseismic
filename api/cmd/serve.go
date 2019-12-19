@@ -32,6 +32,7 @@ func stitchConfig() interface{} {
 func surfaceStoreConfig() interface{} {
 	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
 		return store.AzureBlobSettings{
+			StorageURL:    config.AzStorageURL(),
 			AccountName:   config.AzStorageAccount(),
 			AccountKey:    config.AzStorageKey(),
 			ContainerName: config.AzSurfaceContainerName(),
@@ -50,8 +51,10 @@ func manifestStoreConfig() interface{} {
 
 	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
 		return store.AzureBlobSettings{
-			AccountName: config.AzStorageAccount(),
-			AccountKey:  config.AzStorageKey(),
+			StorageURL:    config.AzStorageURL(),
+			AccountName:   config.AzStorageAccount(),
+			AccountKey:    config.AzStorageKey(),
+			ContainerName: config.AzManifestContainerName(),
 		}
 	}
 

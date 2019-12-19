@@ -7,9 +7,7 @@ import (
 	"sync"
 
 	azb "github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/equinor/seismic-cloud-api/api/config"
 	"github.com/equinor/seismic-cloud-api/api/events"
-	l "github.com/equinor/seismic-cloud-api/api/logger"
 )
 
 type (
@@ -38,27 +36,30 @@ type (
 type BasePath string
 type ConnStr string
 type AzureBlobSettings struct {
+	StorageURL    string
 	AccountName   string
 	AccountKey    string
 	ContainerName string
 }
 
-func NewAzBlobStore(accountName, accountKey, containerName string) (*AzBlobStore, error) {
+func NewAzBlobStore(az AzureBlobSettings) (*AzBlobStore, error) {
 
-	credential, err := azb.NewSharedKeyCredential(accountName, accountKey)
-	if err != nil {
-		l.LogE("Checking az credentials", err)
-	}
-	p := azb.NewPipeline(credential, azb.PipelineOptions{})
-
-	u, err := url.Parse(
-		fmt.Sprintf(config.AzStorageURL(),
-			accountName,
-			containerName))
+	credential, err := azb.NewSharedKeyCredential(az.AccountName, az.AccountKey)
 	if err != nil {
 		return nil, err
 	}
-	containerURL := azb.NewContainerURL(*u, p)
+
+	url, err := url.Parse(
+		fmt.Sprintf(az.StorageURL,
+			az.AccountName,
+			az.ContainerName))
+	if err != nil {
+		return nil, err
+	}
+	containerURL := azb.NewContainerURL(
+		*url,
+		azb.NewPipeline(credential, azb.PipelineOptions{}),
+	)
 
 	return &AzBlobStore{
 		containerURL: &containerURL,

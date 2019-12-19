@@ -54,7 +54,7 @@ func NewSurfaceStore(persistance interface{}) (SurfaceStore, error) {
 		return &surfaceInMemoryStore{inMemoryStore: s}, nil
 	case AzureBlobSettings:
 
-		s, err := NewAzBlobStore(pers.AccountName, pers.AccountKey, pers.ContainerName)
+		s, err := NewAzBlobStore(pers)
 		if err != nil {
 			return nil, events.E("new azure blob store", err)
 		}

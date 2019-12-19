@@ -13,7 +13,7 @@ import (
 
 	"github.com/equinor/seismic-cloud-api/api/events"
 	l "github.com/equinor/seismic-cloud-api/api/logger"
-	"github.com/equinor/seismic-cloud-api/api/proto"
+	seismic_core "github.com/equinor/seismic-cloud-api/api/proto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -55,7 +55,7 @@ func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 		return &manifestInMemoryStore{inMemoryStore: s}, nil
 	case AzureBlobSettings:
 
-		s, err := NewAzBlobStore(persistance.AccountName, persistance.AccountKey, "manifests")
+		s, err := NewAzBlobStore(persistance)
 		if err != nil {
 			return nil, events.E("new azure blob store", err)
 		}
