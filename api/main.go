@@ -71,7 +71,14 @@ func init() {
 //@tag.name stitch
 //@tag.description Stitch together cube data
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in main", r)
+		}
+		l.Wait()
+
+	}()
 
 	cmd.Execute(AppName, Version)
-	l.Wait()
+
 }

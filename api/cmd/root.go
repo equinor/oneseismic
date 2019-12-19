@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/equinor/seismic-cloud-api/api/config"
 	l "github.com/equinor/seismic-cloud-api/api/logger"
 	"github.com/spf13/cobra"
@@ -23,7 +21,7 @@ func Execute(app, v string) {
 
 	if err := rootCmd.Execute(); err != nil {
 		l.LogE("Executing command", err)
-		os.Exit(1)
+		panic(err)
 	}
 }
 
@@ -35,6 +33,6 @@ func init() {
 func initConfig() {
 	if err := config.Init(cfgFile); err != nil {
 		l.LogE("Init config", err)
-		os.Exit(1)
+		panic(err)
 	}
 }

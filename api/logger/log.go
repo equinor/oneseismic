@@ -367,5 +367,5 @@ func Wait() {
 	for !innerLogger.isFlushed() {
 		time.Sleep(10 * time.Millisecond)
 	}
-	fmt.Printf("Foo")
+	fmt.Println("Logger flushed")
 }
