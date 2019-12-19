@@ -24,8 +24,14 @@ func Init(cfgFile string) error {
 	}
 	SetDefaults()
 	viper.AutomaticEnv()
-	err := viper.ReadInConfig()
-	return err
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok && cfgFile == "" {
+			return nil
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func SetDefaults() {
