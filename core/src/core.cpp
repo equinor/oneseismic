@@ -44,12 +44,11 @@ template < std::size_t Dims >
 frag_point< Dims >
 cubecoords< Dims >::to_local(Cube_point p)
 const noexcept (true) {
-    for (int i = 0; i < Dims; ++i)
-        assert(p[i] < this->global_dims[i]);
-
     Frag_point tmp;
-    for (int i = 0; i < Dims; ++i)
+    for (int i = 0; i < Dims; ++i) {
+        assert(p[i] < this->global_dims[i]);
         tmp[i] = p[i] % this->fragment_dims[i];
+    }
 
     return tmp;
 }
@@ -58,24 +57,22 @@ template < std::size_t Dims >
 cube_point< Dims > cubecoords< Dims >::to_global(Fragment_id r, Frag_point p)
 const noexcept (true) {
     auto cp = Cube_point();
-    for (int i = 0; i < Dims; ++i)
+    for (int i = 0; i < Dims; ++i) {
         cp[i] = (r[i] * this->fragment_dims[i]) + p[i];
-
-    for (int i = 0; i < Dims; ++i)
         assert(cp[i] < this->global_dims[i]);
+    }
 
     return cp;
 }
 
 template < std::size_t Dims >
 fragment_id< Dims > cubecoords< Dims >::frag_id(Cube_point p) const noexcept (true) {
-    for (int i = 0; i < Dims; ++i)
-        assert(p[i] < this->global_dims[i]);
-
     const auto frag = this->fragment_dims;
     Fragment_id tmp;
-    for (int i = 0; i < Dims; ++i)
+    for (int i = 0; i < Dims; ++i) {
+        assert(p[i] < this->global_dims[i]);
         tmp[i] = p[i] / frag[i];
+    }
 
     return tmp;
 }
