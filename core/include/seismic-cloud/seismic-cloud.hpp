@@ -168,7 +168,7 @@ struct cube_dimension : public basic_tuple< cube_dimension< Dims >, Dims > {
 
     std::size_t to_offset(cube_point< Dims > p)  const noexcept (true);
     std::size_t to_offset(fragment_id< Dims > p) const noexcept (true);
-    std::size_t slice_size(dimension< Dims >) const noexcept (true);
+    std::size_t slice_samples(dimension< Dims >) const noexcept (true);
 };
 
 template< std::size_t Dims >
@@ -177,11 +177,27 @@ struct frag_dimension : public basic_tuple< frag_dimension< Dims >, Dims > {
     using base_type::base_type;
 
     std::size_t to_offset(frag_point< Dims > p) const noexcept (true);
-    std::size_t slice_size(dimension< Dims >) const noexcept (true);
+    std::size_t slice_samples(dimension< Dims >) const noexcept (true);
 };
 
 /*
- * Map between different reference systems
+ * gvt - global volume translation
+ *
+ * Map between different reference systems. This is the source of truth for
+ * addresses, fragment IDs, and geometric information. The problem of mapping
+ * between these systems pop up all the time:
+ *
+ * - How big is the source total cube?
+ * - How big is the padded total cube?
+ * - How many fragments aret here?
+ * - How big are the samples?
+ * - Where do fragment values map into an extracted slice?
+ *
+ * gvt is the central component to get this questions answered. It is
+ * lightweight and cheap to copy, and to be considered immutable as it's
+ * tightly connected to its cube (for a specific fragmentation).
+ *
+ * --
  *
  * Consider the flat cube with coordinates x, y:
  *
@@ -221,7 +237,6 @@ struct frag_dimension : public basic_tuple< frag_dimension< Dims >, Dims > {
  *
  * Names
  * -----
- *
  *  global, cube:
  *      The names global and cube always refer to the full survey, and is
  *      independent on how the system is fragmented
@@ -233,7 +248,7 @@ struct frag_dimension : public basic_tuple< frag_dimension< Dims >, Dims > {
  *      (coarsened) grid of fragments.
  */
 template < std::size_t Dims >
-class cubecoords {
+class gvt {
     public:
         using Cube_dimension    = cube_dimension< Dims >;
         using Frag_dimension    = frag_dimension< Dims >;
@@ -243,51 +258,70 @@ class cubecoords {
         using Dimension         = dimension< Dims >;
 
         /*
-         * Cube dimension is the *padded* cube dimensions
+         * The cube dimension is the source, un-padded cube dimension, which
+         * *must* be rectangular. If the source survey tapers like this:
+         *        ____
+         *       /    \
+         *      |      |
+         *      |      |
+         *      |      |
+         *      |      |
+         *      +------+
+         *
+         * the correct cube dimensions are still:
+         *
+         *      +------+
+         *      |      |
+         *      |      |
+         *      |      |
+         *      |      |
+         *      |      |
+         *      +------+
+         *
+         * i.e. the cube must *internally* filled with data, so the dimensions
+         * are rectangular. It will therefore always hold that:
+         *      cubedim[i] <= count(fragdim[i]) * size(fragdim[i])
          */
-        cubecoords(Cube_dimension, Frag_dimension) noexcept (true);
+        gvt(Cube_dimension, Frag_dimension) noexcept (true);
 
         /*
-         * map global x, y, z -> m, n, k in the fragment
+         * map global x, y, z -> m, n, k in the fragment. This is quite useful
+         * when extracting arbitrary surfaces, where this function gives the
+         * m,n,k in the fragment returned by frag_id with the same parameter.
          */
         Frag_point to_local(Cube_point) const noexcept (true);
         /*
-         * get the ID of the fragment that contains the global coordinate
+         * get the ID of the fragment that contains the global coordinate.
+         *
+         * See: to_local
          */
         Fragment_id frag_id(Cube_point) const noexcept (true);
 
         /*
-         * get the fragment-IDs for a slice through the cube. Please note that
+         * Get the fragment-IDs for a slice through the cube. Please note that
          * this operates on fragment grid resolution, so the pin refers to the
          * *fragment*, not the line.
          */
         std::vector< Fragment_id >
-        slice(Dimension dim, std::size_t pin)
-        noexcept (false);
+        slice(Dimension dim, std::size_t n) noexcept (false);
 
         /*
-         * Number of *samples* in a (global) slice
+         * The number of fragments in a direction.
          */
-        std::size_t slice_size(Dimension) const noexcept (true);
+        std::size_t fragment_count(Dimension) const noexcept (false);
+
+        const Cube_dimension& cube_shape()     const noexcept (true);
+        const Frag_dimension& fragment_shape() const noexcept (true);
 
         /*
-         * The number of fragments in a direction
-         */
-        std::size_t size(Dimension) const noexcept (false);
-
-        /*
-         * map a fragment and coordinate-in-fragment to the global coordinate
+         * Map a fragment and coordinate-in-fragment to the global coordinate.
+         * It holds that:
+         *      x, y, z == to_global(frag_id(x, y, z), to_local(x, y, z))
          */
         Cube_point to_global(Fragment_id, Frag_point) const noexcept (true);
 
         /*
-         * get the point of an offset, assuming the cube is flattened to a
-         * large array, zs first.
-         */
-        //Cube_point from_offset(std::size_t) const noexcept (true);
-
-        /*
-         * the number of (x,y,z) triples, or points, in the cube
+         * The number of (x,y,z) triples, or points, in the cube.
          */
         std::size_t global_size() const noexcept (true);
 

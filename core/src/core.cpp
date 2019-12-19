@@ -35,15 +35,13 @@ std::string basic_tuple< Base, Dims >::string() const {
 }
 
 template < std::size_t Dims >
-cubecoords< Dims >::cubecoords(Cube_dimension cube, Frag_dimension frag) noexcept (true) :
+gvt< Dims >::gvt(Cube_dimension cube, Frag_dimension frag) noexcept (true) :
     global_dims(cube),
     fragment_dims(frag)
 {}
 
 template < std::size_t Dims >
-frag_point< Dims >
-cubecoords< Dims >::to_local(Cube_point p)
-const noexcept (true) {
+frag_point< Dims > gvt< Dims >::to_local(Cube_point p) const noexcept (true) {
     Frag_point tmp;
     for (std::size_t i = 0; i < Dims; ++i) {
         assert(p[i] < this->global_dims[i]);
@@ -54,7 +52,7 @@ const noexcept (true) {
 }
 
 template < std::size_t Dims >
-cube_point< Dims > cubecoords< Dims >::to_global(Fragment_id r, Frag_point p)
+cube_point< Dims > gvt< Dims >::to_global(Fragment_id r, Frag_point p)
 const noexcept (true) {
     auto cp = Cube_point();
     for (std::size_t i = 0; i < Dims; ++i) {
@@ -66,7 +64,7 @@ const noexcept (true) {
 }
 
 template < std::size_t Dims >
-fragment_id< Dims > cubecoords< Dims >::frag_id(Cube_point p) const noexcept (true) {
+fragment_id< Dims > gvt< Dims >::frag_id(Cube_point p) const noexcept (true) {
     const auto frag = this->fragment_dims;
     Fragment_id tmp;
     for (std::size_t i = 0; i < Dims; ++i) {
@@ -77,20 +75,8 @@ fragment_id< Dims > cubecoords< Dims >::frag_id(Cube_point p) const noexcept (tr
     return tmp;
 }
 
-//template < std::size_t Dims >
-//cube_point< Dims > cubecoords< Dims >::from_offset(std::size_t o) const noexcept (true) {
-//    assert(o < this->global_size());
-//    const auto dim = this->global_dims;
-//
-//    return {
-//        (o / (dim.y * dim.z)),
-//        (o % (dim.y * dim.z)) / dim.z,
-//        (o % (dim.y * dim.z)) % dim.z
-//    };
-//}
-
 template < std::size_t Dims >
-std::size_t cube_dimension< Dims >::slice_size(dimension< Dims > dim)
+std::size_t cube_dimension< Dims >::slice_samples(dimension< Dims > dim)
 const noexcept (true) {
     auto dims = *this;
     dims[dim.v] = 1;
@@ -98,7 +84,7 @@ const noexcept (true) {
 }
 
 template < std::size_t Dims >
-std::size_t frag_dimension< Dims >::slice_size(dimension< Dims > dim)
+std::size_t frag_dimension< Dims >::slice_samples(dimension< Dims > dim)
 const noexcept (true) {
     auto dims = *this;
     dims[dim.v] = 1;
@@ -106,15 +92,27 @@ const noexcept (true) {
 }
 
 template < std::size_t Dims >
-std::size_t cubecoords< Dims >::global_size() const noexcept (true) {
+std::size_t gvt< Dims >::global_size() const noexcept (true) {
     return product(this->global_dims);
 }
 
 template < std::size_t Dims >
-std::size_t cubecoords< Dims >::size(Dimension dim) const noexcept (false) {
+std::size_t gvt< Dims >::fragment_count(Dimension dim) const noexcept (false) {
     const auto global = this->global_dims[dim.v];
     const auto local  = this->fragment_dims[dim.v];
     return (global + (local - 1)) / local;
+}
+
+template< std::size_t Dims >
+const cube_dimension< Dims >&
+gvt< Dims >::cube_shape() const noexcept (true) {
+    return this->global_dims;
+}
+
+template< std::size_t Dims >
+const frag_dimension< Dims >&
+gvt< Dims >::fragment_shape() const noexcept (true) {
+    return this->fragment_dims;
 }
 
 namespace {
@@ -225,8 +223,7 @@ void cartesian_product(
 
 template < std::size_t Dims >
 std::vector< fragment_id< Dims > >
-cubecoords< Dims >::slice(Dimension dim, std::size_t pin)
-noexcept (false) {
+gvt< Dims >::slice(Dimension dim, std::size_t no) noexcept (false) {
     /*
      * A fairly straight-forward (although a bit slower than it had to) way of
      * getting the fragment IDs that slice a cube. Not quite as fast as it
@@ -237,20 +234,21 @@ noexcept (false) {
      * all dimensions, except the pinned one (range of 1).
      */
 
-    if (pin >= this->size(dim))
+    if (no >= this->global_dims[dim.v])
         throw std::invalid_argument("dimension out-of-range");
 
     const auto begins = [&] () noexcept (true) {
         std::array< std::size_t, Dims > xs = {};
-        xs[dim.v] = pin;
+        xs[dim.v] = no / this->fragment_dims[dim.v];
         return xs;
     }();
 
     const auto ends = [&, this] () noexcept (true) {
         std::array< std::size_t, Dims > xs;
-        for (std::size_t i = 0; i < std::size_t(Dims); ++i)
-            xs[i] = this->size(Dimension(i));
-        xs[dim.v] = pin + 1;
+        for (std::size_t i = 0; i < Dims; ++i)
+            xs[i] = this->fragment_count(Dimension(i));
+
+        xs[dim.v] = (no / this->fragment_dims[dim.v]) + 1;
         return xs;
     }();
 
@@ -323,7 +321,7 @@ const noexcept (true) {
     return get_offset(p, *this);
 }
 
-template class cubecoords     < 3 >;
+template class gvt            < 3 >;
 template class cube_dimension < 3 >;
 template class frag_dimension < 3 >;
 template class fragment_id    < 3 >;

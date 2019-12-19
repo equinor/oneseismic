@@ -13,7 +13,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
         sc::cube_dimension< 3 > cube_size {2000, 2000, 1000};
         sc::frag_dimension< 3 > frag_size {20, 20, 10};
 
-        const auto co = sc::cubecoords< 3 >(cube_size, frag_size);
+        const auto co = sc::gvt< 3 >(cube_size, frag_size);
 
         WHEN("Converting to local coordinates") {
             const auto local = co.to_local(p);
@@ -37,7 +37,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
         sc::cube_dimension< 3 > cube {220, 200, 100};
         sc::frag_dimension< 3 > frag {22, 20, 10};
 
-        const auto co = sc::cubecoords< 3 >(cube, frag);
+        const auto co = sc::gvt< 3 >(cube, frag);
 
         WHEN("Converting to local coordinates") {
             const auto local = co.to_local(p);
@@ -63,8 +63,8 @@ SCENARIO( "Converting between global and local coordinates" ) {
 
         const sc::cube_dimension< 3 > cube {220, 200, 1000};
 
-        const auto co1 = sc::cubecoords< 3 >(cube, frag1);
-        const auto co2 = sc::cubecoords< 3 >(cube, frag2);
+        const auto co1 = sc::gvt< 3 >(cube, frag1);
+        const auto co2 = sc::gvt< 3 >(cube, frag2);
 
         WHEN("Converting to local coordinates") {
             const auto local1 = co1.to_local(p1);
@@ -90,14 +90,14 @@ SCENARIO( "Converting between global and local coordinates" ) {
 }
 
 TEST_CASE("Generate the fragments capturing an inline") {
-    auto cube = sc::cubecoords< 3  >(
+    auto cube = sc::gvt< 3  >(
         { 9, 15, 23 },
         { 3,  9,  5 }
     );
 
-    CHECK(cube.size(sc::dimension< 3 >{0}) == 3);
-    CHECK(cube.size(sc::dimension< 3 >{1}) == 2);
-    CHECK(cube.size(sc::dimension< 3 >{2}) == 5);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{0}) == 3);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{1}) == 2);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{2}) == 5);
 
     const auto result = cube.slice(sc::dimension< 3 >{0}, 0);
     const auto expected = decltype(result) {
@@ -117,16 +117,16 @@ TEST_CASE("Generate the fragments capturing an inline") {
 }
 
 TEST_CASE("Generate the fragments capturing a crossline") {
-    auto cube = sc::cubecoords< 3 > {
+    auto cube = sc::gvt< 3 > {
         { 9, 15, 23 },
         { 3,  9,  5 },
     };
 
-    CHECK(cube.size(sc::dimension< 3 >{0}) == 3);
-    CHECK(cube.size(sc::dimension< 3 >{1}) == 2);
-    CHECK(cube.size(sc::dimension< 3 >{2}) == 5);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{0}) == 3);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{1}) == 2);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{2}) == 5);
 
-    const auto result = cube.slice(sc::dimension< 3 >{1}, 1);
+    const auto result = cube.slice(sc::dimension< 3 >{1}, 11);
     const auto expected = decltype(result) {
         { 0, 1, 0 },
         { 0, 1, 1 },
@@ -151,16 +151,16 @@ TEST_CASE("Generate the fragments capturing a crossline") {
 }
 
 TEST_CASE("Generate the fragments capturing a time slice") {
-    auto cube = sc::cubecoords< 3 > {
+    auto cube = sc::gvt< 3 > {
         { 9, 15, 23 },
         { 3,  9,  5 },
     };
 
-    CHECK(cube.size(sc::dimension< 3 >{0}) == 3);
-    CHECK(cube.size(sc::dimension< 3 >{1}) == 2);
-    CHECK(cube.size(sc::dimension< 3 >{2}) == 5);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{0}) == 3);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{1}) == 2);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{2}) == 5);
 
-    const auto result = cube.slice(sc::dimension< 3 >{2}, 3);
+    const auto result = cube.slice(sc::dimension< 3 >{2}, 17);
     const auto expected = decltype(result) {
         { 0, 0, 3 },
         { 0, 1, 3 },
