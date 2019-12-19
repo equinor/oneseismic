@@ -71,5 +71,6 @@ func TestAuthServer(t *testing.T) {
 	anURL := &url.URL{Scheme: "http", Host: "some.host"}
 	SetDefault("AUTHSERVER", anURL)
 	u, err := AuthServer()
+	assert.NoError(t, err)
 	assert.Equal(t, anURL, u)
 }

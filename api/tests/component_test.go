@@ -19,18 +19,15 @@ import (
 const apiurl = "localhost:18080"
 const csurl = "localhost:10000"
 
-const path = "./"
-
 func TestMain(m *testing.M) {
 	ts := NewTestServiceSetup()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		err := cserver.StartServer(ctx, csurl, ts.SurfaceStore)
+		err := cserver.StartServer(ctx, csurl)
 		if err != nil {
 			fmt.Println(err)
 		}
-		return
 	}()
 	defer cancel()
 
