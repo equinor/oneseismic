@@ -12,6 +12,22 @@
 
 namespace sc {
 
+namespace {
+
+template < typename Range >
+auto product(const Range& r) noexcept (true)
+    -> std::decay_t< decltype(*std::begin(r)) > {
+    using Return = std::decay_t< decltype(*std::begin(r)) >;
+    return std::accumulate(
+        std::begin(r),
+        std::end(r),
+        1,
+        std::multiplies< Return >()
+    );
+}
+
+}
+
 template < typename Base, std::size_t Dims >
 std::string basic_tuple< Base, Dims >::string() const {
     const auto& self = static_cast< const base_type& >(*this);
@@ -81,12 +97,7 @@ std::size_t cube_dimension< Dims >::slice_size(dimension< Dims > dim)
 const noexcept (true) {
     auto dims = *this;
     dims[dim.v] = 1;
-    return std::accumulate(
-        std::begin(dims),
-        std::end(dims),
-        1,
-        std::multiplies< std::size_t >()
-    );
+    return product(dims);
 }
 
 template < std::size_t Dims >
@@ -94,23 +105,12 @@ std::size_t frag_dimension< Dims >::slice_size(dimension< Dims > dim)
 const noexcept (true) {
     auto dims = *this;
     dims[dim.v] = 1;
-    return std::accumulate(
-        std::begin(dims),
-        std::end(dims),
-        1,
-        std::multiplies< std::size_t >()
-    );
+    return product(dims);
 }
 
 template < std::size_t Dims >
 std::size_t cubecoords< Dims >::global_size() const noexcept (true) {
-    return std::accumulate(
-        std::begin(this->global_dims),
-        std::end(this->global_dims),
-        1,
-        // TODO: derive from array
-        std::multiplies< std::size_t >()
-    );
+    return product(this->global_dims);
 }
 
 template < std::size_t Dims >
