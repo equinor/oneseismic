@@ -22,7 +22,7 @@ jobs:
           sudo make install -j2
         displayName: 'Build fmt'
       - script: |
-          sudo apt-get install -y libgnutls-dev libcurl4-gnutls-dev
+          sudo apt-get install -y libgnutls28-dev libcurl4-gnutls-dev
           sudo pip install scikit-build pybind11
           mkdir build
           cd build
@@ -31,16 +31,15 @@ jobs:
 
       - script: |
           make
-        displayName: 'Build seismic-cloud'
+        displayName: 'Build seismic-cloud Core'
         workingDirectory: build
 
       - script: |
           ctest --output-on-failure
-        displayName: 'Test seismic-cloud'
+        displayName: 'Test seismic-cloud Core'
         workingDirectory: build
 
   - job: Build_API
-    container: b1
     variables:
       GOPATH: '$(system.defaultWorkingDirectory)/gopath'
       TEST_COVERAGE_LIMIT: 35
