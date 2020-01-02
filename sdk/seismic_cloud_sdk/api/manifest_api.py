@@ -119,7 +119,7 @@ class ManifestApi(object):
         auth_settings = ["ApiKeyAuth"]  # noqa: E501
 
         return self.api_client.call_api(
-            "manifest/{manifest_id}",
+            "/manifest/{manifest_id}",
             "GET",
             path_params,
             query_params,

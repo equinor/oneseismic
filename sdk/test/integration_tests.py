@@ -6,6 +6,8 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 import requests
 
+from seismic_cloud_sdk import ApiClient, Configuration, ManifestApi
+
 sc_uri = os.environ.get("SC_API_HOST_ADDR", "http://localhost:8080")
 auth_uri = os.environ.get("AUTH_ADDR", "http://localhost:8089")
 fixturesPath = os.environ.get("FIXTURES_PATH")
@@ -59,10 +61,15 @@ def test_manifest_post():
 
 
 def test_manifest_get():
-    r = requests.get(sc_uri + "/manifest/exists", headers=auth_header)
-    assert r.status_code == 200
-    assert len(r.content) > 0
-    assert r.json() == manifest
+    config = Configuration()
+    config.host = sc_uri
+    config.api_key = {"Authorization": token}
+    config.api_key_prefix = {"Authorization": "Bearer"}
+
+    client = ApiClient(configuration=config)
+    manifest_api = ManifestApi(api_client=client)
+    retrieved_manifest = manifest_api.download_manifest("exists")
+    assert retrieved_manifest.cubeid == manifest["cubeid"]
 
 
 def test_manifest_get_fail():
@@ -75,10 +82,12 @@ def test_stitch():
     assert r.status_code == 200
     assert len(r.content) > 0
 
+
 def test_stitch():
     r = requests.get(sc_uri + "/stitch/exists/test-surface", headers=auth_header)
     assert r.status_code == 200
     assert len(r.content) > 0
+
 
 def test_stitch_dim():
     r = requests.get(sc_uri + "/stitch/exists/dim/1/2", headers=auth_header)
