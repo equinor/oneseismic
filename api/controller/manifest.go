@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	l "github.com/equinor/seismic-cloud-api/api/logger"
-	"github.com/equinor/seismic-cloud-api/api/service/store"
+	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris/v12"
 )
 

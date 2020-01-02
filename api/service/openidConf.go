@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/equinor/seismic-cloud-api/api/events"
+	"github.com/equinor/seismic-cloud/api/events"
 )
 
 // OpenIDConfig is the expected return from the well-known endpoint

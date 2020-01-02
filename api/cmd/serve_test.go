@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/equinor/seismic-cloud-api/api/config"
+	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/stretchr/testify/assert"
 )
 

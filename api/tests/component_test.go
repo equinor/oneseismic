@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	cserver "github.com/equinor/seismic-cloud-api/api/corestub/server"
-	server "github.com/equinor/seismic-cloud-api/api/server"
+	cserver "github.com/equinor/seismic-cloud/api/corestub/server"
+	server "github.com/equinor/seismic-cloud/api/server"
 )
 
 const apiurl = "localhost:18080"

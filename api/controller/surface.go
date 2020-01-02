@@ -6,8 +6,8 @@ import (
 	"io"
 	"net/http"
 
-	l "github.com/equinor/seismic-cloud-api/api/logger"
-	"github.com/equinor/seismic-cloud-api/api/service/store"
+	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris/v12"
 )
 
@@ -90,7 +90,7 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	userID, ok := ctx.Values().Get("userID").(string)
 	if !ok || userID == "" {
-		userID = "seismic-cloud-api"
+		userID = "seismic-cloud"
 	}
 
 	surfaceID := ctx.Params().Get("surfaceID")

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net"
 
-	pb "github.com/equinor/seismic-cloud-api/api/proto"
+	pb "github.com/equinor/seismic-cloud/api/proto"
 	"google.golang.org/grpc"
 )
 

@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/equinor/seismic-cloud-api/api/cmd"
-	"github.com/equinor/seismic-cloud-api/api/config"
-	l "github.com/equinor/seismic-cloud-api/api/logger"
+	"github.com/equinor/seismic-cloud/api/cmd"
+	"github.com/equinor/seismic-cloud/api/config"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	jww "github.com/spf13/jwalterweatherman"
 )
 

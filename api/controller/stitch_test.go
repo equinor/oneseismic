@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/equinor/seismic-cloud-api/api/tests"
+	"github.com/equinor/seismic-cloud/api/tests"
 	"github.com/stretchr/testify/assert"
 )
 

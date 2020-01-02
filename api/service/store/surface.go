@@ -11,10 +11,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/equinor/seismic-cloud-api/api/events"
+	"github.com/equinor/seismic-cloud/api/events"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	l "github.com/equinor/seismic-cloud-api/api/logger"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/google/uuid"
 )
 

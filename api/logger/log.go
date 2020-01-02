@@ -11,7 +11,7 @@ import (
 	"time"
 
 	queue "github.com/enriquebris/goconcurrentqueue"
-	"github.com/equinor/seismic-cloud-api/api/events"
+	"github.com/equinor/seismic-cloud/api/events"
 	"github.com/kataras/golog"
 	pq "github.com/lib/pq"
 )

@@ -3,11 +3,11 @@ package config
 import (
 	"crypto/rand"
 	"fmt"
-	l "github.com/equinor/seismic-cloud-api/api/logger"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"net/url"
 	"os"
 
-	"github.com/equinor/seismic-cloud-api/api/events"
+	"github.com/equinor/seismic-cloud/api/events"
 	"github.com/spf13/viper"
 )
 

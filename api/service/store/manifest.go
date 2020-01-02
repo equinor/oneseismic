@@ -11,9 +11,9 @@ import (
 
 	azb "github.com/Azure/azure-storage-blob-go/azblob"
 
-	"github.com/equinor/seismic-cloud-api/api/events"
-	l "github.com/equinor/seismic-cloud-api/api/logger"
-	seismic_core "github.com/equinor/seismic-cloud-api/api/proto"
+	"github.com/equinor/seismic-cloud/api/events"
+	l "github.com/equinor/seismic-cloud/api/logger"
+	seismic_core "github.com/equinor/seismic-cloud/api/proto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

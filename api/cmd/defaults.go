@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	l "github.com/equinor/seismic-cloud-api/api/logger"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

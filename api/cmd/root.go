@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/equinor/seismic-cloud-api/api/config"
-	l "github.com/equinor/seismic-cloud-api/api/logger"
+	"github.com/equinor/seismic-cloud/api/config"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/spf13/cobra"
 )
 

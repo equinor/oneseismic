@@ -6,9 +6,9 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/equinor/seismic-cloud-api/api/events"
-	pb "github.com/equinor/seismic-cloud-api/api/proto"
-	"github.com/equinor/seismic-cloud-api/api/service/store"
+	"github.com/equinor/seismic-cloud/api/events"
+	pb "github.com/equinor/seismic-cloud/api/proto"
+	"github.com/equinor/seismic-cloud/api/service/store"
 	"google.golang.org/grpc"
 )
 
