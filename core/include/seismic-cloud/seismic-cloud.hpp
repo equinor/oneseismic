@@ -171,6 +171,13 @@ struct cube_dimension : public basic_tuple< cube_dimension< Dims >, Dims > {
     std::size_t slice_samples(dimension< Dims >) const noexcept (true);
 };
 
+struct stride {
+    int start;
+    int stride;
+    int readsize;
+    int readcount;
+};
+
 template< std::size_t Dims >
 struct frag_dimension : public basic_tuple< frag_dimension< Dims >, Dims > {
     using base_type = basic_tuple< frag_dimension, Dims >;
@@ -178,6 +185,7 @@ struct frag_dimension : public basic_tuple< frag_dimension< Dims >, Dims > {
 
     std::size_t to_offset(frag_point< Dims > p) const noexcept (true);
     std::size_t slice_samples(dimension< Dims >) const noexcept (true);
+    stride slice_stride(dimension< Dims >) const noexcept (false);
 };
 
 /*
