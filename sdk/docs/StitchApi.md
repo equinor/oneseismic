@@ -1,19 +1,19 @@
-# seismic_cloud_sdk.ManifestApi
+# seismic_cloud_sdk.StitchApi
 
 All URIs are relative to *https://localhost*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**download_manifest**](ManifestApi.md#download_manifest) | **GET** /manifest/{manifest_id} | 
-[**upload_manifest**](ManifestApi.md#upload_manifest) | **POST** /manifest/{manifestID} | 
+[**stitch**](StitchApi.md#stitch) | **GET** /stitch/{manifest_id}/{surface_id} | 
+[**stitch_dim**](StitchApi.md#stitch_dim) | **GET** /stitch/{manifest_id}/dim/{dim}/{lineno} | 
 
 
-# **download_manifest**
-> StoreManifest download_manifest(manifest_id)
+# **stitch**
+> str stitch(manifest_id, surface_id)
 
 
 
-get manifest file
+post surface query to stitch
 
 ### Example
 ```python
@@ -30,25 +30,27 @@ configuration.api_key['Authorization'] = 'YOUR_API_KEY'
 # configuration.api_key_prefix['Authorization'] = 'Bearer'
 
 # create an instance of the API class
-api_instance = seismic_cloud_sdk.ManifestApi(seismic_cloud_sdk.ApiClient(configuration))
-manifest_id = 'manifest_id_example' # str | File ID
+api_instance = seismic_cloud_sdk.StitchApi(seismic_cloud_sdk.ApiClient(configuration))
+manifest_id = 'manifest_id_example' # str | The id of a manifest
+surface_id = 'surface_id_example' # str | The id of a surface
 
 try:
-    api_response = api_instance.download_manifest(manifest_id)
+    api_response = api_instance.stitch(manifest_id, surface_id)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling ManifestApi->download_manifest: %s\n" % e)
+    print("Exception when calling StitchApi->stitch: %s\n" % e)
 ```
 
 ### Parameters
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **manifest_id** | **str**| File ID | 
+ **manifest_id** | **str**| The id of a manifest | 
+ **surface_id** | **str**| The id of a surface | 
 
 ### Return type
 
-[**StoreManifest**](StoreManifest.md)
+**str**
 
 ### Authorization
 
@@ -61,12 +63,12 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **upload_manifest**
-> upload_manifest(manifest_id, manifest)
+# **stitch_dim**
+> ControllerBytes stitch_dim(manifest_id, dim, lineno)
 
 
 
-post manifest
+post surface query to stitch
 
 ### Example
 ```python
@@ -83,26 +85,29 @@ configuration.api_key['Authorization'] = 'YOUR_API_KEY'
 # configuration.api_key_prefix['Authorization'] = 'Bearer'
 
 # create an instance of the API class
-api_instance = seismic_cloud_sdk.ManifestApi(seismic_cloud_sdk.ApiClient(configuration))
-manifest_id = 'manifest_id_example' # str | File ID
-manifest = NULL # object | The manifest
+api_instance = seismic_cloud_sdk.StitchApi(seismic_cloud_sdk.ApiClient(configuration))
+manifest_id = 'manifest_id_example' # str | The id of a manifest
+dim = 56 # int | The dimension, either of 0,1,2
+lineno = 56 # int | The line number
 
 try:
-    api_instance.upload_manifest(manifest_id, manifest)
+    api_response = api_instance.stitch_dim(manifest_id, dim, lineno)
+    pprint(api_response)
 except ApiException as e:
-    print("Exception when calling ManifestApi->upload_manifest: %s\n" % e)
+    print("Exception when calling StitchApi->stitch_dim: %s\n" % e)
 ```
 
 ### Parameters
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **manifest_id** | **str**| File ID | 
- **manifest** | **object**| The manifest | 
+ **manifest_id** | **str**| The id of a manifest | 
+ **dim** | **int**| The dimension, either of 0,1,2 | 
+ **lineno** | **int**| The line number | 
 
 ### Return type
 
-void (empty response body)
+[**ControllerBytes**](ControllerBytes.md)
 
 ### Authorization
 

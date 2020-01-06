@@ -11,6 +11,55 @@
         }
     },
     "paths": {
+        "/manifest/{manifestID}": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "post manifest",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "manifest"
+                ],
+                "operationId": "upload_manifest",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File ID",
+                        "name": "manifestID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The manifest",
+                        "name": "manifest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No response body",
+                        "schema": {
+                            "type": ""
+                        }
+                    },
+                    "502": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/manifest/{manifest_id}": {
             "get": {
                 "security": [
@@ -55,48 +104,42 @@
                         }
                     }
                 }
-            },
-            "post": {
-                "description": "post manifest",
-                "produces": [
-                    "application/octet-stream"
-                ],
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "File ID",
-                        "name": "manifest_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "byte stream",
-                        "schema": {
-                            "$ref": "#/definitions/store.Manifest"
-                        }
-                    },
-                    "502": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
             }
         },
-        "/stitch/{manifest_id}/dim/{dim}": {
+        "/stitch/{manifest_id}/dim/{dim}/{lineno}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "post surface query to stitch",
                 "produces": [
                     "application/octet-stream"
                 ],
+                "tags": [
+                    "stitch"
+                ],
+                "operationId": "stitch_dim",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Some ID",
-                        "name": "some_id",
+                        "description": "The id of a manifest",
+                        "name": "manifest_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "The dimension, either of 0,1,2",
+                        "name": "dim",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "The line number",
+                        "name": "lineno",
                         "in": "path",
                         "required": true
                     }
@@ -109,7 +152,7 @@
                         }
                     },
                     "400": {
-                        "description": "Surface id not found",
+                        "description": "Manifest id not found",
                         "schema": {
                             "$ref": "#/definitions/controller.APIError"
                         }
@@ -193,9 +236,12 @@
                 "operationId": "list_surfaces",
                 "responses": {
                     "200": {
-                        "description": "byte stream",
+                        "description": "list of all surfaces",
                         "schema": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/store.SurfaceMeta"
+                            }
                         }
                     },
                     "500": {
@@ -207,7 +253,7 @@
                 }
             }
         },
-        "/surface/{surface_id}": {
+        "/surface/{surfaceID}": {
             "get": {
                 "security": [
                     {
@@ -357,6 +403,20 @@
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "store.SurfaceMeta": {
+            "type": "object",
+            "properties": {
+                "lastModified": {
+                    "type": "string"
+                },
+                "link": {
+                    "type": "string"
+                },
+                "surfaceID": {
+                    "type": "string"
                 }
             }
         }

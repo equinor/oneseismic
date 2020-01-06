@@ -60,11 +60,16 @@ func StitchSurfaceController(
 }
 
 // @Description post surface query to stitch
+// @ID stitch_dim
 // @Produce  application/octet-stream
-// @Param   some_id     path    string     true        "Some ID"
+// @Param   manifest_id     path    string     true        "The id of a manifest"
+// @Param   dim     path    int     true        "The dimension, either of 0,1,2"
+// @Param   lineno     path    int     true        "The line number"
 // @Success 200 {object} controller.Bytes OK
 // @Failure 400 {object} controller.APIError "Manifest id not found"
 // @Failure 500 {object} controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tags stitch
 // @Router /stitch/{manifest_id}/dim/{dim}/{lineno} [get]
 func StitchDimController(
 	ms store.ManifestStore,

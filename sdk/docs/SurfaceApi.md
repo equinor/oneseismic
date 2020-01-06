@@ -1,19 +1,19 @@
-# seismic_cloud_sdk.ManifestApi
+# seismic_cloud_sdk.SurfaceApi
 
 All URIs are relative to *https://localhost*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-[**download_manifest**](ManifestApi.md#download_manifest) | **GET** /manifest/{manifest_id} | 
-[**upload_manifest**](ManifestApi.md#upload_manifest) | **POST** /manifest/{manifestID} | 
+[**download_surface**](SurfaceApi.md#download_surface) | **GET** /surface/{surfaceID} | 
+[**list_surfaces**](SurfaceApi.md#list_surfaces) | **GET** /surface/ | 
 
 
-# **download_manifest**
-> StoreManifest download_manifest(manifest_id)
+# **download_surface**
+> str download_surface(surface_id)
 
 
 
-get manifest file
+get surface file
 
 ### Example
 ```python
@@ -30,25 +30,25 @@ configuration.api_key['Authorization'] = 'YOUR_API_KEY'
 # configuration.api_key_prefix['Authorization'] = 'Bearer'
 
 # create an instance of the API class
-api_instance = seismic_cloud_sdk.ManifestApi(seismic_cloud_sdk.ApiClient(configuration))
-manifest_id = 'manifest_id_example' # str | File ID
+api_instance = seismic_cloud_sdk.SurfaceApi(seismic_cloud_sdk.ApiClient(configuration))
+surface_id = 'surface_id_example' # str | File ID
 
 try:
-    api_response = api_instance.download_manifest(manifest_id)
+    api_response = api_instance.download_surface(surface_id)
     pprint(api_response)
 except ApiException as e:
-    print("Exception when calling ManifestApi->download_manifest: %s\n" % e)
+    print("Exception when calling SurfaceApi->download_surface: %s\n" % e)
 ```
 
 ### Parameters
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **manifest_id** | **str**| File ID | 
+ **surface_id** | **str**| File ID | 
 
 ### Return type
 
-[**StoreManifest**](StoreManifest.md)
+**str**
 
 ### Authorization
 
@@ -61,12 +61,12 @@ Name | Type | Description  | Notes
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-# **upload_manifest**
-> upload_manifest(manifest_id, manifest)
+# **list_surfaces**
+> list[StoreSurfaceMeta] list_surfaces()
 
 
 
-post manifest
+get list of available surfaces
 
 ### Example
 ```python
@@ -83,26 +83,21 @@ configuration.api_key['Authorization'] = 'YOUR_API_KEY'
 # configuration.api_key_prefix['Authorization'] = 'Bearer'
 
 # create an instance of the API class
-api_instance = seismic_cloud_sdk.ManifestApi(seismic_cloud_sdk.ApiClient(configuration))
-manifest_id = 'manifest_id_example' # str | File ID
-manifest = NULL # object | The manifest
+api_instance = seismic_cloud_sdk.SurfaceApi(seismic_cloud_sdk.ApiClient(configuration))
 
 try:
-    api_instance.upload_manifest(manifest_id, manifest)
+    api_response = api_instance.list_surfaces()
+    pprint(api_response)
 except ApiException as e:
-    print("Exception when calling ManifestApi->upload_manifest: %s\n" % e)
+    print("Exception when calling SurfaceApi->list_surfaces: %s\n" % e)
 ```
 
 ### Parameters
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **manifest_id** | **str**| File ID | 
- **manifest** | **object**| The manifest | 
+This endpoint does not need any parameter.
 
 ### Return type
 
-void (empty response body)
+[**list[StoreSurfaceMeta]**](StoreSurfaceMeta.md)
 
 ### Authorization
 
@@ -111,7 +106,7 @@ void (empty response body)
 ### HTTP request headers
 
  - **Content-Type**: Not defined
- - **Accept**: application/octet-stream
+ - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

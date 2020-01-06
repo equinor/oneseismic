@@ -51,11 +51,15 @@ func (msc *ManifestController) Download(ctx iris.Context) {
 }
 
 // @Description post manifest
+// @ID upload_manifest
 // @Produce  application/octet-stream
-// @Param   manifest_id  path    string     true        "File ID"
-// @Success 200 {object} store.Manifest "byte stream"
+// @Param   manifestID  path    string     true        "File ID"
+// @Param   manifest  body    object     true        "The manifest"
+// @Success 200 {} int "No response body"
 // @Failure 502 {string} controller.APIError "Internal Server Error"
-// @Router /manifest/{manifest_id} [post]
+// @security ApiKeyAuth
+// @tags manifest
+// @Router /manifest/{manifestID} [post]
 func (msc *ManifestController) Upload(ctx iris.Context) {
 	manifestID := ctx.Params().Get("manifestID")
 	var mani store.Manifest

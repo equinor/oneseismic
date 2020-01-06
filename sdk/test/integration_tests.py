@@ -6,11 +6,13 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 import requests
 
-from seismic_cloud_sdk import ApiClient, Configuration, ManifestApi
+from seismic_cloud_sdk import (ApiClient, Configuration, ManifestApi,
+                               StitchApi, SurfaceApi)
 
 sc_uri = os.environ.get("SC_API_HOST_ADDR", "http://localhost:8080")
 auth_uri = os.environ.get("AUTH_ADDR", "http://localhost:8089")
 fixturesPath = os.environ.get("FIXTURES_PATH")
+
 
 manifest = {"cubeid": "exists"}
 surface_data = pack("<QQQQQQQQQ", 0, 0, 0, 0, 0, 1, 0, 1, 0)
@@ -27,6 +29,16 @@ token = parse_qs(urlparse(r.headers["Location"]).fragment)["access_token"][0]
 
 auth_header = {"Authorization": f"Bearer {token}"}
 
+config = Configuration()
+config.host = sc_uri
+config.api_key = {"Authorization": token}
+config.api_key_prefix = {"Authorization": "Bearer"}
+
+client = ApiClient(configuration=config)
+manifest_api = ManifestApi(api_client=client)
+surface_api = SurfaceApi(api_client=client)
+stitch_api = StitchApi(api_client=client)
+
 
 def test_version_no_auth():
     r = requests.get(sc_uri)
@@ -40,56 +52,43 @@ def test_version():
 
 
 def test_surface_list():
-    r = requests.get(sc_uri + "/surface", headers=auth_header)
-    assert r.status_code == 200
+    surfaces = surface_api.list_surfaces()
+    assert len(surfaces) == 1
+    assert surfaces[0].surface_id == "test-surface"
 
 
 def test_surface_get():
-    r = requests.get(sc_uri + "/surface/test-surface", headers=auth_header)
-    assert r.status_code == 200
-    assert r.content == surface_data
+    surface = surface_api.download_surface("test-surface")
+    assert surface.encode() == surface_data
 
 
 def test_surface_get_fail():
-    r = requests.get(sc_uri + "/surface/not-exist", headers=auth_header)
-    assert r.status_code == 404
-
-
-def test_manifest_post():
-    r = requests.post(sc_uri + "/manifest/exists", json=manifest, headers=auth_header)
-    assert r.status_code == 200
+    try:
+        surface = surface_api.download_surface("not-exist")
+        assert False
+    except Exception as e:
+        assert e.status == 404
 
 
 def test_manifest_get():
-    config = Configuration()
-    config.host = sc_uri
-    config.api_key = {"Authorization": token}
-    config.api_key_prefix = {"Authorization": "Bearer"}
-
-    client = ApiClient(configuration=config)
-    manifest_api = ManifestApi(api_client=client)
+    manifest_api.upload_manifest("exists", manifest)
     retrieved_manifest = manifest_api.download_manifest("exists")
     assert retrieved_manifest.cubeid == manifest["cubeid"]
 
 
 def test_manifest_get_fail():
-    r = requests.get(sc_uri + "/manifest/not-exists", headers=auth_header)
-    assert r.status_code == 404
+    try:
+        retrieved_manifest = manifest_api.download_manifest("not-exists")
+        assert False
+    except Exception as e:
+        assert e.status == 404
 
 
 def test_stitch():
-    r = requests.get(sc_uri + "/stitch/exists/test-surface", headers=auth_header)
-    assert r.status_code == 200
-    assert len(r.content) > 0
-
-
-def test_stitch():
-    r = requests.get(sc_uri + "/stitch/exists/test-surface", headers=auth_header)
-    assert r.status_code == 200
-    assert len(r.content) > 0
+    values = stitch_api.stitch("exists", "test-surface")
+    assert len(values) > 0
 
 
 def test_stitch_dim():
-    r = requests.get(sc_uri + "/stitch/exists/dim/1/2", headers=auth_header)
-    assert r.status_code == 200
-    assert len(r.content) > 0
+    values = stitch_api.stitch_dim("exists", 1, 2)
+    assert len(values) > 0

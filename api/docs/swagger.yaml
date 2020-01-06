@@ -43,6 +43,15 @@ definitions:
           type: integer
         type: array
     type: object
+  store.SurfaceMeta:
+    properties:
+      lastModified:
+        type: string
+      link:
+        type: string
+      surfaceID:
+        type: string
+    type: object
 info:
   contact:
     name: Equinor
@@ -80,25 +89,37 @@ paths:
       - ApiKeyAuth: []
       tags:
       - manifest
+  /manifest/{manifestID}:
     post:
       description: post manifest
+      operationId: upload_manifest
       parameters:
       - description: File ID
         in: path
-        name: manifest_id
+        name: manifestID
         required: true
         type: string
+      - description: The manifest
+        in: body
+        name: manifest
+        required: true
+        schema:
+          type: object
       produces:
       - application/octet-stream
       responses:
         "200":
-          description: byte stream
+          description: No response body
           schema:
-            $ref: '#/definitions/store.Manifest'
+            type: ""
         "502":
           description: Internal Server Error
           schema:
             type: string
+      security:
+      - ApiKeyAuth: []
+      tags:
+      - manifest
   /stitch/{manifest_id}/{surface_id}:
     get:
       description: post surface query to stitch
@@ -133,15 +154,26 @@ paths:
       - ApiKeyAuth: []
       tags:
       - stitch
-  /stitch/{manifest_id}/dim/{dim}:
+  /stitch/{manifest_id}/dim/{dim}/{lineno}:
     get:
       description: post surface query to stitch
+      operationId: stitch_dim
       parameters:
-      - description: Some ID
+      - description: The id of a manifest
         in: path
-        name: some_id
+        name: manifest_id
         required: true
         type: string
+      - description: The dimension, either of 0,1,2
+        in: path
+        name: dim
+        required: true
+        type: integer
+      - description: The line number
+        in: path
+        name: lineno
+        required: true
+        type: integer
       produces:
       - application/octet-stream
       responses:
@@ -150,13 +182,17 @@ paths:
           schema:
             $ref: '#/definitions/controller.Bytes'
         "400":
-          description: Surface id not found
+          description: Manifest id not found
           schema:
             $ref: '#/definitions/controller.APIError'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/controller.APIError'
+      security:
+      - ApiKeyAuth: []
+      tags:
+      - stitch
   /surface/:
     get:
       description: get list of available surfaces
@@ -165,9 +201,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: byte stream
+          description: list of all surfaces
           schema:
-            type: string
+            items:
+              $ref: '#/definitions/store.SurfaceMeta'
+            type: array
         "500":
           description: Internal Server Error
           schema:
@@ -176,7 +214,7 @@ paths:
       - ApiKeyAuth: []
       tags:
       - surface
-  /surface/{surface_id}:
+  /surface/{surfaceID}:
     get:
       description: get surface file
       operationId: download_surface

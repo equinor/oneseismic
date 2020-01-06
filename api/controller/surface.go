@@ -22,7 +22,7 @@ func NewSurfaceController(ss store.SurfaceStore) *SurfaceController {
 // @Description get list of available surfaces
 // @ID list_surfaces
 // @Produce  application/json
-// @Success 200 {string} string "byte stream"
+// @Success 200 {array} store.SurfaceMeta "list of all surfaces"
 // @Failure 500 {object}  controller.APIError "Internal Server Error"
 // @security ApiKeyAuth
 // @tags surface
@@ -56,7 +56,7 @@ func (ssc *SurfaceController) List(ctx iris.Context) {
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @security ApiKeyAuth
 // @tags surface
-// @Router /surface/{surface_id} [get]
+// @Router /surface/{surfaceID} [get]
 func (ssc *SurfaceController) Download(ctx iris.Context) {
 	surfaceID := ctx.Params().Get("surfaceID")
 	bgctx := context.Background()
@@ -86,7 +86,7 @@ func (ssc *SurfaceController) Download(ctx iris.Context) {
 // @Failure 500 {object} controller.APIError "Internal Server Error"
 // @security ApiKeyAuth
 // @tag surface
-// @Router /surface/{surface_id} [post]
+// @Router /surface/{surfaceID} [post]
 func (ssc *SurfaceController) Upload(ctx iris.Context) {
 	userID, ok := ctx.Values().Get("userID").(string)
 	if !ok || userID == "" {
