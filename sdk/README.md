@@ -75,8 +75,7 @@ All URIs are relative to *https://localhost*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
-*DefaultApi* | [**upload_surface**](docs/DefaultApi.md#upload_surface) | **POST** /surface/{surfaceID} | 
-*ManifestApi* | [**download_manifest**](docs/ManifestApi.md#download_manifest) | **GET** /manifest/{manifest_id} | 
+*ManifestApi* | [**download_manifest**](docs/ManifestApi.md#download_manifest) | **GET** /manifest/{manifest_id} |
 *ManifestApi* | [**upload_manifest**](docs/ManifestApi.md#upload_manifest) | **POST** /manifest/{manifestID} | 
 *StitchApi* | [**stitch**](docs/StitchApi.md#stitch) | **GET** /stitch/{manifest_id}/{surface_id} | 
 *StitchApi* | [**stitch_dim**](docs/StitchApi.md#stitch_dim) | **GET** /stitch/{manifest_id}/dim/{dim}/{lineno} | 
