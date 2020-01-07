@@ -16,18 +16,18 @@ import (
 
 func TestLogSourceAndSink(t *testing.T) {
 	err := SetLogSink("invalid log sink", events.DebugLevel)
-	assert.EqualError(t, err, "logger.factory: no logger defined for sink")
+	assert.Contains(t, err.Error(), "no logger defined for sink")
 
 	AddLoggerSource("test.log", log.SetOutput)
 	r, w, _ := os.Pipe()
-	err = SetLogSink(w, events.DebugLevel)
+	err = SetLogSink(w, events.NoLevel)
 	assert.NoError(t, err, "Setting log sink failed")
 	log.Print("dummy__using builtin logger")
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	w.Close()
 	out, err := ioutil.ReadAll(r)
 	assert.NoError(t, err, "Reading from log sink failed")
-	expect := "DEBG test.log: using builtin logger \n"
+	expect := "[UNKN] test.log: using builtin logger"
 	assert.Contains(t, string(out), expect)
 }
 
@@ -37,7 +37,7 @@ func TestErrToLog(t *testing.T) {
 		When: tt,
 		Op:   events.Op("TestErrToLog.errToLog"),
 		Err:  errors.New("Testing")})
-	expected := "2006-01-02T15:04:05Z DEBG TestErrToLog.errToLog: Testing \n"
+	expected := "2006-01-02T15:04:05Z [UNKN] TestErrToLog.errToLog: Testing\n"
 	assert.Equal(t, expected, str, fmt.Sprintf("errToLog failed, expected %v, got %v", expected, str))
 }
 
@@ -72,25 +72,24 @@ func TestLog(t *testing.T) {
 	}{
 		{"Debug",
 			LogD,
-			[]string{"DEBG", "TestLogD", "TestingD", "errorD"},
-			[]interface{}{"TestLogD", "TestingD", Wrap(errors.New("errorD"))}},
+			[]string{"DEBG", "TestingD", "errorD"},
+			[]interface{}{"TestingD", Wrap(errors.New("errorD"))}},
 		{"Info",
 			LogI,
-			[]string{"INFO", "TestLogI", "TestingI", "not found"},
-			[]interface{}{"TestLogI", "TestingI", Kind(events.NotFound)}},
+			[]string{"INFO", "TestingI", "not found"},
+			[]interface{}{"TestingI", Kind(events.NotFound)}},
 		{"Warning",
 			LogW,
-			[]string{"WARN", "TestLogW", "TestingW"},
-			[]interface{}{"TestLogW", "TestingW", EmptyOption{}}},
+			[]string{"WARN", "TestingW"},
+			[]interface{}{"TestingW", EmptyOption{}}},
 		{"Error",
 			LogE,
-			[]string{"ERRO", "TestLogE", "TestingE", "errorE", "not found"},
-			[]interface{}{"TestLogE", "TestingE", errors.New("errorE"), Kind(events.NotFound)}},
+			[]string{"ERRO", "TestingE", "errorE", "not found"},
+			[]interface{}{"TestingE", errors.New("errorE"), Kind(events.NotFound)}},
 		{"Critical",
 			LogC,
-			[]string{"CRIT", "TestLogC", "TestingC", "errorC", "not found"},
+			[]string{"CRIT", "TestingC", "errorC", "not found"},
 			[]interface{}{
-				"TestLogC",
 				"TestingC",
 				errors.New("errorC"),
 				Kind(events.NotFound),

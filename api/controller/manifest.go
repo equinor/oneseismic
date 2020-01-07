@@ -2,8 +2,10 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
@@ -18,52 +20,64 @@ func NewManifestController(ms store.ManifestStore) *ManifestController {
 	return &ManifestController{ms: ms}
 }
 
-// @Description get list of available manifests
-// @Produce  application/json
-// @Success 200 {object} controller.fileBytes OK
-// @Failure 502 {object} controller.APIError "Internal Server Error"
-// @Router /manifest/ [get]
-func (msc *ManifestController) List(ctx iris.Context) {
-	op := "manifest.list"
-	bgctx := context.Background()
-	info, err := msc.ms.List(bgctx)
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		l.LogE(op, "Files can't be listed", err)
-		return
-	}
-
-	if len(info) > 0 {
-		ctx.Header("Content-Type", "application/json")
-		ctx.JSON(info)
-	} else {
-		ctx.StatusCode(http.StatusNotFound)
-		ctx.Header("Content-Type", "text/plain")
-		ctx.WriteString("No valid manifests in store")
-	}
-}
 
 // @Description get manifest file
+// @ID download_manifest
 // @Produce  application/octet-stream
-// @Param   surfaceID  path    string     true        "File ID"
-// @Success 200 {object} controller.fileBytes OK
+// @Param   manifest_id  path    string     true        "File ID"
+// @Success 200 {object} store.Manifest "byte stream"
+// @Failure 404 {string} controller.APIError "Manifest not found"
 // @Failure 502 {object} controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tags manifest
 // @Router /manifest/{manifest_id} [get]
-func (msc *ManifestController) Fetch(ctx iris.Context) {
-	op := "manifest.download"
+func (msc *ManifestController) Download(ctx iris.Context) {
 	manifestID := ctx.Params().Get("manifestID")
 	bgctx := context.Background()
-	manifest, err := msc.ms.Fetch(bgctx, manifestID)
+	manifest, err := msc.ms.Download(bgctx, manifestID)
 	if err != nil {
 		ctx.StatusCode(404)
-		l.LogE(op, fmt.Sprintf("Could not download manifest: %s", manifestID), err)
+		l.LogE(fmt.Sprintf("Could not download manifest: %s", manifestID), err)
 		return
 	}
 
 	ctx.Header("Content-Type", "application/json")
 	_, err = ctx.JSON(manifest)
 	if err != nil {
-		l.LogE(op, fmt.Sprintf("Error writing to response, manifestID %s", manifestID), err)
+		ctx.StatusCode(http.StatusInternalServerError)
+		l.LogE(fmt.Sprintf("Error writing to response, manifestID %s", manifestID), err)
 		return
 	}
+}
+
+// @Description post manifest
+// @ID upload_manifest
+// @Produce  application/octet-stream
+// @Param   manifestID  path    string     true        "File ID"
+// @Param   manifest  body    object     true        "The manifest"
+// @Success 200 {} int "No response body"
+// @Failure 502 {string} controller.APIError "Internal Server Error"
+// @security ApiKeyAuth
+// @tags manifest
+// @Router /manifest/{manifestID} [post]
+func (msc *ManifestController) Upload(ctx iris.Context) {
+	manifestID := ctx.Params().Get("manifestID")
+	var mani store.Manifest
+
+	dr := json.NewDecoder(ctx.Request().Body)
+	err := dr.Decode(&mani)
+	if err != nil {
+		ctx.StatusCode(502)
+		l.LogE("Unmarshaling to Manifest", err)
+		return
+	}
+	dctx, cancel := context.WithTimeout(ctx.Request().Context(), 1*time.Second)
+	defer cancel()
+	err = msc.ms.Upload(dctx, manifestID, mani)
+	if err != nil {
+		ctx.StatusCode(502)
+		l.LogE(fmt.Sprintf("Upload manifest: %s", manifestID), err)
+		return
+	}
+
 }

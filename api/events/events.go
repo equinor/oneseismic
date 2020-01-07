@@ -9,14 +9,15 @@ import (
 )
 
 type Event struct {
-	When    time.Time
-	Op      Op
-	Err     error
-	Message string
-	Level   Severity
-	UserID  UserID
-	CtxID   uuid.UUID
-	Kind    EventKind
+	When     time.Time
+	Op       Op
+	Err      error
+	Message  string
+	Level    Severity
+	UserID   UserID
+	CtxID    uuid.UUID
+	Kind     EventKind
+	Unknowns []interface{}
 }
 
 type Op string
@@ -43,7 +44,8 @@ func (ek EventKind) String() string {
 type Severity int
 
 const (
-	DebugLevel Severity = iota
+	NoLevel Severity = iota
+	DebugLevel
 	InfoLevel
 	WarnLevel
 	ErrorLevel
@@ -110,6 +112,9 @@ func (e *Event) Error() string {
 			b.WriteString(e.Err.Error())
 		}
 	}
+	if len(e.Unknowns) > 0 {
+		b.WriteString("Unknown error")
+	}
 	if b.Len() == 0 {
 		return "no error"
 	}
@@ -139,24 +144,20 @@ func ParseLevel(s string) Severity {
 	case 'C', 'F':
 		return CriticalLevel
 	default:
-		return DebugLevel
+		return NoLevel
 	}
 
 }
 
-func E(args ...interface{}) error {
-	if len(args) == 0 {
-		panic("call to events.E with no arguments")
-	}
+func E(msg string, args ...interface{}) error {
 	e := &Event{When: time.Now().UTC()}
+	e.Message = msg
 	for _, arg := range args {
 		switch arg := arg.(type) {
-		case Op:
-			e.Op = arg
 		case error:
 			e.Err = arg
-		case string:
-			e.Message = arg
+		case Op:
+			e.Op = arg
 		case Severity:
 			e.Level = arg
 		case UserID:
@@ -166,8 +167,15 @@ func E(args ...interface{}) error {
 		case EventKind:
 			e.Kind = arg
 		default:
-			panic("bad call to E")
+			e.Unknowns = append(e.Unknowns, arg)
 		}
 	}
+	if e.Op == "" {
+		e.Op = Op(getCaller(isInternal))
+	}
+	if e.Err != nil && e.Level == NoLevel {
+		e.Level = ErrorLevel
+	}
+
 	return e
 }

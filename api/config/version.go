@@ -1,13 +1,9 @@
 package config
 
 var (
-	majVer   string
-	minVer   string
-	patchVer string
+	version string
 )
 
-func SetDevVersion(maj, min, patch string) {
-	majVer = maj
-	minVer = min
-	patchVer = patch
+func SetVersion(v string) {
+	version = v
 }

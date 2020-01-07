@@ -18,41 +18,53 @@ import (
 
 type logger interface {
 	log(*events.Event) error
+	isFlushed() bool
 }
 
-var innerLogger logger = &fileLogger{file: os.Stdout, verbosity: events.DebugLevel}
+var innerLogger logger = &fileLogger{file: os.Stdout, verbosity: events.DebugLevel, wg: &sync.WaitGroup{}}
 var logMut = &sync.Mutex{}
+
+var Version string
 
 type ConnString string
 
-func DbOpener(connStr string) (ConnString, error) {
+func pingDb(connStr string) error {
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
-		return "", err
+		return err
 	}
+	defer db.Close()
 	rows, err := db.Query("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'log'")
 	if err != nil || rows == nil {
-		return "", err
+		return err
 	}
 	defer rows.Close()
-	return ConnString(connStr), nil
+	return nil
 }
 
 // Create logger to sink
 func SetLogSink(sink interface{}, verbosity events.Severity) error {
 	switch sink := sink.(type) {
 	case *os.File:
-		innerLogger = &fileLogger{file: sink, verbosity: verbosity}
+		innerLogger = &fileLogger{file: sink, verbosity: verbosity, wg: &sync.WaitGroup{}}
 	case ConnString:
+		err := pingDb(string(sink))
+		if err != nil {
+			return events.E("Pinging Db", events.Op("logger.SetLogSink"), err)
+		}
 		innerLogger = &dbLogger{connStr: string(sink), verbosity: verbosity, eventBuffer: queue.NewFIFO()}
 	default:
-		return events.E(events.Op("logger.factory"), fmt.Errorf("no logger defined for sink"))
+		return events.E("no logger defined for sink", events.Op("logger.factory"), events.CriticalLevel)
 	}
 	return nil
 }
 
 func errToLog(ev *events.Event) string {
-	return fmt.Sprintln(ev.When.Format(time.RFC3339), ev.Level, ev.Error(), ev.Message)
+	return fmt.Sprintf("%s [%s] %s\n",
+		ev.When.Format(time.RFC3339),
+		ev.Level,
+		ev.Error())
+
 }
 
 // adds log source to logger
@@ -79,7 +91,7 @@ func AddLoggerSource(loggerName string, output func(io.Writer)) {
 			}
 			sev := events.ParseLevel(level)
 
-			nErr := events.E(events.Op(loggerName), sev, fmt.Errorf("%s", s)).(*events.Event)
+			nErr := events.E(s, events.Op(loggerName), sev).(*events.Event)
 			logtime := time.Date(
 				year,
 				time.Month(month),
@@ -126,7 +138,7 @@ func AddGoLogSource(output func(io.Writer) *golog.Logger) {
 				// Remove severity and timestamp
 				s = s[29:]
 			}
-			nErr := events.E(events.Op("iris.log"), sev, fmt.Errorf("%s", s)).(*events.Event)
+			nErr := events.E(s, events.Op("iris.log"), sev).(*events.Event)
 
 			Log(nErr)
 		}
@@ -139,19 +151,28 @@ func AddGoLogSource(output func(io.Writer) *golog.Logger) {
 type fileLogger struct {
 	file      *os.File
 	verbosity events.Severity
+	wg        *sync.WaitGroup
 }
 
 func (fl *fileLogger) log(ev *events.Event) error {
+	fl.wg.Add(1)
+	defer fl.wg.Done()
 	if ev.Level < fl.verbosity {
 		return nil
 	}
-
-	_, wErr := fl.file.Write([]byte(errToLog(ev)))
+	s := errToLog(ev)
+	_, wErr := fl.file.Write([]byte(s))
 	if wErr != nil {
 		return wErr
 	}
 	_ = fl.file.Sync()
 	return nil
+}
+
+func (fl *fileLogger) isFlushed() bool {
+	time.Sleep(100 * time.Millisecond)
+	fl.wg.Wait()
+	return true
 }
 
 type dbLogger struct {
@@ -176,8 +197,8 @@ func (dl *dbLogger) log(ev *events.Event) error {
 				if err != nil {
 					fmt.Println(
 						events.E(
-							events.Op("log.bulkInsert"),
 							"Writing event to db sink",
+							events.Op("log.bulkInsert"),
 							err,
 							events.ErrorLevel))
 				}
@@ -189,6 +210,10 @@ func (dl *dbLogger) log(ev *events.Event) error {
 
 	err := dl.eventBuffer.Enqueue(ev)
 	return err
+}
+
+func (dl *dbLogger) isFlushed() bool {
+	return true
 }
 
 func (dl *dbLogger) bulkInsert() error {
@@ -269,7 +294,7 @@ func logToSink(ev *events.Event) {
 		logMut.Lock()
 		err := innerLogger.log(ev)
 		if err != nil {
-			fmt.Println(events.E(op, "Writing event to sink", err, events.ErrorLevel))
+			fmt.Println(events.E("Writing event to sink", op, err, events.ErrorLevel))
 		}
 		logMut.Unlock()
 	}(ev)
@@ -288,8 +313,8 @@ func Wrap(err error) LogEventOption {
 }
 
 // LogD Debug
-func LogD(op, msg string, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.DebugLevel, msg).(*events.Event)
+func LogD(msg string, opts ...LogEventOption) {
+	e := events.E(msg, events.DebugLevel).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -297,8 +322,8 @@ func LogD(op, msg string, opts ...LogEventOption) {
 }
 
 // LogI Info
-func LogI(op, msg string, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.InfoLevel, msg).(*events.Event)
+func LogI(msg string, opts ...LogEventOption) {
+	e := events.E(msg, events.InfoLevel).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -306,8 +331,8 @@ func LogI(op, msg string, opts ...LogEventOption) {
 }
 
 // LogW Warning
-func LogW(op, msg string, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.WarnLevel, msg).(*events.Event)
+func LogW(msg string, opts ...LogEventOption) {
+	e := events.E(msg, events.WarnLevel).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -315,8 +340,8 @@ func LogW(op, msg string, opts ...LogEventOption) {
 }
 
 // LogE Error
-func LogE(op, msg string, err error, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.ErrorLevel, err, msg).(*events.Event)
+func LogE(msg string, err error, opts ...LogEventOption) {
+	e := events.E(msg, events.ErrorLevel, err).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -324,8 +349,8 @@ func LogE(op, msg string, err error, opts ...LogEventOption) {
 }
 
 // LogC Critical
-func LogC(op, msg string, err error, opts ...LogEventOption) {
-	e := events.E(events.Op(op), events.CriticalLevel, err, msg).(*events.Event)
+func LogC(msg string, err error, opts ...LogEventOption) {
+	e := events.E(msg, events.CriticalLevel, err).(*events.Event)
 	for _, opt := range opts {
 		opt.apply(e)
 	}
@@ -335,4 +360,12 @@ func LogC(op, msg string, err error, opts ...LogEventOption) {
 // Log sends error to chosen sink
 func Log(err *events.Event) {
 	logToSink(err)
+}
+
+func Wait() {
+
+	for !innerLogger.isFlushed() {
+		time.Sleep(10 * time.Millisecond)
+	}
+	fmt.Println("Logger flushed")
 }

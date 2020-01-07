@@ -1,14 +1,20 @@
-FROM golang as builder
+FROM golang:alpine as builder
+
+RUN apk update && apk upgrade && apk add --no-cache ca-certificates
+RUN update-ca-certificates
 
 WORKDIR /src
 COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=1 go test -race -v ./...
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s"  -o /bin/sc-api
+ENV VERSION 'v0.1.0'
+RUN CGO_ENABLED=0\
+    GOOS=linux\
+    GOARCH=amd64 \
+    go build -ldflags="-w -s -X main.Version=${VERSION}"  -o /bin/sc-api
 
-FROM scratch as deploy
+FROM scratch as deployer
 COPY --from=builder /bin/sc-api /bin/sc-api
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 

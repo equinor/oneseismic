@@ -2,10 +2,13 @@ trigger:
   - master
   - release
 
-resources:
-  containers:
-    - container: b1
-      image: lambdaville/go-python:latest
+pool:
+  vmImage: 'ubuntu-18.04'
+
+variables:
+  GOPATH: '$(system.defaultWorkingDirectory)/gopath'
+  GOVERSION: '1.13.4'
+  TEST_COVERAGE_LIMIT: 38
 
 jobs:
   - job: Build_Core
@@ -19,7 +22,7 @@ jobs:
           sudo make install -j2
         displayName: 'Build fmt'
       - script: |
-          sudo apt-get install -y libgnutls-dev libcurl4-gnutls-dev
+          sudo apt-get install -y libgnutls28-dev libcurl4-gnutls-dev
           sudo pip install scikit-build pybind11
           mkdir build
           cd build
@@ -28,80 +31,123 @@ jobs:
 
       - script: |
           make
-        displayName: 'Build seismic-cloud'
+        displayName: 'Build seismic-cloud Core'
         workingDirectory: build
 
       - script: |
           ctest --output-on-failure
-        displayName: 'Test seismic-cloud'
+        displayName: 'Test seismic-cloud Core'
         workingDirectory: build
 
   - job: Build_API
-    container: b1
     variables:
-      GOPATH: $(Pipeline.Workspace)/go
-      # Minimum ercentage of code that has to be tested
-      COVERAGE_LIMIT: 35
+      GOPATH: '$(system.defaultWorkingDirectory)/gopath'
+      TEST_COVERAGE_LIMIT: 35
     steps:
-      - script: |
-          go mod download
-        displayName: 'Download modules'
-        workingDirectory: api
+      - bash: |
+          echo "##vso[task.prependpath]$(GOPATH)/bin"
+        displayName: Update PATH
 
+      - task: GoTool@0
+        inputs:
+          version: '$(GOVERSION)'
+          goPath: '$(GOPATH)'
+          goBin: '$(GOPATH)/bin'
       - script: |
-          protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
-        displayName: 'Generating grpc client stubs'
+          sudo apt-get install -y protobuf-compiler
+        displayName: 'Fetching debian dependencies'
         workingDirectory: api
-
       - script: |
-          protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
-        displayName: 'Generating grpc server stubs'
-        workingDirectory: corestub
-
-      - script: |
-          swag init
-        displayName: Generate docs
+          go generate ./...
         workingDirectory: api
-
-      - script: |
-          go build -tags prod
-        displayName: 'Build seismic-cloud-api'
-        workingDirectory: api
+        displayName: 'Generate OpenAPI spec'
 
       - script: |
           go build
-        displayName: 'Build seismic-cloud-corestub'
-        workingDirectory: corestub
-
-      - script: |
-          go test -race -v ./...
         workingDirectory: api
-        displayName: 'SC-API Run unit tests'
+        displayName: 'Build api'
 
-      - template: api/tests/pipeline-tests.yaml
-
-      - script: |
-          echo 'Deploy'
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/release'))
-        displayName: 'Deploy seismic-cloud'
-
-      - template: api/tests/publish-test-results.yaml
-
-  - job: docker_push
+  - job: Run_unit_tests
     steps:
+      - bash: |
+          echo "##vso[task.prependpath]$(GOPATH)/bin"
+        displayName: Update PATH
+
+      - task: GoTool@0
+        inputs:
+          version: '$(GOVERSION)'
+          goPath: '$(GOPATH)'
+          goBin: '$(GOPATH)/bin'
+
       - script: |
-          docker-compose build
-          echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
-          docker-compose push
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-        displayName: 'Push docker images'
+          go test -race ./...
+        workingDirectory: api
+        displayName: 'Run unit tests'
+
+  - job: Test_coverage
+    steps:
+      - bash: |
+          echo "##vso[task.prependpath]$(GOPATH)/bin"
+        displayName: Update PATH
+
+      - task: GoTool@0
+        inputs:
+          version: '$(GOVERSION)'
+          goPath: '$(GOPATH)'
+          goBin: '$(GOPATH)/bin'
+
+      - script: |
+          go get github.com/jstemmer/go-junit-report
+          go get github.com/axw/gocov/gocov
+          go get github.com/AlekSi/gocov-xml
+          go get github.com/matm/gocov-html
+          go test -v -coverprofile=coverage.txt -covermode count 2>&1 ./... | go-junit-report > report.xml
+          gocov convert coverage.txt > coverage.json
+          gocov-xml < coverage.json > coverage.xml
+          mkdir -p coverage
+          gocov-html < coverage.json > coverage/index.html
+        displayName: 'Generate test coverage report'
+        workingDirectory: api
+
+      - task: PublishCodeCoverageResults@1
+        condition: always()
+        inputs:
+          codeCoverageTool: Cobertura
+          summaryFileLocation: $(System.DefaultWorkingDirectory)/**/coverage.xml
+          reportDirectory: $(System.DefaultWorkingDirectory)/**/coverage
+
+      - script: |
+          COVERAGE=`go tool cover -func coverage.txt | tail -n 1 | awk '{print substr($3, 1, length($3)-1)}'`
+          COVERAGE=${COVERAGE%.*}
+          echo "Test coverage limit:" $TEST_COVERAGE_LIMIT%
+          echo "Test coverage:" $COVERAGE%
+
+          if (( COVERAGE < TEST_COVERAGE_LIMIT )); then
+              exit 1
+          fi
+        displayName: 'Coverage limit'
+        workingDirectory: api
 
   - job: Integration_tests
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     steps:
       - script: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        displayName: Upgrade docker compose
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+      - script: |
+          docker-compose build
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        displayName: 'Build docker images'
+      - script: |
           docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
-        displayName: 'Integration_tests'
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        displayName: 'Run integration tests'
+      - script: |
+          echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
+          docker-compose push
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+        displayName: 'Push docker images'
 
 schedules:
   - cron: '0 6 * * *'

@@ -24,298 +24,204 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type SurfaceRequest struct {
-	Surfaceid            string   `protobuf:"bytes,1,opt,name=surfaceid,proto3" json:"surfaceid,omitempty"`
-	Basename             string   `protobuf:"bytes,2,opt,name=basename,proto3" json:"basename,omitempty"`
-	Cubexs               uint32   `protobuf:"varint,3,opt,name=cubexs,proto3" json:"cubexs,omitempty"`
-	Cubeys               uint32   `protobuf:"varint,4,opt,name=cubeys,proto3" json:"cubeys,omitempty"`
-	Cubezs               uint32   `protobuf:"varint,5,opt,name=cubezs,proto3" json:"cubezs,omitempty"`
-	Fragmentxs           uint32   `protobuf:"varint,6,opt,name=fragmentxs,proto3" json:"fragmentxs,omitempty"`
-	Fragmentys           uint32   `protobuf:"varint,7,opt,name=fragmentys,proto3" json:"fragmentys,omitempty"`
-	Fragmentzs           uint32   `protobuf:"varint,8,opt,name=fragmentzs,proto3" json:"fragmentzs,omitempty"`
+type Geometry struct {
+	Cubeid               string   `protobuf:"bytes,1,opt,name=cubeid,proto3" json:"cubeid,omitempty"`
+	Dim0                 []int64  `protobuf:"varint,2,rep,packed,name=dim0,proto3" json:"dim0,omitempty"`
+	Dim1                 []int64  `protobuf:"varint,3,rep,packed,name=dim1,proto3" json:"dim1,omitempty"`
+	Dim2                 []int64  `protobuf:"varint,4,rep,packed,name=dim2,proto3" json:"dim2,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SurfaceRequest) Reset()         { *m = SurfaceRequest{} }
-func (m *SurfaceRequest) String() string { return proto.CompactTextString(m) }
-func (*SurfaceRequest) ProtoMessage()    {}
-func (*SurfaceRequest) Descriptor() ([]byte, []int) {
+func (m *Geometry) Reset()         { *m = Geometry{} }
+func (m *Geometry) String() string { return proto.CompactTextString(m) }
+func (*Geometry) ProtoMessage()    {}
+func (*Geometry) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f7e43720d1edc0fe, []int{0}
 }
 
-func (m *SurfaceRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SurfaceRequest.Unmarshal(m, b)
+func (m *Geometry) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Geometry.Unmarshal(m, b)
 }
-func (m *SurfaceRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SurfaceRequest.Marshal(b, m, deterministic)
+func (m *Geometry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Geometry.Marshal(b, m, deterministic)
 }
-func (m *SurfaceRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SurfaceRequest.Merge(m, src)
+func (m *Geometry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Geometry.Merge(m, src)
 }
-func (m *SurfaceRequest) XXX_Size() int {
-	return xxx_messageInfo_SurfaceRequest.Size(m)
+func (m *Geometry) XXX_Size() int {
+	return xxx_messageInfo_Geometry.Size(m)
 }
-func (m *SurfaceRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SurfaceRequest.DiscardUnknown(m)
+func (m *Geometry) XXX_DiscardUnknown() {
+	xxx_messageInfo_Geometry.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SurfaceRequest proto.InternalMessageInfo
+var xxx_messageInfo_Geometry proto.InternalMessageInfo
 
-func (m *SurfaceRequest) GetSurfaceid() string {
+func (m *Geometry) GetCubeid() string {
 	if m != nil {
-		return m.Surfaceid
+		return m.Cubeid
 	}
 	return ""
 }
 
-func (m *SurfaceRequest) GetBasename() string {
+func (m *Geometry) GetDim0() []int64 {
 	if m != nil {
-		return m.Basename
-	}
-	return ""
-}
-
-func (m *SurfaceRequest) GetCubexs() uint32 {
-	if m != nil {
-		return m.Cubexs
-	}
-	return 0
-}
-
-func (m *SurfaceRequest) GetCubeys() uint32 {
-	if m != nil {
-		return m.Cubeys
-	}
-	return 0
-}
-
-func (m *SurfaceRequest) GetCubezs() uint32 {
-	if m != nil {
-		return m.Cubezs
-	}
-	return 0
-}
-
-func (m *SurfaceRequest) GetFragmentxs() uint32 {
-	if m != nil {
-		return m.Fragmentxs
-	}
-	return 0
-}
-
-func (m *SurfaceRequest) GetFragmentys() uint32 {
-	if m != nil {
-		return m.Fragmentys
-	}
-	return 0
-}
-
-func (m *SurfaceRequest) GetFragmentzs() uint32 {
-	if m != nil {
-		return m.Fragmentzs
-	}
-	return 0
-}
-
-type SurfaceReply struct {
-	SurfaceReplyValues   []*SurfaceReplyValue `protobuf:"bytes,1,rep,name=surfaceReplyValues,proto3" json:"surfaceReplyValues,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
-}
-
-func (m *SurfaceReply) Reset()         { *m = SurfaceReply{} }
-func (m *SurfaceReply) String() string { return proto.CompactTextString(m) }
-func (*SurfaceReply) ProtoMessage()    {}
-func (*SurfaceReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f7e43720d1edc0fe, []int{1}
-}
-
-func (m *SurfaceReply) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SurfaceReply.Unmarshal(m, b)
-}
-func (m *SurfaceReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SurfaceReply.Marshal(b, m, deterministic)
-}
-func (m *SurfaceReply) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SurfaceReply.Merge(m, src)
-}
-func (m *SurfaceReply) XXX_Size() int {
-	return xxx_messageInfo_SurfaceReply.Size(m)
-}
-func (m *SurfaceReply) XXX_DiscardUnknown() {
-	xxx_messageInfo_SurfaceReply.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_SurfaceReply proto.InternalMessageInfo
-
-func (m *SurfaceReply) GetSurfaceReplyValues() []*SurfaceReplyValue {
-	if m != nil {
-		return m.SurfaceReplyValues
+		return m.Dim0
 	}
 	return nil
 }
 
-type SurfaceReplyValue struct {
-	I                    uint64   `protobuf:"varint,1,opt,name=i,proto3" json:"i,omitempty"`
-	V                    float32  `protobuf:"fixed32,2,opt,name=v,proto3" json:"v,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+func (m *Geometry) GetDim1() []int64 {
+	if m != nil {
+		return m.Dim1
+	}
+	return nil
 }
 
-func (m *SurfaceReplyValue) Reset()         { *m = SurfaceReplyValue{} }
-func (m *SurfaceReplyValue) String() string { return proto.CompactTextString(m) }
-func (*SurfaceReplyValue) ProtoMessage()    {}
-func (*SurfaceReplyValue) Descriptor() ([]byte, []int) {
+func (m *Geometry) GetDim2() []int64 {
+	if m != nil {
+		return m.Dim2
+	}
+	return nil
+}
+
+type Request struct {
+	Dim                  int32     `protobuf:"varint,1,opt,name=dim,proto3" json:"dim,omitempty"`
+	Lineno               int64     `protobuf:"varint,2,opt,name=lineno,proto3" json:"lineno,omitempty"`
+	Geometry             *Geometry `protobuf:"bytes,3,opt,name=geometry,proto3" json:"geometry,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *Request) Reset()         { *m = Request{} }
+func (m *Request) String() string { return proto.CompactTextString(m) }
+func (*Request) ProtoMessage()    {}
+func (*Request) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f7e43720d1edc0fe, []int{1}
+}
+
+func (m *Request) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Request.Unmarshal(m, b)
+}
+func (m *Request) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Request.Marshal(b, m, deterministic)
+}
+func (m *Request) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Request.Merge(m, src)
+}
+func (m *Request) XXX_Size() int {
+	return xxx_messageInfo_Request.Size(m)
+}
+func (m *Request) XXX_DiscardUnknown() {
+	xxx_messageInfo_Request.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Request proto.InternalMessageInfo
+
+func (m *Request) GetDim() int32 {
+	if m != nil {
+		return m.Dim
+	}
+	return 0
+}
+
+func (m *Request) GetLineno() int64 {
+	if m != nil {
+		return m.Lineno
+	}
+	return 0
+}
+
+func (m *Request) GetGeometry() *Geometry {
+	if m != nil {
+		return m.Geometry
+	}
+	return nil
+}
+
+type Reply struct {
+	Dim0                 int64     `protobuf:"varint,1,opt,name=dim0,proto3" json:"dim0,omitempty"`
+	Dim1                 int64     `protobuf:"varint,2,opt,name=dim1,proto3" json:"dim1,omitempty"`
+	V                    []float32 `protobuf:"fixed32,3,rep,packed,name=v,proto3" json:"v,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *Reply) Reset()         { *m = Reply{} }
+func (m *Reply) String() string { return proto.CompactTextString(m) }
+func (*Reply) ProtoMessage()    {}
+func (*Reply) Descriptor() ([]byte, []int) {
 	return fileDescriptor_f7e43720d1edc0fe, []int{2}
 }
 
-func (m *SurfaceReplyValue) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SurfaceReplyValue.Unmarshal(m, b)
+func (m *Reply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Reply.Unmarshal(m, b)
 }
-func (m *SurfaceReplyValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SurfaceReplyValue.Marshal(b, m, deterministic)
+func (m *Reply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Reply.Marshal(b, m, deterministic)
 }
-func (m *SurfaceReplyValue) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SurfaceReplyValue.Merge(m, src)
+func (m *Reply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Reply.Merge(m, src)
 }
-func (m *SurfaceReplyValue) XXX_Size() int {
-	return xxx_messageInfo_SurfaceReplyValue.Size(m)
+func (m *Reply) XXX_Size() int {
+	return xxx_messageInfo_Reply.Size(m)
 }
-func (m *SurfaceReplyValue) XXX_DiscardUnknown() {
-	xxx_messageInfo_SurfaceReplyValue.DiscardUnknown(m)
+func (m *Reply) XXX_DiscardUnknown() {
+	xxx_messageInfo_Reply.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SurfaceReplyValue proto.InternalMessageInfo
+var xxx_messageInfo_Reply proto.InternalMessageInfo
 
-func (m *SurfaceReplyValue) GetI() uint64 {
+func (m *Reply) GetDim0() int64 {
 	if m != nil {
-		return m.I
+		return m.Dim0
 	}
 	return 0
 }
 
-func (m *SurfaceReplyValue) GetV() float32 {
+func (m *Reply) GetDim1() int64 {
+	if m != nil {
+		return m.Dim1
+	}
+	return 0
+}
+
+func (m *Reply) GetV() []float32 {
 	if m != nil {
 		return m.V
 	}
-	return 0
-}
-
-type ShatterLinkRequest struct {
-	Link                 string   `protobuf:"bytes,1,opt,name=link,proto3" json:"link,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ShatterLinkRequest) Reset()         { *m = ShatterLinkRequest{} }
-func (m *ShatterLinkRequest) String() string { return proto.CompactTextString(m) }
-func (*ShatterLinkRequest) ProtoMessage()    {}
-func (*ShatterLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f7e43720d1edc0fe, []int{3}
-}
-
-func (m *ShatterLinkRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ShatterLinkRequest.Unmarshal(m, b)
-}
-func (m *ShatterLinkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ShatterLinkRequest.Marshal(b, m, deterministic)
-}
-func (m *ShatterLinkRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShatterLinkRequest.Merge(m, src)
-}
-func (m *ShatterLinkRequest) XXX_Size() int {
-	return xxx_messageInfo_ShatterLinkRequest.Size(m)
-}
-func (m *ShatterLinkRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ShatterLinkRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ShatterLinkRequest proto.InternalMessageInfo
-
-func (m *ShatterLinkRequest) GetLink() string {
-	if m != nil {
-		return m.Link
-	}
-	return ""
-}
-
-type ShatterReply struct {
-	Link                 string   `protobuf:"bytes,1,opt,name=link,proto3" json:"link,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ShatterReply) Reset()         { *m = ShatterReply{} }
-func (m *ShatterReply) String() string { return proto.CompactTextString(m) }
-func (*ShatterReply) ProtoMessage()    {}
-func (*ShatterReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f7e43720d1edc0fe, []int{4}
-}
-
-func (m *ShatterReply) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ShatterReply.Unmarshal(m, b)
-}
-func (m *ShatterReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ShatterReply.Marshal(b, m, deterministic)
-}
-func (m *ShatterReply) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ShatterReply.Merge(m, src)
-}
-func (m *ShatterReply) XXX_Size() int {
-	return xxx_messageInfo_ShatterReply.Size(m)
-}
-func (m *ShatterReply) XXX_DiscardUnknown() {
-	xxx_messageInfo_ShatterReply.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ShatterReply proto.InternalMessageInfo
-
-func (m *ShatterReply) GetLink() string {
-	if m != nil {
-		return m.Link
-	}
-	return ""
+	return nil
 }
 
 func init() {
-	proto.RegisterType((*SurfaceRequest)(nil), "seismic_core.SurfaceRequest")
-	proto.RegisterType((*SurfaceReply)(nil), "seismic_core.SurfaceReply")
-	proto.RegisterType((*SurfaceReplyValue)(nil), "seismic_core.SurfaceReplyValue")
-	proto.RegisterType((*ShatterLinkRequest)(nil), "seismic_core.ShatterLinkRequest")
-	proto.RegisterType((*ShatterReply)(nil), "seismic_core.ShatterReply")
+	proto.RegisterType((*Geometry)(nil), "seismic_core.Geometry")
+	proto.RegisterType((*Request)(nil), "seismic_core.Request")
+	proto.RegisterType((*Reply)(nil), "seismic_core.Reply")
 }
 
 func init() { proto.RegisterFile("core.proto", fileDescriptor_f7e43720d1edc0fe) }
 
 var fileDescriptor_f7e43720d1edc0fe = []byte{
-	// 322 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x74, 0x52, 0xdd, 0x4e, 0xc2, 0x30,
-	0x14, 0xa6, 0x30, 0x11, 0x0e, 0x60, 0xe2, 0xb9, 0x30, 0x0b, 0x21, 0x4a, 0x7a, 0xc5, 0x15, 0x26,
-	0xf8, 0x08, 0x5e, 0xaa, 0x31, 0xe9, 0x12, 0x6f, 0x49, 0x99, 0x45, 0x1a, 0xf9, 0x73, 0x2d, 0xc4,
-	0xed, 0x71, 0x7c, 0x44, 0x9f, 0xc0, 0xd2, 0x8d, 0xad, 0x83, 0x79, 0xb7, 0xef, 0x67, 0x5f, 0xcf,
-	0xf9, 0x5a, 0x80, 0x70, 0x13, 0x89, 0xf1, 0x36, 0xda, 0xe8, 0x0d, 0x76, 0x95, 0x90, 0x6a, 0x25,
-	0xc3, 0xe9, 0x81, 0xa3, 0xbf, 0x04, 0xae, 0x82, 0x5d, 0x34, 0xe7, 0xa1, 0x60, 0xe2, 0x6b, 0x27,
-	0x94, 0xc6, 0x01, 0xb4, 0x55, 0xca, 0xc8, 0x77, 0x9f, 0x0c, 0xc9, 0xa8, 0xcd, 0x0a, 0x02, 0xfb,
-	0xd0, 0x9a, 0x71, 0x25, 0xd6, 0x7c, 0x25, 0xfc, 0xba, 0x15, 0x73, 0x8c, 0x37, 0xd0, 0x0c, 0x77,
-	0x33, 0xf1, 0xad, 0xfc, 0x86, 0x51, 0x7a, 0x2c, 0x43, 0x47, 0x3e, 0x56, 0xbe, 0x57, 0xf0, 0x71,
-	0xce, 0x27, 0xca, 0xbf, 0x28, 0xf8, 0x44, 0xe1, 0x2d, 0xc0, 0x3c, 0xe2, 0x1f, 0x2b, 0xb1, 0xd6,
-	0x26, 0xab, 0x69, 0x35, 0x87, 0x71, 0x75, 0x93, 0x79, 0x59, 0xd6, 0xe3, 0x92, 0x6e, 0xb2, 0x5b,
-	0x65, 0x3d, 0x51, 0x74, 0x0a, 0xdd, 0x7c, 0xe7, 0xed, 0x32, 0xc6, 0x57, 0x40, 0xe5, 0xe0, 0x37,
-	0xbe, 0x34, 0x45, 0x98, 0xd5, 0x1b, 0xa3, 0xce, 0xe4, 0x6e, 0xec, 0xf6, 0x35, 0x0e, 0x4e, 0x7d,
-	0xac, 0xe2, 0x57, 0x7a, 0x0f, 0xd7, 0x67, 0x46, 0xec, 0x02, 0x91, 0xb6, 0x4f, 0x8f, 0x11, 0x79,
-	0x40, 0x7b, 0x5b, 0x60, 0x9d, 0x91, 0x3d, 0x1d, 0x01, 0x06, 0x0b, 0xae, 0xb5, 0x88, 0x9e, 0xe5,
-	0xfa, 0xf3, 0x78, 0x13, 0x08, 0xde, 0xd2, 0xc0, 0xec, 0x12, 0xec, 0x37, 0xa5, 0x66, 0xf6, 0xd4,
-	0x99, 0xce, 0x5e, 0xe1, 0x99, 0xfc, 0x10, 0xf0, 0x1e, 0xcd, 0xb4, 0xf8, 0x02, 0x1d, 0x27, 0x16,
-	0x87, 0x27, 0xbb, 0x9c, 0x9d, 0xd8, 0xef, 0x57, 0x3a, 0xec, 0x49, 0xb4, 0x86, 0x4f, 0xd0, 0x0b,
-	0xb4, 0xd4, 0xe1, 0x22, 0x5b, 0x0e, 0x07, 0xff, 0x94, 0x53, 0x1d, 0xe6, 0x34, 0x42, 0x6b, 0xb3,
-	0xa6, 0x7d, 0x8e, 0x0f, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x98, 0xe3, 0x8f, 0xb9, 0x9c, 0x02,
-	0x00, 0x00,
+	// 235 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0x31, 0x4f, 0xc3, 0x30,
+	0x10, 0x85, 0x71, 0x9c, 0x94, 0x72, 0x74, 0x40, 0x87, 0xa8, 0x2c, 0xa6, 0x28, 0x53, 0xa6, 0x88,
+	0x18, 0x31, 0x76, 0x62, 0x60, 0x3f, 0x76, 0x90, 0x9a, 0x9c, 0x2a, 0x4b, 0x49, 0x1d, 0x9c, 0xb4,
+	0x52, 0xfe, 0x3d, 0x8a, 0x65, 0x2c, 0xda, 0xed, 0xee, 0x93, 0xf5, 0xde, 0xe7, 0x03, 0x68, 0xac,
+	0xe3, 0x6a, 0x70, 0x76, 0xb2, 0xb8, 0x19, 0xd9, 0x8c, 0xbd, 0x69, 0xbe, 0x17, 0x56, 0x7c, 0xc1,
+	0xfa, 0x83, 0x6d, 0xcf, 0x93, 0x9b, 0x71, 0x0b, 0xab, 0xe6, 0xb4, 0x67, 0xd3, 0x2a, 0x91, 0x8b,
+	0xf2, 0x8e, 0xc2, 0x86, 0x08, 0x69, 0x6b, 0xfa, 0x17, 0x95, 0xe4, 0xb2, 0x94, 0xe4, 0xe7, 0xc0,
+	0x6a, 0x25, 0x23, 0xab, 0x03, 0xd3, 0x2a, 0x8d, 0x4c, 0x17, 0x07, 0xb8, 0x25, 0xfe, 0x39, 0xf1,
+	0x38, 0xe1, 0x03, 0xc8, 0xd6, 0xf4, 0x3e, 0x3b, 0xa3, 0x65, 0x5c, 0x0a, 0x3b, 0x73, 0xe4, 0xa3,
+	0x55, 0x49, 0x2e, 0x4a, 0x49, 0x61, 0x43, 0x0d, 0xeb, 0x43, 0x90, 0x52, 0x32, 0x17, 0xe5, 0xbd,
+	0xde, 0x56, 0xff, 0xad, 0xab, 0x3f, 0x65, 0x8a, 0xef, 0x8a, 0x1d, 0x64, 0xc4, 0x43, 0x37, 0x47,
+	0x5b, 0xe1, 0x23, 0x2f, 0x6d, 0x93, 0xc8, 0x6a, 0xdc, 0x80, 0x38, 0x7b, 0xfd, 0x84, 0xc4, 0x59,
+	0xef, 0x20, 0x7d, 0xb7, 0x8e, 0xf1, 0x0d, 0xb2, 0xcf, 0xce, 0x34, 0x8c, 0x4f, 0x97, 0x8d, 0xe1,
+	0x13, 0xcf, 0x8f, 0xd7, 0x78, 0xe8, 0xe6, 0xe2, 0x66, 0xbf, 0xf2, 0xb7, 0x7d, 0xfd, 0x0d, 0x00,
+	0x00, 0xff, 0xff, 0x6e, 0x6f, 0x7c, 0xc7, 0x69, 0x01, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -330,8 +236,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type CoreClient interface {
-	ShatterLink(ctx context.Context, in *ShatterLinkRequest, opts ...grpc.CallOption) (*ShatterReply, error)
-	StitchSurface(ctx context.Context, in *SurfaceRequest, opts ...grpc.CallOption) (*SurfaceReply, error)
+	Slice(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
 }
 
 type coreClient struct {
@@ -342,18 +247,9 @@ func NewCoreClient(cc *grpc.ClientConn) CoreClient {
 	return &coreClient{cc}
 }
 
-func (c *coreClient) ShatterLink(ctx context.Context, in *ShatterLinkRequest, opts ...grpc.CallOption) (*ShatterReply, error) {
-	out := new(ShatterReply)
-	err := c.cc.Invoke(ctx, "/seismic_core.Core/ShatterLink", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *coreClient) StitchSurface(ctx context.Context, in *SurfaceRequest, opts ...grpc.CallOption) (*SurfaceReply, error) {
-	out := new(SurfaceReply)
-	err := c.cc.Invoke(ctx, "/seismic_core.Core/StitchSurface", in, out, opts...)
+func (c *coreClient) Slice(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
+	out := new(Reply)
+	err := c.cc.Invoke(ctx, "/seismic_core.Core/Slice", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -362,57 +258,35 @@ func (c *coreClient) StitchSurface(ctx context.Context, in *SurfaceRequest, opts
 
 // CoreServer is the server API for Core service.
 type CoreServer interface {
-	ShatterLink(context.Context, *ShatterLinkRequest) (*ShatterReply, error)
-	StitchSurface(context.Context, *SurfaceRequest) (*SurfaceReply, error)
+	Slice(context.Context, *Request) (*Reply, error)
 }
 
 // UnimplementedCoreServer can be embedded to have forward compatible implementations.
 type UnimplementedCoreServer struct {
 }
 
-func (*UnimplementedCoreServer) ShatterLink(ctx context.Context, req *ShatterLinkRequest) (*ShatterReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ShatterLink not implemented")
-}
-func (*UnimplementedCoreServer) StitchSurface(ctx context.Context, req *SurfaceRequest) (*SurfaceReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StitchSurface not implemented")
+func (*UnimplementedCoreServer) Slice(ctx context.Context, req *Request) (*Reply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Slice not implemented")
 }
 
 func RegisterCoreServer(s *grpc.Server, srv CoreServer) {
 	s.RegisterService(&_Core_serviceDesc, srv)
 }
 
-func _Core_ShatterLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ShatterLinkRequest)
+func _Core_Slice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Request)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoreServer).ShatterLink(ctx, in)
+		return srv.(CoreServer).Slice(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/seismic_core.Core/ShatterLink",
+		FullMethod: "/seismic_core.Core/Slice",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServer).ShatterLink(ctx, req.(*ShatterLinkRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Core_StitchSurface_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SurfaceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoreServer).StitchSurface(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/seismic_core.Core/StitchSurface",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoreServer).StitchSurface(ctx, req.(*SurfaceRequest))
+		return srv.(CoreServer).Slice(ctx, req.(*Request))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -422,12 +296,8 @@ var _Core_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*CoreServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ShatterLink",
-			Handler:    _Core_ShatterLink_Handler,
-		},
-		{
-			MethodName: "StitchSurface",
-			Handler:    _Core_StitchSurface_Handler,
+			MethodName: "Slice",
+			Handler:    _Core_Slice_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

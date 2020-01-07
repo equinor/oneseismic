@@ -9,243 +9,218 @@ import (
 	"path"
 	"time"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	azb "github.com/Azure/azure-storage-blob-go/azblob"
+
 	"github.com/equinor/seismic-cloud/api/events"
 	l "github.com/equinor/seismic-cloud/api/logger"
+	seismic_core "github.com/equinor/seismic-cloud/api/proto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ManifestStore interface {
-	Fetch(context.Context, string) (Manifest, error)
-	List(context.Context) ([]Manifest, error)
+	Download(context.Context, string) (*Manifest, error)
+	Upload(context.Context, string, Manifest) error
 }
+
+type Manifest seismic_core.Geometry
 
 type (
 	manifestFileStore struct {
-		localStore LocalFileStore
+		localStore *LocalFileStore
 	}
 
 	manifestInMemoryStore struct {
-		inMemoryStore InMemoryStore
+		inMemoryStore *InMemoryStore
 	}
 
 	manifestDbStore struct {
-		dbStore MongoDbStore
+		dbStore *MongoDbStore
 	}
 
 	manifestBlobStore struct {
-		blobStore AzBlobStore
+		blobStore *AzBlobStore
 	}
 )
 
 func NewManifestStore(persistance interface{}) (ManifestStore, error) {
-	const op = events.Op("store.NewManifestStore")
-	switch persistance.(type) {
+
+	switch persistance := persistance.(type) {
 	case map[string][]byte:
-		s, err := NewInMemoryStore(persistance.(map[string][]byte))
+		s, err := NewInMemoryStore(persistance)
 		if err != nil {
-			return nil, events.E(op, "new inmem store", err)
+			return nil, events.E("new inmem store", err)
 		}
-		return &manifestInMemoryStore{inMemoryStore: *s}, nil
+		return &manifestInMemoryStore{inMemoryStore: s}, nil
 	case AzureBlobSettings:
-		azbs := persistance.(AzureBlobSettings)
-		s, err := NewAzBlobStore(azbs.AccountName, azbs.AccountKey, azbs.ContainerName)
+
+		s, err := NewAzBlobStore(persistance)
 		if err != nil {
-			return nil, events.E(op, "new azure blob store", err)
+			return nil, events.E("new azure blob store", err)
 		}
-		return &manifestBlobStore{blobStore: *s}, nil
+		return &manifestBlobStore{blobStore: s}, nil
 	case ConnStr:
-		s, err := NewMongoDbStore(persistance.(ConnStr))
+		s, err := NewMongoDbStore(persistance)
 		if err != nil {
-			return nil, events.E(op, "new mongo db store", err)
+			return nil, events.E("new mongo db store", err)
 		}
-		return &manifestDbStore{dbStore: *s}, nil
+		return &manifestDbStore{dbStore: s}, nil
 	case BasePath:
-		s, err := NewLocalFileStore(persistance.(BasePath))
+		s, err := NewLocalFileStore(persistance)
 		if err != nil {
-			return nil, events.E(op, "new local store", err)
+			return nil, events.E("new local store", err)
 		}
-		return &manifestFileStore{localStore: *s}, nil
+		return &manifestFileStore{localStore: s}, nil
 	default:
-		return nil, events.E(op, "No manifest store persistance selected")
+		return nil, events.E("No manifest store persistance selected", events.ErrorLevel)
 	}
 }
 
-type Manifest struct {
-	Basename   string `json:"basename"`
-	Cubexs     uint32 `json:"cubexs"`
-	Cubeys     uint32 `json:"cubeys"`
-	Cubezs     uint32 `json:"cubezs"`
-	Fragmentxs uint32 `json:"fragmentxs"`
-	Fragmentys uint32 `json:"fragmentys"`
-	Fragmentzs uint32 `json:"fragmentzs"`
-}
+func (s *manifestFileStore) Download(ctx context.Context, id string) (*Manifest, error) {
 
-func (s *manifestFileStore) Fetch(ctx context.Context, id string) (Manifest, error) {
-	const op = events.Op("store.manifestFileStore.Fetch")
 	m := s.localStore
-	var mani Manifest
+
 	fileName := path.Join(string(m.basePath), id)
 	cont, err := ioutil.ReadFile(path.Clean(fileName))
 	if err != nil {
-		return mani, events.E(op, "Could not read manifest from local store", err, events.NotFound)
+		return nil, events.E("Could not read manifest from local store", err, events.NotFound, events.ErrorLevel)
 	}
-	err = json.Unmarshal(cont, &mani)
+	mani := &Manifest{}
+	err = json.Unmarshal(cont, mani)
 	if err != nil {
-		return mani, events.E(op, "Unmarshaling to Manifest", err, events.Marshalling)
+		return nil, events.E("Unmarshaling to Manifest", err, events.Marshalling, events.ErrorLevel)
 	}
 	return mani, nil
 }
 
-func (s *manifestBlobStore) Fetch(ctx context.Context, id string) (Manifest, error) {
-	const op = events.Op("store.manifestFileStore.Fetch")
-	az := s.blobStore
-	var mani Manifest
-	blobURL := az.containerURL.NewBlockBlobURL(id)
-	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+func (s *manifestFileStore) Upload(ctx context.Context, id string, manifest Manifest) error {
+
+	data, err := json.Marshal(manifest)
 	if err != nil {
-		l.LogW(string(op), "Manifest download failed:", l.Wrap(err), l.Kind(events.NotFound))
-		return mani, err
+		return events.E(
+			"Unmarshaling to Manifest",
+			err,
+			events.Marshalling)
 	}
-	l.LogI(string(op), fmt.Sprintf("Download: manifestLength: %d bytes\n", downloadResponse.ContentLength()))
-	retryReader := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(retryReader)
-	err = json.Unmarshal(buf.Bytes(), &mani)
+	err = ioutil.WriteFile(
+		path.Clean(
+			path.Join(
+				string(s.localStore.basePath), id)),
+		data, 0644)
 	if err != nil {
-		l.LogW(string(op), "Manifest unmarshal failed:", l.Wrap(err), l.Kind(events.NotFound))
-		return mani, err
+		return events.E("Could not write manifest to file store",
+			err)
+	}
+
+	return nil
+}
+
+func (mbs *manifestBlobStore) Download(ctx context.Context, manifestID string) (*Manifest, error) {
+	mani := &Manifest{}
+
+	blobURL := mbs.blobStore.containerURL.NewBlockBlobURL(manifestID)
+
+	resp, err := blobURL.Download(
+		ctx,
+		0,
+		azb.CountToEnd,
+		azb.BlobAccessConditions{},
+		false,
+	)
+	if err != nil {
+		return mani, events.E("Download from blobstore", err, events.Marshalling, events.ErrorLevel)
+	}
+	b, err := ioutil.ReadAll(resp.Body(azb.RetryReaderOptions{}))
+	if err != nil {
+		return mani, events.E("Could not read manifest from blob store", err)
+	}
+	err = json.Unmarshal(b, mani)
+	if err != nil {
+		return mani, events.E("Unmarshaling to Manifest", err, events.Marshalling, events.ErrorLevel)
 	}
 	return mani, nil
 }
 
-func (s *manifestDbStore) Fetch(ctx context.Context, id string) (Manifest, error) {
-	const op = events.Op("store.manifestDbStore.Fetch")
+func (mbs *manifestBlobStore) Upload(ctx context.Context, manifestID string, manifest Manifest) error {
+
+	j, err := json.Marshal(manifest)
+
+	if err != nil {
+		return events.E("Marshaling to Manifest", err, events.Marshalling)
+	}
+
+	blobURL := mbs.blobStore.containerURL.NewBlockBlobURL(manifestID)
+
+	// resp, err := blobURL.UploadUpload(ctx, body io.ReadSeeker, h BlobHTTPHeaders, metadata Metadata, ac BlobAccessConditions)
+	_, err = azb.UploadStreamToBlockBlob(
+		ctx,
+		bytes.NewBuffer(j),
+		blobURL,
+		azb.UploadStreamToBlockBlobOptions{})
+
+	if err != nil {
+		return events.E("Upload to blobstore", err)
+	}
+
+	return nil
+}
+
+func (s *manifestDbStore) Download(ctx context.Context, id string) (*Manifest, error) {
 	m := s.dbStore
 	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	var res Manifest
+	mani := &Manifest{}
 	client, err := mongo.Connect(dbCtx, options.Client().ApplyURI(string(m.connString)))
 	if err != nil {
-		return res, err
+		return mani, err
 	}
-	defer client.Disconnect(dbCtx)
+	defer func() {
+		err := client.Disconnect(dbCtx)
+		if err != nil {
+			l.LogE("Disconnect manifest store", err)
+		}
+	}()
 	collection := client.Database("seismiccloud").Collection("manifests")
-	err = collection.FindOne(dbCtx, bson.D{{"basename", id}}).Decode(&res)
+	err = collection.FindOne(dbCtx, bson.D{bson.E{Key: "basename", Value: id}}).Decode(mani)
 	if err != nil {
-		return res, events.E(op, "Finding and unmarshaling to Manifest", err, events.Marshalling)
+		return mani, events.E("Finding and unmarshaling to Manifest", err, events.Marshalling)
 	}
-	l.LogI(string(op), fmt.Sprintf("Connected to manifest DB and fetched file %s", id))
-	return res, nil
+	l.LogI(fmt.Sprintf("Connected to manifest DB and fetched file %s", id))
+	return mani, nil
 }
 
-func (s *manifestInMemoryStore) Fetch(ctx context.Context, id string) (Manifest, error) {
-	const op = events.Op("store.manifestInMemoryStore.Fetch")
+func (s *manifestDbStore) Upload(ctx context.Context, id string, manifest Manifest) error {
+
+	return events.E("Not implemented", events.CriticalLevel)
+}
+
+func (s *manifestInMemoryStore) Download(ctx context.Context, id string) (*Manifest, error) {
 	s.inMemoryStore.lock.RLock()
 	defer s.inMemoryStore.lock.RUnlock()
-	var mani Manifest
+	mani := &Manifest{}
 	b, ok := s.inMemoryStore.m[id]
 	if !ok {
-		return mani, events.E(op, "No manifest for id", events.NotFound)
+		return mani, events.E("No manifest for id", events.NotFound, events.ErrorLevel)
 	}
-	err := json.Unmarshal(b, &mani)
+	err := json.Unmarshal(b, mani)
 	if err != nil {
-		return mani, events.E(op, "Unmarshaling to Manifest", err, events.Marshalling)
+		return mani, events.E("Unmarshaling to Manifest", err, events.Marshalling)
 	}
 	return mani, nil
 }
 
-func (s *manifestFileStore) List(ctx context.Context) ([]Manifest, error) {
-	const op = events.Op("store.manifestFileStore.List")
-	m := s.localStore
-	var res []Manifest
-	files, err := ioutil.ReadDir(string(m.basePath))
+func (s *manifestInMemoryStore) Upload(ctx context.Context, id string, manifest Manifest) error {
+
+	j, err := json.Marshal(manifest)
+
 	if err != nil {
-		return nil, events.E(op, "Invalid local file store", err, events.NotFound)
-	}
-	for _, file := range files {
-		var mani Manifest
-		b, _ := ioutil.ReadFile(path.Join(string(m.basePath), file.Name()))
-		err = json.Unmarshal(b, &mani)
-		if err == nil {
-			res = append(res, mani)
-		}
-	}
-	l.LogI(string(op), fmt.Sprintf("Fetched %d files from local store", len(res)))
-	return res, nil
-}
-
-func (s *manifestBlobStore) List(ctx context.Context) ([]Manifest, error) {
-	const op = events.Op("store.manifestBlobStore.List")
-	az := s.blobStore
-	var manis []Manifest
-	for marker := (azblob.Marker{}); marker.NotDone(); {
-		listBlob, err := az.containerURL.ListBlobsFlatSegment(ctx, marker, azblob.ListBlobsSegmentOptions{})
-		if err != nil {
-			return nil, events.E(op, "Could not list blobs", err)
-		}
-		marker = listBlob.NextMarker
-		for _, blobInfo := range listBlob.Segment.BlobItems {
-			mani, err := s.Fetch(ctx, blobInfo.Name)
-			if err == nil {
-				manis = append(manis, mani)
-			}
-		}
-	}
-	return manis, nil
-}
-
-func (s *manifestDbStore) List(ctx context.Context) ([]Manifest, error) {
-	const op = events.Op("store.manifestDbStore.List")
-	m := s.dbStore
-	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	var res []Manifest
-	client, err := mongo.Connect(dbCtx, options.Client().ApplyURI(string(m.connString)))
-	if err != nil {
-		return res, err
-	}
-	defer client.Disconnect(dbCtx)
-	collection := client.Database("seismiccloud").Collection("manifests")
-	find, err := collection.Find(dbCtx, bson.D{})
-	if err != nil {
-		return res, events.E(op, "Find in DB error", err, events.NotFound)
+		return events.E("Marshaling to Manifest", err, events.Marshalling)
 	}
 
-	for find.Next(dbCtx) {
-		var mani Manifest
-		err := find.Decode(&mani)
-		if err == nil {
-			res = append(res, mani)
-		}
-	}
-	l.LogI(string(op), fmt.Sprintf("Connected to manifest DB and fetched %d files", len(res)))
-	return res, nil
-}
+	s.inMemoryStore.lock.Lock()
+	defer s.inMemoryStore.lock.Unlock()
 
-func (s *manifestInMemoryStore) List(ctx context.Context) ([]Manifest, error) {
-	const op = events.Op("store.manifestInMemoryStore.List")
-	s.inMemoryStore.lock.RLock()
-	defer s.inMemoryStore.lock.RUnlock()
-	var res []Manifest
-	for _, v := range s.inMemoryStore.m {
-		var mani Manifest
-		err := json.Unmarshal(v, &mani)
-		if err == nil {
-			res = append(res, mani)
-		}
-	}
-	l.LogI(string(op), fmt.Sprintf("Fetched %d files from memory store", len(res)))
-	return res, nil
-}
-
-func (m Manifest) ToJSON() (string, error) {
-	const op = events.Op("store.ToJSON")
-	b, err := json.Marshal(m)
-	if err != nil {
-		return "", events.E(op, "Manifest to JSON", err, events.Marshalling)
-	}
-	return string(b), nil
+	s.inMemoryStore.m[id] = j
+	return nil
 }

@@ -2,3 +2,5 @@
 .pytest_cache
 Dockerfile
 tmp
+sc-api
+sc-corestub

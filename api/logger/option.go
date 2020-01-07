@@ -8,7 +8,7 @@ type LogEventOption interface {
 
 type EmptyOption struct{}
 
-func (EmptyOption) apply(*events.Event) { return }
+func (EmptyOption) apply(*events.Event) {}
 
 type funcOption struct {
 	f func(*events.Event)
@@ -16,7 +16,6 @@ type funcOption struct {
 
 func (fo *funcOption) apply(h *events.Event) {
 	fo.f(h)
-	return
 }
 
 func newFuncOption(f func(*events.Event)) *funcOption {

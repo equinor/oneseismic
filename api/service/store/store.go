@@ -6,10 +6,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/equinor/seismic-cloud/api/config"
+	azb "github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
 )
 
 type (
@@ -27,35 +25,41 @@ type (
 	}
 
 	AzBlobStore struct {
-		containerURL *azblob.ContainerURL
+		containerURL *azb.ContainerURL
 		bufferSize   int
 		maxBuffers   int
+	}
+	AzSecBlobStore struct {
+		ServiceURL *azb.ServiceURL
 	}
 )
 type BasePath string
 type ConnStr string
 type AzureBlobSettings struct {
+	StorageURL    string
 	AccountName   string
 	AccountKey    string
 	ContainerName string
 }
 
-func NewAzBlobStore(accountName, accountKey, containerName string) (*AzBlobStore, error) {
+func NewAzBlobStore(az AzureBlobSettings) (*AzBlobStore, error) {
 
-	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
-	if err != nil {
-		l.LogE("blobStore AzBlobStorage", "Invalid credentials", err)
-	}
-	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
-
-	u, err := url.Parse(
-		fmt.Sprintf(config.AzStorageURL(),
-			accountName,
-			containerName))
+	credential, err := azb.NewSharedKeyCredential(az.AccountName, az.AccountKey)
 	if err != nil {
 		return nil, err
 	}
-	containerURL := azblob.NewContainerURL(*u, p)
+
+	url, err := url.Parse(
+		fmt.Sprintf(az.StorageURL,
+			az.AccountName,
+			az.ContainerName))
+	if err != nil {
+		return nil, err
+	}
+	containerURL := azb.NewContainerURL(
+		*url,
+		azb.NewPipeline(credential, azb.PipelineOptions{}),
+	)
 
 	return &AzBlobStore{
 		containerURL: &containerURL,
@@ -68,16 +72,18 @@ func NewMongoDbStore(connStr ConnStr) (*MongoDbStore, error) {
 }
 
 func NewLocalFileStore(basePath BasePath) (*LocalFileStore, error) {
-	op := events.Op("store.NewLocalFileStore")
 	basePathStr := string(basePath)
 	if len(basePath) == 0 {
-		return nil, events.E(op, "basePath cannot be empty")
+		return nil, events.E("basePath cannot be empty", events.ErrorLevel)
 	}
 
 	if _, err := os.Stat(basePathStr); os.IsNotExist(err) {
-		os.MkdirAll(basePathStr, 0700)
+		err = os.MkdirAll(basePathStr, 0700)
+		if err != nil {
+			return nil, events.E("Make basePath", err)
+		}
 	} else if err != nil {
-		return nil, events.E(op, "accessing basePath failed", err)
+		return nil, events.E("accessing basePath", err)
 	}
 
 	return &LocalFileStore{basePath}, nil

@@ -2,101 +2,66 @@ package controller
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
+
 	"io/ioutil"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/equinor/seismic-cloud/api/tests"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSurfaceControllerUpload(t *testing.T) {
-	ts := NewTestSetup()
+	ts := tests.NewTestServiceSetup()
 	surfaceData := []byte("blob blob, I'm a fish!\n")
 	req := httptest.NewRequest("POST", "/surface/testblob", ioutil.NopCloser(bytes.NewReader(surfaceData)))
 
 	ts.BeginRequest(req)
 	ts.SetParam("surfaceID", "testblob")
-
-	ts.SurfaceController.Upload(ts.Ctx)
+	sc := SurfaceController{ts.SurfaceStore}
+	sc.Upload(ts.Ctx)
 
 	assert.Equal(t, ts.Ctx.GetStatusCode(), 200)
 
 	ts.EndRequest()
 
-	buf, err := ts.SurfaceStore.Download(context.Background(), "testblob")
-	assert.Nil(t, err)
-
-	gotSurface, err := ioutil.ReadAll(buf)
-	assert.Nil(t, err)
-
-	assert.Equal(t, gotSurface, surfaceData)
 }
 
 func TestSurfaceControllerList(t *testing.T) {
-	ts := NewTestSetup()
-	surfaceData := []byte("blob blob, I'm a fish!\n")
-
-	surfaces := make([]store.SurfaceMeta, 0)
-	surfaces = append(surfaces, store.SurfaceMeta{
-		SurfaceID: "blobtest",
-		Link:      "blobtest",
-	}, store.SurfaceMeta{
-		SurfaceID: "blobtest_2",
-		Link:      "blobtest_2",
-	})
-
-	for _, ms := range surfaces {
-		ts.AddSurface(ms.SurfaceID, "test-user", bytes.NewReader(surfaceData))
-	}
+	ts := tests.NewTestServiceSetup()
 
 	req := httptest.NewRequest("GET", "/surface", nil)
 	ts.BeginRequest(req)
-
-	ts.SurfaceController.List(ts.Ctx)
+	sc := SurfaceController{ts.SurfaceStore}
+	sc.List(ts.Ctx)
 	assert.Equal(t, ts.Ctx.GetStatusCode(), 200)
 
 	ts.EndRequest()
 
-	gotSurfaces, err := ioutil.ReadAll(ts.Result().Body)
-	assert.Nil(t, err)
-
-	surf := make([]store.SurfaceMeta, 0)
-	err = json.Unmarshal(gotSurfaces, &surf)
-	assert.Nil(t, err)
-
-	assert.Equal(t, surf, surfaces)
 }
 
 func TestSurfaceControllerDownload(t *testing.T) {
-	ts := NewTestSetup()
-	surfaceData := []byte("blob blob, I'm a Fish!\n")
-
-	ts.AddSurface("blobtest", "test-user", bytes.NewReader(surfaceData))
+	ts := tests.NewTestServiceSetup()
 
 	req := httptest.NewRequest("GET", "/surface/blobtest", nil)
 	ts.BeginRequest(req)
 	ts.SetParam("surfaceID", "blobtest")
-
-	ts.SurfaceController.Download(ts.Ctx)
+	sc := SurfaceController{ts.SurfaceStore}
+	sc.Download(ts.Ctx)
 
 	ts.EndRequest()
-	gotData, err := ioutil.ReadAll(ts.Result().Body)
-	assert.Nil(t, err)
 
-	assert.Equal(t, gotData, surfaceData)
 }
 
 func TestSurfaceControllerDownloadMissingSurface(t *testing.T) {
-	ts := NewTestSetup()
+	ts := tests.NewTestServiceSetup()
 
-	req := httptest.NewRequest("GET", "/surface/blobtest", nil)
+	req := httptest.NewRequest("GET", "/surface/not-exists", nil)
 	ts.BeginRequest(req)
-	ts.SetParam("surfaceID", "blobtest")
-
-	ts.SurfaceController.Download(ts.Ctx)
+	ts.SetParam("surfaceID", "not-exists")
+	sc := SurfaceController{ts.SurfaceStore}
+	sc.Download(ts.Ctx)
 
 	assert.Equal(t, ts.Ctx.GetStatusCode(), 404, "Should give not found status code")
 

@@ -3,18 +3,44 @@ package config
 import (
 	"crypto/rand"
 	"fmt"
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"net/url"
+	"os"
 
+	"github.com/equinor/seismic-cloud/api/events"
 	"github.com/spf13/viper"
 )
 
-type Config struct {
-	authServer *url.URL
+func Init(cfgFile string) error {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		wd, err := os.Getwd()
+		if err != nil {
+			return events.E("Open working dir", err)
+		}
+		viper.AddConfigPath(wd)
+		viper.SetConfigName(".sc-api")
+	}
+	SetDefaults()
+	viper.AutomaticEnv()
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok && cfgFile == "" {
+			return nil
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
-var cfg *Config
-
 func SetDefaults() {
+	if viper.ConfigFileUsed() == "" {
+		l.LogI("Config from environment variables")
+	} else {
+		l.LogI("Config loaded and validated " + viper.ConfigFileUsed())
+	}
+
 	viper.SetDefault("NO_AUTH", false)
 	viper.SetDefault("API_SECRET", "")
 	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
@@ -42,22 +68,20 @@ func SetDefaults() {
 	viper.SetDefault("LOGDB_CONNSTR", "")
 }
 
-func Load() error {
-	cfg = new(Config)
-
-	if !viper.GetBool("NO_AUTH") {
-		a, err := parseURL(viper.GetString("AUTHSERVER"))
-		if err != nil {
-			return err
-		}
-		cfg.authServer = a
-	}
-
-	return nil
+func Reset() {
+	viper.Reset()
 }
 
-func parseURL(s string) (*url.URL, error) {
+func SetDefault(key string, val interface{}) {
+	viper.SetDefault(key, val)
+}
 
+func Version() string {
+	return fmt.Sprintf("Seismic Cloud API %s", version)
+}
+
+func AuthServer() (*url.URL, error) {
+	s := viper.GetString("AUTHSERVER")
 	if len(s) == 0 {
 		return nil, fmt.Errorf("Url value empty")
 	}
@@ -66,17 +90,6 @@ func parseURL(s string) (*url.URL, error) {
 		return nil, err
 	}
 	return u, nil
-}
-
-func Version() string {
-	return fmt.Sprintf("Seismic Cloud API %s.%s.%s", majVer, minVer, patchVer)
-}
-
-func AuthServer() *url.URL {
-	if cfg == nil {
-		return nil
-	}
-	return cfg.authServer
 }
 
 func UseAuth() bool {
@@ -173,7 +186,10 @@ func ApiSecret() string {
 
 	if len(sec) < 8 {
 		b := make([]byte, 20)
-		rand.Read(b)
+		_, err := rand.Read(b)
+		if err != nil {
+			panic(err)
+		}
 		sec = string(b)
 	}
 	return sec

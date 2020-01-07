@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestError(t *testing.T) {
-	err := E(Op("foo"), ErrorLevel, fmt.Errorf("bar"), "foobar", NotFound, UserID("ANON"), uuid.New())
+	err := E("foobar", Op("foo"), ErrorLevel, fmt.Errorf("bar"), NotFound, UserID("ANON"), uuid.New())
 
 	var ev *Event
 	if !errors.As(err, &ev) {
@@ -69,13 +70,13 @@ func TestParseLevel(t *testing.T) {
 		{"Critical", "CRIT", CriticalLevel},
 		{"Critical", "[CRIT]", CriticalLevel},
 		{"Fatal", "Fatal", CriticalLevel},
-		{"Default", "asdf", DebugLevel},
+		{"Default", "asdf", NoLevel},
 		{"No string", "", DebugLevel},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ParseLevel(tt.have); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("%s:ParseLevel() = %v, want %v", tt.name, got, tt.want)
+				t.Errorf("%s:> ParseLevel() = %v, want %v", tt.name, got, tt.want)
 			}
 		})
 	}
@@ -127,23 +128,26 @@ func TestEvent_Error(t *testing.T) {
 		want string
 	}{
 		{"Single error",
-			E(Op("foo"),
+			E(
+				"foobar",
+				Op("foo"),
 				ErrorLevel,
 				fmt.Errorf("bar"),
-				"foobar",
 				NotFound,
 				UserID("ANON"),
 				uuid.New()).(*Event),
 			"foo: foobar: not found: bar"},
 		{"Double error",
-			E(Op("foo"), ErrorLevel,
-				E(Op("bar"), ErrorLevel,
+			E("foobar",
+				Op("foo"),
+				ErrorLevel,
+				E("barbaz",
+					Op("bar"),
+					ErrorLevel,
 					fmt.Errorf("baz"),
-					"barbaz",
 					NotFound,
 					UserID("ANON"),
 					uuid.New()),
-				"foobar",
 				NotFound,
 				UserID("ANON"),
 				uuid.New()).(*Event),
@@ -151,9 +155,8 @@ func TestEvent_Error(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.e.Error(); got != tt.want {
-				t.Errorf("Event.Error() = %v, want %v", got, tt.want)
-			}
+			assert.Contains(t, tt.e.Error(), tt.want)
+
 		})
 	}
 }

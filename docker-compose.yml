@@ -1,10 +1,12 @@
-version: "3.0"
+version: '3.0'
 services:
-
   corestub:
     image: lambdaville.azurecr.io/corestub:latest
-    build: corestub
+    build:
+      context: api
+      dockerfile: Dockerfile-corestub
 
   api:
     image: lambdaville.azurecr.io/api:latest
-    build: api
+    build:
+      context: api

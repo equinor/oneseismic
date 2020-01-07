@@ -32,9 +32,9 @@ func (sm serverMode) String() string {
 	case INSECURE:
 		return "Insecure"
 	case SECURE:
-		return "Lets Encrypt"
-	case LETSENCRYPT:
 		return "Secure"
+	case LETSENCRYPT:
+		return "Lets Encrypt"
 	default:
 		return "Unknown"
 	}
@@ -194,11 +194,15 @@ func (hs *HTTPServer) registerEndpoints() {
 
 	mc := controller.NewManifestController(hs.service.manifestStore)
 
-	hs.app.Get("/manifest", mc.List)
-	hs.app.Get("/manifest/{manifestID:string idString() else 502}", mc.Fetch)
+	hs.app.Get("/manifest/{manifestID:string idString() else 502}", mc.Download)
+	hs.app.Post("/manifest/{manifestID:string idString() else 502}", mc.Upload)
 
 	hs.app.Get("/stitch/{manifestID:string idString() else 502}/{surfaceID: string idString() else 502}",
-		controller.StitchController(
+		controller.StitchSurfaceController(
+			hs.service.manifestStore,
+			hs.service.stitcher))
+	hs.app.Get("/stitch/{manifestID:string idString() else 502}/dim/{dim:uint32}/{lineno:uint64}",
+		controller.StitchDimController(
 			hs.service.manifestStore,
 			hs.service.stitcher))
 
@@ -245,7 +249,7 @@ func (hs *HTTPServer) Serve() error {
 		go func() {
 			err := metricsServer.ListenAndServe()
 			if err != nil {
-				l.LogE("http.RunningProfileServer", "Server shutdown", err)
+				l.LogE("Server shutdown", err)
 			}
 		}()
 	}

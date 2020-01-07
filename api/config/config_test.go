@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,25 +47,30 @@ func TestConfig(t *testing.T) {
 			v := reflect.ValueOf(tt.f)
 			r := v.Call(nil)
 			assert.Equal(t, tt.wantDefault, r[0].Interface(), fmt.Sprintf("Before setting any variables. wantDefault: %v, got: %v", tt.wantDefault, r[0].Interface()))
-			viper.SetDefault(tt.key, tt.set)
+			SetDefault(tt.key, tt.set)
 			v = reflect.ValueOf(tt.f)
 			r = v.Call(nil)
 			assert.Equal(t, tt.wantSet, r[0].Interface(), fmt.Sprintf("After setting variables. wantSet: %v, got: %v", tt.wantDefault, r[0].Interface()))
 		})
 	}
-	viper.Reset()
+	Reset()
 }
 
-func TestAuth(t *testing.T) {
-	assert.Equal(t, true, UseAuth(), fmt.Sprintf("UseAuth default value, expected: %v, actual: %v", true, UseAuth()))
-	assert.Empty(t, AuthServer(), fmt.Sprint("AuthServer default value should be empty"))
+func TestNoAuth(t *testing.T) {
+	Reset()
+	assert.Equal(t, true, UseAuth())
+	SetDefault("NO_AUTH", true)
+	assert.Equal(t, false, UseAuth())
+}
 
-	viper.SetDefault("NO_AUTH", false)
-	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
-	if err := Load(); err != nil {
-		assert.NoError(t, err, "Error loading config")
-	}
-	uExpected := &url.URL{Scheme: "http", Host: "oauth2.example.com"}
-	assert.Equal(t, true, UseAuth(), fmt.Sprintf("UseAuth after setting, expected: %v, actual: %v", true, UseAuth()))
-	assert.Equal(t, uExpected, AuthServer(), fmt.Sprintf("AuthServer after setting value, expected: %v, actual: %v", uExpected, AuthServer()))
+func TestAuthServer(t *testing.T) {
+	Reset()
+	_, err := AuthServer()
+	assert.Error(t, err)
+
+	anURL := &url.URL{Scheme: "http", Host: "some.host"}
+	SetDefault("AUTHSERVER", anURL)
+	u, err := AuthServer()
+	assert.NoError(t, err)
+	assert.Equal(t, anURL, u)
 }

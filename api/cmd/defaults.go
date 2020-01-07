@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -14,6 +15,9 @@ var defaultsCmd = &cobra.Command{
 	Short: "Writes default config values to config file",
 	Long:  `Writes default config values to config file, specified with --config`,
 	Run: func(cmd *cobra.Command, args []string) {
-		viper.WriteConfig()
+		err := viper.WriteConfig()
+		if err != nil {
+			l.LogE("Writing config defaults", err)
+		}
 	},
 }
