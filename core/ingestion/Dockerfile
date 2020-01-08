@@ -7,6 +7,7 @@ ADD . .
 
 RUN pip install ./scan
 RUN pip install ./upload
+RUN pip install ./blobio
 
 RUN pytest upload scan
 

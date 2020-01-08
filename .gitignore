@@ -8,3 +8,8 @@ api/api
 api/sc-api
 api/sc-corestub
 settings.json
+__pycache__
+*.pyc
+.eggs
+.hypothesis
+*.egg-info
