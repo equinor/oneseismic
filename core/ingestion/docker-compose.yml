@@ -1,0 +1,12 @@
+version: '3.0'
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.3.0-preview
+
+  tests:
+    build:
+      context: .
+    depends_on:
+      - azurite
+    environment:
+      - AZURITE=azurite

@@ -2,6 +2,7 @@ import io
 import math
 import logging
 import os
+import json
 
 import numpy as np
 import segyio
@@ -172,17 +173,10 @@ def upload(params, meta, segment, blob, f):
         fragment_dims[0], fragment_dims[1], fragment_dims[2],
     )
 
-    exists = blob.create_container(
-        container_name = container,
+    blob.create_container(
+        name = container,
         # public_access = 'off',
     )
-
-    if not exists:
-        # TODO: this should not be a hard fail, but rather check if the upload
-        # is incomplete, or this is a new fragmentation if the upload actually
-        # was complete, exit (maybe as success (fast-forward), returning the
-        # cube ID)
-        raise RuntimeError('container {} already exists'.format(container))
 
     tqdm_opts = {
         'desc': 'uploading segment {}'.format(segment),
@@ -197,8 +191,19 @@ def upload(params, meta, segment, blob, f):
         logging.info('uploading %s to %s', blob_name, container)
         # TODO: consider implications and consequences and how to handle an
         # already-existing fragment with this ID
-        blob.create_blob_from_bytes(
-            container_name = container,
-            blob_name = blob_name,
-            blob = bytes(dst[:, y, z]),
-        )
+        blob_client = blob.get_blob_client(container=container, blob=blob_name)
+        blob_client.upload_blob(bytes(dst[:, y, z]))
+
+def wip_upload(blob, meta, inp, params):
+    with open(meta) as f:
+        meta = json.load(f)
+
+    # TODO: this mapping, while simple, should probably be done by the
+    # geometric volume translation package
+    dims = meta['dimensions']
+    first = params['subcube-dims'][0]
+    segments = int(math.ceil(len(dims[0]) / first))
+
+    for seg in range(segments):
+        with open(inp, 'rb') as f:
+            upload(params, meta, seg, blob, f)
