@@ -10,7 +10,7 @@ setuptools.setup(
     install_requires = [
         'segyio',
         'numpy',
-        'azure-storage',
+        'azure-storage-blob',
         'tqdm',
     ],
 
