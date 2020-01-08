@@ -23,21 +23,8 @@ def main(argv):
         ),
     }
 
-    with open(args.meta) as f:
-        meta = json.load(f)
-
     blob = BlobServiceClient.from_connection_string(os.environ['AZURE_CONNECTION_STRING'])
-
-    # TODO: this mapping, while simple, should probably be done by the
-    # geometric volume translation package
-    import math
-    dims = meta['dimensions']
-    first = params['subcube-dims'][0]
-    segments = int(math.ceil(len(dims[0]) / first))
-
-    for seg in range(segments):
-        with open(args.input, 'rb') as f:
-            upload_segment(params, meta, seg, blob, f)
+    upload(params, args.meta, args.input, blob)
 
 if __name__ == '__main__':
     print(main(sys.argv[1:]))
