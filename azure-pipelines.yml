@@ -39,6 +39,13 @@ jobs:
         displayName: 'Test seismic-cloud Core'
         workingDirectory: build
 
+  - job: Test_Ingestion
+    steps:
+      - script: |
+          docker-compose up --build --exit-code-from int_tests
+        displayName: 'Test Ingestion'
+        workingDirectory: core/ingestion
+
   - job: Build_API
     variables:
       GOPATH: '$(system.defaultWorkingDirectory)/gopath'

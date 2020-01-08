@@ -2,6 +2,7 @@ import io
 import math
 import logging
 import os
+import json
 
 import numpy as np
 import segyio
@@ -142,7 +143,7 @@ def pad(fragment_dims, src):
     return dst
 
 
-def upload(params, meta, segment, blob, f):
+def upload_segment(params, meta, segment, blob, f):
     samples = meta['samples']
     dims = meta['dimensions']
     format = meta['format']
@@ -193,3 +194,16 @@ def upload(params, meta, segment, blob, f):
         blob_client = blob.get_blob_client(container=container, blob=blob_name)
         blob_client.upload_blob(bytes(dst[:, y, z]))
 
+def upload(params, meta, filename, blob):
+    with open(meta) as f:
+        meta = json.load(f)
+
+    # TODO: this mapping, while simple, should probably be done by the
+    # geometric volume translation package
+    dims = meta['dimensions']
+    first = params['subcube-dims'][0]
+    segments = int(math.ceil(len(dims[0]) / first))
+
+    for seg in range(segments):
+        with open(filename, 'rb') as f:
+            upload_segment(params, meta, seg, blob, f)
