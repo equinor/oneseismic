@@ -80,6 +80,7 @@ install(
     EXPORT seismic-cloud-export
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/seismic-cloud/cmake
     FILE seismic-cloud-config.cmake
+    NAMESPACE seismic-cloud::
 )
 export(
     TARGETS seismic-cloud
