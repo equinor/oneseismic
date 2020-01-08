@@ -12,6 +12,22 @@
 
 namespace sc {
 
+namespace {
+
+template < typename Range >
+auto product(const Range& r) noexcept (true)
+    -> std::decay_t< decltype(*std::begin(r)) > {
+    using Return = std::decay_t< decltype(*std::begin(r)) >;
+    return std::accumulate(
+        std::begin(r),
+        std::end(r),
+        1,
+        std::multiplies< Return >()
+    );
+}
+
+}
+
 template < typename Base, std::size_t Dims >
 std::string basic_tuple< Base, Dims >::string() const {
     const auto& self = static_cast< const base_type& >(*this);
@@ -19,105 +35,84 @@ std::string basic_tuple< Base, Dims >::string() const {
 }
 
 template < std::size_t Dims >
-cubecoords< Dims >::cubecoords(Cube_dimension cube, Frag_dimension frag) noexcept (true) :
+gvt< Dims >::gvt(Cube_dimension cube, Frag_dimension frag) noexcept (true) :
     global_dims(cube),
     fragment_dims(frag)
 {}
 
 template < std::size_t Dims >
-frag_point< Dims >
-cubecoords< Dims >::to_local(Cube_point p)
-const noexcept (true) {
-    for (int i = 0; i < Dims; ++i)
-        assert(p[i] < this->global_dims[i]);
-
+frag_point< Dims > gvt< Dims >::to_local(Cube_point p) const noexcept (true) {
     Frag_point tmp;
-    for (int i = 0; i < Dims; ++i)
+    for (std::size_t i = 0; i < Dims; ++i) {
+        assert(p[i] < this->global_dims[i]);
         tmp[i] = p[i] % this->fragment_dims[i];
+    }
 
     return tmp;
 }
 
 template < std::size_t Dims >
-cube_point< Dims > cubecoords< Dims >::to_global(Fragment_id r, Frag_point p)
+cube_point< Dims > gvt< Dims >::to_global(Fragment_id r, Frag_point p)
 const noexcept (true) {
     auto cp = Cube_point();
-    for (int i = 0; i < Dims; ++i)
+    for (std::size_t i = 0; i < Dims; ++i) {
         cp[i] = (r[i] * this->fragment_dims[i]) + p[i];
-
-    for (int i = 0; i < Dims; ++i)
         assert(cp[i] < this->global_dims[i]);
+    }
 
     return cp;
 }
 
 template < std::size_t Dims >
-fragment_id< Dims > cubecoords< Dims >::frag_id(Cube_point p) const noexcept (true) {
-    for (int i = 0; i < Dims; ++i)
-        assert(p[i] < this->global_dims[i]);
-
+fragment_id< Dims > gvt< Dims >::frag_id(Cube_point p) const noexcept (true) {
     const auto frag = this->fragment_dims;
     Fragment_id tmp;
-    for (int i = 0; i < Dims; ++i)
+    for (std::size_t i = 0; i < Dims; ++i) {
+        assert(p[i] < this->global_dims[i]);
         tmp[i] = p[i] / frag[i];
+    }
 
     return tmp;
 }
 
-//template < std::size_t Dims >
-//cube_point< Dims > cubecoords< Dims >::from_offset(std::size_t o) const noexcept (true) {
-//    assert(o < this->global_size());
-//    const auto dim = this->global_dims;
-//
-//    return {
-//        (o / (dim.y * dim.z)),
-//        (o % (dim.y * dim.z)) / dim.z,
-//        (o % (dim.y * dim.z)) % dim.z
-//    };
-//}
-
 template < std::size_t Dims >
-std::size_t cube_dimension< Dims >::slice_size(dimension< Dims > dim)
+std::size_t cube_dimension< Dims >::slice_samples(dimension< Dims > dim)
 const noexcept (true) {
     auto dims = *this;
     dims[dim.v] = 1;
-    return std::accumulate(
-        std::begin(dims),
-        std::end(dims),
-        1,
-        std::multiplies< std::size_t >()
-    );
+    return product(dims);
 }
 
 template < std::size_t Dims >
-std::size_t frag_dimension< Dims >::slice_size(dimension< Dims > dim)
+std::size_t frag_dimension< Dims >::slice_samples(dimension< Dims > dim)
 const noexcept (true) {
     auto dims = *this;
     dims[dim.v] = 1;
-    return std::accumulate(
-        std::begin(dims),
-        std::end(dims),
-        1,
-        std::multiplies< std::size_t >()
-    );
+    return product(dims);
 }
 
 template < std::size_t Dims >
-std::size_t cubecoords< Dims >::global_size() const noexcept (true) {
-    return std::accumulate(
-        std::begin(this->global_dims),
-        std::end(this->global_dims),
-        1,
-        // TODO: derive from array
-        std::multiplies< std::size_t >()
-    );
+std::size_t gvt< Dims >::global_size() const noexcept (true) {
+    return product(this->global_dims);
 }
 
 template < std::size_t Dims >
-std::size_t cubecoords< Dims >::size(Dimension dim) const noexcept (false) {
+std::size_t gvt< Dims >::fragment_count(Dimension dim) const noexcept (false) {
     const auto global = this->global_dims[dim.v];
     const auto local  = this->fragment_dims[dim.v];
     return (global + (local - 1)) / local;
+}
+
+template< std::size_t Dims >
+const cube_dimension< Dims >&
+gvt< Dims >::cube_shape() const noexcept (true) {
+    return this->global_dims;
+}
+
+template< std::size_t Dims >
+const frag_dimension< Dims >&
+gvt< Dims >::fragment_shape() const noexcept (true) {
+    return this->fragment_dims;
 }
 
 namespace {
@@ -228,8 +223,7 @@ void cartesian_product(
 
 template < std::size_t Dims >
 std::vector< fragment_id< Dims > >
-cubecoords< Dims >::slice(Dimension dim, std::size_t pin)
-noexcept (false) {
+gvt< Dims >::slice(Dimension dim, std::size_t no) noexcept (false) {
     /*
      * A fairly straight-forward (although a bit slower than it had to) way of
      * getting the fragment IDs that slice a cube. Not quite as fast as it
@@ -240,20 +234,21 @@ noexcept (false) {
      * all dimensions, except the pinned one (range of 1).
      */
 
-    if (pin >= this->size(dim))
+    if (no >= this->global_dims[dim.v])
         throw std::invalid_argument("dimension out-of-range");
 
     const auto begins = [&] () noexcept (true) {
         std::array< std::size_t, Dims > xs = {};
-        xs[dim.v] = pin;
+        xs[dim.v] = no / this->fragment_dims[dim.v];
         return xs;
     }();
 
     const auto ends = [&, this] () noexcept (true) {
         std::array< std::size_t, Dims > xs;
-        for (std::size_t i = 0; i < std::size_t(Dims); ++i)
-            xs[i] = this->size(Dimension(i));
-        xs[dim.v] = pin + 1;
+        for (std::size_t i = 0; i < Dims; ++i)
+            xs[i] = this->fragment_count(Dimension(i));
+
+        xs[dim.v] = (no / this->fragment_dims[dim.v]) + 1;
         return xs;
     }();
 
@@ -326,7 +321,65 @@ const noexcept (true) {
     return get_offset(p, *this);
 }
 
-template class cubecoords     < 3 >;
+template < std::size_t Dims >
+stride frag_dimension< Dims >::slice_stride(dimension< Dims > d)
+const noexcept (false) {
+    /*
+     * This was surpisingly difficult to get right
+     *
+     * The problem is to be able to, regardless of dimension, provide loop
+     * variables, so that callers can write a single loop to extract a "slice"
+     * from a fragment. Slice is somewhat imprecise as it's an object of Dims -
+     * 1, so a 4D volume will yield a 3D cube: only the requested dimension is
+     * pinned. The goal is to remove this complexity from server code, as it's
+     * all geometry anyway. It is inspired by the Python
+     * range(*slice.indices(len)) idiom.
+     *
+     * The result is so that clients can write:
+     *
+     * auto stride = fragment_dims.slice_stride(dimension(N));
+     * const auto start = slice_no * stride.start;
+     * auto pos = start;
+     * for (auto i = 0; i < stride.readcount; ++i, pos += stride.stride) {
+     *     out.append(
+     *         fragment + pos,
+     *         fragment + pos + stride.readsize
+     *     );
+     * }
+     */
+    stride s;
+    s.start = [this, d] {
+        auto dims = *this;
+        for (std::size_t i = 0; i <= d.v; ++i)
+            dims[i] = 1;
+        return product(dims);
+    }() * sizeof(float);
+
+    s.stride = [this, d] {
+        auto dims = *this;
+        for (std::size_t i = 0; i < d.v; ++i)
+            dims[i] = 1;
+        return product(dims);
+    }() * sizeof(float);
+
+    s.readcount = [this, d] {
+        auto dims = *this;
+        for (std::size_t i = d.v; i < Dims; ++i)
+            dims[i] = 1;
+        return product(dims);
+    }();
+
+    s.readsize = [this, d] {
+        auto dims = *this;
+        for (std::size_t i = 0; i <= d.v; ++i)
+            dims[i] = 1;
+        return product(dims);
+    }() * sizeof(float);
+
+    return s;
+}
+
+template class gvt            < 3 >;
 template class cube_dimension < 3 >;
 template class frag_dimension < 3 >;
 template class fragment_id    < 3 >;

@@ -13,7 +13,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
         sc::cube_dimension< 3 > cube_size {2000, 2000, 1000};
         sc::frag_dimension< 3 > frag_size {20, 20, 10};
 
-        const auto co = sc::cubecoords< 3 >(cube_size, frag_size);
+        const auto co = sc::gvt< 3 >(cube_size, frag_size);
 
         WHEN("Converting to local coordinates") {
             const auto local = co.to_local(p);
@@ -37,7 +37,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
         sc::cube_dimension< 3 > cube {220, 200, 100};
         sc::frag_dimension< 3 > frag {22, 20, 10};
 
-        const auto co = sc::cubecoords< 3 >(cube, frag);
+        const auto co = sc::gvt< 3 >(cube, frag);
 
         WHEN("Converting to local coordinates") {
             const auto local = co.to_local(p);
@@ -63,8 +63,8 @@ SCENARIO( "Converting between global and local coordinates" ) {
 
         const sc::cube_dimension< 3 > cube {220, 200, 1000};
 
-        const auto co1 = sc::cubecoords< 3 >(cube, frag1);
-        const auto co2 = sc::cubecoords< 3 >(cube, frag2);
+        const auto co1 = sc::gvt< 3 >(cube, frag1);
+        const auto co2 = sc::gvt< 3 >(cube, frag2);
 
         WHEN("Converting to local coordinates") {
             const auto local1 = co1.to_local(p1);
@@ -90,14 +90,14 @@ SCENARIO( "Converting between global and local coordinates" ) {
 }
 
 TEST_CASE("Generate the fragments capturing an inline") {
-    auto cube = sc::cubecoords< 3  >(
+    auto cube = sc::gvt< 3  >(
         { 9, 15, 23 },
         { 3,  9,  5 }
     );
 
-    CHECK(cube.size(sc::dimension< 3 >{0}) == 3);
-    CHECK(cube.size(sc::dimension< 3 >{1}) == 2);
-    CHECK(cube.size(sc::dimension< 3 >{2}) == 5);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{0}) == 3);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{1}) == 2);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{2}) == 5);
 
     const auto result = cube.slice(sc::dimension< 3 >{0}, 0);
     const auto expected = decltype(result) {
@@ -117,16 +117,16 @@ TEST_CASE("Generate the fragments capturing an inline") {
 }
 
 TEST_CASE("Generate the fragments capturing a crossline") {
-    auto cube = sc::cubecoords< 3 > {
+    auto cube = sc::gvt< 3 > {
         { 9, 15, 23 },
         { 3,  9,  5 },
     };
 
-    CHECK(cube.size(sc::dimension< 3 >{0}) == 3);
-    CHECK(cube.size(sc::dimension< 3 >{1}) == 2);
-    CHECK(cube.size(sc::dimension< 3 >{2}) == 5);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{0}) == 3);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{1}) == 2);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{2}) == 5);
 
-    const auto result = cube.slice(sc::dimension< 3 >{1}, 1);
+    const auto result = cube.slice(sc::dimension< 3 >{1}, 11);
     const auto expected = decltype(result) {
         { 0, 1, 0 },
         { 0, 1, 1 },
@@ -151,16 +151,16 @@ TEST_CASE("Generate the fragments capturing a crossline") {
 }
 
 TEST_CASE("Generate the fragments capturing a time slice") {
-    auto cube = sc::cubecoords< 3 > {
+    auto cube = sc::gvt< 3 > {
         { 9, 15, 23 },
         { 3,  9,  5 },
     };
 
-    CHECK(cube.size(sc::dimension< 3 >{0}) == 3);
-    CHECK(cube.size(sc::dimension< 3 >{1}) == 2);
-    CHECK(cube.size(sc::dimension< 3 >{2}) == 5);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{0}) == 3);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{1}) == 2);
+    CHECK(cube.fragment_count(sc::dimension< 3 >{2}) == 5);
 
-    const auto result = cube.slice(sc::dimension< 3 >{2}, 3);
+    const auto result = cube.slice(sc::dimension< 3 >{2}, 17);
     const auto expected = decltype(result) {
         { 0, 0, 3 },
         { 0, 1, 3 },
@@ -185,4 +185,206 @@ TEST_CASE("Figure out an global offset [0, len(survey)) from a point") {
 TEST_CASE("fragment-id string generation") {
     const auto id = sc::fragment_id< 3 >(3, 5, 7);
     CHECK("3-5-7" == id.string());
+}
+
+namespace {
+
+const auto exdims = sc::frag_dimension< 3 >(3, 5, 7);
+const auto exfragment = std::vector< unsigned char > {
+    0x0, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x1, 0x0,
+    0x0, 0x0, 0x2, 0x0,
+    0x0, 0x0, 0x3, 0x0,
+    0x0, 0x0, 0x4, 0x0,
+    0x0, 0x0, 0x5, 0x0,
+    0x0, 0x0, 0x6, 0x0,
+
+    0x0, 0x1, 0x0, 0x0,
+    0x0, 0x1, 0x1, 0x0,
+    0x0, 0x1, 0x2, 0x0,
+    0x0, 0x1, 0x3, 0x0,
+    0x0, 0x1, 0x4, 0x0,
+    0x0, 0x1, 0x5, 0x0,
+    0x0, 0x1, 0x6, 0x0,
+
+    0x0, 0x2, 0x0, 0x0,
+    0x0, 0x2, 0x1, 0x0,
+    0x0, 0x2, 0x2, 0x0,
+    0x0, 0x2, 0x3, 0x0,
+    0x0, 0x2, 0x4, 0x0,
+    0x0, 0x2, 0x5, 0x0,
+    0x0, 0x2, 0x6, 0x0,
+
+    0x0, 0x3, 0x0, 0x0,
+    0x0, 0x3, 0x1, 0x0,
+    0x0, 0x3, 0x2, 0x0,
+    0x0, 0x3, 0x3, 0x0,
+    0x0, 0x3, 0x4, 0x0,
+    0x0, 0x3, 0x5, 0x0,
+    0x0, 0x3, 0x6, 0x0,
+
+    0x0, 0x4, 0x0, 0x0,
+    0x0, 0x4, 0x1, 0x0,
+    0x0, 0x4, 0x2, 0x0,
+    0x0, 0x4, 0x3, 0x0,
+    0x0, 0x4, 0x4, 0x0,
+    0x0, 0x4, 0x5, 0x0,
+    0x0, 0x4, 0x6, 0x0,
+
+    0x1, 0x0, 0x0, 0x0,
+    0x1, 0x0, 0x1, 0x0,
+    0x1, 0x0, 0x2, 0x0,
+    0x1, 0x0, 0x3, 0x0,
+    0x1, 0x0, 0x4, 0x0,
+    0x1, 0x0, 0x5, 0x0,
+    0x1, 0x0, 0x6, 0x0,
+
+    0x1, 0x1, 0x0, 0x0,
+    0x1, 0x1, 0x1, 0x0,
+    0x1, 0x1, 0x2, 0x0,
+    0x1, 0x1, 0x3, 0x0,
+    0x1, 0x1, 0x4, 0x0,
+    0x1, 0x1, 0x5, 0x0,
+    0x1, 0x1, 0x6, 0x0,
+
+    0x1, 0x2, 0x0, 0x0,
+    0x1, 0x2, 0x1, 0x0,
+    0x1, 0x2, 0x2, 0x0,
+    0x1, 0x2, 0x3, 0x0,
+    0x1, 0x2, 0x4, 0x0,
+    0x1, 0x2, 0x5, 0x0,
+    0x1, 0x2, 0x6, 0x0,
+
+    0x1, 0x3, 0x0, 0x0,
+    0x1, 0x3, 0x1, 0x0,
+    0x1, 0x3, 0x2, 0x0,
+    0x1, 0x3, 0x3, 0x0,
+    0x1, 0x3, 0x4, 0x0,
+    0x1, 0x3, 0x5, 0x0,
+    0x1, 0x3, 0x6, 0x0,
+
+    0x1, 0x4, 0x0, 0x0,
+    0x1, 0x4, 0x1, 0x0,
+    0x1, 0x4, 0x2, 0x0,
+    0x1, 0x4, 0x3, 0x0,
+    0x1, 0x4, 0x4, 0x0,
+    0x1, 0x4, 0x5, 0x0,
+    0x1, 0x4, 0x6, 0x0,
+
+    0x2, 0x0, 0x0, 0x0,
+    0x2, 0x0, 0x1, 0x0,
+    0x2, 0x0, 0x2, 0x0,
+    0x2, 0x0, 0x3, 0x0,
+    0x2, 0x0, 0x4, 0x0,
+    0x2, 0x0, 0x5, 0x0,
+    0x2, 0x0, 0x6, 0x0,
+
+    0x2, 0x1, 0x0, 0x0,
+    0x2, 0x1, 0x1, 0x0,
+    0x2, 0x1, 0x2, 0x0,
+    0x2, 0x1, 0x3, 0x0,
+    0x2, 0x1, 0x4, 0x0,
+    0x2, 0x1, 0x5, 0x0,
+    0x2, 0x1, 0x6, 0x0,
+
+    0x2, 0x2, 0x0, 0x0,
+    0x2, 0x2, 0x1, 0x0,
+    0x2, 0x2, 0x2, 0x0,
+    0x2, 0x2, 0x3, 0x0,
+    0x2, 0x2, 0x4, 0x0,
+    0x2, 0x2, 0x5, 0x0,
+    0x2, 0x2, 0x6, 0x0,
+
+    0x2, 0x3, 0x0, 0x0,
+    0x2, 0x3, 0x1, 0x0,
+    0x2, 0x3, 0x2, 0x0,
+    0x2, 0x3, 0x3, 0x0,
+    0x2, 0x3, 0x4, 0x0,
+    0x2, 0x3, 0x5, 0x0,
+    0x2, 0x3, 0x6, 0x0,
+
+    0x2, 0x4, 0x0, 0x0,
+    0x2, 0x4, 0x1, 0x0,
+    0x2, 0x4, 0x2, 0x0,
+    0x2, 0x4, 0x3, 0x0,
+    0x2, 0x4, 0x4, 0x0,
+    0x2, 0x4, 0x5, 0x0,
+    0x2, 0x4, 0x6, 0x0,
+};
+
+}
+
+std::vector< unsigned char > slice(sc::stride stride, std::size_t pin) {
+    auto outcome = std::vector< unsigned char >();
+    const auto start = pin * stride.start;
+    auto pos = start;
+    for (auto i = 0; i < stride.readcount; ++i, pos += stride.stride) {
+        outcome.insert(
+            outcome.end(),
+            exfragment.begin() + pos,
+            exfragment.begin() + pos + stride.readsize
+        );
+    }
+
+    return outcome;
+}
+
+TEST_CASE("Extracting a dimension-0 slice from a fragment") {
+    const auto expected = [=] {
+        auto tmp = std::vector< unsigned char >();
+        for (unsigned char i = 0; i < exdims[1]; ++i) {
+            for (unsigned char k = 0; k < exdims[2]; ++k) {
+                unsigned char t[] = { 0x1, 0x0, 0x0, 0x0, };
+                t[1] = i;
+                t[2] = k;
+                tmp.insert(tmp.end(), std::begin(t), std::end(t));
+            }
+        }
+        return tmp;
+    }();
+
+    const auto pin = 1;
+    const auto stride = exdims.slice_stride(sc::dimension< 3 >(0));
+    const auto outcome = slice(stride, pin);
+    CHECK_THAT(outcome, Equals(expected));
+}
+
+TEST_CASE("Extracting a dimension-1 slice from a fragment") {
+    const auto expected = [=] {
+        auto tmp = std::vector< unsigned char >();
+        for (unsigned char i = 0; i < exdims[0]; ++i) {
+            for (unsigned char k = 0; k < exdims[2]; ++k) {
+                unsigned char t[] = { 0x0, 0x1, 0x0, 0x0, };
+                t[0] = i;
+                t[2] = k;
+                tmp.insert(tmp.end(), std::begin(t), std::end(t));
+            }
+        }
+        return tmp;
+    }();
+
+    const auto pin = 1;
+    const auto stride = exdims.slice_stride(sc::dimension< 3 >(1));
+    const auto outcome = slice(stride, pin);
+    CHECK_THAT(outcome, Equals(expected));
+}
+
+TEST_CASE("Extracting a dimension-2 slice from a fragment") {
+    const auto expected = [=] {
+        auto tmp = std::vector< unsigned char >();
+        for (unsigned char i = 0; i < exdims[0]; ++i) {
+            for (unsigned char k = 0; k < exdims[1]; ++k) {
+                unsigned char t[] = { 0x0, 0x0, 0x1, 0x0, };
+                t[0] = i;
+                t[1] = k;
+                tmp.insert(tmp.end(), std::begin(t), std::end(t));
+            }
+        }
+        return tmp;
+    }();
+
+    const auto pin = 1;
+    const auto stride = exdims.slice_stride(sc::dimension< 3 >(2));
+    const auto outcome = slice(stride, pin);
+    CHECK_THAT(outcome, Equals(expected));
 }
