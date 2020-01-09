@@ -20,6 +20,16 @@ find_package(fmt REQUIRED)
 find_package(GnuTLS REQUIRED)
 find_package(CURL REQUIRED)
 find_package(Threads REQUIRED)
+find_package(Protobuf REQUIRED)
+find_package(gRPC REQUIRED)
+
+find_program(
+    PROTOC_GRPC_CPP_EXECUTABLE
+    grpc_cpp_plugin
+)
+if (NOT PROTOC_GRPC_CPP_EXECUTABLE)
+    message(FATAL_ERROR "Could not find gRPC-Protobuf plugin")
+endif ()
 
 add_subdirectory(external/mio)
 
@@ -86,6 +96,41 @@ export(
     TARGETS seismic-cloud
     FILE seismic-cloud-config.cmake
     NAMESPACE seismic-cloud::
+)
+
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ../protos/core.proto)
+
+add_custom_command(
+    OUTPUT
+        core.grpc.pb.h
+        core.grpc.pb.cc
+    COMMAND
+        ${PROTOBUF_PROTOC_EXECUTABLE}
+            --grpc_out=${CMAKE_CURRENT_BINARY_DIR}
+            --plugin=protoc-gen-grpc=${PROTOC_GRPC_CPP_EXECUTABLE}
+            -I ${CMAKE_CURRENT_SOURCE_DIR}/../protos
+            ${CMAKE_CURRENT_SOURCE_DIR}/../protos/core.proto
+    DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/../protos/core.proto
+)
+
+add_executable(server
+    src/server.cpp
+    ${PROTO_SRCS}
+    ${PROTO_HDRS}
+    ${CMAKE_CURRENT_BINARY_DIR}/core.grpc.pb.h
+    ${CMAKE_CURRENT_BINARY_DIR}/core.grpc.pb.cc
+)
+target_include_directories(server
+    PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
+)
+target_link_libraries(server
+    PRIVATE
+        clara
+        protobuf::libprotobuf
+        gRPC::grpc++
+        seismic-cloud::seismic-cloud
 )
 
 add_subdirectory(external/catch2)

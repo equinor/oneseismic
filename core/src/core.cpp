@@ -384,5 +384,6 @@ template class cube_dimension < 3 >;
 template class frag_dimension < 3 >;
 template class fragment_id    < 3 >;
 template class basic_tuple< fragment_id< 3 >, 3 >;
+template class basic_tuple< frag_dimension< 3 >, 3 >;
 
 }
