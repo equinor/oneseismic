@@ -325,7 +325,7 @@ template < std::size_t Dims >
 stride frag_dimension< Dims >::slice_stride(dimension< Dims > d)
 const noexcept (false) {
     /*
-     * This was surpisingly difficult to get right
+     * This was surprisingly difficult to get right
      *
      * The problem is to be able to, regardless of dimension, provide loop
      * variables, so that callers can write a single loop to extract a "slice"
