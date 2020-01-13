@@ -117,7 +117,15 @@ grpc::Status Server::Slice(
 
     auto job = std::async([this] { this->cm.run(); });
 
-    writer->mutable_v()->Resize(cube_dimensions.slice_samples(dim), 0);
+    auto slice_gvt = [&] {
+        auto cube = cube_dimensions;
+        cube[dim.v] = 1;
+        auto frag = fragment_dimensions;
+        frag[dim.v] = 1;
+        return sc::gvt< 3 >(cube, frag);
+    }();
+
+    writer->mutable_v()->Resize(slice_gvt.cube_shape().slice_samples(dim), 0);
 
     const auto src_stride = fragment_dimensions.slice_stride(dim);
     auto* out = reinterpret_cast< std::uint8_t* >(writer->mutable_v()->begin());
@@ -139,15 +147,13 @@ grpc::Status Server::Slice(
         auto dst_id = id;
         dst_id[dim.v] = 0;
 
-        auto cornerpoint = gvt.to_global(id, corner);
-        cornerpoint[dim.v] = 0;
-        const auto offset = slice_dimensions.to_offset(cornerpoint);
-        std::cout << offset << " => " << cornerpoint << "\n";
-
-        std::vector< std::uint8_t > tmp(src_stride.readsize);
-        for (auto i = 0; i < src_stride.readcount; ++i) {
-            std::copy_n(frag.begin() + pos, src_stride.readsize, tmp.begin());
-            pos += src_stride.stride;
+        auto outstride = slice_gvt.slice_stride(dim, dst_id);
+        auto source = frag.begin() + start;
+        auto* dst = out + outstride.start;
+        for (auto i = 0; i < outstride.readcount; ++i) {
+            std::copy_n(source, outstride.readsize, dst);
+            source += outstride.readstride;
+            dst += outstride.stride;
         }
     }
 

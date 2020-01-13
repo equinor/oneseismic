@@ -78,18 +78,56 @@ fragment_id< Dims > gvt< Dims >::frag_id(Cube_point p) const noexcept (true) {
 template < std::size_t Dims >
 stride gvt< Dims >::slice_stride(Dimension dim, Fragment_id id)
 const noexcept (true) {
+    constexpr const auto Last = Dims - 1;
+
     stride s;
 
     const auto corner = sc::frag_point< Dims >{};
     const auto global = this->to_global(id, corner);
     s.start = this->global_dims.to_offset(global) * sizeof(float);
-    s.stride = this->global_dims[Dims - 1] * sizeof(float);
-    s.readsize = this->fragment_dims[Dims - 1] * sizeof(float);
-    s.readcount = [dim](auto dims) {
-        dims[Dims - 1] = 1;
+
+    s.stride = this->global_dims[Last] * sizeof(float);
+
+    s.readsize = this->fragment_dims[Last] * sizeof(float);
+    if (this->edge(id, Dimension(Last))) {
+        const auto rest = this->global_dims[Last] % this->fragment_dims[Last];
+        s.readsize = rest * sizeof(float);
+    }
+
+    s.readstride = this->fragment_dims[Last] * sizeof(float);
+
+    //s.readcount = [this, dim, id](auto dims) {
+    //    for (std::size_t i = 0; i < Dims; ++i) {
+    //        const auto rest = this->global_dims[i] % this->fragment_dims[i];
+    //        if (this->edge(id, Dimension(i)))
+    //            dims[i] -= rest;
+    //    }
+
+    //    dims[Last] = 1;
+    //    dims[dim.v] = 1;
+    //    return product(dims);
+    //}(this->fragment_dims);
+
+    s.readcount = this->fragment_dims[1];
+    if (this->edge(id, Dimension(1))) {
+        const auto rest = this->global_dims[1] % this->fragment_dims[1];
+        s.readcount = rest;
+    }
+
+
+    s.skip = [this, dim](auto dims) {
+        for (std::size_t i = 0; i < Dims; ++i) {
+            const auto rest = this->global_dims[i] % this->fragment_dims[i];
+            dims[i] = dims[i] - rest;
+        }
+
+        dims[Last] = 1;
         dims[dim.v] = 1;
         return product(dims);
     }(this->fragment_dims);
+
+    if (not this->edge(id, Dimension(1)))
+        s.skip = 0;
 
     return s;
 }

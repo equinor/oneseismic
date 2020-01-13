@@ -166,6 +166,8 @@ struct stride {
     int stride;
     int readsize;
     int readcount;
+    int readstride;
+    int skip = 0;
 };
 
 template< std::size_t Dims >
@@ -334,6 +336,10 @@ class gvt {
          * The number of (x,y,z) triples, or points, in the cube.
          */
         std::size_t global_size() const noexcept (true);
+
+        bool edge(Fragment_id id, Dimension d) const noexcept (true) {
+            return id[d.v] == fragment_count(d) - 1;
+        }
 
     private:
         Cube_dimension global_dims;
