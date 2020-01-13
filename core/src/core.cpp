@@ -76,6 +76,25 @@ fragment_id< Dims > gvt< Dims >::frag_id(Cube_point p) const noexcept (true) {
 }
 
 template < std::size_t Dims >
+stride gvt< Dims >::slice_stride(Dimension dim, Fragment_id id)
+const noexcept (true) {
+    stride s;
+
+    const auto corner = sc::frag_point< Dims >{};
+    const auto global = this->to_global(id, corner);
+    s.start = this->global_dims.to_offset(global) * sizeof(float);
+    s.stride = this->global_dims[Dims - 1] * sizeof(float);
+    s.readsize = this->fragment_dims[Dims - 1] * sizeof(float);
+    s.readcount = [dim](auto dims) {
+        dims[Dims - 1] = 1;
+        dims[dim.v] = 1;
+        return product(dims);
+    }(this->fragment_dims);
+
+    return s;
+}
+
+template < std::size_t Dims >
 std::size_t cube_dimension< Dims >::slice_samples(dimension< Dims > dim)
 const noexcept (true) {
     auto dims = *this;

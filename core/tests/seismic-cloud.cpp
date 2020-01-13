@@ -489,11 +489,22 @@ TEST_CASE("Projecting a dimension-0 slice") {
 
     const auto offset = slice_dim.to_offset(corner);
 
+    auto outstride = gvt.slice_stride(sc::dimension< 3 >(0), id);
+    //sc::stride str;
+    //str.start = offset;
+    //// height-of-output
+    //str.stride = gvt.cube_shape()[2];
+    //str.readsize = gvt.fragment_shape()[2];
+    //str.readcount = [](auto shape) {
+    //    return 5;
+    //}(gvt.fragment_shape());
+
     auto src = source.begin();
-    for (auto i = 0; i < 5; ++i) {
-        auto dst = out.begin() + (offset + i * slice_dim[2]) * sizeof(float);
-        std::copy_n(src, ex_frag_dim[2] * 4, dst);
-        src += ex_frag_dim[2] * 4;
+    auto dst = out.begin() + outstride.start;
+    for (auto i = 0; i < outstride.readcount; ++i) {
+        std::copy_n(src, outstride.readsize, dst);
+        src += outstride.readsize;
+        dst += outstride.stride;
     }
 
     CHECK_THAT(out, Equals(expected));

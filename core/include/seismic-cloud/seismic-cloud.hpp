@@ -161,6 +161,13 @@ struct fragment_id : public basic_tuple< fragment_id< Dims >, Dims > {
     using base_type::base_type;
 };
 
+struct stride {
+    int start;
+    int stride;
+    int readsize;
+    int readcount;
+};
+
 template< std::size_t Dims >
 struct cube_dimension : public basic_tuple< cube_dimension< Dims >, Dims > {
     using base_type = basic_tuple< cube_dimension, Dims >;
@@ -169,13 +176,6 @@ struct cube_dimension : public basic_tuple< cube_dimension< Dims >, Dims > {
     std::size_t to_offset(cube_point< Dims > p)  const noexcept (true);
     std::size_t to_offset(fragment_id< Dims > p) const noexcept (true);
     std::size_t slice_samples(dimension< Dims >) const noexcept (true);
-};
-
-struct stride {
-    int start;
-    int stride;
-    int readsize;
-    int readcount;
 };
 
 template< std::size_t Dims >
@@ -312,6 +312,8 @@ class gvt {
          */
         std::vector< Fragment_id >
         slice(Dimension dim, std::size_t n) noexcept (false);
+
+        stride slice_stride(Dimension, Fragment_id) const noexcept (true);
 
         /*
          * The number of fragments in a direction.
