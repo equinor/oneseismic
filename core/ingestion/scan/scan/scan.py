@@ -72,7 +72,6 @@ def scan_binary(stream, endian):
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
 
     intp = parseint(endian = endian, default_length = 2)
-
     # skip extra textual headers
     exth = intp.parse(binary[segyio.su.exth])
     for _ in range(exth):

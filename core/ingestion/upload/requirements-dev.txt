@@ -1,5 +1,5 @@
 pytest-runner
 hypothesis
 segyio
-azure-storage
+azure-storage-blob
 tqdm

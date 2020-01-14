@@ -8,10 +8,8 @@ azure-storage-blob = "*"
 pytest-runner = "*"
 hypothesis = "*"
 segyio = "*"
-azure-storage = "*"
 tqdm = "*"
 pytest = "*"
 black = "==19.10b"
-
-[requires]
-python_version = "3.6"
+isort = "*"
+flake8 = "*"
