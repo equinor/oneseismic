@@ -111,7 +111,8 @@ const noexcept (true) {
     s.readcount = this->fragment_dims[1];
     if (this->edge(id, Dimension(1))) {
         const auto rest = this->global_dims[1] % this->fragment_dims[1];
-        s.readcount = rest;
+        if (rest != 0)
+            s.readcount = rest;
     }
 
 

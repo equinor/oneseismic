@@ -470,36 +470,28 @@ TEST_CASE("Projecting a dimension-0 slice") {
     /*
      * Collapse dim-0 to 1, but preserve the other dimensions
      */
-    const auto slice_dim = sc::cube_dimension< 3 > { 1, 5, 14 };
-    auto ex_frag_dim = exdims;
-    ex_frag_dim[0] = 1;
-    auto gvt = sc::gvt< 3 >(slice_dim, ex_frag_dim);
+    const auto slice_frag_dim = sc::frag_dimension< 3 > { 1, 5,  7 };
+    const auto slice_dim      = sc::cube_dimension< 3 > { 1, 5, 14 };
+    auto gvt = sc::gvt< 3 >(slice_dim, slice_frag_dim);
     REQUIRE(expected.size() == gvt.global_size() * sizeof(float));
 
+    /* extract a slice from a fragment */
     const auto pin = 1;
-    const auto stride = exdims.slice_stride(sc::dimension< 3 >(0));
-    const auto source = slice(stride, pin);
+    const auto source_stride = exdims.slice_stride(sc::dimension< 3 >(0));
+    const auto source = slice(source_stride, pin);
 
     auto out = expected;
     out.assign(expected.size(), 0);
 
+    /* Put the slice tile at the right place in the output array */
     const auto id = sc::fragment_id< 3 > { 0, 0, 0 };
-    auto outstride = gvt.slice_stride(sc::dimension< 3 >(0), id);
-    //sc::stride str;
-    //str.start = offset;
-    //// height-of-output
-    //str.stride = gvt.cube_shape()[2];
-    //str.readsize = gvt.fragment_shape()[2];
-    //str.readcount = [](auto shape) {
-    //    return 5;
-    //}(gvt.fragment_shape());
-
+    auto stride = gvt.slice_stride(sc::dimension< 3 >(0), id);
     auto src = source.begin();
-    auto dst = out.begin() + outstride.start;
-    for (auto i = 0; i < outstride.readcount; ++i) {
-        std::copy_n(src, outstride.readsize, dst);
-        src += outstride.readsize;
-        dst += outstride.stride;
+    auto dst = out.begin() + stride.start;
+    for (auto i = 0; i < stride.readcount; ++i) {
+        std::copy_n(src, stride.readsize, dst);
+        src += stride.readstride;
+        dst += stride.stride;
     }
 
     CHECK_THAT(out, Equals(expected));
