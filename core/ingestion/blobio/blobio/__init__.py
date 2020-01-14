@@ -7,33 +7,38 @@ class BlobIO:
     interface for python programs
     """
 
-    def __init__(self, blob, container, filename):
+    def __init__(self, blob_service, container):
         """
         Parameters
         ----------
-        blob : azure.storage.blob.*
+        blob_service : azure.storage.blob.*
             An azure.storage.blob BlobServiceClient object
         container : str_like
             Blob container name
-        filename : str_like
-            Blob file name
-        Examples
+        Example
         --------
         >>> from azure.storage.blob import BlobServiceClient
-        >>> blob_service_client = BlobServiceClient.from_connection_string(connect_str)
-        >>> stream = BlobIO(blob=blob_service_client, container="dir", filename="file.csv")
+        >>> blob_service = BlobServiceClient.from_connection_string(connect_str)
+        >>> blobio = BlobIO(blob_service=blob_service, container="dir")
+        >>> stream = blobio.open(filename="file.csv")
+        """
+        self.blob_service = blob_service
+        self.container = str(container)
+        self.container_client = blob_service.get_container_client(self.container)
+
+    def open(self, blobname):
+        """
+        Parameters
+        ----------
+        filename : str_like
+            Blob file name
         """
         self.pos = 0
-        self.blob = blob
-        self.container = str(container)
-        self.filename = str(filename)
-        cc = blob.get_container_client(container)
-        bc = cc.get_blob_client(filename)
-        # TODO get total size
-        self.size = bc.get_blob_properties().size
+        self.blobname = str(blobname)
+        blob_client = self.container_client.get_blob_client(self.blobname)
+        self.size = blob_client.get_blob_properties().size
+        return self
 
-    def close(self):
-        pass
 
     @property
     def closed(self):
@@ -90,11 +95,10 @@ class BlobIO:
             return b""
 
         nbytes = min(self.size - self.pos, n)
-        cc = self.blob.get_container_client(self.container)
-        bc = cc.get_blob_client(self.filename)
-        download_stream = bc.download_blob(self.pos, self.pos + (nbytes - 1))
+        container_client = self.blob_service.get_container_client(self.container)
+        blob_client = container_client.get_blob_client(self.blobname)
+        download_stream = blob_client.download_blob(self.pos, nbytes)
         chunk = download_stream.readall()
-
         self.pos += len(chunk)
         return chunk
 
@@ -102,9 +106,9 @@ class BlobIO:
         if self.pos >= self.size:
             return b""
 
-        cc = self.blob.get_container_client(self.container)
-        bc = cc.get_blob_client(self.filename)
-        download_stream = bc.download_blob(self.pos)
+        container_client = self.blob_service.get_container_client(self.container)
+        blob_client = container_client.get_blob_client(self.blobname)
+        download_stream = blob_client.download_blob(self.pos)
         chunk = download_stream.readall()
         self.pos = self.size
         return chunk
