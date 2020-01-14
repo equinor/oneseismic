@@ -181,7 +181,7 @@ class hashio:
 
 from .segmenter import segmenter
 
-def scan(args, stream):
+def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_endian=None):
     """Scan a file and create an index
 
     Scan a stream, and produce an index for building a job schedule in further
@@ -198,10 +198,7 @@ def scan(args, stream):
     -------
     d : dict
     """
-    primary = args.primary_word or 189
-    secondary = args.secondary_word or 193
-
-    endian = resolve_endianness(args.big_endian, args.little_endian)
+    endian = resolve_endianness(big_endian, little_endian)
     out = {
         'byteorder': endian,
     }
@@ -220,8 +217,8 @@ def scan(args, stream):
     tracelen = out['samples'] * format_size[out['format']]
 
     seg = segmenter(
-        primary = primary,
-        secondary = secondary,
+        primary = primary_word,
+        secondary = secondary_word,
         endian = endian,
     )
 
