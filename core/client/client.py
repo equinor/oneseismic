@@ -50,7 +50,8 @@ def main(manifest, dim, lineno):
 
     cube = np.array([v for v in reply.v])
     cube = cube.reshape((reply.dim0, reply.dim1))
-    plt.imshow(cube.T, cmap=plt.get_cmap('gray'), vmin = -1, vmax = 1)
+    # plt.imshow(cube.T, cmap=plt.get_cmap('gray'), vmin = -1, vmax = 1)
+    plt.imshow(cube.T, cmap=plt.get_cmap('seismic'))
     plt.show()
 
 if __name__ == '__main__':

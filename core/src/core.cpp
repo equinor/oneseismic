@@ -82,7 +82,7 @@ const noexcept (true) {
 
     stride s;
 
-    const auto corner = sc::frag_point< Dims >{};
+    const auto corner = sc::frag_point< Dims >{0, 0, 0};
     const auto global = this->to_global(id, corner);
     s.start = this->global_dims.to_offset(global) * sizeof(float);
 
@@ -91,30 +91,25 @@ const noexcept (true) {
     s.readsize = this->fragment_dims[Last] * sizeof(float);
     if (this->edge(id, Dimension(Last))) {
         const auto rest = this->global_dims[Last] % this->fragment_dims[Last];
-        s.readsize = rest * sizeof(float);
+        if (rest != 0)
+            s.readsize = rest * sizeof(float);
     }
 
     s.readstride = this->fragment_dims[Last] * sizeof(float);
 
-    //s.readcount = [this, dim, id](auto dims) {
-    //    for (std::size_t i = 0; i < Dims; ++i) {
-    //        const auto rest = this->global_dims[i] % this->fragment_dims[i];
-    //        if (this->edge(id, Dimension(i)))
-    //            dims[i] -= rest;
-    //    }
+    s.readcount = [this, dim, id](auto dims) {
+        for (std::size_t i = 0; i < Dims; ++i) {
+            const auto rest = this->global_dims[i] % this->fragment_dims[i];
+            if (rest == 0) continue;
 
-    //    dims[Last] = 1;
-    //    dims[dim.v] = 1;
-    //    return product(dims);
-    //}(this->fragment_dims);
+            if (this->edge(id, Dimension(i)))
+                dims[i] = rest;
+        }
 
-    s.readcount = this->fragment_dims[1];
-    if (this->edge(id, Dimension(1))) {
-        const auto rest = this->global_dims[1] % this->fragment_dims[1];
-        if (rest != 0)
-            s.readcount = rest;
-    }
-
+        dims[Last] = 1;
+        dims[dim.v] = 1;
+        return product(dims);
+    }(this->fragment_dims);
 
     s.skip = [this, dim](auto dims) {
         for (std::size_t i = 0; i < Dims; ++i) {
@@ -364,7 +359,9 @@ std::size_t get_offset(const Point& p, const Dim& d) noexcept (true) {
 template < std::size_t Dims >
 std::size_t cube_dimension< Dims >::to_offset(cube_point< Dims > p)
 const noexcept (true) {
-    return get_offset(p, *this);
+    const auto o = get_offset(p, *this);
+    std::cout << "offset of " << p << ": " << o << "\n";
+    return o;
 }
 
 template < std::size_t Dims >

@@ -133,12 +133,28 @@ grpc::Status Server::Slice(
     slice_dimensions[dim.v] = 1;
     const auto corner = sc::frag_point< 3 >{ 0, 0, 0 };
 
+    auto getslice = [] (const auto& exfragment, sc::stride stride, std::size_t pin) {
+        auto outcome = std::vector< unsigned char >();
+        const auto start = pin * stride.start;
+        auto pos = start;
+        for (auto i = 0; i < stride.readcount; ++i, pos += stride.stride) {
+            outcome.insert(
+                    outcome.end(),
+                    exfragment.begin() + pos,
+                    exfragment.begin() + pos + stride.readsize
+                    );
+        }
+
+        return outcome;
+    };
+
     for (std::size_t i = 0; i < fragment_ids.size(); ++i) {
         const auto& id = fragment_ids[i];
         const auto& frag = jobs.at(i).get();
 
         const auto start = lineno * src_stride.start;
-        auto pos = start;
+        auto tmp = getslice(frag, src_stride, lineno);
+
         /*
          * Currently broken, as it does not account for padding in the
          * fragments. However, since the positions read are always smaller than
@@ -148,8 +164,9 @@ grpc::Status Server::Slice(
         dst_id[dim.v] = 0;
 
         auto outstride = slice_gvt.slice_stride(dim, dst_id);
-        auto source = frag.begin() + start;
+        auto source = tmp.begin() + start;
         auto* dst = out + outstride.start;
+        std::cout << "outstride.start: " << outstride.start << std::endl;
         for (auto i = 0; i < outstride.readcount; ++i) {
             std::copy_n(source, outstride.readsize, dst);
             source += outstride.readstride;
