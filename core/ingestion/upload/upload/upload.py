@@ -186,9 +186,6 @@ def upload_segment(params, meta, segment, blob, f):
 
 
 def upload(params, meta, filename, blob):
-    with open(meta) as f:
-        meta = json.load(f)
-
     # TODO: this mapping, while simple, should probably be done by the
     # geometric volume translation package
     dims = meta["dimensions"]
@@ -196,5 +193,4 @@ def upload(params, meta, filename, blob):
     segments = int(math.ceil(len(dims[0]) / first))
 
     for seg in range(segments):
-        with open(filename, "rb") as f:
-            upload_segment(params, meta, seg, blob, f)
+        upload_segment(params, meta, seg, blob, filename)

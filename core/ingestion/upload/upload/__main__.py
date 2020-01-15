@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import json
 
 from azure.storage.blob import BlobServiceClient
 
@@ -23,7 +24,11 @@ def main(argv):
     blob = BlobServiceClient.from_connection_string(
         os.environ["AZURE_CONNECTION_STRING"]
     )
-    upload(params, args.meta, args.input, blob)
+    with open(args.meta) as f:
+        meta = json.load(f)
+
+    with open(args.input, "rb") as f:
+        upload(params, meta, f, blob)
 
 
 if __name__ == "__main__":
