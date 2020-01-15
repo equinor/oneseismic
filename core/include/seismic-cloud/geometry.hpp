@@ -28,7 +28,7 @@ public:
     static constexpr const auto dimensions = Dims;
 
     basic_tuple() noexcept (true) { this->fill(0); }
-    basic_tuple(const base_type& t) : base_type(t) {}
+    basic_tuple(const base_type& t) noexcept (true) : base_type(t) {}
 
     template < typename... Vs >
     basic_tuple(std::size_t v, Vs... vs) noexcept (true) :
