@@ -139,10 +139,10 @@ grpc::Status Server::Slice(
         auto pos = start;
         for (auto i = 0; i < stride.readcount; ++i, pos += stride.stride) {
             outcome.insert(
-                    outcome.end(),
-                    exfragment.begin() + pos,
-                    exfragment.begin() + pos + stride.readsize
-                    );
+                outcome.end(),
+                exfragment.begin() + pos,
+                exfragment.begin() + pos + stride.readsize
+            );
         }
 
         return outcome;
@@ -153,7 +153,8 @@ grpc::Status Server::Slice(
         const auto& frag = jobs.at(i).get();
 
         const auto start = lineno * src_stride.start;
-        auto tmp = getslice(frag, src_stride, lineno);
+        // TODO: dimension aware
+        auto tmp = getslice(frag, src_stride, lineno % 64);
 
         /*
          * Currently broken, as it does not account for padding in the
@@ -164,7 +165,7 @@ grpc::Status Server::Slice(
         dst_id[dim.v] = 0;
 
         auto outstride = slice_gvt.slice_stride(dim, dst_id);
-        auto source = tmp.begin() + start;
+        auto source = tmp.begin();
         auto* dst = out + outstride.start;
         std::cout << "outstride.start: " << outstride.start << std::endl;
         for (auto i = 0; i < outstride.readcount; ++i) {

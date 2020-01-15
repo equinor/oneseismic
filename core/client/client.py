@@ -38,7 +38,7 @@ def main(manifest, dim, lineno):
     start_time = timeit.default_timer()
     request = SliceRequest(
         dim = dim,
-        lineno =lineno,
+        lineno = lineno,
         dim0 = 64,
         dim1 = 64,
         dim2 = 64,

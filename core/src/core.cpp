@@ -78,7 +78,8 @@ fragment_id< Dims > gvt< Dims >::frag_id(Cube_point p) const noexcept (true) {
 template < std::size_t Dims >
 stride gvt< Dims >::slice_stride(Dimension dim, Fragment_id id)
 const noexcept (true) {
-    constexpr const auto Last = Dims - 1;
+    //constexpr const auto Last = 1;
+    const auto Last = dim.v != Dims - 1 ? Dims - 1 : Dims - 2;
 
     stride s;
 
@@ -97,7 +98,7 @@ const noexcept (true) {
 
     s.readstride = this->fragment_dims[Last] * sizeof(float);
 
-    s.readcount = [this, dim, id](auto dims) {
+    s.readcount = [this, dim, id, Last](auto dims) {
         for (std::size_t i = 0; i < Dims; ++i) {
             const auto rest = this->global_dims[i] % this->fragment_dims[i];
             if (rest == 0) continue;
@@ -111,7 +112,7 @@ const noexcept (true) {
         return product(dims);
     }(this->fragment_dims);
 
-    s.skip = [this, dim](auto dims) {
+    s.skip = [this, dim, Last](auto dims) {
         for (std::size_t i = 0; i < Dims; ++i) {
             const auto rest = this->global_dims[i] % this->fragment_dims[i];
             dims[i] = dims[i] - rest;
