@@ -1,9 +1,9 @@
 import io
 import math
 import struct
-import segyio
 
 import pytest
+import segyio
 from hypothesis import given
 from hypothesis.strategies import integers
 

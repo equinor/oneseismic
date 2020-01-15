@@ -1,9 +1,9 @@
 import hashlib
 import io
 
+import numpy as np
 import segyio
 import segyio._segyio
-import numpy as np
 
 textheader_size = 3200
 binary_size = 400
@@ -186,9 +186,6 @@ class hashio:
         return self.sha1.hexdigest()
 
 
-from .segmenter import segmenter
-
-
 def scan(
     stream, primary_word=189, secondary_word=193, little_endian=None, big_endian=None
 ):
@@ -208,6 +205,8 @@ def scan(
     -------
     d : dict
     """
+    from .segmenter import segmenter
+
     endian = resolve_endianness(big_endian, little_endian)
     out = {
         "byteorder": endian,

@@ -6,6 +6,7 @@ RUN pipenv install --dev --system --skip-lock
 ADD . .
 
 RUN black --check .
+RUN isort -c
 
 RUN pip install ./scan
 RUN pip install ./upload

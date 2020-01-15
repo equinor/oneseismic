@@ -1,13 +1,13 @@
 import io
-import math
-import logging
-import os
 import json
+import logging
+import math
+import os
 
+import azure.storage.blob
 import numpy as np
 import segyio
 import segyio._segyio
-import azure.storage.blob
 import tqdm
 
 

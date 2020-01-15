@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 from azure.storage.blob import BlobServiceClient
-from upload import upload
 
 from blobio import BlobIO
 from scan import scan
+from upload import upload
 
 host = os.getenv("AZURITE", "localhost")
 

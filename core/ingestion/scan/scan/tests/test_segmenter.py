@@ -1,7 +1,7 @@
-import segyio
 import struct
 import sys
 
+import segyio
 from hypothesis import given
 from hypothesis.strategies import integers
 

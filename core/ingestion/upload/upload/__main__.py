@@ -1,7 +1,8 @@
 import argparse
 import json
-import sys
 import os
+import sys
+
 from azure.storage.blob import BlobServiceClient
 
 from .upload import upload

@@ -1,11 +1,12 @@
 import io
 import os
+
 import numpy as np
 import segyio
-from ..upload import *
-
 from hypothesis import given
 from hypothesis.strategies import integers, lists
+
+from ..upload import *
 
 
 def datadir(filename):

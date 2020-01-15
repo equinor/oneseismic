@@ -1,8 +1,8 @@
 import io
-import segyio
 import struct
 
 import pytest
+import segyio
 
 from ..scan import updated_count_interval
 
