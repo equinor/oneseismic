@@ -5,6 +5,8 @@ COPY Pipfile* ./
 RUN pipenv install --dev --system --skip-lock
 ADD . .
 
+RUN black --check .
+
 RUN pip install ./scan
 RUN pip install ./upload
 RUN pip install ./blobio

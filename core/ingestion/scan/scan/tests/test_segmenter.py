@@ -7,14 +7,15 @@ from hypothesis.strategies import integers
 
 from ..segmenter import segmenter
 
+
 def big_endian(i):
     """Convert int to a big-endian integer
     """
-    return int.from_bytes(struct.pack('>i', i), byteorder = sys.byteorder)
+    return int.from_bytes(struct.pack(">i", i), byteorder=sys.byteorder)
+
 
 @given(
-    integers(min_value = 1, max_value = 15),
-    integers(min_value = 1, max_value = 15),
+    integers(min_value=1, max_value=15), integers(min_value=1, max_value=15),
 )
 def test_regular_intervals(inlines, crosslines):
     headers = [
@@ -29,12 +30,12 @@ def test_regular_intervals(inlines, crosslines):
     ]
 
     seg = segmenter(
-            primary = int(segyio.su.iline),
-            secondary = int(segyio.su.xline),
-            endian = sys.byteorder,
-        )
+        primary=int(segyio.su.iline),
+        secondary=int(segyio.su.xline),
+        endian=sys.byteorder,
+    )
 
     for header in headers:
         seg.add(header)
 
-    assert len(seg.secondaries) == crosslines 
+    assert len(seg.secondaries) == crosslines

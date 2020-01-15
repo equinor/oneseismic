@@ -7,9 +7,10 @@ from ..upload import *
 from hypothesis import given
 from hypothesis.strategies import integers, lists
 
+
 def datadir(filename):
     root = os.path.dirname(__file__)
-    data = os.path.join(root, 'data')
+    data = os.path.join(root, "data")
     return os.path.join(data, filename)
 
 
@@ -34,14 +35,14 @@ def test_src_segment_limit():
 
 
 def test_load_segment():
-    f = open(datadir('small.sgy'), 'rb')
+    f = open(datadir("small.sgy"), "rb")
     f.seek(3600)
 
     cube_size = (5, 5, 50)
     segment_width = 2
     format = 1
 
-    sgy = segyio.open(datadir('small.sgy'))
+    sgy = segyio.open(datadir("small.sgy"))
     cube = segyio.tools.cube(sgy)
 
     segment = 0
@@ -58,8 +59,8 @@ def test_load_segment():
 
 
 @given(
-    lists(integers(min_value = 1, max_value = 32), min_size = 3, max_size = 3),
-    lists(integers(min_value = 1, max_value = 32), min_size = 3, max_size = 3)
+    lists(integers(min_value=1, max_value=32), min_size=3, max_size=3),
+    lists(integers(min_value=1, max_value=32), min_size=3, max_size=3),
 )
 def test_pad(fragment_dims, srcdims):
 
@@ -75,8 +76,8 @@ def test_pad(fragment_dims, srcdims):
     assert result.shape[1] >= src.shape[1]
     assert result.shape[2] >= src.shape[2]
 
-    assert (result[:src.shape[0], :src.shape[1], :src.shape[2]] == 1).all()
+    assert (result[: src.shape[0], : src.shape[1], : src.shape[2]] == 1).all()
 
-    assert (result[ src.shape[0]:,             :,             : ] == 0).all()
-    assert (result[             :, src.shape[1]:,             : ] == 0).all()
-    assert (result[             :,             :, src.shape[2]: ] == 0).all()
+    assert (result[src.shape[0] :, :, :] == 0).all()
+    assert (result[:, src.shape[1] :, :] == 0).all()
+    assert (result[:, :, src.shape[2] :] == 0).all()

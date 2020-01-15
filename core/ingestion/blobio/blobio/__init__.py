@@ -39,7 +39,6 @@ class BlobIO:
         self.size = blob_client.get_blob_properties().size
         return self
 
-
     @property
     def closed(self):
         return False

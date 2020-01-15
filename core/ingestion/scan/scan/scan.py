@@ -9,12 +9,13 @@ textheader_size = 3200
 binary_size = 400
 header_size = 240
 
+
 class parseint:
-    def __init__(self, endian, default_length = 2):
-        self.default_length  = default_length
+    def __init__(self, endian, default_length=2):
+        self.default_length = default_length
         self.endian = endian
 
-    def parse(self, i, length = None, signed = True):
+    def parse(self, i, length=None, signed=True):
         """ Parse endian-sourced integer when read from bytes as big-endian
 
         segyio reads from the byte buffer as if it was big endian always. However,
@@ -39,8 +40,9 @@ class parseint:
         if length is None:
             length = self.default_length
 
-        chunk = i.to_bytes(length = length, byteorder = 'big', signed = signed)
-        return int.from_bytes(chunk, byteorder = self.endian, signed = signed)
+        chunk = i.to_bytes(length=length, byteorder="big", signed=signed)
+        return int.from_bytes(chunk, byteorder=self.endian, signed=signed)
+
 
 def scan_binary(stream, endian):
     """ Read info from the binary header
@@ -69,25 +71,26 @@ def scan_binary(stream, endian):
     unspecified position, and must be seeked or reset to behave well defined.
     """
     chunk = stream.read(binary_size)
-    binary = segyio.field.Field(buf = chunk, kind = 'binary')
+    binary = segyio.field.Field(buf=chunk, kind="binary")
 
-    intp = parseint(endian = endian, default_length = 2)
+    intp = parseint(endian=endian, default_length=2)
     # skip extra textual headers
     exth = intp.parse(binary[segyio.su.exth])
     for _ in range(exth):
-        stream.seek(textheader_size, whence = io.SEEK_CUR)
+        stream.seek(textheader_size, whence=io.SEEK_CUR)
 
     fmt = intp.parse(binary[segyio.su.format])
     if fmt not in [1, 5]:
-        msg = 'only IBM float and 4-byte IEEE float supported, was {}'
+        msg = "only IBM float and 4-byte IEEE float supported, was {}"
         raise NotImplementedError(msg.format(fmt))
 
     return {
-        'format': fmt,
-        'samples': intp.parse(binary[segyio.su.hns], signed=False),
-        'sampleinterval': intp.parse(binary[segyio.su.hdt]),
-        'byteoffset-first-trace': 3600 + exth * 3200,
+        "format": fmt,
+        "samples": intp.parse(binary[segyio.su.hns], signed=False),
+        "sampleinterval": intp.parse(binary[segyio.su.hdt]),
+        "byteoffset-first-trace": 3600 + exth * 3200,
     }
+
 
 def updated_count_interval(header, d, endian):
     """ Return a dict to updated sample/interval from trace header
@@ -114,41 +117,44 @@ def updated_count_interval(header, d, endian):
     """
     updated = {}
 
-    intp = parseint(endian = endian, default_length = 2)
-    if d.get('samples', 0) == 0:
-        updated['samples'] = intp.parse(header[segyio.su.ns])
+    intp = parseint(endian=endian, default_length=2)
+    if d.get("samples", 0) == 0:
+        updated["samples"] = intp.parse(header[segyio.su.ns])
 
-    if d.get('sampleinterval', 0) == 0:
-        updated['sampleinterval'] = intp.parse(header[segyio.su.dt])
+    if d.get("sampleinterval", 0) == 0:
+        updated["sampleinterval"] = intp.parse(header[segyio.su.dt])
 
     return updated
 
+
 format_size = {
-    1:  4,
-    2:  4,
-    3:  2,
-    5:  4,
-    6:  8,
-    8:  1,
-    9:  8,
+    1: 4,
+    2: 4,
+    3: 2,
+    5: 4,
+    6: 8,
+    8: 1,
+    9: 8,
     10: 4,
     11: 2,
     12: 8,
     16: 1,
 }
 
+
 def resolve_endianness(big, little):
     if big is None and little is None:
-        return 'big'
+        return "big"
 
     if big and not little:
-        return 'big'
+        return "big"
 
     if little and not big:
-        return 'little'
+        return "little"
 
-    msg = 'big and little endian specified, but options are exclusive'
+    msg = "big and little endian specified, but options are exclusive"
     raise ValueError(msg)
+
 
 class hashio:
     """Read stream, and calculate running hash
@@ -161,6 +167,7 @@ class hashio:
     backwards. Every read and seek operation is intercepted to compute the hash
     value, but downstream users not made aware of this.
     """
+
     def __init__(self, stream):
         self.stream = stream
         self.sha1 = hashlib.sha1()
@@ -170,7 +177,7 @@ class hashio:
         self.sha1.update(chunk)
         return chunk
 
-    def seek(self, offset, whence = io.SEEK_SET):
+    def seek(self, offset, whence=io.SEEK_SET):
         if whence != io.SEEK_CUR:
             raise NotImplementedError
         _ = self.read(offset)
@@ -178,9 +185,13 @@ class hashio:
     def hexdigest(self):
         return self.sha1.hexdigest()
 
+
 from .segmenter import segmenter
 
-def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_endian=None):
+
+def scan(
+    stream, primary_word=189, secondary_word=193, little_endian=None, big_endian=None
+):
     """Scan a file and create an index
 
     Scan a stream, and produce an index for building a job schedule in further
@@ -199,30 +210,26 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
     """
     endian = resolve_endianness(big_endian, little_endian)
     out = {
-        'byteorder': endian,
+        "byteorder": endian,
     }
 
     stream = hashio(stream)
-    stream.seek(textheader_size, whence = io.SEEK_CUR)
+    stream.seek(textheader_size, whence=io.SEEK_CUR)
 
     out.update(scan_binary(stream, endian))
 
     chunk = stream.read(header_size)
-    header = segyio.field.Field(buf = chunk, kind = 'trace')
+    header = segyio.field.Field(buf=chunk, kind="trace")
 
     out.update(updated_count_interval(header, out, endian))
     # convert to milliseconds
-    out['sampleinterval'] /= 1000.0
-    tracelen = out['samples'] * format_size[out['format']]
+    out["sampleinterval"] /= 1000.0
+    tracelen = out["samples"] * format_size[out["format"]]
 
-    seg = segmenter(
-        primary = primary_word,
-        secondary = secondary_word,
-        endian = endian,
-    )
+    seg = segmenter(primary=primary_word, secondary=secondary_word, endian=endian,)
 
     seg.add(header)
-    stream.seek(tracelen, whence = io.SEEK_CUR)
+    stream.seek(tracelen, whence=io.SEEK_CUR)
 
     while True:
         chunk = stream.read(header_size)
@@ -230,17 +237,17 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
             break
 
         if len(chunk) != header_size:
-            msg = 'file truncated at trace {}'.format(trace_count)
+            msg = "file truncated at trace {}".format(trace_count)
             raise RuntimeError(msg)
 
-        header = segyio.field.Field(buf = chunk, kind = 'trace')
+        header = segyio.field.Field(buf=chunk, kind="trace")
         seg.add(header)
-        stream.seek(tracelen, whence = io.SEEK_CUR)
+        stream.seek(tracelen, whence=io.SEEK_CUR)
 
-    out['guid'] = stream.hexdigest()
-    interval = out['sampleinterval']
-    samples = np.arange(0, out['samples'] * interval, interval)
-    out['dimensions'] = [
+    out["guid"] = stream.hexdigest()
+    interval = out["sampleinterval"]
+    samples = np.arange(0, out["samples"] * interval, interval)
+    out["dimensions"] = [
         seg.primaries,
         seg.secondaries,
         list(samples),

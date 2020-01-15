@@ -4,6 +4,7 @@ import segyio
 
 from .scan import parseint
 
+
 class segmenter:
     def __init__(self, primary, secondary, endian):
         self.primary = primary
@@ -12,7 +13,7 @@ class segmenter:
         self.secondaries = []
         self.previous_secondary = None
         self.traceno = 0
-        self.intp = parseint(endian = endian, default_length = 4)
+        self.intp = parseint(endian=endian, default_length=4)
 
     def add(self, header):
         """Add a record, possibly finalizing the current segment
@@ -88,6 +89,6 @@ class segmenter:
         # By now we know that we are encountering a known secondary that does
         # not wrap. Check that it follows the pattern of previous segments
         key2_index = self.secondaries.index(key2)
-        if  self.secondaries[key2_index - 1] != self.previous_secondary:
+        if self.secondaries[key2_index - 1] != self.previous_secondary:
             raise RuntimeError("The file ...")
         increment()

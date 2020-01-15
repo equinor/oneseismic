@@ -10,6 +10,7 @@ import segyio._segyio
 import azure.storage.blob
 import tqdm
 
+
 def segment_limit(segment, end, max_width):
     """ Unpadded segment width
 
@@ -57,23 +58,16 @@ def load_segment(cube_dims, segment_width, segment, format, f):
     # [<header>|<samples>]. This allows for a segment of the file to be
     # memcopied into an array and the traces to be extracted using numpy array
     # slicing. Since we are not using the header it is treated as a blob.
-    srcdtype = np.dtype([
-        ('header', 'b', 240),
-        ('samples', 'f4', segment_dims[-1]),
-    ])
+    srcdtype = np.dtype([("header", "b", 240), ("samples", "f4", segment_dims[-1]),])
 
-    src = np.empty(shape = shape, dtype = srcdtype)
+    src = np.empty(shape=shape, dtype=srcdtype)
 
     f.seek(
-        segment * (segment_width * cube_dims[1] * srcdtype.itemsize),
-        io.SEEK_CUR,
+        segment * (segment_width * cube_dims[1] * srcdtype.itemsize), io.SEEK_CUR,
     )
     f.readinto(src)
 
-    return segyio.tools.native(
-        data = src['samples'],
-        format = format
-    )
+    return segyio.tools.native(data=src["samples"], format=format)
 
 
 def pad(fragment_dims, src):
@@ -134,21 +128,21 @@ def pad(fragment_dims, src):
         int(math.ceil(srcdims[1] / fragment_dims[1])) * fragment_dims[1],
         int(math.ceil(srcdims[2] / fragment_dims[2])) * fragment_dims[2],
     )
-    dstdtype = np.dtype('f4')
+    dstdtype = np.dtype("f4")
 
-    dst = np.zeros(shape = dstshape, dtype = dstdtype)
+    dst = np.zeros(shape=dstshape, dtype=dstdtype)
 
-    dst[:srcdims[0], :srcdims[1], :srcdims[2]] = src[:, :, :]
+    dst[: srcdims[0], : srcdims[1], : srcdims[2]] = src[:, :, :]
 
     return dst
 
 
 def upload_segment(params, meta, segment, blob, f):
-    samples = meta['samples']
-    dims = meta['dimensions']
-    format = meta['format']
-    fragment_dims = params['subcube-dims']
-    f.seek(meta['byteoffset-first-trace'], io.SEEK_CUR)
+    samples = meta["samples"]
+    dims = meta["dimensions"]
+    format = meta["format"]
+    fragment_dims = params["subcube-dims"]
+    f.seek(meta["byteoffset-first-trace"], io.SEEK_CUR)
 
     cube_dims = (len(dims[0]), len(dims[1]), len(dims[2]))
 
@@ -157,7 +151,7 @@ def upload_segment(params, meta, segment, blob, f):
 
     for i, d in enumerate(dst.shape):
         if d % fragment_dims[i] != 0:
-            msg = 'inconsistency in dimension {} (shape = {}) and fragment_dims {}'
+            msg = "inconsistency in dimension {} (shape = {}) and fragment_dims {}"
             raise RuntimeError(msg.format(i, d, fragment_dims[i]))
 
     xyz = [
@@ -167,32 +161,32 @@ def upload_segment(params, meta, segment, blob, f):
         for z in range(dst.shape[2] // fragment_dims[2])
     ]
 
-    container = meta['guid']
-    basename = '{}/{}-{}-{}'.format(
-        'src',
-        fragment_dims[0], fragment_dims[1], fragment_dims[2],
+    container = meta["guid"]
+    basename = "{}/{}-{}-{}".format(
+        "src", fragment_dims[0], fragment_dims[1], fragment_dims[2],
     )
 
     blob.create_container(
-        name = container,
+        name=container,
         # public_access = 'off',
     )
 
     tqdm_opts = {
-        'desc': 'uploading segment {}'.format(segment),
-        'unit': ' fragment',
-        'total': len(xyz),
+        "desc": "uploading segment {}".format(segment),
+        "unit": " fragment",
+        "total": len(xyz),
     }
     for x, y, z in tqdm.tqdm(xyz, **tqdm_opts):
-        fname = '{}-{}-{}.f32'.format(x, y, z)
+        fname = "{}-{}-{}.f32".format(x, y, z)
         y = slice(y * fragment_dims[1], (y + 1) * fragment_dims[1])
         z = slice(z * fragment_dims[2], (z + 1) * fragment_dims[2])
-        blob_name = '{}/{}'.format(basename, fname)
-        logging.info('uploading %s to %s', blob_name, container)
+        blob_name = "{}/{}".format(basename, fname)
+        logging.info("uploading %s to %s", blob_name, container)
         # TODO: consider implications and consequences and how to handle an
         # already-existing fragment with this ID
         blob_client = blob.get_blob_client(container=container, blob=blob_name)
         blob_client.upload_blob(bytes(dst[:, y, z]))
+
 
 def upload(params, meta, filename, blob):
     with open(meta) as f:
@@ -200,10 +194,10 @@ def upload(params, meta, filename, blob):
 
     # TODO: this mapping, while simple, should probably be done by the
     # geometric volume translation package
-    dims = meta['dimensions']
-    first = params['subcube-dims'][0]
+    dims = meta["dimensions"]
+    first = params["subcube-dims"][0]
     segments = int(math.ceil(len(dims[0]) / first))
 
     for seg in range(segments):
-        with open(filename, 'rb') as f:
+        with open(filename, "rb") as f:
             upload_segment(params, meta, seg, blob, f)
