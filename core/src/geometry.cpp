@@ -8,7 +8,7 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
-#include <seismic-cloud/seismic-cloud.hpp>
+#include <seismic-cloud/geometry.hpp>
 
 namespace sc {
 

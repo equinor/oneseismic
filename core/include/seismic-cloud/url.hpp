@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <seismic-cloud/seismic-cloud.hpp>
+#include <seismic-cloud/geometry.hpp>
 
 namespace sc {
 

@@ -1,5 +1,5 @@
-#ifndef SEISMIC_CLOUD_HPP
-#define SEISMIC_CLOUD_HPP
+#ifndef SEISMIC_CLOUD_GEOMETRY_HPP
+#define SEISMIC_CLOUD_GEOMETRY_HPP
 
 #include <array>
 #include <cassert>
@@ -340,4 +340,4 @@ class gvt {
 
 }
 
-#endif //SEISMIC_CLOUD_HPP
+#endif //SEISMIC_CLOUD_GEOMETRY_HPP

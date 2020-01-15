@@ -1,6 +1,6 @@
 #include <catch/catch.hpp>
 
-#include <seismic-cloud/seismic-cloud.hpp>
+#include <seismic-cloud/geometry.hpp>
 #include "generators.hpp"
 
 using namespace Catch::Matchers;

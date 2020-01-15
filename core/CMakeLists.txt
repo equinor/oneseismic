@@ -44,7 +44,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_library(seismic-cloud
     src/base64.cpp
-    src/core.cpp
+    src/geometry.cpp
     src/url.cpp
     src/fetch.cpp
 )
@@ -92,7 +92,7 @@ add_subdirectory(external/catch2)
 
 add_executable(tests
     tests/testsuite.cpp
-    tests/seismic-cloud.cpp
+    tests/geometry.cpp
     tests/request-generator.cpp
 )
 target_link_libraries(tests seismic-cloud catch2)
