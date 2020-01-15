@@ -130,13 +130,31 @@ public:
     }
 };
 
-template < std::size_t Dims >
+template < std::size_t ND >
 struct dimension {
-    dimension(std::size_t x) noexcept (false) : v(x) {
-        if (x >= Dims)
-            throw std::invalid_argument("invalid dimension");
+    template < typename T >
+    explicit dimension(T x) noexcept (false) : v(std::size_t(x)) {
+        if (x >= ND) {
+            throw std::invalid_argument(
+                  "invalid dimension: expected d (= "
+                + std::to_string(x)
+                + ") < ND (= "
+                + std::to_string(ND)
+                + ")"
+            );
+        }
+
+        if (x < 0) {
+            throw std::invalid_argument(
+                  "invalid dimension: expected d (= "
+                + std::to_string(x)
+                + ") >= 0"
+            );
+        }
+
     }
 
+    operator std::size_t () const noexcept (true) { return this->v; }
     std::size_t v;
 };
 
