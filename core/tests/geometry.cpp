@@ -9,9 +9,9 @@ SCENARIO( "Converting between global and local coordinates" ) {
 
     GIVEN("A point in global grid is divisible "
           "by the subcube dimensions") {
-        sc::cube_point< 3 > p {100, 200, 110};
-        sc::cube_dimension< 3 > cube_size {2000, 2000, 1000};
-        sc::frag_dimension< 3 > frag_size {20, 20, 10};
+        sc::CP< 3 > p {100, 200, 110};
+        sc::CS< 3 > cube_size {2000, 2000, 1000};
+        sc::FS< 3 > frag_size {20, 20, 10};
 
         const auto co = sc::gvt< 3 >(cube_size, frag_size);
 
@@ -20,7 +20,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
 
             THEN("The point should be in origo in "
                  "the local coordinate system") {
-                CHECK(local == sc::frag_point< 3 > {0, 0, 0});
+                CHECK(local == sc::FP< 3 > {0, 0, 0});
             }
 
             THEN("The point can be converted back to global coordinates") {
@@ -33,9 +33,9 @@ SCENARIO( "Converting between global and local coordinates" ) {
 
     GIVEN( "A point in global grid not divisible "
            "by the fragment dimension< 3 >s" ) {
-        sc::cube_point< 3 > p {55, 67, 88};
-        sc::cube_dimension< 3 > cube {220, 200, 100};
-        sc::frag_dimension< 3 > frag {22, 20, 10};
+        sc::CP< 3 > p {55, 67, 88};
+        sc::CS< 3 > cube {220, 200, 100};
+        sc::FS< 3 > frag {22, 20, 10};
 
         const auto co = sc::gvt< 3 >(cube, frag);
 
@@ -43,7 +43,7 @@ SCENARIO( "Converting between global and local coordinates" ) {
             const auto local = co.to_local(p);
 
             THEN("The point is correctly converted to local coordiantes") {
-                CHECK(local == sc::frag_point< 3 > {11, 7, 8});
+                CHECK(local == sc::FP< 3 > {11, 7, 8});
             }
 
             THEN("The point can be converted back to global coordiantes") {
@@ -55,13 +55,13 @@ SCENARIO( "Converting between global and local coordinates" ) {
     }
 
     GIVEN("Points that should be mapped to the fragment (upper) corners") {
-        const sc::cube_point< 3 > p1 {98, 59, 54};
-        const sc::cube_point< 3 > p2 {65, 79, 109};
+        const sc::CP< 3 > p1 {98, 59, 54};
+        const sc::CP< 3 > p2 {65, 79, 109};
 
-        const sc::frag_dimension< 3 > frag1 {33, 20, 11};
-        const sc::frag_dimension< 3 > frag2 {22, 20, 10};
+        const sc::FS< 3 > frag1 {33, 20, 11};
+        const sc::FS< 3 > frag2 {22, 20, 10};
 
-        const sc::cube_dimension< 3 > cube {220, 200, 1000};
+        const sc::CS< 3 > cube {220, 200, 1000};
 
         const auto co1 = sc::gvt< 3 >(cube, frag1);
         const auto co2 = sc::gvt< 3 >(cube, frag2);
@@ -71,8 +71,8 @@ SCENARIO( "Converting between global and local coordinates" ) {
             const auto local2 = co2.to_local(p2);
 
             THEN("The point is mapped to the subcubes (upper) corner") {
-                CHECK(local1 == sc::frag_point< 3 > {32, 19, 10});
-                CHECK(local2 == sc::frag_point< 3 > {21, 19, 9});
+                CHECK(local1 == sc::FP< 3 > {32, 19, 10});
+                CHECK(local2 == sc::FP< 3 > {21, 19, 9});
             }
 
             THEN("The point can be converted back to global coordinates") {
@@ -175,21 +175,21 @@ TEST_CASE("Generate the fragments capturing a time slice") {
 }
 
 TEST_CASE("Figure out an global offset [0, len(survey)) from a point") {
-    const auto cube = sc::cube_dimension< 3 >(9, 15, 23);
+    const auto cube = sc::CS< 3 >(9, 15, 23);
     const auto expected = 2495;
-    const auto p = sc::cube_point< 3 >(7, 3, 11);
+    const auto p = sc::CP< 3 >(7, 3, 11);
     auto result = cube.to_offset(p);
     CHECK(result == expected);
 }
 
 TEST_CASE("fragment-id string generation") {
-    const auto id = sc::fragment_id< 3 >(3, 5, 7);
+    const auto id = sc::FID< 3 >(3, 5, 7);
     CHECK("3-5-7" == id.string());
 }
 
 namespace {
 
-const auto exdims = sc::frag_dimension< 3 >(3, 5, 7);
+const auto exdims = sc::FS< 3 >(3, 5, 7);
 const auto exfragment = std::vector< unsigned char > {
     0x0, 0x0, 0x0, 0x0,
     0x0, 0x0, 0x1, 0x0,
