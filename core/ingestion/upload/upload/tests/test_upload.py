@@ -1,4 +1,3 @@
-import io
 import os
 
 import numpy as np
@@ -6,7 +5,7 @@ import segyio
 from hypothesis import given
 from hypothesis.strategies import integers, lists
 
-from ..upload import *
+from ..upload import load_segment, pad, segment_limit
 
 
 def datadir(filename):

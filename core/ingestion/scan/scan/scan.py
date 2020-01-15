@@ -236,7 +236,7 @@ def scan(
             break
 
         if len(chunk) != header_size:
-            msg = "file truncated at trace {}".format(trace_count)
+            msg = "file truncated"
             raise RuntimeError(msg)
 
         header = segyio.field.Field(buf=chunk, kind="trace")

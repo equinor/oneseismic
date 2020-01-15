@@ -2,9 +2,7 @@ import io
 import json
 import logging
 import math
-import os
 
-import azure.storage.blob
 import numpy as np
 import segyio
 import segyio._segyio
@@ -138,7 +136,6 @@ def pad(fragment_dims, src):
 
 
 def upload_segment(params, meta, segment, blob, f):
-    samples = meta["samples"]
     dims = meta["dimensions"]
     format = meta["format"]
     fragment_dims = params["subcube-dims"]
