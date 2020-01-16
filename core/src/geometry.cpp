@@ -76,6 +76,58 @@ FID< ND > gvt< ND >::frag_id(CP< ND > p) const noexcept (true) {
 }
 
 template < std::size_t ND >
+slice_layout gvt< ND >::slice_stride(Dimension dim, FID< ND > id)
+const noexcept (true) {
+    /*
+     * last is the last non-queried dimension - usually (given x, y, z) it
+     * would be z/depth, but when reading horizontal slices, it is y.
+     *
+     * TODO: a good illustration would fix any documentation issues.
+     */
+    const auto last = dim != ND - 1
+                    ? Dimension(ND - 1)
+                    : Dimension(ND - 2)
+                    ;
+
+    slice_layout s;
+    const auto corner = FP< ND >();
+    const auto global = this->to_global(id, corner);
+    s.initial_skip = this->global_dims.to_offset(global);
+    s.superstride  = this->global_dims[last];
+    s.chunk_size   = this->fragment_dims[last] - this->padding(id, last);
+    s.substride    = this->fragment_dims[last];
+
+    std::array< std::size_t, ND > dims;
+    for (std::size_t d = 0; d < ND; ++d)
+        dims[d] = fragment_dims[d] - this->padding(id, Dimension(d));
+    dims[last] = 1;
+    dims[dim] = 1;
+
+    s.iterations = product(dims);
+
+    return s;
+}
+
+template < typename std::size_t ND >
+int gvt< ND >::padding(FID< ND > id, Dimension d) const noexcept (true) {
+    /* is this fragment even on the edge? */
+    if (id[d] != this->fragment_count(d) - 1)
+        return 0;
+
+    const auto not_padding = this->global_dims[d] % this->fragment_dims[d];
+
+    if (not_padding == 0) {
+        /*
+         * the fragments completely fills the cube, which makes the modulo op
+         * zero, but it just means there's no padding on the edge
+         */
+        return 0;
+    }
+
+    return this->fragment_dims[d] - not_padding;
+}
+
+template < std::size_t ND >
 std::size_t CS< ND >::slice_samples(dimension< ND > dim)
 const noexcept (true) {
     auto dims = *this;
@@ -359,5 +411,6 @@ template class CS < 3 >;
 template class FS < 3 >;
 template class FID < 3 >;
 template class basic_tuple< FID< 3 >, 3 >;
+template class basic_tuple< FS < 3 >, 3 >;
 
 }

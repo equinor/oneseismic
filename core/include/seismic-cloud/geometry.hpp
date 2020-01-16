@@ -443,6 +443,12 @@ class gvt {
         slice(Dimension dim, std::size_t n) noexcept (false);
 
         /*
+         * The slice layout for putting a single fragment into a cube (usually
+         * compacted with the slice-direction = 1)
+         */
+        slice_layout slice_stride(Dimension, FID< ND >) const noexcept (true);
+
+        /*
          * The number of fragments in a direction.
          */
         std::size_t fragment_count(Dimension) const noexcept (false);
@@ -461,6 +467,11 @@ class gvt {
          * The number of (x,y,z) triples, or points, in the cube.
          */
         std::size_t global_size() const noexcept (true);
+
+        /*
+         * Number of samples padded in direction d.
+         */
+        int padding(FID< ND > id, Dimension d) const noexcept (true);
 
     private:
         CS< ND > global_dims;
