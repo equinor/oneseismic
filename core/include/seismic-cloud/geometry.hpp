@@ -159,6 +159,68 @@ struct dimension {
 };
 
 /*
+ * The slice_layout is a structure inspired by the slice (name is accidental!)
+ * object in python [1]. slice_layout describes how slices are laid out in the
+ * cube, and the related positions in an isolated fragment.
+ *
+ * All values are in number-of-units, so if the data is in 4-byte float, things
+ * must be multiplied with sizeof(float) (= 4) to get the correct byte offset.
+ *
+ * By using the slice layout, a fragment can be fetched from storage, and the
+ * slice in question can be extracted with a single loop.
+ *
+ * TODO: Example & illustration
+ *
+ * [1] The python slice object is a start-stop-step tuple, which when given to
+ * range, operator[] etc yields the stride and initial offset to access only
+ * certain elements of the list.
+ */
+struct slice_layout {
+    /*
+     * Number of read ops to perform:
+     *
+     * for (int i = 0; i < iterations; ++i)
+     *     read(chunk_size)
+     */
+    int iterations;
+
+    /*
+     * Size of the chunk (in elements) to read at every read op.
+     */
+    int chunk_size;
+
+    /*
+     * initial_skip is the number of values to skip to get to the start of the
+     * data. Note that this is must be multiplied with the index of the line in
+     * question, for example.
+     *
+     * initial_skip is always applied to the superstride side of the
+     * transformation.
+     */
+    int initial_skip;
+
+    /*
+     * The distance between a point and its lateral neighbour, which
+     * corresponds to the *height* of the structure. Advance the write position
+     * with this for every iteration.
+     *
+     * The super in superstride refers to it being a part of the larger
+     * structure, and is refers to strides in the *cube*. When used in a
+     * "flattened" cube, i.e. with a dimension set to 1, it is still a cube,
+     * and a larger system.
+     *
+     * TODO: illustration
+     */
+    int superstride;
+
+    /*
+     * The distance between a point and lateral neighbour in an isolated
+     * fragment, i.e. not part of a larger system.
+     */
+    int substride;
+};
+
+/*
  * Points and dimensions
  * =====================
  * All the examples in this section will deal with the more natural 3
@@ -246,13 +308,6 @@ struct CS : public basic_tuple< CS< ND >, ND > {
     std::size_t slice_samples(dimension< ND >) const noexcept (true);
 };
 
-struct stride {
-    int start;
-    int stride;
-    int readsize;
-    int readcount;
-};
-
 /*
  * FS - fragment shape
  *
@@ -265,8 +320,7 @@ struct FS : public basic_tuple< FS< ND >, ND > {
 
     std::size_t to_offset(FP< ND >) const noexcept (true);
     std::size_t slice_samples(dimension< ND >) const noexcept (true);
-    stride slice_stride(dimension< ND >) const noexcept (false);
-
+    slice_layout slice_stride(dimension< ND >) const noexcept (false);
 };
 
 /*

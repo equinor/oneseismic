@@ -314,16 +314,19 @@ const auto exfragment = std::vector< unsigned char > {
 
 }
 
-std::vector< unsigned char > slice(sc::stride stride, std::size_t pin) {
+std::vector< unsigned char > slice(sc::slice_layout stride, std::size_t pin) {
     auto outcome = std::vector< unsigned char >();
-    const auto start = pin * stride.start;
-    auto pos = start;
-    for (auto i = 0; i < stride.readcount; ++i, pos += stride.stride) {
+    const auto start = pin * stride.initial_skip;
+    const auto superstride = stride.superstride * sizeof(float);
+    const auto chunk_size  = stride.chunk_size  * sizeof(float);
+    auto pos = start * sizeof(float);
+    for (auto i = 0; i < stride.iterations; ++i) {
         outcome.insert(
             outcome.end(),
             exfragment.begin() + pos,
-            exfragment.begin() + pos + stride.readsize
+            exfragment.begin() + pos + chunk_size
         );
+        pos += superstride;
     }
 
     return outcome;

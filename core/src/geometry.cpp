@@ -322,59 +322,34 @@ const noexcept (true) {
 }
 
 template < std::size_t ND >
-stride FS< ND >::slice_stride(dimension< ND > d)
+slice_layout FS< ND >::slice_stride(dimension< ND > d)
 const noexcept (false) {
-    /*
-     * This was surprisingly difficult to get right
-     *
-     * The problem is to be able to, regardless of dimension, provide loop
-     * variables, so that callers can write a single loop to extract a "slice"
-     * from a fragment. Slice is somewhat imprecise as it's an object of ND -
-     * 1, so a 4D volume will yield a 3D cube: only the requested dimension is
-     * pinned. The goal is to remove this complexity from server code, as it's
-     * all geometry anyway. It is inspired by the Python
-     * range(*slice.indices(len)) idiom.
-     *
-     * The result is so that clients can write:
-     *
-     * auto stride = fragment_dims.slice_stride(dimension(N));
-     * const auto start = slice_no * stride.start;
-     * auto pos = start;
-     * for (auto i = 0; i < stride.readcount; ++i, pos += stride.stride) {
-     *     out.append(
-     *         fragment + pos,
-     *         fragment + pos + stride.readsize
-     *     );
-     * }
-     */
-    stride s;
-    s.start = [this, d] {
-        auto dims = *this;
-        for (std::size_t i = 0; i <= d.v; ++i)
-            dims[i] = 1;
-        return product(dims);
-    }() * sizeof(float);
+    slice_layout s;
+    s.iterations = [](auto shape, auto dim) noexcept (true) {
+        for (std::size_t i = dim; i < ND; ++i)
+            shape[i] = 1;
+        return product(shape);
+    }(*this, d);
 
-    s.stride = [this, d] {
-        auto dims = *this;
-        for (std::size_t i = 0; i < d.v; ++i)
-            dims[i] = 1;
-        return product(dims);
-    }() * sizeof(float);
+    s.chunk_size = [](auto shape, auto dim) {
+        for (std::size_t i = 0; i <= dim; ++i)
+            shape[i] = 1;
+        return product(shape);
+    }(*this, d);
 
-    s.readcount = [this, d] {
-        auto dims = *this;
-        for (std::size_t i = d.v; i < ND; ++i)
-            dims[i] = 1;
-        return product(dims);
-    }();
+    s.initial_skip = [](auto shape, auto dim) noexcept (true) {
+        for (std::size_t i = 0; i <= dim; ++i)
+            shape[i] = 1;
+        return product(shape);
+    }(*this, d);
 
-    s.readsize = [this, d] {
-        auto dims = *this;
-        for (std::size_t i = 0; i <= d.v; ++i)
-            dims[i] = 1;
-        return product(dims);
-    }() * sizeof(float);
+    s.superstride = [](auto shape, auto dim) noexcept (true) {
+        for (std::size_t i = 0; i < dim; ++i)
+            shape[i] = 1;
+        return product(shape);
+    }(*this, d);
+
+    s.substride = s.chunk_size;
 
     return s;
 }
