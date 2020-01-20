@@ -1,5 +1,6 @@
 from .scan import parseint
 
+
 class segmenter:
     def __init__(self, primary, secondary, endian):
         self.primary = primary

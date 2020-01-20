@@ -1,9 +1,9 @@
 import hashlib
 import io
 
+import numpy as np
 import segyio
 import segyio._segyio
-import numpy as np
 
 textheader_size = 3200
 binary_size = 400

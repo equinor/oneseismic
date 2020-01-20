@@ -1,10 +1,12 @@
 import os
+
 import numpy as np
 import segyio
-from ..upload import segment_limit, load_segment, pad
-
 from hypothesis import given
 from hypothesis.strategies import integers, lists
+
+from ..upload import load_segment, pad, segment_limit
+
 
 def datadir(filename):
     root = os.path.dirname(__file__)

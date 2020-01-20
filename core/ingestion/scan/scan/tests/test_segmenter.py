@@ -1,11 +1,12 @@
-import segyio
 import struct
 import sys
 
+import segyio
 from hypothesis import given
 from hypothesis.strategies import integers
 
 from ..segmenter import segmenter
+
 
 def big_endian(i):
     """Convert int to a big-endian integer

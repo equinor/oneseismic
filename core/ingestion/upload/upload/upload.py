@@ -1,12 +1,13 @@
 import io
-import math
-import logging
 import json
+import logging
+import math
 
 import numpy as np
 import segyio
 import segyio._segyio
 import tqdm
+
 
 def segment_limit(segment, end, max_width):
     """ Unpadded segment width

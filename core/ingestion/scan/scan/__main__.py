@@ -4,6 +4,7 @@ import sys
 
 from .scan import scan
 
+
 def main(argv):
     parser = argparse.ArgumentParser('Scan a SEG-Y for sc ingestion')
     parser.add_argument('input', type = str, help = 'input SEG-Y file')

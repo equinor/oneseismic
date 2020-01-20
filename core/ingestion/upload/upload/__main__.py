@@ -1,9 +1,11 @@
 import argparse
-import sys
 import os
+import sys
+
 from azure.storage.blob import BlobServiceClient
 
 from .upload import upload
+
 
 def main(argv):
     parser = argparse.ArgumentParser('Ingest SEG-Y')

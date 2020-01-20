@@ -1,10 +1,11 @@
 import io
-import segyio
 import struct
 
 import pytest
+import segyio
 
 from ..scan import updated_count_interval
+
 
 def pytest_generate_tests(metafunc):
     if 'header' in metafunc.fixturenames:
