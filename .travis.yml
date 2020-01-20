@@ -21,7 +21,7 @@ install:
   - unzip fmt-6.0.0.zip
   - mkdir -p fmt-6.0.0/build
   - pushd fmt-6.0.0/build
-  - cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+  - cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON
   - sudo make install -j2
   - popd
 
@@ -38,7 +38,7 @@ script:
     - if [[ -z $TRAVIS_PYTHON_VERSION ]]; then
         mkdir build &&
         pushd build &&
-        cmake ../core -DCMAKE_BUILD_TYPE=Release &&
+        cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON &&
         make &&
         ctest --output-on-failure;
       fi
