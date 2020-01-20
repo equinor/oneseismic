@@ -157,7 +157,7 @@ noexcept (false) {
     return fmt::format("/{}/{}.f32", this->resource_id, fragment_id);
 }
 
-std::array< const char*, 2 >
+std::vector< std::string >
 azure_request_generator::headers() const noexcept (true) {
     /*
      * timestamp() *must* be called before this - pick up on it in debug mode,

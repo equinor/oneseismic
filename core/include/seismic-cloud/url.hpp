@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <seismic-cloud/seismic-cloud.hpp>
+#include <seismic-cloud/geometry.hpp>
 
 namespace sc {
 
@@ -50,7 +50,7 @@ public:
     /*
      * The x-ms-* headers which must be set on the request
      */
-    std::array< const char*, 2 > headers() const noexcept (true);
+    std::vector< std::string > headers() const noexcept (true);
 
     /*
      * The full url to GET a fragment

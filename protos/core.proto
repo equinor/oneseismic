@@ -1,26 +1,28 @@
 syntax = "proto3";
-package seismic_core;
-// The seismic core service definition.
+package oneseismic;
+
 service Core {
-  rpc Slice (Request) returns (Reply) {}
+  rpc Slice (SliceRequest) returns (SliceReply) {}
 }
 
 message Geometry {
-  string cubeid = 1;
+  string guid = 1;
   repeated int64 dim0 = 2;
   repeated int64 dim1 = 3;
   repeated int64 dim2 = 4;
 }
 
-message  Request {
+message SliceRequest {
     int32 dim = 1;
     int64 lineno = 2;
-    Geometry geometry = 3;
+    int32 dim0 = 3;
+    int32 dim1 = 4;
+    int32 dim2 = 5;
+    Geometry geometry = 6;
 }
 
-message Reply {
+message SliceReply {
     int64 dim0 = 1;
     int64 dim1 = 2;
     repeated float v = 3;
 }
-
