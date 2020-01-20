@@ -143,23 +143,37 @@ target_link_libraries(one-server
         Threads::Threads
 )
 
-install(TARGETS seismic-cloud one-server
-        EXPORT seismic-cloud-export
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+install(
+    TARGETS
+        seismic-cloud
+        one-server
+    EXPORT
+        seismic-cloud-export
+    ARCHIVE DESTINATION
+        ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION
+        ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION
+        ${CMAKE_INSTALL_BINDIR}
 )
 install(DIRECTORY include/ DESTINATION include)
 install(
-    EXPORT seismic-cloud-export
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/seismic-cloud/cmake
-    FILE seismic-cloud-config.cmake
-    NAMESPACE seismic-cloud::
+    EXPORT
+        seismic-cloud-export
+    DESTINATION
+        ${CMAKE_INSTALL_DATAROOTDIR}/seismic-cloud/cmake
+    FILE
+        seismic-cloud-config.cmake
+    NAMESPACE
+        seismic-cloud::
 )
 export(
-    TARGETS seismic-cloud
-    FILE seismic-cloud-config.cmake
-    NAMESPACE seismic-cloud::
+    TARGETS
+        seismic-cloud
+    FILE
+        seismic-cloud-config.cmake
+    NAMESPACE
+        seismic-cloud::
 )
 
 add_subdirectory(external/catch2)
