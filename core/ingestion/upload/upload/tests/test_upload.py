@@ -1,8 +1,7 @@
-import io
 import os
 import numpy as np
 import segyio
-from ..upload import *
+from ..upload import segment_limit, load_segment, pad
 
 from hypothesis import given
 from hypothesis.strategies import integers, lists

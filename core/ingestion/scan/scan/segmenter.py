@@ -1,7 +1,3 @@
-import logging
-import warnings
-import segyio
-
 from .scan import parseint
 
 class segmenter:

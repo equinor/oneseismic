@@ -178,7 +178,6 @@ class hashio:
     def hexdigest(self):
         return self.sha1.hexdigest()
 
-from .segmenter import segmenter
 
 def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_endian=None):
     """Scan a file and create an index
@@ -197,6 +196,8 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
     -------
     d : dict
     """
+    from .segmenter import segmenter
+
     endian = resolve_endianness(big_endian, little_endian)
     out = {
         'byteorder': endian,

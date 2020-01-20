@@ -1,5 +1,4 @@
 import argparse
-import json
 import sys
 import os
 from azure.storage.blob import BlobServiceClient
