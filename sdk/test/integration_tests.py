@@ -73,7 +73,7 @@ def test_surface_get_fail():
 def test_manifest_get():
     manifest_api.upload_manifest("exists", manifest)
     retrieved_manifest = manifest_api.download_manifest("exists")
-    assert retrieved_manifest.cubeid == manifest["cubeid"]
+    assert retrieved_manifest.cubeid == manifest["guid"]
 
 
 def test_manifest_get_fail():
