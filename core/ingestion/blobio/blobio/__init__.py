@@ -1,5 +1,5 @@
 import io
-
+import numpy as np
 
 class BlobIO:
     """
@@ -114,7 +114,10 @@ class BlobIO:
         return chunk
 
     def readinto(self, b):
-        raise NotImplementedError
+        # TODO optimize?
+        chunk = self.read()
+        np.copyto(b, np.frombuffer(chunk, b.dtype).reshape(b.shape))
+        return len(chunk)
 
     def write(self, b):
         raise NotImplementedError

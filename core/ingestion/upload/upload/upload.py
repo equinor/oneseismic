@@ -1,7 +1,6 @@
 import io
 import math
 import logging
-import json
 
 import numpy as np
 import segyio
@@ -170,37 +169,39 @@ def upload_segment(params, meta, segment, blob, f):
         fragment_dims[0], fragment_dims[1], fragment_dims[2],
     )
 
-    blob.create_container(
-        name = container,
-        # public_access = 'off',
-    )
+    blob.create_container(name=container)
 
     tqdm_opts = {
         'desc': 'uploading segment {}'.format(segment),
         'unit': ' fragment',
         'total': len(xyz),
     }
+
+    blob_names = []
     for x, y, z in tqdm.tqdm(xyz, **tqdm_opts):
         fname = '{}-{}-{}.f32'.format(x, y, z)
         y = slice(y * fragment_dims[1], (y + 1) * fragment_dims[1])
         z = slice(z * fragment_dims[2], (z + 1) * fragment_dims[2])
         blob_name = '{}/{}'.format(basename, fname)
+        blob_names.append(blob_name)
         logging.info('uploading %s to %s', blob_name, container)
         # TODO: consider implications and consequences and how to handle an
         # already-existing fragment with this ID
         blob_client = blob.get_blob_client(container=container, blob=blob_name)
         blob_client.upload_blob(bytes(dst[:, y, z]))
 
-def upload(params, meta, filename, blob):
-    with open(meta) as f:
-        meta = json.load(f)
+    return blob_names
 
+
+def upload(params, meta, filestream, blob):
     # TODO: this mapping, while simple, should probably be done by the
     # geometric volume translation package
     dims = meta['dimensions']
     first = params['subcube-dims'][0]
     segments = int(math.ceil(len(dims[0]) / first))
 
+    blob_names = []
     for seg in range(segments):
-        with open(filename, 'rb') as f:
-            upload_segment(params, meta, seg, blob, f)
+        n = upload_segment(params, meta, seg, blob, filestream)
+        blob_names.append(n)
+    return blob_names
