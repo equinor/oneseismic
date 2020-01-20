@@ -75,8 +75,6 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/../protos/core.proto
 )
 
-add_subdirectory(external/mio)
-
 if (NOT MSVC)
     # assuming gcc-style options
     # add warnings in debug mode
