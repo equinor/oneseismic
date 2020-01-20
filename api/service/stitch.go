@@ -50,7 +50,7 @@ func (gs *gRPCStitch) Stitch(
 	ctx context.Context,
 	out io.Writer,
 	sp StitchParams) (string, error) {
-	req := &pb.Request{
+	req := &pb.SliceRequest{
 		Dim:      sp.Dim,
 		Lineno:   sp.Lineno,
 		Geometry: (*pb.Geometry)(sp.CubeManifest),

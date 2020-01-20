@@ -30,7 +30,7 @@ type MockManifestStore struct {
 }
 
 func GenerateManifest(id string) *store.Manifest {
-	return &store.Manifest{Cubeid: id}
+	return &store.Manifest{Guid: id}
 }
 
 func (ms *MockManifestStore) Download(ctx context.Context, id string) (*store.Manifest, error) {

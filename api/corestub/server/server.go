@@ -27,11 +27,11 @@ func g(d0, d1 int32) []float32 {
 	return v
 }
 
-func (s *coreServer) Slice(ctx context.Context, in *pb.Request) (*pb.Reply, error) {
+func (s *coreServer) Slice(ctx context.Context, in *pb.SliceRequest) (*pb.SliceReply, error) {
 
-	fmt.Println("stitching on cube ", in.Geometry.Cubeid)
+	fmt.Println("stitching on cube ", in.Geometry.Guid)
 
-	repl := &pb.Reply{Dim0: 100, Dim1: 100, V: g(100, 100)}
+	repl := &pb.SliceReply{Dim0: 100, Dim1: 100, V: g(100, 100)}
 	return repl, nil
 }
 
