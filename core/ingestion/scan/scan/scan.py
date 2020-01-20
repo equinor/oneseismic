@@ -225,6 +225,7 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
     seg.add(header)
     stream.seek(tracelen, whence = io.SEEK_CUR)
 
+    trace_count = 0
     while True:
         chunk = stream.read(header_size)
         if len(chunk) == 0:
@@ -237,6 +238,7 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
         header = segyio.field.Field(buf = chunk, kind = 'trace')
         seg.add(header)
         stream.seek(tracelen, whence = io.SEEK_CUR)
+        trace_count += 1
 
     out['guid'] = stream.hexdigest()
     interval = out['sampleinterval']
