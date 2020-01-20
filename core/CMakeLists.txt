@@ -123,7 +123,29 @@ target_link_libraries(seismic-cloud
         ${CURL_LIBRARIES}
 )
 
-install(TARGETS seismic-cloud
+add_executable(one-server
+    src/server.cpp
+    ${PROTO_SRCS}
+    ${PROTO_HDRS}
+    ${CMAKE_CURRENT_BINARY_DIR}/core.grpc.pb.h
+    ${CMAKE_CURRENT_BINARY_DIR}/core.grpc.pb.cc
+)
+target_include_directories(one-server
+    PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
+)
+target_link_libraries(one-server
+    PRIVATE
+        clara
+        ${ONESEISMIC_GRPC_TARGET}
+        protobuf::libprotobuf
+        seismic-cloud::seismic-cloud
+        # explicitly link to Threads - the libprotobuf target does not add the
+        # dependency to its target on threads until cmake 3.13
+        Threads::Threads
+)
+
+install(TARGETS seismic-cloud one-server
         EXPORT seismic-cloud-export
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
