@@ -1,13 +1,11 @@
 import io
 import math
 import logging
-import os
 import json
 
 import numpy as np
 import segyio
 import segyio._segyio
-import azure.storage.blob
 import tqdm
 
 def segment_limit(segment, end, max_width):
@@ -144,7 +142,6 @@ def pad(fragment_dims, src):
 
 
 def upload_segment(params, meta, segment, blob, f):
-    samples = meta['samples']
     dims = meta['dimensions']
     format = meta['format']
     fragment_dims = params['subcube-dims']
