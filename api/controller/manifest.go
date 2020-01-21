@@ -20,10 +20,9 @@ func NewManifestController(ms store.ManifestStore) *ManifestController {
 	return &ManifestController{ms: ms}
 }
 
-
 // @Description get manifest file
 // @ID download_manifest
-// @Produce  application/octet-stream
+// @Produce  application/json
 // @Param   manifest_id  path    string     true        "File ID"
 // @Success 200 {object} store.Manifest "byte stream"
 // @Failure 404 {string} controller.APIError "Manifest not found"

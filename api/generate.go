@@ -1,7 +1,7 @@
 package main
 
 //Swagger doc Generate
-//go:generate go get github.com/swaggo/swag/cmd/swag@v1.6.3
+//go:generate go get -u github.com/swaggo/swag/cmd/swag
 //go:generate swag init
 
 //GRPC Service generate definition
