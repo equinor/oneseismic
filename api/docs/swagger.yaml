@@ -7,42 +7,11 @@ definitions:
         type: string
     type: object
   controller.Bytes:
-    items: {}
+    items:
+      type: integer
     type: array
-  seismic_core.Geometry:
-    properties:
-      cubeid:
-        type: string
-      dim0:
-        items:
-          type: integer
-        type: array
-      dim1:
-        items:
-          type: integer
-        type: array
-      dim2:
-        items:
-          type: integer
-        type: array
-    type: object
   store.Manifest:
-    properties:
-      cubeid:
-        type: string
-      dim0:
-        items:
-          type: integer
-        type: array
-      dim1:
-        items:
-          type: integer
-        type: array
-      dim2:
-        items:
-          type: integer
-        type: array
-    type: object
+    $ref: '#/definitions/seismic_core.Geometry'
   store.SurfaceMeta:
     properties:
       lastModified:
@@ -71,7 +40,7 @@ paths:
         required: true
         type: string
       produces:
-      - application/octet-stream
+      - application/json
       responses:
         "200":
           description: byte stream

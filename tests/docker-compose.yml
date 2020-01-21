@@ -12,8 +12,8 @@ services:
 
   auth:
     image: lambdaville/no-factor-auth:v0.0.5
-    ports:
-      - '8089:8089'
+    # ports:
+    #   - '8089:8089'
 
   api:
     build:
@@ -34,7 +34,7 @@ services:
 
   test:
     build:
-      context: ../sdk
+      context: integration
     depends_on:
       - api
     environment:
