@@ -42,9 +42,6 @@ small_json = Path("tests/data/small.json")
 
 @pytest.fixture
 def blob_service():
-    blob = BlobServiceClient.from_connection_string(connect_str)
-    for c in blob.list_containers():
-        blob.delete_container(c)
 
     bsc = BlobServiceClient.from_connection_string(connect_str)
     bsc.create_container(container)
@@ -59,7 +56,8 @@ def blob_service():
 
     yield bsc
 
-    bsc.delete_container(container)
+    for c in bsc.list_containers():
+        bsc.delete_container(c)
 
 
 @pytest.mark.skipif(os.getenv("AZURITE") is None, reason="Need Azurite")
@@ -74,21 +72,20 @@ def test_read_blobio(blob_service):
 @pytest.mark.skipif(os.getenv("AZURITE") is None, reason="Need Azurite")
 def test_upload_from_blobio(blob_service):
     blobio = BlobIO(blob_service, container)
-    meta = json.loads(blobio.open(small_json.name).read())
+    meta = json.load(blobio.open(small_json.name))
     shape = [len(x) for x in meta["dimensions"]]
 
     params = {"subcube-dims": list(shape)}
 
     segy_stream = blobio.open(small_segy.name)
 
-    names = upload.upload(params, meta, segy_stream, blob_service)
-
+    upload.upload(params, meta, segy_stream, blob_service)
     data = segyio.tools.cube(small_segy)
     cc = blob_service.get_container_client(meta["guid"])
-    assert len(names) == 1
-    assert len(names[0]) == 1
 
-    download_stream = cc.get_blob_client(names[0][0]).download_blob()
+    blob_name = upload.blob_name(list(shape), 0, 0, 0)
+    download_stream = cc.get_blob_client(blob_name).download_blob()
+
     assert data.tobytes() == download_stream.readall()
 
 

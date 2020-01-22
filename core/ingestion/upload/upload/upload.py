@@ -140,6 +140,21 @@ def pad(fragment_dims, src):
     return dst
 
 
+def _fname(x, y, z):
+    return '{}-{}-{}.f32'.format(x, y, z)
+
+
+def _basename(fragment_dims):
+    return '{}/{}-{}-{}'.format(
+        'src',
+        fragment_dims[0], fragment_dims[1], fragment_dims[2],
+    )
+
+
+def blob_name(fragment_dims, x, y, z):
+    return '{}/{}'.format(_basename(fragment_dims), _fname(x, y, z))
+
+
 def upload_segment(params, meta, segment, blob, f):
     dims = meta['dimensions']
     format = meta['format']
@@ -164,10 +179,7 @@ def upload_segment(params, meta, segment, blob, f):
     ]
 
     container = meta['guid']
-    basename = '{}/{}-{}-{}'.format(
-        'src',
-        fragment_dims[0], fragment_dims[1], fragment_dims[2],
-    )
+
 
     blob.create_container(name=container)
 
@@ -177,20 +189,15 @@ def upload_segment(params, meta, segment, blob, f):
         'total': len(xyz),
     }
 
-    blob_names = []
     for x, y, z in tqdm.tqdm(xyz, **tqdm_opts):
-        fname = '{}-{}-{}.f32'.format(x, y, z)
-        y = slice(y * fragment_dims[1], (y + 1) * fragment_dims[1])
-        z = slice(z * fragment_dims[2], (z + 1) * fragment_dims[2])
-        blob_name = '{}/{}'.format(basename, fname)
-        blob_names.append(blob_name)
-        logging.info('uploading %s to %s', blob_name, container)
+        bn = blob_name(fragment_dims, x, y, z)
+        y_frag = slice(y * fragment_dims[1], (y + 1) * fragment_dims[1])
+        z_frag = slice(z * fragment_dims[2], (z + 1) * fragment_dims[2])
+        logging.info('uploading %s to %s', bn, container)
         # TODO: consider implications and consequences and how to handle an
         # already-existing fragment with this ID
-        blob_client = blob.get_blob_client(container=container, blob=blob_name)
-        blob_client.upload_blob(bytes(dst[:, y, z]))
-
-    return blob_names
+        blob_client = blob.get_blob_client(container=container, blob=bn)
+        blob_client.upload_blob(bytes(dst[:, y_frag, z_frag]))
 
 
 def upload(params, meta, filestream, blob):
@@ -200,8 +207,5 @@ def upload(params, meta, filestream, blob):
     first = params['subcube-dims'][0]
     segments = int(math.ceil(len(dims[0]) / first))
 
-    blob_names = []
     for seg in range(segments):
-        n = upload_segment(params, meta, seg, blob, filestream)
-        blob_names.append(n)
-    return blob_names
+        upload_segment(params, meta, seg, blob, filestream)
