@@ -1,1 +1,4 @@
 tmp/*
+build
+.git
+Dockerfile
