@@ -145,6 +145,7 @@ jobs:
         displayName: Upgrade docker compose
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       - script: |
+          cp -r protos core
           export VERSION=`git describe --tags`
           docker-compose build
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
