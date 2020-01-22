@@ -212,8 +212,7 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
     header = segyio.field.Field(buf = chunk, kind = 'trace')
 
     out.update(updated_count_interval(header, out, endian))
-    # convert to milliseconds
-    out['sampleinterval'] /= 1000.0
+
     tracelen = out['samples'] * format_size[out['format']]
 
     seg = segmenter(
@@ -242,7 +241,7 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
 
     out['guid'] = stream.hexdigest()
     interval = out['sampleinterval']
-    samples = np.arange(0, out['samples'] * interval, interval)
+    samples = map(int, np.arange(0, out['samples'] * interval, interval))
     out['dimensions'] = [
         seg.primaries,
         seg.secondaries,

@@ -22,13 +22,13 @@ expected = {
     "byteorder": "big",
     "format": 1,
     "samples": 50,
-    "sampleinterval": 4.0,
+    "sampleinterval": 4000,
     "byteoffset-first-trace": 3600,
     "guid": "86f5f8f783fabe2773531d5529226d37b6c9bdcf",
     "dimensions": [
         [x for x in range(1, 6)],
         [x for x in range(20, 25)],
-        [float(x) for x in range(0, 200, 4)],
+        [x for x in range(0, 200000, 4000)],
     ],
 }
 
