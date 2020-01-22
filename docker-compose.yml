@@ -1,12 +1,14 @@
 version: '3.0'
 services:
-  corestub:
-    image: lambdaville.azurecr.io/corestub:latest
+  core:
+    image: lambdaville.azurecr.io/oneseismic-core:latest
     build:
-      context: api
-      dockerfile: Dockerfile-corestub
+      context: .
+      dockerfile: core/Dockerfile
 
   api:
+    depends_on:
+      - core
     image: lambdaville.azurecr.io/api:latest
     build:
       context: api
