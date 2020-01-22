@@ -377,18 +377,6 @@ struct FS : public basic_tuple< FS< ND >, ND > {
  * The global coordinate 3,4 would map to fragment 5, coordinates 1,1. Each
  * fragment is named and identified by its position in the grid of *fragments*,
  * i.e. top-left fragment is (0,0), next to the right is (0,1) etc.
- *
- * Names
- * -----
- *  global, cube:
- *      The names global and cube always refer to the full survey, and is
- *      independent on how the system is fragmented
- *  local, frag:
- *      The names local and frag always refer to the individual fragments
- *      (subcubes) and their dimensions
- *  frag_id, anchor:
- *      IDs for fragments, which is also the coordinate of the fragment in the
- *      (coarsened) grid of fragments.
  */
 template < std::size_t ND >
 class gvt {
