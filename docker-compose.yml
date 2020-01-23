@@ -6,8 +6,9 @@ services:
       context: .
       dockerfile: core/Dockerfile
     environment:
-      - AZ_BLOB_ACCOUNT=AZ_BLOB_ACCOUNT
-      - AZ_BLOB_KEY=AZ_BLOB_KEY
+      - AZ_BLOB_ACCOUNT
+      - AZ_BLOB_KEY
+    restart: unless-stopped
 
   api:
     depends_on:
@@ -16,7 +17,7 @@ services:
     build:
       context: api
     volumes:
-      - 'C:\tmp\sc-tmp\manifest:/tmp/manifest'
+      - '${MANIFEST_PATH}:/tmp/manifest'
     ports:
       - '8080:8080'
     environment:

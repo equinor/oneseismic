@@ -53,11 +53,14 @@ func (gs *gRPCStitch) Stitch(
 	req := &pb.SliceRequest{
 		Dim:      sp.Dim,
 		Lineno:   sp.Lineno,
+		Dim0:     64,
+		Dim1:     64,
+		Dim2:     64,
 		Geometry: (*pb.Geometry)(sp.CubeManifest),
 	}
 	conn, err := grpc.Dial(string(gs.grpcAddr), gs.opts...)
 	if err != nil {
-		return "", err
+		return "", events.E("GRPC Dial", err)
 	}
 	defer conn.Close()
 
