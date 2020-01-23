@@ -1,4 +1,4 @@
-FROM ubuntu:devel as builder
+FROM ubuntu:devel 
 
 ENV FMT_VERSION 6.1.2
 
@@ -28,4 +28,15 @@ WORKDIR /build
 RUN cmake /src/core -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON
 RUN make 
 
-ENTRYPOINT [ "./one-server"]
+RUN apt-get update && apt-get install -y \
+    aufs-tools \
+    automake \
+    build-essential \
+    curl \
+    all\
+    your\
+    other\
+    packages\
+    && rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT [ "./one-server","-A","$AZ_BLOB_ACCOUNT","-k","$AZ_BLOB_KEY"]

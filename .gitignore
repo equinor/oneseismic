@@ -13,3 +13,4 @@ __pycache__
 .eggs
 .hypothesis
 *.egg-info
+.env
