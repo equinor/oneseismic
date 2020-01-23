@@ -1,7 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "yoyou"
-echo "Running nc on  $@"
+echo "Running oneseismic-core"
 
-nc -lk -p 5000 -e "$@"
+echo " on -A $AZ_BLOB_ACCOUNT"
+
+./one-server -A "$AZ_BLOB_ACCOUNT" -k "$AZ_BLOB_KEY"

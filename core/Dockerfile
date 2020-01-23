@@ -27,16 +27,9 @@ COPY protos protos
 WORKDIR /build
 RUN cmake /src/core -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON
 RUN make 
+RUN cp /src/core/entrypoint.sh .
+RUN apt-get autoremove -y 
+RUN apt-get clean -y 
+RUN rm -rf /var/lib/apt/lists
 
-RUN apt-get update && apt-get install -y \
-    aufs-tools \
-    automake \
-    build-essential \
-    curl \
-    all\
-    your\
-    other\
-    packages\
-    && rm -rf /var/lib/apt/lists/*
-
-ENTRYPOINT [ "./one-server","-A","$AZ_BLOB_ACCOUNT","-k","$AZ_BLOB_KEY"]
+ENTRYPOINT [ "./entrypoint.sh"]
