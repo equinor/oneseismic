@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: core/Dockerfile
+    environment:
+      - AZ_BLOB_ACCOUNT=AZ_BLOB_ACCOUNT
+      - AZ_BLOB_KEY=AZ_BLOB_KEY
 
   api:
     depends_on:
@@ -12,3 +15,14 @@ services:
     image: lambdaville.azurecr.io/api:latest
     build:
       context: api
+    volumes:
+      - 'C:\tmp\sc-tmp\manifest:/tmp/manifest'
+    ports:
+      - '8080:8080'
+    environment:
+      - HTTP_ONLY=true
+      - HOST_ADDR=0.0.0.0:8080
+      - STITCH_GRPC_ADDR=core:50051
+      - NO_AUTH=true
+      - MANIFEST_PATH=/tmp/manifest
+      - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces
