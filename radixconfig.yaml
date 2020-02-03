@@ -48,6 +48,7 @@ spec:
             STITCH_GRPC_ADDR: core:50051
             AZURE_MANIFEST_CONTAINER: demo-manifests
             AUTHSERVER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0
+            ISSUER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0
         - environment: dev
           replicas: 0
           variables:
@@ -56,6 +57,7 @@ spec:
             STITCH_GRPC_ADDR: core:50051
             AZURE_MANIFEST_CONTAINER: demo-manifests
             AUTHSERVER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0
+            ISSUER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0
         - environment: demo
           replicas: 1
           variables:
@@ -64,3 +66,4 @@ spec:
             STITCH_GRPC_ADDR: core:50051
             AZURE_MANIFEST_CONTAINER: demo-manifests
             AUTHSERVER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0
+            ISSUER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0
