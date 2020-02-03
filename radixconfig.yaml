@@ -16,7 +16,7 @@ spec:
 
   components:
     - name: core
-      src: core
+      dockerfileName: core/Dockerfile
       ports:
         - name: grpc
           port: 50051
