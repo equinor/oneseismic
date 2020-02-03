@@ -31,5 +31,5 @@ RUN cp /src/core/entrypoint.sh .
 RUN apt-get autoremove -y 
 RUN apt-get clean -y 
 RUN rm -rf /var/lib/apt/lists
-RUN chmmod +x entrypoint.sh
+RUN chmod +x entrypoint.sh
 ENTRYPOINT [ "./entrypoint.sh"]
