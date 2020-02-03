@@ -7,28 +7,48 @@ spec:
     - name: dev
       build:
         from: master
+    - name: demo
+      build:
+        from: demo
     - name: prod
       build:
         from: v0.1.0
 
   components:
-    - name: corestub
-      src: corestub
+    - name: core
+      src: core
       ports:
-        - name: http
-          port: 10000
+        - name: grpc
+          port: 50051
+      secrets:
+        - AZ_BLOB_ACCOUNT
+        - AZ_BLOB_KEY
       environmentConfig:
         - environment: prod
           replicas: 0
         - environment: dev
           replicas: 0
+        - environment: demo
+          replicas: 5
     - name: api
       src: api
       ports:
-        - name: grpc
+        - name: http
           port: 8080
+      publicPort: http
+      secrets:
+        - AZURE_STORAGE_ACCOUNT
+        - AZURE_STORAGE_ACCESS_KEY
       environmentConfig:
         - environment: prod
           replicas: 0
         - environment: dev
           replicas: 0
+        - environment: demo
+          replicas: 1
+          variables:
+            - HTTP_ONLY=true
+            - HOST_ADDR=0.0.0.0:8080
+            - STITCH_GRPC_ADDR=core:50051
+            - AZURE_MANIFEST_CONTAINER=demo-manifests
+            - AUTHSERVER=https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0
