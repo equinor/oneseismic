@@ -28,7 +28,10 @@ WORKDIR /build
 
 RUN cmake /src/core -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON
 RUN make 
+
 RUN cp /src/core/entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
 RUN apt-get autoremove -y 
 RUN apt-get clean -y 
 RUN rm -rf /var/lib/apt/lists
