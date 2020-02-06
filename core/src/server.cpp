@@ -20,7 +20,7 @@ namespace {
 class Server : public oneseismic::Core::Service {
 public:
     Server(int maxconn, const std::string& k, const std::string& sa) :
-        cm(maxconn),
+        maxconns(maxconn),
         key(k),
         storage_account(sa)
     {}
@@ -30,8 +30,7 @@ public:
                        oneseismic::SliceReply* writer);
 
 private:
-    sc::fetch curl_context;
-    sc::multifetch cm;
+    int maxconns;
     std::string key;
     std::string storage_account;
 };
@@ -101,6 +100,7 @@ grpc::Status Server::Slice(
         const oneseismic::SliceRequest* req,
         oneseismic::SliceReply* writer) {
 
+    sc::multifetch cm { this->maxconns };
     const auto dim = sc::dimension< 3 >(req->dim());
     const auto lineno = indexof(req->geometry(), dim.v, req->lineno());
 
@@ -141,7 +141,7 @@ grpc::Status Server::Slice(
         headers.pop_back();
     }
 
-    auto job = std::async([this] { this->cm.run(); });
+    auto job = std::async([this, &cm] { cm.run(); });
 
     /*
      * The shape of the output slice, i.e. a flattened cube. Simply set the
@@ -241,6 +241,7 @@ int main(int argc, char** argv) {
     if (storage_account.empty())
         throw std::runtime_error("No storage account set");
 
+    sc::fetch curl_context;
     Server service(max_connections, key, storage_account);
 
     grpc::ServerBuilder builder;

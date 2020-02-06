@@ -1,3 +1,8 @@
+// make gmtime_r available from time.h
+#define _POSIX_C_SOURCE 1
+#define _XOPEN_SOURCE
+#include <time.h>
+
 #include <string>
 #include <chrono>
 #include <cassert>
@@ -64,7 +69,10 @@ void azure_request_generator::timestamp() noexcept (false) {
      */
     using clock = std::chrono::system_clock;
     const auto now = clock::to_time_t(clock::now());
-    const auto* gmt = std::gmtime(&now);
+
+    /* gmtime is not thread safe, so use the posix gtime_r */
+    tm gmt_storage;
+    const auto* gmt = gmtime_r(&now, &gmt_storage);
     if (!gmt) {
         const auto msg = "unable to convert from system time to GMT";
         throw std::runtime_error(msg);
