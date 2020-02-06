@@ -39,6 +39,7 @@ spec:
       secrets:
         - AZURE_STORAGE_ACCOUNT
         - AZURE_STORAGE_ACCESS_KEY
+        - API_SECRET
       environmentConfig:
         - environment: prod
           replicas: 0
