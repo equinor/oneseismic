@@ -10,3 +10,5 @@ services:
     image: lambdaville.azurecr.io/api:${VERSION:-latest}
     build:
       context: api
+      args:
+        - VERSION
