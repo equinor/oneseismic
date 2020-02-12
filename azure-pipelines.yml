@@ -110,22 +110,20 @@ jobs:
         workingDirectory: api
 
   - job: Integration_tests
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     steps:
       - script: |
           sudo curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         displayName: Upgrade docker compose
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       - script: |
           export VERSION=`git describe --tags`
           docker-compose build
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Build docker images'
       - script: |
           docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Run integration tests'
       - script: |
+          export VERSION=`git describe --tags`
           echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
           docker-compose push
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
