@@ -8,7 +8,7 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-ENV VERSION 'v0.1.0'
+ARG VERSION
 RUN CGO_ENABLED=0\
     GOOS=linux\
     GOARCH=amd64 \

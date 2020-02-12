@@ -7,6 +7,6 @@ services:
       dockerfile: Dockerfile-corestub
 
   api:
-    image: lambdaville.azurecr.io/api:latest
+    image: lambdaville.azurecr.io/api:${VERSION:-latest}
     build:
       context: api
