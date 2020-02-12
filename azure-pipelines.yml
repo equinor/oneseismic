@@ -48,34 +48,6 @@ jobs:
         displayName: 'Test Ingestion'
         workingDirectory: core/ingestion
 
-  - job: Build_API
-    variables:
-      GOPATH: '$(system.defaultWorkingDirectory)/gopath'
-      TEST_COVERAGE_LIMIT: 35
-    steps:
-      - bash: |
-          echo "##vso[task.prependpath]$(GOPATH)/bin"
-        displayName: Update PATH
-
-      - task: GoTool@0
-        inputs:
-          version: '$(GOVERSION)'
-          goPath: '$(GOPATH)'
-          goBin: '$(GOPATH)/bin'
-      - script: |
-          sudo apt-get install -y protobuf-compiler
-        displayName: 'Fetching debian dependencies'
-        workingDirectory: api
-      - script: |
-          go generate ./...
-        workingDirectory: api
-        displayName: 'Generate OpenAPI spec'
-
-      - script: |
-          go build
-        workingDirectory: api
-        displayName: 'Build api'
-
   - job: Run_unit_tests
     steps:
       - bash: |
