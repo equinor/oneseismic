@@ -1,6 +1,6 @@
 .dockerignore
 .pytest_cache
-Dockerfile
+Dockerfile*
 tmp
 sc-api
 sc-corestub
