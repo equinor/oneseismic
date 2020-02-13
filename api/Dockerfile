@@ -1,13 +1,22 @@
-FROM golang:alpine as builder
+FROM golang:buster as builder
 
-RUN apk update && apk upgrade && apk add --no-cache ca-certificates
-RUN update-ca-certificates
+RUN apt update && apt install -y protobuf-compiler
 
 WORKDIR /src
-COPY go.mod .
-COPY go.sum .
+COPY api/go.mod .
+COPY api/go.sum .
 RUN go mod download
-COPY . .
+
+COPY api api
+COPY protos protos
+
+WORKDIR /src/api
+RUN mkdir proto
+RUN go get github.com/golang/protobuf/protoc-gen-go
+RUN protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
+
+RUN go test -race ./...
+
 ARG VERSION
 RUN CGO_ENABLED=0\
     GOOS=linux\
