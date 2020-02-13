@@ -89,6 +89,11 @@ jobs:
           goBin: '$(GOPATH)/bin'
 
       - script: |
+          sudo apt-get install -y protobuf-compiler
+        displayName: 'Fetching debian dependencies'
+        workingDirectory: api
+      - script: |
+          go generate ./...
           go test -race ./...
         workingDirectory: api
         displayName: 'Run unit tests'
