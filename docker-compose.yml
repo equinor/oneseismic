@@ -3,12 +3,13 @@ services:
   corestub:
     image: lambdaville.azurecr.io/corestub:latest
     build:
-      context: api
-      dockerfile: Dockerfile-corestub
+      context: .
+      dockerfile: api/Dockerfile-corestub
 
   api:
     image: lambdaville.azurecr.io/api:${VERSION:-latest}
     build:
-      context: api
+      context: .
+      dockerfile: api/Dockerfile
       args:
         - VERSION
