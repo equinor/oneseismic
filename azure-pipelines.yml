@@ -5,11 +5,6 @@ trigger:
 pool:
   vmImage: 'ubuntu-18.04'
 
-variables:
-  GOPATH: '$(system.defaultWorkingDirectory)/gopath'
-  GOVERSION: '1.13.4'
-  TEST_COVERAGE_LIMIT: 38
-
 jobs:
   - job: Build_Core
     steps:
@@ -48,73 +43,20 @@ jobs:
         displayName: 'Test Ingestion'
         workingDirectory: core/ingestion
 
-  - job: Build_API
-    variables:
-      GOPATH: '$(system.defaultWorkingDirectory)/gopath'
-      TEST_COVERAGE_LIMIT: 35
-    steps:
-      - bash: |
-          echo "##vso[task.prependpath]$(GOPATH)/bin"
-        displayName: Update PATH
-
-      - task: GoTool@0
-        inputs:
-          version: '$(GOVERSION)'
-          goPath: '$(GOPATH)'
-          goBin: '$(GOPATH)/bin'
-      - script: |
-          sudo apt-get install -y protobuf-compiler
-        displayName: 'Fetching debian dependencies'
-        workingDirectory: api
-      - script: |
-          go generate ./...
-        workingDirectory: api
-        displayName: 'Generate OpenAPI spec'
-
-      - script: |
-          go build
-        workingDirectory: api
-        displayName: 'Build api'
-
-  - job: Run_unit_tests
-    steps:
-      - bash: |
-          echo "##vso[task.prependpath]$(GOPATH)/bin"
-        displayName: Update PATH
-
-      - task: GoTool@0
-        inputs:
-          version: '$(GOVERSION)'
-          goPath: '$(GOPATH)'
-          goBin: '$(GOPATH)/bin'
-
-      - script: |
-          sudo apt-get install -y protobuf-compiler
-        displayName: 'Fetching debian dependencies'
-        workingDirectory: api
-      - script: |
-          go generate ./...
-          go test -race ./...
-        workingDirectory: api
-        displayName: 'Run unit tests'
-
-  - job: Integration_tests
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  - job: build_test_push
     steps:
       - script: |
           sudo curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
         displayName: Upgrade docker compose
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
       - script: |
           export VERSION=`git describe --tags`
           docker-compose build
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
         displayName: 'Build docker images'
       - script: |
-          docker-compose -f tests/docker-compose.yml up --build --exit-code-from test
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+          docker-compose -f docker-compose_tests.yml up --build --exit-code-from test
         displayName: 'Run integration tests'
       - script: |
+          export VERSION=`git describe --tags`
           echo $(ACRPASSWD)|docker login -u lambdaville lambdaville.azurecr.io --password-stdin
           docker-compose push
         condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
