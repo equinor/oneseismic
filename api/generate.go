@@ -5,5 +5,6 @@ package main
 //go:generate swag init
 
 //GRPC Service generate definition
+//go:generate mkdir proto
 //go:generate go get github.com/golang/protobuf/protoc-gen-go
 //go:generate protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
