@@ -99,6 +99,7 @@ add_library(seismic-cloud
     src/geometry.cpp
     src/url.cpp
     src/fetch.cpp
+    src/transfer.cpp
 )
 add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
