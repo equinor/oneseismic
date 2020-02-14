@@ -25,9 +25,9 @@ spec:
         - AZ_BLOB_KEY
       environmentConfig:
         - environment: prod
-          replicas: 0
+          replicas: 1
         - environment: dev
-          replicas: 0
+          replicas: 1
         - environment: demo
           replicas: 5
     - name: api
@@ -42,7 +42,7 @@ spec:
         - API_SECRET
       environmentConfig:
         - environment: prod
-          replicas: 0
+          replicas: 1
           variables:
             HTTP_ONLY: true
             HOST_ADDR: 0.0.0.0:8080
@@ -51,7 +51,7 @@ spec:
             AUTHSERVER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0
             ISSUER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0
         - environment: dev
-          replicas: 0
+          replicas: 1
           variables:
             HTTP_ONLY: true
             HOST_ADDR: 0.0.0.0:8080
