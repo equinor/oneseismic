@@ -35,8 +35,7 @@ func TestMain(m *testing.M) {
 		server.WithManifestStore(ts.ManifestStore),
 		server.WithSurfaceStore(ts.SurfaceStore),
 		server.WithStitcher(ts.Stitch),
-		server.WithHostAddr(apiurl),
-		server.WithHTTPOnly()}
+		server.WithHostAddr(apiurl)}
 	s, err := server.NewHTTPServer(opts...)
 	if err != nil {
 		log.Fatal(err)
