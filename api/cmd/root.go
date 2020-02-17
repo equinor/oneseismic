@@ -15,9 +15,8 @@ var rootCmd = &cobra.Command{
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-func Execute(app, v string) {
+func Execute(app string) {
 	rootCmd.Use = app
-	rootCmd.Version = v
 
 	if err := rootCmd.Execute(); err != nil {
 		l.LogE("Executing command", err)

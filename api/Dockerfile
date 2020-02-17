@@ -17,11 +17,10 @@ RUN protoc -I ../protos ../protos/core.proto --go_out=plugins=grpc:proto
 
 RUN go test -race ./...
 
-ARG VERSION
 RUN CGO_ENABLED=0\
     GOOS=linux\
     GOARCH=amd64 \
-    go build -ldflags="-w -s -X main.Version=${VERSION}"  -o /bin/sc-api
+    go build -ldflags="-w -s"  -o /bin/sc-api
 
 FROM scratch as deployer
 COPY --from=builder /bin/sc-api /bin/sc-api

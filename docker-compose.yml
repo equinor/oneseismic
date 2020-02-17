@@ -17,8 +17,6 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-      args:
-        - VERSION
     ports:
       - '8080:8080'
     environment:
