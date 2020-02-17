@@ -118,24 +118,6 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 			server.WithHostAddr(config.HostAddr()))
 	}
 
-	if config.HTTPOnly() {
-		opts = append(
-			opts,
-			server.WithHTTPOnly())
-	}
-
-	if config.UseLetsEncrypt() {
-		opts = append(
-			opts,
-			server.WithLetsEncrypt(config.DomainList(), config.DomainMail()))
-	}
-
-	if config.UseTLS() {
-		opts = append(
-			opts,
-			server.WithTLS(config.CertFile(), config.KeyFile()))
-	}
-
 	if config.Profiling() {
 		opts = append(
 			opts,

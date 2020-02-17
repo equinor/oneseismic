@@ -23,37 +23,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type serverMode int
-
-func (sm serverMode) String() string {
-	switch sm {
-	case NONE:
-		return "None"
-	case INSECURE:
-		return "Insecure"
-	case SECURE:
-		return "Secure"
-	case LETSENCRYPT:
-		return "Lets Encrypt"
-	default:
-		return "Unknown"
-	}
-
-}
-
-const (
-	NONE serverMode = iota
-	INSECURE
-	SECURE
-	LETSENCRYPT
-)
-
 type HTTPServer struct {
 	service     APIService
 	app         *iris.Application
 	version     string
 	hostAddr    string
-	chosenMode  serverMode
 	domains     string
 	domainmail  string
 	privKeyFile string
@@ -212,13 +186,9 @@ func (hs *HTTPServer) Serve() error {
 	hs.registerMacros()
 	hs.registerEndpoints()
 
-	protocolPrefix := "http"
-	if hs.chosenMode != INSECURE {
-		protocolPrefix += "s"
-	}
 	if hs.addSwagger {
 		config := &swagger.Config{
-			URL: fmt.Sprintf("%s://%s/swagger/doc.json", protocolPrefix, hs.hostAddr), //The url pointing to API definition
+			URL: fmt.Sprintf("http://%s/swagger/doc.json", hs.hostAddr), //The url pointing to API definition
 		}
 		// use swagger middleware to
 		hs.app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
@@ -254,16 +224,7 @@ func (hs *HTTPServer) Serve() error {
 		}()
 	}
 
-	switch hs.chosenMode {
-	case INSECURE:
-		return hs.app.Run(iris.Addr(hs.hostAddr))
-	case LETSENCRYPT:
-		return hs.app.Run(iris.AutoTLS(hs.hostAddr, hs.domains, hs.domainmail))
-	case SECURE:
-		return hs.app.Run(iris.TLS(hs.hostAddr, hs.certFile, hs.privKeyFile))
-	default:
-		return fmt.Errorf("no http server mode chosen")
-	}
+	return hs.app.Run(iris.Addr(hs.hostAddr))
 }
 
 func WithManifestStore(manifestStore store.ManifestStore) HTTPServerOption {
@@ -294,48 +255,6 @@ func WithAPIVersion(version string) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.version = version
-		return
-	})
-}
-
-func WithHTTPOnly() HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-		hs.chosenMode = INSECURE
-		return
-	})
-}
-
-func WithTLS(certFile, keyFile string) HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-
-		if len(certFile) == 0 {
-			return fmt.Errorf("No cert file selected for TLS")
-		}
-
-		if len(keyFile) == 0 {
-			return fmt.Errorf("No key file selected for TLS")
-		}
-		hs.chosenMode = SECURE
-		hs.certFile = certFile
-		hs.privKeyFile = keyFile
-		return
-	})
-}
-func WithLetsEncrypt(domains, domainmail string) HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-		if len(domains) == 0 {
-			return fmt.Errorf("No domains selected for LetsEncrypt")
-		}
-
-		if len(domainmail) == 0 {
-			return fmt.Errorf("No domain mail selected for LetsEncrypt")
-		}
-		hs.chosenMode = LETSENCRYPT
-		hs.domains = domains
-		hs.domainmail = domainmail
 		return
 	})
 }

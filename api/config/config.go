@@ -46,15 +46,8 @@ func SetDefaults() {
 	viper.SetDefault("AUTHSERVER", "http://oauth2.example.com")
 	viper.SetDefault("ISSUER", "")
 	viper.SetDefault("HOST_ADDR", "localhost:8080")
-	viper.SetDefault("DOMAIN_LIST", "")
-	viper.SetDefault("DOMAIN_MAIL", "")
 	viper.SetDefault("STITCH_GRPC_ADDR", "")
 	viper.SetDefault("RESOURCE_ID", "")
-	viper.SetDefault("CERT_FILE", "cert.crt")
-	viper.SetDefault("KEY_FILE", "cert.key")
-	viper.SetDefault("HTTP_ONLY", false)
-	viper.SetDefault("TLS", false)
-	viper.SetDefault("LETSENCRYPT", false)
 	viper.SetDefault("PROFILING", false)
 	viper.SetDefault("SWAGGER", false)
 	viper.SetDefault("MANIFEST_PATH", "tmp/")
@@ -128,33 +121,6 @@ func LocalSurfacePath() string {
 	return viper.GetString("LOCAL_SURFACE_PATH")
 }
 
-func HTTPOnly() bool {
-	return viper.GetBool("HTTP_ONLY")
-}
-
-func UseTLS() bool {
-	return viper.GetBool("TLS")
-}
-
-func UseLetsEncrypt() bool {
-	return viper.GetBool("LETSENCRYPT")
-}
-
-func DomainList() string {
-	return viper.GetString("DOMAIN_LIST")
-}
-
-func DomainMail() string {
-	return viper.GetString("DOMAIN_MAIL")
-}
-
-func CertFile() string {
-	return viper.GetString("CERT_FILE")
-}
-
-func KeyFile() string {
-	return viper.GetString("KEY_FILE")
-}
 func ResourceID() string {
 	return viper.GetString("RESOURCE_ID")
 }
