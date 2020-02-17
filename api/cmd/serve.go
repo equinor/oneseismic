@@ -72,7 +72,6 @@ func manifestStoreConfig() interface{} {
 
 func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
-	opts = append(opts, server.WithAPIVersion(config.Version()))
 
 	if config.UseAuth() {
 		authServer, err := config.AuthServer()

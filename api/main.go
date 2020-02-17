@@ -3,24 +3,17 @@ package main
 import (
 	"fmt"
 	"log"
-	"runtime"
 
 	"github.com/equinor/seismic-cloud/api/cmd"
-	"github.com/equinor/seismic-cloud/api/config"
 	l "github.com/equinor/seismic-cloud/api/logger"
 	jww "github.com/spf13/jwalterweatherman"
 )
 
-var AppName string = "sc-api"
-var Version string
+var AppName = "sc-api"
 
 func init() {
-	Version += " " + runtime.Version()
-	config.SetVersion(Version)
-
 	jww.SetStdoutThreshold(jww.LevelFatal)
 	log.SetPrefix("[INFO] ")
-	l.Version = Version
 	l.AddLoggerSource("main.log", log.SetOutput)
 	l.AddLoggerSource("setup.log", jww.SetLogOutput)
 }
@@ -48,6 +41,6 @@ func main() {
 
 	}()
 
-	cmd.Execute(AppName, Version)
+	cmd.Execute(AppName)
 
 }

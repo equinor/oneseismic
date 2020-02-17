@@ -33,12 +33,6 @@ def test_version_no_auth():
     assert r.status_code == 401
 
 
-def test_version():
-    r = requests.get(sc_uri, headers=auth_header)
-    assert r.status_code == 200
-    assert r.content.startswith(b"Seismic Cloud API ")
-
-
 def test_surface_list():
     r = requests.get(sc_uri+"/surface", headers=auth_header)
     assert r.status_code == 200

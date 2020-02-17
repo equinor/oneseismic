@@ -69,10 +69,6 @@ func SetDefault(key string, val interface{}) {
 	viper.SetDefault(key, val)
 }
 
-func Version() string {
-	return fmt.Sprintf("Seismic Cloud API %s", version)
-}
-
 func AuthServer() (*url.URL, error) {
 	s := viper.GetString("AUTHSERVER")
 	if len(s) == 0 {
