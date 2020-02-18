@@ -24,15 +24,10 @@ import (
 )
 
 type HTTPServer struct {
-	service     APIService
-	app         *iris.Application
-	version     string
-	hostAddr    string
-	domains     string
-	domainmail  string
-	privKeyFile string
-	certFile    string
-	profile     bool
+	service  APIService
+	app      *iris.Application
+	hostAddr string
+	profile  bool
 }
 
 type APIService struct {
@@ -159,7 +154,7 @@ func (hs *HTTPServer) registerEndpoints() {
 	hs.app.Get("/surface/{surfaceID:string idString() else 502}", sc.Download)
 	hs.app.Get("/surface", sc.List)
 	hs.app.Get("/", func(ctx iris.Context) {
-		_, err := ctx.HTML(hs.version)
+		_, err := ctx.HTML("")
 		if err != nil {
 			ctx.StatusCode(500)
 		}
@@ -244,14 +239,6 @@ func WithHostAddr(hostAddr string) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.hostAddr = hostAddr
-		return
-	})
-}
-
-func WithAPIVersion(version string) HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-		hs.version = version
 		return
 	})
 }
