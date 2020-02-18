@@ -49,7 +49,6 @@ func SetDefaults() {
 	viper.SetDefault("STITCH_GRPC_ADDR", "")
 	viper.SetDefault("RESOURCE_ID", "")
 	viper.SetDefault("PROFILING", false)
-	viper.SetDefault("SWAGGER", false)
 	viper.SetDefault("MANIFEST_PATH", "tmp/")
 	viper.SetDefault("MANIFEST_DB_URI", "mongodb://")
 	viper.SetDefault("AZURE_STORAGE_ACCOUNT", "")
@@ -126,10 +125,6 @@ func Issuer() string {
 
 func Profiling() bool {
 	return viper.GetBool("PROFILING")
-}
-
-func Swagger() bool {
-	return viper.GetBool("SWAGGER")
 }
 
 func ManifestStoragePath() string {

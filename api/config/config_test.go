@@ -23,7 +23,6 @@ func TestConfig(t *testing.T) {
 		{"StitchGrpcAddr", "STITCH_GRPC_ADDR", StitchGrpcAddr, "test", "", "test"},
 		{"ResourceID", "RESOURCE_ID", ResourceID, "test", "", "test"},
 		{"Profiling", "PROFILING", Profiling, true, false, true},
-		{"Swagger", "SWAGGER", Swagger, true, false, true},
 		{"ManifestStoragePath", "MANIFEST_PATH", ManifestStoragePath, "test", "", "test"},
 		{"ManifestURI", "MANIFEST_DB_URI", ManifestDbURI, "mongodb://", "", "mongodb://"},
 		{"AzStorageAccount", "AZURE_STORAGE_ACCOUNT", AzStorageAccount, "test", "", "test"},

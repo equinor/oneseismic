@@ -123,12 +123,6 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 			server.WithProfiling())
 	}
 
-	if config.Swagger() {
-		opts = append(
-			opts,
-			server.WithSwagger())
-	}
-
 	return opts, nil
 }
 

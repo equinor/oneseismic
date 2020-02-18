@@ -33,7 +33,6 @@ type HTTPServer struct {
 	privKeyFile string
 	certFile    string
 	profile     bool
-	addSwagger  bool
 }
 
 type APIService struct {
@@ -186,13 +185,11 @@ func (hs *HTTPServer) Serve() error {
 	hs.registerMacros()
 	hs.registerEndpoints()
 
-	if hs.addSwagger {
-		config := &swagger.Config{
-			URL: fmt.Sprintf("http://%s/swagger/doc.json", hs.hostAddr), //The url pointing to API definition
-		}
-		// use swagger middleware to
-		hs.app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
+	config := &swagger.Config{
+		URL: fmt.Sprintf("http://%s/swagger/doc.json", hs.hostAddr), //The url pointing to API definition
 	}
+	// use swagger middleware to
+	hs.app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
 
 	if hs.profile {
 		// Activate Prometheus middleware if profiling is on
@@ -272,15 +269,6 @@ func WithProfiling() HTTPServerOption {
 			m.ServeHTTP(ctx)
 
 		})
-		return
-	})
-}
-
-func WithSwagger() HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-
-		hs.addSwagger = true
 		return
 	})
 }
