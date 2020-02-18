@@ -26,3 +26,13 @@ services:
       - NO_AUTH=true
       - MANIFEST_PATH=/tmp/manifest
       - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces
+
+  swagger:
+    image: lambdaville.azurecr.io/api:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: api/Dockerfile-swagger
+    ports:
+      - '9000:9000'
+    environment:
+      - HOST_ADDR=0.0.0.0:9000
