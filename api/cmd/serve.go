@@ -11,15 +11,7 @@ import (
 	"github.com/equinor/seismic-cloud/api/server"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/pkg/profile"
-	"github.com/spf13/cobra"
 )
-
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "serve seismic cloud provider",
-	Long:  `serve seismic cloud provider.`,
-	Run:   runServe,
-}
 
 func stitchConfig() interface{} {
 	sGRPC := config.StitchGrpcAddr()
@@ -141,8 +133,8 @@ func serve(opts []server.HTTPServerOption) error {
 	return nil
 }
 
-func runServe(cmd *cobra.Command, args []string) {
-
+func Serve() {
+	config.Init("")
 	var p *profile.Profile
 	if config.Profiling() {
 		l.LogI("Enabling profiling")
@@ -185,8 +177,4 @@ func runServe(cmd *cobra.Command, args []string) {
 		l.LogE("Error starting http server", err)
 	}
 
-}
-
-func init() {
-	rootCmd.AddCommand(serveCmd)
 }
