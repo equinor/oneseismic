@@ -21,23 +21,6 @@ func stitchConfig(c config) interface{} {
 	return nil
 }
 
-func manifestStoreConfig(c config) interface{} {
-	if len(c.azureBlobSettings.AccountName) > 0 && len(c.azureBlobSettings.AccountKey) > 0 {
-		c.azureBlobSettings.ContainerName = c.azManifestContainerName
-		return c.azureBlobSettings
-	}
-
-	if len(c.manifestDbURI) > len("mongodb://") {
-		return store.ConnStr(c.manifestDbURI)
-	}
-
-	if len(c.manifestStoragePath) > 0 {
-		return store.BasePath(c.manifestStoragePath)
-	}
-
-	return nil
-}
-
 func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
@@ -51,7 +34,7 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 			}))
 	}
 
-	ms, err := store.NewManifestStore(manifestStoreConfig(c))
+	ms, err := store.NewManifestStore(c.azureBlobSettings)
 	if err != nil {
 		return nil, events.E("Accessing manifest store", err)
 	}

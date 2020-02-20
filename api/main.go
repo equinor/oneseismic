@@ -29,8 +29,6 @@ func getEnvs() map[string]string {
 		"HOST_ADDR",
 		"ISSUER",
 		"LOGDB_CONNSTR",
-		"MANIFEST_DB_URI",
-		"MANIFEST_PATH",
 		"NO_AUTH",
 		"PROFILING",
 		"RESOURCE_ID",
