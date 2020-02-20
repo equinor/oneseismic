@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Init(cfgFile string) error {
+func initConfig(cfgFile string) error {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
@@ -22,7 +22,7 @@ func Init(cfgFile string) error {
 		viper.AddConfigPath(wd)
 		viper.SetConfigName(".sc-api")
 	}
-	SetDefaults()
+	setDefaults()
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok && cfgFile == "" {
@@ -34,7 +34,7 @@ func Init(cfgFile string) error {
 	return nil
 }
 
-func SetDefaults() {
+func setDefaults() {
 	if viper.ConfigFileUsed() == "" {
 		l.LogI("Config from environment variables")
 	} else {
@@ -60,15 +60,15 @@ func SetDefaults() {
 	viper.SetDefault("LOGDB_CONNSTR", "")
 }
 
-func Reset() {
+func reset() {
 	viper.Reset()
 }
 
-func SetDefault(key string, val interface{}) {
+func setDefault(key string, val interface{}) {
 	viper.SetDefault(key, val)
 }
 
-func AuthServer() (*url.URL, error) {
+func authServer() (*url.URL, error) {
 	s := viper.GetString("AUTHSERVER")
 	if len(s) == 0 {
 		return nil, fmt.Errorf("Url value empty")
@@ -80,65 +80,65 @@ func AuthServer() (*url.URL, error) {
 	return u, nil
 }
 
-func UseAuth() bool {
+func useAuth() bool {
 	return !viper.GetBool("NO_AUTH")
 }
 
-func HostAddr() string {
+func hostAddr() string {
 	return viper.GetString("HOST_ADDR")
 }
 
-func StitchGrpcAddr() string {
+func stitchGrpcAddr() string {
 	return viper.GetString("STITCH_GRPC_ADDR")
 }
 
-func AzStorageAccount() string {
+func azStorageAccount() string {
 	return viper.GetString("AZURE_STORAGE_ACCOUNT")
 }
 
-func AzStorageKey() string {
+func azStorageKey() string {
 	return viper.GetString("AZURE_STORAGE_ACCESS_KEY")
 }
 
-func AzStorageURL() string {
+func azStorageURL() string {
 	return viper.GetString("AZURE_STORAGE_URL")
 }
 
-func AzSurfaceContainerName() string {
+func azSurfaceContainerName() string {
 	return viper.GetString("AZURE_SURFACE_CONTAINER")
 }
 
-func AzManifestContainerName() string {
+func azManifestContainerName() string {
 	return viper.GetString("AZURE_MANIFEST_CONTAINER")
 }
 
-func LocalSurfacePath() string {
+func localSurfacePath() string {
 	return viper.GetString("LOCAL_SURFACE_PATH")
 }
 
-func ResourceID() string {
+func resourceID() string {
 	return viper.GetString("RESOURCE_ID")
 }
-func Issuer() string {
+func issuer() string {
 	return viper.GetString("ISSUER")
 }
 
-func Profiling() bool {
+func profiling() bool {
 	return viper.GetBool("PROFILING")
 }
 
-func ManifestStoragePath() string {
+func manifestStoragePath() string {
 	return viper.GetString("MANIFEST_PATH")
 }
-func ManifestDbURI() string {
+func manifestDbURI() string {
 	return viper.GetString("MANIFEST_DB_URI")
 }
 
-func LogDBConnStr() string {
+func logDBConnStr() string {
 	return viper.GetString("LOGDB_CONNSTR")
 }
 
-func ApiSecret() string {
+func apiSecret() string {
 	sec := viper.GetString("API_SECRET")
 
 	if len(sec) < 8 {

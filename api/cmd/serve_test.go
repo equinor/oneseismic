@@ -12,7 +12,7 @@ func Test_HTTPServerOptionsNeedsConfig(t *testing.T) {
 }
 
 func Test_createHTTPServerOptionsDefaults(t *testing.T) {
-	SetDefaults()
+	setDefaults()
 	_, err := createHTTPServerOptions()
 	assert.Error(t, err)
 }
