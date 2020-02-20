@@ -9,8 +9,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
-var AppName = "sc-api"
-
 func init() {
 	jww.SetStdoutThreshold(jww.LevelFatal)
 	log.SetPrefix("[INFO] ")
@@ -40,7 +38,6 @@ func main() {
 		l.Wait()
 
 	}()
-
-	cmd.Execute(AppName)
+	cmd.Serve()
 
 }
