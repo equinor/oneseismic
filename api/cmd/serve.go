@@ -7,14 +7,13 @@ import (
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service"
 
-	"github.com/equinor/seismic-cloud/api/config"
 	"github.com/equinor/seismic-cloud/api/server"
 	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/pkg/profile"
 )
 
 func stitchConfig() interface{} {
-	sGRPC := config.StitchGrpcAddr()
+	sGRPC := StitchGrpcAddr()
 	if len(sGRPC) > 0 {
 		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
 	}
@@ -22,17 +21,17 @@ func stitchConfig() interface{} {
 }
 
 func surfaceStoreConfig() interface{} {
-	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
+	if len(AzStorageAccount()) > 0 && len(AzStorageKey()) > 0 {
 		return store.AzureBlobSettings{
-			StorageURL:    config.AzStorageURL(),
-			AccountName:   config.AzStorageAccount(),
-			AccountKey:    config.AzStorageKey(),
-			ContainerName: config.AzSurfaceContainerName(),
+			StorageURL:    AzStorageURL(),
+			AccountName:   AzStorageAccount(),
+			AccountKey:    AzStorageKey(),
+			ContainerName: AzSurfaceContainerName(),
 		}
 	}
 
-	if len(config.LocalSurfacePath()) > 0 {
-		return store.BasePath(config.LocalSurfacePath())
+	if len(LocalSurfacePath()) > 0 {
+		return store.BasePath(LocalSurfacePath())
 	}
 
 	return make(map[string][]byte)
@@ -41,21 +40,21 @@ func surfaceStoreConfig() interface{} {
 
 func manifestStoreConfig() interface{} {
 
-	if len(config.AzStorageAccount()) > 0 && len(config.AzStorageKey()) > 0 {
+	if len(AzStorageAccount()) > 0 && len(AzStorageKey()) > 0 {
 		return store.AzureBlobSettings{
-			StorageURL:    config.AzStorageURL(),
-			AccountName:   config.AzStorageAccount(),
-			AccountKey:    config.AzStorageKey(),
-			ContainerName: config.AzManifestContainerName(),
+			StorageURL:    AzStorageURL(),
+			AccountName:   AzStorageAccount(),
+			AccountKey:    AzStorageKey(),
+			ContainerName: AzManifestContainerName(),
 		}
 	}
 
-	if len(config.ManifestDbURI()) > len("mongodb://") {
-		return store.ConnStr(config.ManifestDbURI())
+	if len(ManifestDbURI()) > len("mongodb://") {
+		return store.ConnStr(ManifestDbURI())
 	}
 
-	if len(config.ManifestStoragePath()) > 0 {
-		return store.BasePath(config.ManifestStoragePath())
+	if len(ManifestStoragePath()) > 0 {
+		return store.BasePath(ManifestStoragePath())
 	}
 
 	return nil
@@ -65,17 +64,17 @@ func manifestStoreConfig() interface{} {
 func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
-	if config.UseAuth() {
-		authServer, err := config.AuthServer()
+	if UseAuth() {
+		authServer, err := AuthServer()
 		if err != nil {
 			return nil, events.E("AuthServer config", err)
 		}
 		opts = append(opts,
 			server.WithOAuth2(server.OAuth2Option{
 				AuthServer: authServer,
-				Audience:   config.ResourceID(),
-				Issuer:     config.Issuer(),
-				ApiSecret:  []byte(config.ApiSecret()),
+				Audience:   ResourceID(),
+				Issuer:     Issuer(),
+				ApiSecret:  []byte(ApiSecret()),
 			}))
 	}
 
@@ -103,13 +102,13 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 		opts,
 		server.WithStitcher(st))
 
-	if len(config.HostAddr()) > 0 {
+	if len(HostAddr()) > 0 {
 		opts = append(
 			opts,
-			server.WithHostAddr(config.HostAddr()))
+			server.WithHostAddr(HostAddr()))
 	}
 
-	if config.Profiling() {
+	if Profiling() {
 		opts = append(
 			opts,
 			server.WithProfiling())
@@ -134,9 +133,9 @@ func serve(opts []server.HTTPServerOption) error {
 }
 
 func Serve() {
-	config.Init("")
+	Init("")
 	var p *profile.Profile
-	if config.Profiling() {
+	if Profiling() {
 		l.LogI("Enabling profiling")
 		pType := "mem"
 		pOpts := []func(*profile.Profile){
@@ -155,10 +154,10 @@ func Serve() {
 		p = profile.Start(pOpts...).(*profile.Profile)
 		defer p.Stop()
 	}
-	if len(config.LogDBConnStr()) > 0 {
+	if len(LogDBConnStr()) > 0 {
 		l.LogI("Switch log sink from os.Stdout to psqlDB")
 
-		err := l.SetLogSink(l.ConnString(config.LogDBConnStr()), events.DebugLevel)
+		err := l.SetLogSink(l.ConnString(LogDBConnStr()), events.DebugLevel)
 		if err != nil {
 			l.LogE("Switching log sink", err)
 			return
