@@ -52,7 +52,6 @@ func (ms *MockManifestStore) Upload(ctx context.Context, id string, man store.Ma
 }
 
 type ServiceSetup struct {
-	SurfaceStore  store.SurfaceStore
 	ManifestStore store.ManifestStore
 	Stitch        *MockStitch
 	Ctx           irisCtx.Context
@@ -64,14 +63,13 @@ func NewTestServiceSetup() *ServiceSetup {
 	ctx := irisCtx.NewContext(iris.Default())
 	ms := &MockManifestStore{}
 	recorder := httptest.NewRecorder()
-	ss, _ := store.NewSurfaceStore(map[string][]byte{})
 
 	mani := GenerateManifest("exists")
 	ms.On("Download", mock.Anything, "exists").Return(mani, nil)
 	ms.On("Download", mock.Anything, "not-exists").Return(nil, fmt.Errorf("Not exist"))
 	stitch.On("Stitch", mock.Anything, service.StitchParams{Dim: 0, CubeManifest: mani}).Return()
 
-	return &ServiceSetup{ss, ms, stitch, ctx, recorder}
+	return &ServiceSetup{ms, stitch, ctx, recorder}
 }
 
 func (ts *ServiceSetup) Result() *http.Response {

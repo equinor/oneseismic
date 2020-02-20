@@ -32,7 +32,6 @@ type HTTPServer struct {
 
 type APIService struct {
 	manifestStore store.ManifestStore
-	surfaceStore  store.SurfaceStore
 	stitcher      service.Stitcher
 }
 
@@ -66,10 +65,6 @@ func NewHTTPServer(opts ...HTTPServerOption) (hs *HTTPServer, err error) {
 
 	if hs.service.stitcher == nil {
 		return nil, fmt.Errorf("Server cannot start, stitch command is empty")
-	}
-
-	if hs.service.surfaceStore == nil {
-		return nil, fmt.Errorf("Server cannot start, no surface store set")
 	}
 
 	return hs, nil
@@ -147,12 +142,6 @@ func (hs *HTTPServer) registerMacros() {
 }
 
 func (hs *HTTPServer) registerEndpoints() {
-
-	sc := controller.NewSurfaceController(hs.service.surfaceStore)
-
-	hs.app.Post("/surface/{surfaceID:string idString() else 502}", sc.Upload)
-	hs.app.Get("/surface/{surfaceID:string idString() else 502}", sc.Download)
-	hs.app.Get("/surface", sc.List)
 	hs.app.Get("/", func(ctx iris.Context) {
 		_, err := ctx.HTML("")
 		if err != nil {
@@ -223,14 +212,6 @@ func WithManifestStore(manifestStore store.ManifestStore) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.service.manifestStore = manifestStore
-		return
-	})
-}
-
-func WithSurfaceStore(surfaceStore store.SurfaceStore) HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-		hs.service.surfaceStore = surfaceStore
 		return
 	})
 }

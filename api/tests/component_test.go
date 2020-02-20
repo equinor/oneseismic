@@ -33,7 +33,6 @@ func TestMain(m *testing.M) {
 
 	opts := []server.HTTPServerOption{
 		server.WithManifestStore(ts.ManifestStore),
-		server.WithSurfaceStore(ts.SurfaceStore),
 		server.WithStitcher(ts.Stitch),
 		server.WithHostAddr(apiurl)}
 	s, err := server.NewHTTPServer(opts...)
