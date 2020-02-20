@@ -12,73 +12,60 @@ import (
 	"github.com/pkg/profile"
 )
 
-func stitchConfig() interface{} {
-	sGRPC := stitchGrpcAddr()
+func stitchConfig(c config) interface{} {
+	sGRPC := c.stitchGrpcAddr
 	if len(sGRPC) > 0 {
 		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
 	}
 	return nil
 }
 
-func surfaceStoreConfig() interface{} {
-	if len(azStorageAccount()) > 0 && len(azStorageKey()) > 0 {
-		return store.AzureBlobSettings{
-			StorageURL:    azStorageURL(),
-			AccountName:   azStorageAccount(),
-			AccountKey:    azStorageKey(),
-			ContainerName: azSurfaceContainerName(),
-		}
+func surfaceStoreConfig(c config) interface{} {
+	if len(c.azureBlobSettings.AccountName) > 0 && len(c.azureBlobSettings.AccountKey) > 0 {
+		return c.azureBlobSettings
 	}
 
-	if len(localSurfacePath()) > 0 {
-		return store.BasePath(localSurfacePath())
+	if len(c.localSurfacePath) > 0 {
+		return store.BasePath(c.localSurfacePath)
 	}
 
 	return make(map[string][]byte)
 
 }
 
-func manifestStoreConfig() interface{} {
+func manifestStoreConfig(c config) interface{} {
 
-	if len(azStorageAccount()) > 0 && len(azStorageKey()) > 0 {
-		return store.AzureBlobSettings{
-			StorageURL:    azStorageURL(),
-			AccountName:   azStorageAccount(),
-			AccountKey:    azStorageKey(),
-			ContainerName: azManifestContainerName(),
-		}
+	if len(c.azureBlobSettings.AccountName) > 0 && len(c.azureBlobSettings.AccountKey) > 0 {
+		c.azureBlobSettings.ContainerName = c.azManifestContainerName
+		return c.azureBlobSettings
 	}
 
-	if len(manifestDbURI()) > len("mongodb://") {
-		return store.ConnStr(manifestDbURI())
+	if len(c.manifestDbURI) > len("mongodb://") {
+		return store.ConnStr(c.manifestDbURI)
 	}
 
-	if len(manifestStoragePath()) > 0 {
-		return store.BasePath(manifestStoragePath())
+	if len(c.manifestStoragePath) > 0 {
+		return store.BasePath(c.manifestStoragePath)
 	}
 
 	return nil
 
 }
 
-func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
+func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
-	if useAuth() {
-		authServer, err := authServer()
-		if err != nil {
-			return nil, events.E("authServer config", err)
-		}
+	if !c.noAuth {
 		opts = append(opts,
 			server.WithOAuth2(server.OAuth2Option{
-				AuthServer: authServer,
-				Audience:   resourceID(),
-				Issuer:     issuer(),
-				ApiSecret:  []byte(apiSecret()),
+				AuthServer: &c.authServer,
+				Audience:   c.resourceID,
+				Issuer:     c.issuer,
+				ApiSecret:  []byte(c.apiSecret),
 			}))
 	}
 
-	ms, err := store.NewManifestStore(manifestStoreConfig())
+	ms, err := store.NewManifestStore(manifestStoreConfig(c))
 	if err != nil {
 		return nil, events.E("Accessing manifest store", err)
 	}
@@ -86,7 +73,7 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 		opts,
 		server.WithManifestStore(ms))
 
-	ssC, err := store.NewSurfaceStore(surfaceStoreConfig())
+	ssC, err := store.NewSurfaceStore(surfaceStoreConfig(c))
 	if err != nil {
 		return nil, events.E("Accessing surface store", err)
 	}
@@ -94,7 +81,7 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 		opts,
 		server.WithSurfaceStore(ssC))
 
-	st, err := service.NewStitch(stitchConfig())
+	st, err := service.NewStitch(stitchConfig(c))
 	if err != nil {
 		return nil, events.E("Stitch error", err)
 	}
@@ -102,13 +89,13 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 		opts,
 		server.WithStitcher(st))
 
-	if len(hostAddr()) > 0 {
+	if len(c.hostAddr) > 0 {
 		opts = append(
 			opts,
-			server.WithHostAddr(hostAddr()))
+			server.WithHostAddr(c.hostAddr))
 	}
 
-	if profiling() {
+	if c.profiling {
 		opts = append(
 			opts,
 			server.WithProfiling())
@@ -132,10 +119,13 @@ func serve(opts []server.HTTPServerOption) error {
 	return nil
 }
 
-func Serve() {
-	initConfig("")
+func Serve(m map[string]string) error {
+	c, err := parseConfig(m)
+	if err != nil {
+		return err
+	}
 	var p *profile.Profile
-	if profiling() {
+	if c.profiling {
 		l.LogI("Enabling profiling")
 		pType := "mem"
 		pOpts := []func(*profile.Profile){
@@ -154,26 +144,28 @@ func Serve() {
 		p = profile.Start(pOpts...).(*profile.Profile)
 		defer p.Stop()
 	}
-	if len(logDBConnStr()) > 0 {
+	if len(c.logDBConnStr) > 0 {
 		l.LogI("Switch log sink from os.Stdout to psqlDB")
 
-		err := l.SetLogSink(l.ConnString(logDBConnStr()), events.DebugLevel)
+		err := l.SetLogSink(l.ConnString(c.logDBConnStr), events.DebugLevel)
 		if err != nil {
 			l.LogE("Switching log sink", err)
-			return
+			return err
 		}
 
 	}
 
-	opts, err := createHTTPServerOptions()
+	opts, err := createHTTPServerOptions(*c)
 	if err != nil {
 		l.LogE("Creating http server options", err)
-		return
+		return err
 	}
 	l.LogI("Starting server")
 	err = serve(opts)
 	if err != nil {
 		l.LogE("Error starting http server", err)
+		return err
 	}
+	return nil
 
 }
