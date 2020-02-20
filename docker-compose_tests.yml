@@ -23,6 +23,7 @@ services:
       - corestub
       - auth
     environment:
+      - API_SECRET="12345678"
       - HTTP_ONLY=true
       - HOST_ADDR=0.0.0.0:8080
       - STITCH_GRPC_ADDR=corestub:10000

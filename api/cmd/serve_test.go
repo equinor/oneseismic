@@ -6,13 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_HTTPServerOptionsNeedsConfig(t *testing.T) {
-	_, err := createHTTPServerOptions()
-	assert.Error(t, err)
-}
-
-func Test_createHTTPServerOptionsDefaults(t *testing.T) {
-	setDefaults()
-	_, err := createHTTPServerOptions()
+func TestServeDefaultError(t *testing.T) {
+	m := make(map[string]string)
+	err := Serve(m)
 	assert.Error(t, err)
 }

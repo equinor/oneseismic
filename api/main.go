@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/equinor/seismic-cloud/api/cmd"
 	l "github.com/equinor/seismic-cloud/api/logger"
@@ -14,6 +15,32 @@ func init() {
 	log.SetPrefix("[INFO] ")
 	l.AddLoggerSource("main.log", log.SetOutput)
 	l.AddLoggerSource("setup.log", jww.SetLogOutput)
+}
+
+func getEnvs() map[string]string {
+	m := make(map[string]string)
+
+	envs := [...]string{
+		"API_SECRET",
+		"AUTHSERVER",
+		"AZURE_MANIFEST_CONTAINER",
+		"HOST_ADDR",
+		"ISSUER",
+		"LOCAL_SURFACE_PATH",
+		"LOGDB_CONNSTR",
+		"MANIFEST_DB_URI",
+		"MANIFEST_PATH",
+		"NO_AUTH",
+		"PROFILING",
+		"RESOURCE_ID",
+		"STITCH_GRPC_ADDR",
+	}
+
+	for _, env := range envs {
+		m[env] = os.Getenv(env)
+	}
+
+	return m
 }
 
 //@title Seismic Cloud Api
@@ -38,6 +65,10 @@ func main() {
 		l.Wait()
 
 	}()
-	cmd.Serve()
+	err := cmd.Serve(getEnvs())
+	if err != nil {
+		l.LogE("Failed to start server", err)
+		os.Exit(1)
+	}
 
 }

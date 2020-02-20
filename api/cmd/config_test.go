@@ -1,27 +1,55 @@
 package cmd
 
 import (
-	"net/url"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNoAuth(t *testing.T) {
-	reset()
-	assert.Equal(t, true, useAuth())
-	setDefault("NO_AUTH", true)
-	assert.Equal(t, false, useAuth())
+func TestDefaultConfigError(t *testing.T) {
+	m := make(map[string]string)
+	_, err := parseConfig(m)
+	assert.Error(t, err)
+	var e *errInvalidConfig
+	assert.True(t, errors.As(err, &e))
 }
 
-func TestAuthServer(t *testing.T) {
-	reset()
-	_, err := authServer()
-	assert.Error(t, err)
+func TestConfigMinimum(t *testing.T) {
+	m := make(map[string]string)
 
-	anURL := &url.URL{Scheme: "http", Host: "some.host"}
-	setDefault("AUTHSERVER", anURL)
-	u, err := authServer()
-	assert.NoError(t, err)
-	assert.Equal(t, anURL, u)
+	m["AUTHSERVER"] = "http://some.host"
+	m["API_SECRET"] = "123456789"
+
+	conf, err := parseConfig(m)
+	assert.Nil(t, err)
+	assert.Equal(t, conf.noAuth, false)
+	assert.Equal(t, conf.profiling, false)
+	assert.Equal(t, conf.authServer.String(), m["AUTHSERVER"])
+	assert.Equal(t, conf.apiSecret, m["API_SECRET"])
+
+}
+
+func TestConfigAPI_SECRET(t *testing.T) {
+	m := make(map[string]string)
+
+	m["AUTHSERVER"] = "http://some.host"
+
+	_, err := parseConfig(m)
+	var e *errInvalidConfig
+	assert.True(t, errors.As(err, &e))
+	assert.Contains(t, err.Error(), "API_SECRET")
+
+}
+
+func TestConfigAUTHSERVER(t *testing.T) {
+	m := make(map[string]string)
+
+	m["API_SECRET"] = "123456789"
+
+	_, err := parseConfig(m)
+	var e *errInvalidConfig
+	assert.True(t, errors.As(err, &e))
+	assert.Contains(t, err.Error(), "AUTHSERVER")
+
 }
