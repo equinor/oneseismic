@@ -7,10 +7,12 @@ import (
 
 	"github.com/equinor/seismic-cloud/api/cmd"
 	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/joho/godotenv"
 	jww "github.com/spf13/jwalterweatherman"
 )
 
 func init() {
+	godotenv.Load() // nolint, silently ignore missing or invalid .env
 	jww.SetStdoutThreshold(jww.LevelFatal)
 	log.SetPrefix("[INFO] ")
 	l.AddLoggerSource("main.log", log.SetOutput)
