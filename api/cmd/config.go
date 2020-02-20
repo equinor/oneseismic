@@ -37,6 +37,7 @@ func orDefaultBool(val string, def bool) bool {
 	if val, err := strconv.ParseBool(val); err == nil {
 		return val
 	}
+
 	return def
 }
 
@@ -50,7 +51,6 @@ func azb(m map[string]string) store.AzureBlobSettings {
 }
 
 func parseConfig(m map[string]string) (*config, error) {
-
 	authServer, err := url.ParseRequestURI(m["AUTHSERVER"])
 	if err != nil {
 		return nil, &errInvalidConfig{Name: "Invalid AUTHSERVER", Err: err}
@@ -77,13 +77,14 @@ func parseConfig(m map[string]string) (*config, error) {
 		resourceID:              m["RESOURCE_ID"],
 		stitchGrpcAddr:          m["STITCH_GRPC_ADDR"],
 	}
+
 	return conf, nil
 }
 
 func verifyAPISecret(sec string) (*string, error) {
-
 	if len(sec) < 8 {
 		return nil, &errInvalidConfig{"Invalid API_SECRET", fmt.Errorf("len(%s) == %d < 8", sec, len(sec))}
 	}
+
 	return &sec, nil
 }
