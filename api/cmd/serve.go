@@ -21,18 +21,6 @@ func stitchConfig(c config) interface{} {
 	return nil
 }
 
-func surfaceStoreConfig(c config) interface{} {
-	if len(c.azureBlobSettings.AccountName) > 0 && len(c.azureBlobSettings.AccountKey) > 0 {
-		return c.azureBlobSettings
-	}
-
-	if len(c.localSurfacePath) > 0 {
-		return store.BasePath(c.localSurfacePath)
-	}
-
-	return make(map[string][]byte)
-}
-
 func manifestStoreConfig(c config) interface{} {
 	if len(c.azureBlobSettings.AccountName) > 0 && len(c.azureBlobSettings.AccountKey) > 0 {
 		c.azureBlobSettings.ContainerName = c.azManifestContainerName
@@ -69,13 +57,6 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	}
 
 	opts = append(opts, server.WithManifestStore(ms))
-
-	ssC, err := store.NewSurfaceStore(surfaceStoreConfig(c))
-	if err != nil {
-		return nil, events.E("Accessing surface store", err)
-	}
-
-	opts = append(opts, server.WithSurfaceStore(ssC))
 
 	st, err := service.NewStitch(stitchConfig(c))
 	if err != nil {

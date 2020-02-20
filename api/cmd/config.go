@@ -26,7 +26,6 @@ type config struct {
 	azureBlobSettings       store.AzureBlobSettings
 	azManifestContainerName string
 	resourceID              string
-	localSurfacePath        string
 	manifestStoragePath     string
 	manifestDbURI           string
 	logDBConnStr            string
@@ -46,7 +45,7 @@ func azb(m map[string]string) store.AzureBlobSettings {
 		StorageURL:    m["AZURE_STORAGE_URL"],
 		AccountName:   m["AZURE_STORAGE_ACCOUNT"],
 		AccountKey:    m["AZURE_STORAGE_ACCESS_KEY"],
-		ContainerName: m["AZURE_SURFACE_CONTAINER"],
+		ContainerName: m["AZURE_MANIFEST_CONTAINER"],
 	}
 }
 
@@ -68,7 +67,6 @@ func parseConfig(m map[string]string) (*config, error) {
 		azureBlobSettings:       azb(m),
 		hostAddr:                m["HOST_ADDR"],
 		issuer:                  m["ISSUER"],
-		localSurfacePath:        m["LOCAL_SURFACE_PATH"],
 		logDBConnStr:            m["LOGDB_CONNSTR"],
 		manifestDbURI:           m["MANIFEST_DB_URI"],
 		manifestStoragePath:     m["MANIFEST_PATH"],
