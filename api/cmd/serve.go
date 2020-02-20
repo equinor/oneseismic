@@ -13,7 +13,7 @@ import (
 )
 
 func stitchConfig() interface{} {
-	sGRPC := StitchGrpcAddr()
+	sGRPC := stitchGrpcAddr()
 	if len(sGRPC) > 0 {
 		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
 	}
@@ -21,17 +21,17 @@ func stitchConfig() interface{} {
 }
 
 func surfaceStoreConfig() interface{} {
-	if len(AzStorageAccount()) > 0 && len(AzStorageKey()) > 0 {
+	if len(azStorageAccount()) > 0 && len(azStorageKey()) > 0 {
 		return store.AzureBlobSettings{
-			StorageURL:    AzStorageURL(),
-			AccountName:   AzStorageAccount(),
-			AccountKey:    AzStorageKey(),
-			ContainerName: AzSurfaceContainerName(),
+			StorageURL:    azStorageURL(),
+			AccountName:   azStorageAccount(),
+			AccountKey:    azStorageKey(),
+			ContainerName: azSurfaceContainerName(),
 		}
 	}
 
-	if len(LocalSurfacePath()) > 0 {
-		return store.BasePath(LocalSurfacePath())
+	if len(localSurfacePath()) > 0 {
+		return store.BasePath(localSurfacePath())
 	}
 
 	return make(map[string][]byte)
@@ -40,21 +40,21 @@ func surfaceStoreConfig() interface{} {
 
 func manifestStoreConfig() interface{} {
 
-	if len(AzStorageAccount()) > 0 && len(AzStorageKey()) > 0 {
+	if len(azStorageAccount()) > 0 && len(azStorageKey()) > 0 {
 		return store.AzureBlobSettings{
-			StorageURL:    AzStorageURL(),
-			AccountName:   AzStorageAccount(),
-			AccountKey:    AzStorageKey(),
-			ContainerName: AzManifestContainerName(),
+			StorageURL:    azStorageURL(),
+			AccountName:   azStorageAccount(),
+			AccountKey:    azStorageKey(),
+			ContainerName: azManifestContainerName(),
 		}
 	}
 
-	if len(ManifestDbURI()) > len("mongodb://") {
-		return store.ConnStr(ManifestDbURI())
+	if len(manifestDbURI()) > len("mongodb://") {
+		return store.ConnStr(manifestDbURI())
 	}
 
-	if len(ManifestStoragePath()) > 0 {
-		return store.BasePath(ManifestStoragePath())
+	if len(manifestStoragePath()) > 0 {
+		return store.BasePath(manifestStoragePath())
 	}
 
 	return nil
@@ -64,17 +64,17 @@ func manifestStoreConfig() interface{} {
 func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
-	if UseAuth() {
-		authServer, err := AuthServer()
+	if useAuth() {
+		authServer, err := authServer()
 		if err != nil {
-			return nil, events.E("AuthServer config", err)
+			return nil, events.E("authServer config", err)
 		}
 		opts = append(opts,
 			server.WithOAuth2(server.OAuth2Option{
 				AuthServer: authServer,
-				Audience:   ResourceID(),
-				Issuer:     Issuer(),
-				ApiSecret:  []byte(ApiSecret()),
+				Audience:   resourceID(),
+				Issuer:     issuer(),
+				ApiSecret:  []byte(apiSecret()),
 			}))
 	}
 
@@ -102,13 +102,13 @@ func createHTTPServerOptions() ([]server.HTTPServerOption, error) {
 		opts,
 		server.WithStitcher(st))
 
-	if len(HostAddr()) > 0 {
+	if len(hostAddr()) > 0 {
 		opts = append(
 			opts,
-			server.WithHostAddr(HostAddr()))
+			server.WithHostAddr(hostAddr()))
 	}
 
-	if Profiling() {
+	if profiling() {
 		opts = append(
 			opts,
 			server.WithProfiling())
@@ -133,9 +133,9 @@ func serve(opts []server.HTTPServerOption) error {
 }
 
 func Serve() {
-	Init("")
+	initConfig("")
 	var p *profile.Profile
-	if Profiling() {
+	if profiling() {
 		l.LogI("Enabling profiling")
 		pType := "mem"
 		pOpts := []func(*profile.Profile){
@@ -154,10 +154,10 @@ func Serve() {
 		p = profile.Start(pOpts...).(*profile.Profile)
 		defer p.Stop()
 	}
-	if len(LogDBConnStr()) > 0 {
+	if len(logDBConnStr()) > 0 {
 		l.LogI("Switch log sink from os.Stdout to psqlDB")
 
-		err := l.SetLogSink(l.ConnString(LogDBConnStr()), events.DebugLevel)
+		err := l.SetLogSink(l.ConnString(logDBConnStr()), events.DebugLevel)
 		if err != nil {
 			l.LogE("Switching log sink", err)
 			return
