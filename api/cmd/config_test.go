@@ -11,7 +11,9 @@ func TestDefaultConfigError(t *testing.T) {
 	m := make(map[string]string)
 	_, err := parseConfig(m)
 	assert.Error(t, err)
+
 	var e *errInvalidConfig
+
 	assert.True(t, errors.As(err, &e))
 }
 
@@ -27,7 +29,6 @@ func TestConfigMinimum(t *testing.T) {
 	assert.Equal(t, conf.profiling, false)
 	assert.Equal(t, conf.authServer.String(), m["AUTHSERVER"])
 	assert.Equal(t, conf.apiSecret, m["API_SECRET"])
-
 }
 
 func TestConfigAPI_SECRET(t *testing.T) {
@@ -36,10 +37,11 @@ func TestConfigAPI_SECRET(t *testing.T) {
 	m["AUTHSERVER"] = "http://some.host"
 
 	_, err := parseConfig(m)
+
 	var e *errInvalidConfig
+
 	assert.True(t, errors.As(err, &e))
 	assert.Contains(t, err.Error(), "API_SECRET")
-
 }
 
 func TestConfigAUTHSERVER(t *testing.T) {
@@ -48,8 +50,9 @@ func TestConfigAUTHSERVER(t *testing.T) {
 	m["API_SECRET"] = "123456789"
 
 	_, err := parseConfig(m)
+
 	var e *errInvalidConfig
+
 	assert.True(t, errors.As(err, &e))
 	assert.Contains(t, err.Error(), "AUTHSERVER")
-
 }
