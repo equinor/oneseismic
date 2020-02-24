@@ -22,6 +22,9 @@ find_package(CURL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Protobuf REQUIRED)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(microhttpd IMPORTED_TARGET libmicrohttpd)
+
 # gRPC sometimes provide cmake config files, and sometimes provides pkg-config
 # files, depending on how it was built. On debian/ubuntu, the grpc-dev package
 # only includes the pkg-config. When the cmake config does not work out, fall
@@ -99,6 +102,7 @@ add_library(seismic-cloud
     src/geometry.cpp
     src/url.cpp
     src/fetch.cpp
+    src/transfer.cpp
 )
 add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
@@ -183,6 +187,20 @@ add_executable(tests
     tests/geometry.cpp
     tests/request-generator.cpp
 )
-target_link_libraries(tests seismic-cloud catch2)
+target_link_libraries(tests
+    PRIVATE
+        catch2
+        seismic-cloud
+)
+
+if (TARGET PkgConfig::microhttpd)
+    target_sources(tests PRIVATE tests/transfer-http.cpp)
+    target_link_libraries(tests PRIVATE PkgConfig::microhttpd)
+else ()
+    message(WARNING
+        "microhttpd not found - not building transfer tests "
+        "https://www.gnu.org/software/libmicrohttpd/"
+    )
+endif()
 
 add_test(NAME test COMMAND tests)
