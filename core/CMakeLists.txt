@@ -103,6 +103,7 @@ add_library(seismic-cloud
     src/url.cpp
     src/fetch.cpp
     src/transfer.cpp
+    src/azure.cpp
 )
 add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
@@ -186,6 +187,7 @@ add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
     tests/request-generator.cpp
+    tests/azure-transfer-config.cpp
 )
 target_link_libraries(tests
     PRIVATE
