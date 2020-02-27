@@ -13,7 +13,7 @@ inline constexpr const char* x_ms_version() noexcept (true) {
     return "x-ms-version:2018-11-09";
 }
 
-class az : public one::transfer_configuration {
+class az : public one::storage_configuration {
 public:
     az(std::string acc, std::string k);
 

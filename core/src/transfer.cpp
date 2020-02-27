@@ -185,7 +185,7 @@ long response_code(CURL* e) noexcept (false) {
 
 }
 
-transfer::transfer(int max_connections, transfer_configuration& xc) :
+transfer::transfer(int max_connections, storage_configuration& xc) :
     multi(curl_multi_init()),
     config(xc) {
 
@@ -229,7 +229,7 @@ transfer::~transfer() {
 }
 
 
-void transfer::perform(batch batch) {
+void transfer::perform(batch batch, transfer_configuration& cfg) {
     /*
      * batch is copied for now, since jobs are scheduled by just popping
      * fragments to fetch from the end. In the future this might be done with
@@ -286,9 +286,9 @@ void transfer::perform(batch batch) {
             const auto http_code = response_code(e);
 
             if (http_code == 200) {
-                this->config.oncomplete(t->storage, batch, t->fragment_id);
+                cfg.oncomplete(t->storage, batch, t->fragment_id);
             } else {
-                this->config.onfailure(t->storage, batch, t->fragment_id);
+                cfg.onfailure(t->storage, batch, t->fragment_id);
             }
 
             if (not batch.fragment_ids.empty()) {
