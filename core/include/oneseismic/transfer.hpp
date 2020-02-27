@@ -32,15 +32,16 @@ using buffer = std::vector< std::uint8_t >;
 
 /*
  * Different backends (e.g. azure, local file system) need to configure
- * transfers differently - set different headers, generate different urls etc.
+ * transfers differently: set different headers, generate different urls,
+ * timeouts.
  *
  * The methods of the configuration class correspond to customization points in
  * the transfer operation.
  */
-class transfer_configuration {
+class storage_configuration {
 public:
     /*
-     * Transfer timeout, which signales when a task has failed, and a batch is
+     * Transfer timeout, which signals when a task has failed, and a batch is
      * aborted. Note the timeout is set for every transfer and not total
      * transfer time for a batch.
      *
@@ -63,6 +64,18 @@ public:
     }
 
     /*
+     * Create a url for the fragment-id
+     */
+    virtual std::string url(
+            const batch&,
+            const std::string& fragment_id) const = 0;
+
+    virtual ~storage_configuration() = default;
+};
+
+class transfer_configuration {
+public:
+    /*
      * Called on transfer complete, if the HTTP status code is 200. The
      * function is called before the handle is released. Buffer data is still
      * owned by transfer, so copy it if you need to keep it around.
@@ -84,13 +97,6 @@ public:
             const std::string& fragment_id) {
     }
 
-    /*
-     * Create a url for the fragment-id
-     */
-    virtual std::string url(
-            const batch&,
-            const std::string& fragment_id) const = 0;
-
     virtual ~transfer_configuration() = default;
 };
 
@@ -104,7 +110,7 @@ public:
      * make a copy of the transfer_configuration, so it must be kept alive for
      * the lifetime of the transfer object.
      */
-    transfer(int max_connections, transfer_configuration&);
+    transfer(int max_connections, storage_configuration&);
     ~transfer();
 
     transfer(const transfer&) = delete;
@@ -124,7 +130,7 @@ public:
      * is an expensive operation, or you want future-like semantics, this is
      * the place to do wake-up.
      */
-    void perform(batch);
+    void perform(batch, transfer_configuration&);
 
 private:
     struct slist_free {
@@ -143,7 +149,7 @@ private:
     std::vector< CURL* > idle;
     std::vector< CURL* > connections;
     std::vector< task >  tasks;
-    transfer_configuration& config;
+    storage_configuration& config;
 
     void schedule(const batch&, std::string);
 };

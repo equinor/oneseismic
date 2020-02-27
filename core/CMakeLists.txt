@@ -193,6 +193,7 @@ target_link_libraries(tests
     PRIVATE
         catch2
         seismic-cloud
+        fmt::fmt
 )
 
 if (TARGET PkgConfig::microhttpd)

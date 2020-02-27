@@ -22,7 +22,7 @@ TEST_CASE(
     "transfer rejects nonsensical max-connections",
     "[transfer]") {
 
-    struct config : one::transfer_configuration {
+    struct config : one::storage_configuration {
         std::string url(const one::batch&, const std::string&) const override {
             return "";
         }
@@ -118,24 +118,11 @@ private:
 };
 
 /*
- * Base-config for testing that generates loopback addresses. The default
- * implementations of oncomplete and onfailure is to fail the test, so little
- * extra code is needed when either is expected.
+ * Base-config for testing that generates loopback addresses. Set port to
+ * whatever mhttpd is listening to.
  */
-struct loopback_cfg : public one::transfer_configuration {
-    void oncomplete(
-            const one::buffer&,
-            const one::batch& b,
-            const std::string& id) override {
-        FAIL(fmt::format("HTTP request to {} succeeded", this->url(b, id)));
-    }
-
-    void onfailure(
-            const one::buffer&,
-            const one::batch& b,
-            const std::string& id) override {
-        FAIL(fmt::format("HTTP request to {} failed", this->url(b, id)));
-    }
+struct loopback_cfg : public one::storage_configuration {
+    explicit loopback_cfg(int port) : port(port) {}
 
     virtual std::string url(
             const one::batch&,
@@ -143,7 +130,28 @@ struct loopback_cfg : public one::transfer_configuration {
         return fmt::format("http://127.0.0.1:{}/", this->port);
     }
 
+private:
     int port = 10000;
+};
+
+/*
+ * The default implementations of oncomplete and onfailure is to fail the test,
+ * so little extra code is needed when either is expected.
+ */
+struct always_fail : public one::transfer_configuration {
+    void oncomplete(
+            const one::buffer&,
+            const one::batch& b,
+            const std::string& id) override {
+        FAIL(fmt::format("HTTP request for '{}' succeeded", id));
+    }
+
+    void onfailure(
+            const one::buffer&,
+            const one::batch& b,
+            const std::string& id) override {
+        FAIL(fmt::format("HTTP request for '{}' failed", id));
+    }
 };
 
 }
@@ -152,7 +160,7 @@ TEST_CASE(
     "Transfer calls oncomplete on HTTP 200/OK",
     "[transfer][http]") {
 
-    struct count_complete : public loopback_cfg {
+    struct count_complete : public always_fail {
         int called = 0;
 
         void oncomplete(
@@ -161,18 +169,18 @@ TEST_CASE(
                 const std::string&) override {
             this->called += 1;
         }
-    } config;
+    } action;
 
     const auto max_connections = GENERATE(1, 2, 3, 5);
     unsigned int OK = MHD_HTTP_OK;
     mhttpd httpd(empty_response, &OK);
-    config.port = httpd.port();
-    one::transfer xfer(max_connections, config);
+    loopback_cfg storage(httpd.port());
+    one::transfer xfer(max_connections, storage);
 
     one::batch batch;
     batch.fragment_ids.resize(1);
-    xfer.perform(batch);
-    CHECK(config.called == 1);
+    xfer.perform(batch, action);
+    CHECK(action.called == 1);
 }
 
 TEST_CASE(
@@ -221,7 +229,7 @@ TEST_CASE(
     };
 
     const auto max_connections = GENERATE(1, 2, 3, 5);
-    struct count_failure : public loopback_cfg {
+    struct count_failure : public always_fail {
         int called = 0;
 
         void onfailure(
@@ -235,12 +243,12 @@ TEST_CASE(
     for (auto x : statuscodes) {
         SECTION(fmt::format("HTTP {}", x)) {
             mhttpd httpd(empty_response, &x);
-            config.port = httpd.port();
-            one::transfer xfer(max_connections, config);
+            loopback_cfg storage(httpd.port());
+            one::transfer xfer(max_connections, storage);
 
             one::batch batch;
             batch.fragment_ids.resize(1);
-            xfer.perform(batch);
+            xfer.perform(batch, config);
             CHECK(config.called == 1);
         }
     }
@@ -249,7 +257,7 @@ TEST_CASE(
 TEST_CASE(
     "Transfer accepts and completes more jobs than max-connections",
     "[transfer][http]") {
-    struct count_complete : public loopback_cfg {
+    struct count_complete : public always_fail {
         int called = 0;
 
         void oncomplete(
@@ -263,14 +271,14 @@ TEST_CASE(
     const auto connections = GENERATE(1, 2, 3, 5);
     unsigned int OK = MHD_HTTP_OK;
     mhttpd httpd(empty_response, &OK);
-    config.port = httpd.port();
-    one::transfer xfer(connections, config);
+    loopback_cfg storage(httpd.port());
+    one::transfer xfer(connections, storage);
 
     const auto jobs = GENERATE(take(5, random(7, 21)));
     one::batch batch;
     batch.fragment_ids.resize(jobs);
     INFO(fmt::format("Running {} jobs on {} connections", jobs, connections));
-    xfer.perform(batch);
+    xfer.perform(batch, config);
     CHECK(config.called == jobs);
 }
 
@@ -309,18 +317,21 @@ TEST_CASE(
      * Set a 10ms timeout - this should make the tests go fast enough, while
      * give the http server plenty of time to make the test behave like a real system.
      */
-    struct timeoutcfg : loopback_cfg {
+    struct timeoutcfg : public loopback_cfg {
+        using loopback_cfg::loopback_cfg;
+
         std::chrono::milliseconds timeout() const noexcept (true) override {
             return 10ms;
         }
-    } config;
+    };
 
     const auto connections = GENERATE(1, 2, 3, 5);
     mhttpd httpd(slow_response);
-    config.port = httpd.port();
-    one::transfer xfer(connections, config);
+    timeoutcfg storage(httpd.port());
+    one::transfer xfer(connections, storage);
 
     one::batch batch;
     batch.fragment_ids.resize(2);
-    CHECK_THROWS_WITH(xfer.perform(batch), Contains("Timeout"));
+    always_fail action;
+    CHECK_THROWS_WITH(xfer.perform(batch, action), Contains("Timeout"));
 }
