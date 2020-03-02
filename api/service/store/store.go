@@ -8,10 +8,6 @@ import (
 )
 
 type (
-	MongoDbStore struct {
-		connString ConnStr
-	}
-
 	AzBlobStore struct {
 		containerURL *azb.ContainerURL
 		bufferSize   int
@@ -53,8 +49,4 @@ func NewAzBlobStore(az AzureBlobSettings) (*AzBlobStore, error) {
 		containerURL: &containerURL,
 		bufferSize:   2 * 1024 * 1024,
 		maxBuffers:   100}, nil
-}
-
-func NewMongoDbStore(connStr ConnStr) (*MongoDbStore, error) {
-	return &MongoDbStore{connStr}, nil
 }

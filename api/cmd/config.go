@@ -27,7 +27,6 @@ type config struct {
 	azManifestContainerName string
 	resourceID              string
 	manifestStoragePath     string
-	manifestDbURI           string
 	logDBConnStr            string
 	apiSecret               string
 }
@@ -68,7 +67,6 @@ func parseConfig(m map[string]string) (*config, error) {
 		hostAddr:                m["HOST_ADDR"],
 		issuer:                  m["ISSUER"],
 		logDBConnStr:            m["LOGDB_CONNSTR"],
-		manifestDbURI:           m["MANIFEST_DB_URI"],
 		manifestStoragePath:     m["MANIFEST_PATH"],
 		noAuth:                  orDefaultBool(m["NO_AUTH"], false),
 		profiling:               orDefaultBool(m["PROFILING"], false),
