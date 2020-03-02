@@ -27,10 +27,6 @@ func manifestStoreConfig(c config) interface{} {
 		return c.azureBlobSettings
 	}
 
-	if len(c.manifestDbURI) > len("mongodb://") {
-		return store.ConnStr(c.manifestDbURI)
-	}
-
 	return nil
 }
 

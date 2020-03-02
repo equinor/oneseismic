@@ -4,18 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
-	"time"
 
 	azb "github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
 	seismic_core "github.com/equinor/seismic-cloud/api/proto"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type ManifestStore interface {
@@ -26,10 +20,6 @@ type ManifestStore interface {
 type Manifest seismic_core.Geometry
 
 type (
-	manifestDbStore struct {
-		dbStore *MongoDbStore
-	}
-
 	manifestBlobStore struct {
 		blobStore *AzBlobStore
 	}
@@ -45,12 +35,6 @@ func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 			return nil, events.E("new azure blob store", err)
 		}
 		return &manifestBlobStore{blobStore: s}, nil
-	case ConnStr:
-		s, err := NewMongoDbStore(persistance)
-		if err != nil {
-			return nil, events.E("new mongo db store", err)
-		}
-		return &manifestDbStore{dbStore: s}, nil
 	default:
 		return nil, events.E("No manifest store persistance selected", events.ErrorLevel)
 	}
@@ -104,33 +88,4 @@ func (mbs *manifestBlobStore) Upload(ctx context.Context, manifestID string, man
 	}
 
 	return nil
-}
-
-func (s *manifestDbStore) Download(ctx context.Context, id string) (*Manifest, error) {
-	m := s.dbStore
-	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	mani := &Manifest{}
-	client, err := mongo.Connect(dbCtx, options.Client().ApplyURI(string(m.connString)))
-	if err != nil {
-		return mani, err
-	}
-	defer func() {
-		err := client.Disconnect(dbCtx)
-		if err != nil {
-			l.LogE("Disconnect manifest store", err)
-		}
-	}()
-	collection := client.Database("seismiccloud").Collection("manifests")
-	err = collection.FindOne(dbCtx, bson.D{bson.E{Key: "basename", Value: id}}).Decode(mani)
-	if err != nil {
-		return mani, events.E("Finding and unmarshaling to Manifest", err, events.Marshalling)
-	}
-	l.LogI(fmt.Sprintf("Connected to manifest DB and fetched file %s", id))
-	return mani, nil
-}
-
-func (s *manifestDbStore) Upload(ctx context.Context, id string, manifest Manifest) error {
-
-	return events.E("Not implemented", events.CriticalLevel)
 }
