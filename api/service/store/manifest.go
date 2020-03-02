@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"path"
 	"time"
 
 	azb "github.com/Azure/azure-storage-blob-go/azblob"
@@ -27,10 +26,6 @@ type ManifestStore interface {
 type Manifest seismic_core.Geometry
 
 type (
-	manifestFileStore struct {
-		localStore *LocalFileStore
-	}
-
 	manifestInMemoryStore struct {
 		inMemoryStore *InMemoryStore
 	}
@@ -66,54 +61,9 @@ func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 			return nil, events.E("new mongo db store", err)
 		}
 		return &manifestDbStore{dbStore: s}, nil
-	case BasePath:
-		s, err := NewLocalFileStore(persistance)
-		if err != nil {
-			return nil, events.E("new local store", err)
-		}
-		return &manifestFileStore{localStore: s}, nil
 	default:
 		return nil, events.E("No manifest store persistance selected", events.ErrorLevel)
 	}
-}
-
-func (s *manifestFileStore) Download(ctx context.Context, id string) (*Manifest, error) {
-
-	m := s.localStore
-
-	fileName := path.Join(string(m.basePath), id)
-	cont, err := ioutil.ReadFile(path.Clean(fileName))
-	if err != nil {
-		return nil, events.E("Could not read manifest from local store", err, events.NotFound, events.ErrorLevel)
-	}
-	mani := &Manifest{}
-	err = json.Unmarshal(cont, mani)
-	if err != nil {
-		return nil, events.E("Unmarshaling to Manifest", err, events.Marshalling, events.ErrorLevel)
-	}
-	return mani, nil
-}
-
-func (s *manifestFileStore) Upload(ctx context.Context, id string, manifest Manifest) error {
-
-	data, err := json.Marshal(manifest)
-	if err != nil {
-		return events.E(
-			"Unmarshaling to Manifest",
-			err,
-			events.Marshalling)
-	}
-	err = ioutil.WriteFile(
-		path.Clean(
-			path.Join(
-				string(s.localStore.basePath), id)),
-		data, 0644)
-	if err != nil {
-		return events.E("Could not write manifest to file store",
-			err)
-	}
-
-	return nil
 }
 
 func (mbs *manifestBlobStore) Download(ctx context.Context, manifestID string) (*Manifest, error) {
