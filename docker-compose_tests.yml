@@ -27,10 +27,12 @@ services:
       - HTTP_ONLY=true
       - HOST_ADDR=0.0.0.0:8080
       - STITCH_GRPC_ADDR=corestub:10000
-      - MANIFEST_PATH=/tmp/fixtures/manifests
-      - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=auth:8089
+      - AZURE_STORAGE_URL=http://az:10000/%s/%s
+      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
+      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+      - AZURE_MANIFEST_CONTAINER=exists
     volumes:
       - fixture_vol:/tmp/fixtures
 

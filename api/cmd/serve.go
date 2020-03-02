@@ -31,10 +31,6 @@ func manifestStoreConfig(c config) interface{} {
 		return store.ConnStr(c.manifestDbURI)
 	}
 
-	if len(c.manifestStoragePath) > 0 {
-		return store.BasePath(c.manifestStoragePath)
-	}
-
 	return nil
 }
 
