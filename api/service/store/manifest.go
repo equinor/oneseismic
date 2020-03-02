@@ -26,10 +26,6 @@ type ManifestStore interface {
 type Manifest seismic_core.Geometry
 
 type (
-	manifestInMemoryStore struct {
-		inMemoryStore *InMemoryStore
-	}
-
 	manifestDbStore struct {
 		dbStore *MongoDbStore
 	}
@@ -42,12 +38,6 @@ type (
 func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 
 	switch persistance := persistance.(type) {
-	case map[string][]byte:
-		s, err := NewInMemoryStore(persistance)
-		if err != nil {
-			return nil, events.E("new inmem store", err)
-		}
-		return &manifestInMemoryStore{inMemoryStore: s}, nil
 	case AzureBlobSettings:
 
 		s, err := NewAzBlobStore(persistance)
@@ -143,34 +133,4 @@ func (s *manifestDbStore) Download(ctx context.Context, id string) (*Manifest, e
 func (s *manifestDbStore) Upload(ctx context.Context, id string, manifest Manifest) error {
 
 	return events.E("Not implemented", events.CriticalLevel)
-}
-
-func (s *manifestInMemoryStore) Download(ctx context.Context, id string) (*Manifest, error) {
-	s.inMemoryStore.lock.RLock()
-	defer s.inMemoryStore.lock.RUnlock()
-	mani := &Manifest{}
-	b, ok := s.inMemoryStore.m[id]
-	if !ok {
-		return mani, events.E("No manifest for id", events.NotFound, events.ErrorLevel)
-	}
-	err := json.Unmarshal(b, mani)
-	if err != nil {
-		return mani, events.E("Unmarshaling to Manifest", err, events.Marshalling)
-	}
-	return mani, nil
-}
-
-func (s *manifestInMemoryStore) Upload(ctx context.Context, id string, manifest Manifest) error {
-
-	j, err := json.Marshal(manifest)
-
-	if err != nil {
-		return events.E("Marshaling to Manifest", err, events.Marshalling)
-	}
-
-	s.inMemoryStore.lock.Lock()
-	defer s.inMemoryStore.lock.Unlock()
-
-	s.inMemoryStore.m[id] = j
-	return nil
 }

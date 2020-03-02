@@ -3,7 +3,6 @@ package store
 import (
 	"fmt"
 	"net/url"
-	"sync"
 
 	azb "github.com/Azure/azure-storage-blob-go/azblob"
 )
@@ -11,11 +10,6 @@ import (
 type (
 	MongoDbStore struct {
 		connString ConnStr
-	}
-
-	InMemoryStore struct {
-		m    map[string][]byte
-		lock sync.RWMutex
 	}
 
 	AzBlobStore struct {
@@ -63,8 +57,4 @@ func NewAzBlobStore(az AzureBlobSettings) (*AzBlobStore, error) {
 
 func NewMongoDbStore(connStr ConnStr) (*MongoDbStore, error) {
 	return &MongoDbStore{connStr}, nil
-}
-
-func NewInMemoryStore(m map[string][]byte) (*InMemoryStore, error) {
-	return &InMemoryStore{m: m}, nil
 }
