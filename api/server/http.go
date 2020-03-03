@@ -13,7 +13,6 @@ import (
 	l "github.com/equinor/seismic-cloud/api/logger"
 	claimsmiddleware "github.com/equinor/seismic-cloud/api/middleware/claims"
 	"github.com/equinor/seismic-cloud/api/service"
-	"github.com/equinor/seismic-cloud/api/service/store"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 	prometheusmiddleware "github.com/iris-contrib/middleware/prometheus"
 	"github.com/iris-contrib/swagger/v12"
@@ -31,7 +30,7 @@ type HTTPServer struct {
 }
 
 type APIService struct {
-	manifestStore store.ManifestStore
+	manifestStore service.ManifestStore
 	stitcher      service.Stitcher
 }
 
@@ -207,7 +206,7 @@ func (hs *HTTPServer) Serve() error {
 	return hs.app.Run(iris.Addr(hs.hostAddr))
 }
 
-func WithManifestStore(manifestStore store.ManifestStore) HTTPServerOption {
+func WithManifestStore(manifestStore service.ManifestStore) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.service.manifestStore = manifestStore
