@@ -2,10 +2,8 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service/store"
@@ -47,36 +45,4 @@ func (msc *ManifestController) Download(ctx iris.Context) {
 		l.LogE(fmt.Sprintf("Error writing to response, manifestID %s", manifestID), err)
 		return
 	}
-}
-
-// @Description post manifest
-// @ID upload_manifest
-// @Produce  application/octet-stream
-// @Param   manifestID  path    string     true        "File ID"
-// @Param   manifest  body    object     true        "The manifest"
-// @Success 200 {} int "No response body"
-// @Failure 502 {string} controller.APIError "Internal Server Error"
-// @security ApiKeyAuth
-// @tags manifest
-// @Router /manifest/{manifestID} [post]
-func (msc *ManifestController) Upload(ctx iris.Context) {
-	manifestID := ctx.Params().Get("manifestID")
-	var mani store.Manifest
-
-	dr := json.NewDecoder(ctx.Request().Body)
-	err := dr.Decode(&mani)
-	if err != nil {
-		ctx.StatusCode(502)
-		l.LogE("Unmarshaling to Manifest", err)
-		return
-	}
-	dctx, cancel := context.WithTimeout(ctx.Request().Context(), 1*time.Second)
-	defer cancel()
-	err = msc.ms.Upload(dctx, manifestID, mani)
-	if err != nil {
-		ctx.StatusCode(502)
-		l.LogE(fmt.Sprintf("Upload manifest: %s", manifestID), err)
-		return
-	}
-
 }

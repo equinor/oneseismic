@@ -44,13 +44,6 @@ func (ms *MockManifestStore) Download(ctx context.Context, id string) (*store.Ma
 	return m, args.Error(1)
 }
 
-func (ms *MockManifestStore) Upload(ctx context.Context, id string, man store.Manifest) error {
-
-	args := ms.Called(ctx, id, man)
-
-	return args.Error(0)
-}
-
 type ServiceSetup struct {
 	ManifestStore store.ManifestStore
 	Stitch        *MockStitch
