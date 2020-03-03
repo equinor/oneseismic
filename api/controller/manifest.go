@@ -6,15 +6,15 @@ import (
 	"net/http"
 
 	l "github.com/equinor/seismic-cloud/api/logger"
-	"github.com/equinor/seismic-cloud/api/service/store"
+	"github.com/equinor/seismic-cloud/api/service"
 	"github.com/kataras/iris/v12"
 )
 
 type ManifestController struct {
-	ms store.ManifestStore
+	ms service.ManifestStore
 }
 
-func NewManifestController(ms store.ManifestStore) *ManifestController {
+func NewManifestController(ms service.ManifestStore) *ManifestController {
 	return &ManifestController{ms: ms}
 }
 
@@ -22,7 +22,7 @@ func NewManifestController(ms store.ManifestStore) *ManifestController {
 // @ID download_manifest
 // @Produce  application/json
 // @Param   manifest_id  path    string     true        "File ID"
-// @Success 200 {object} store.Manifest "byte stream"
+// @Success 200 {object} service.Manifest "byte stream"
 // @Failure 404 {string} controller.APIError "Manifest not found"
 // @Failure 502 {object} controller.APIError "Internal Server Error"
 // @security ApiKeyAuth

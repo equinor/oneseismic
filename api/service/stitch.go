@@ -8,7 +8,6 @@ import (
 
 	"github.com/equinor/seismic-cloud/api/events"
 	pb "github.com/equinor/seismic-cloud/api/proto"
-	"github.com/equinor/seismic-cloud/api/service/store"
 	"google.golang.org/grpc"
 )
 
@@ -19,7 +18,7 @@ type Stitcher interface {
 type StitchParams struct {
 	Dim          int32
 	Lineno       int64
-	CubeManifest *store.Manifest
+	CubeManifest *Manifest
 }
 
 func NewStitch(stype interface{}) (Stitcher, error) {

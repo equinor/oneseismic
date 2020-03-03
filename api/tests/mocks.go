@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 
 	"github.com/equinor/seismic-cloud/api/service"
-	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris/v12"
 	irisCtx "github.com/kataras/iris/v12/context"
 	"github.com/stretchr/testify/mock"
@@ -29,15 +28,15 @@ type MockManifestStore struct {
 	mock.Mock
 }
 
-func GenerateManifest(id string) *store.Manifest {
-	return &store.Manifest{Guid: id}
+func GenerateManifest(id string) *service.Manifest {
+	return &service.Manifest{Guid: id}
 }
 
-func (ms *MockManifestStore) Download(ctx context.Context, id string) (*store.Manifest, error) {
+func (ms *MockManifestStore) Download(ctx context.Context, id string) (*service.Manifest, error) {
 
 	args := ms.Called(ctx, id)
 	arg0 := args.Get(0)
-	m, ok := arg0.(*store.Manifest)
+	m, ok := arg0.(*service.Manifest)
 	if !ok {
 		return nil, fmt.Errorf("Manifest Download is not a manifest")
 	}
@@ -45,7 +44,7 @@ func (ms *MockManifestStore) Download(ctx context.Context, id string) (*store.Ma
 }
 
 type ServiceSetup struct {
-	ManifestStore store.ManifestStore
+	ManifestStore service.ManifestStore
 	Stitch        *MockStitch
 	Ctx           irisCtx.Context
 	Recorder      *httptest.ResponseRecorder

@@ -8,7 +8,6 @@ import (
 	"github.com/equinor/seismic-cloud/api/service"
 
 	"github.com/equinor/seismic-cloud/api/server"
-	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/pkg/profile"
 )
 
@@ -42,7 +41,7 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 			}))
 	}
 
-	ms, err := store.NewManifestStore(manifestStoreConfig(c))
+	ms, err := service.NewManifestStore(manifestStoreConfig(c))
 	if err != nil {
 		return nil, events.E("Accessing manifest store", err)
 	}

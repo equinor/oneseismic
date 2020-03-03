@@ -6,7 +6,6 @@ import (
 
 	l "github.com/equinor/seismic-cloud/api/logger"
 	"github.com/equinor/seismic-cloud/api/service"
-	"github.com/equinor/seismic-cloud/api/service/store"
 	"github.com/kataras/iris/v12"
 )
 
@@ -23,7 +22,7 @@ import (
 // @tags stitch
 // @Router /stitch/{manifest_id}/{surface_id} [get]
 func StitchSurfaceController(
-	ms store.ManifestStore,
+	ms service.ManifestStore,
 	stitcher service.Stitcher) func(ctx iris.Context) {
 	return func(ctx iris.Context) {
 		manifestID := ctx.Params().Get("manifestID")
@@ -72,7 +71,7 @@ func StitchSurfaceController(
 // @tags stitch
 // @Router /stitch/{manifest_id}/dim/{dim}/{lineno} [get]
 func StitchDimController(
-	ms store.ManifestStore,
+	ms service.ManifestStore,
 	stitcher service.Stitcher) func(ctx iris.Context) {
 	return func(ctx iris.Context) {
 		manifestID := ctx.Params().Get("manifestID")
