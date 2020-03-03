@@ -24,6 +24,7 @@ find_package(Protobuf REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(microhttpd IMPORTED_TARGET libmicrohttpd)
+pkg_check_modules(zmq IMPORTED_TARGET REQUIRED libzmq)
 
 # gRPC sometimes provide cmake config files, and sometimes provides pkg-config
 # files, depending on how it was built. On debian/ubuntu, the grpc-dev package
@@ -104,6 +105,9 @@ add_library(seismic-cloud
     src/fetch.cpp
     src/transfer.cpp
     src/azure.cpp
+    src/worker.cpp
+    ${PROTO_SRCS}
+    ${PROTO_HDRS}
 )
 add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
 target_include_directories(seismic-cloud
@@ -114,6 +118,7 @@ target_include_directories(seismic-cloud
     PRIVATE
         include
         ${GNUTLS_INCLUDE_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}
 )
 target_compile_options(seismic-cloud
     PUBLIC
@@ -124,6 +129,8 @@ target_link_libraries(seismic-cloud
         fmt::fmt
         ${GNUTLS_LIBRARIES}
         ${CURL_LIBRARIES}
+        PkgConfig::zmq
+        protobuf::libprotobuf
 )
 
 add_executable(one-server

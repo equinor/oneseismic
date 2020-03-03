@@ -1,6 +1,7 @@
 FROM debian:buster
 ENV DEBIAN_FRONTEND=noninteractive
 ENV FMT_VERSION 6.1.2
+ENV ZMQ_VERSION 4.6.0
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -9,7 +10,8 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler-grpc libprotobuf-dev libgrpc++-dev \
     pkg-config \
     wget \
-    unzip
+    unzip \
+    libzmq3-dev
 RUN apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists
 
 WORKDIR /src/fmt
@@ -20,6 +22,15 @@ RUN cd fmt-${FMT_VERSION}/build
 RUN cmake /src/fmt/fmt-${FMT_VERSION} -DCMAKE_BUILD_TYPE=Release -DFMT_TEST=OFF -DBUILD_SHARED_LIBS=ON
 RUN make install
 RUN rm -rf /src/fmt
+
+WORKDIR /src/zmq
+RUN wget https://github.com/zeromq/cppzmq/archive/v${ZMQ_VERSION}.zip
+RUN unzip v${ZMQ_VERSION}.zip
+RUN mkdir -p cppzmq-${ZMQ_VERSION}/build
+RUN cd cppzmq-${ZMQ_VERSION}/build
+RUN cmake /src/zmq/cppzmq-${ZMQ_VERSION} -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON
+RUN make install -j2
+RUN rm -rf /src/zmq
 
 WORKDIR /src
 COPY core core
