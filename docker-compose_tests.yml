@@ -1,15 +1,5 @@
 version: '3.0'
 services:
-  corestub:
-    build:
-      context: .
-      dockerfile: api/Dockerfile-corestub
-    environment:
-      - SC_GRPC_HOST_ADDR=0.0.0.0:10000
-      - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces
-    volumes:
-      - fixture_vol:/tmp/fixtures
-
   auth:
     image: lambdaville/no-factor-auth:v0.0.5
     # ports:
@@ -20,13 +10,12 @@ services:
       context: .
       dockerfile: api/Dockerfile
     depends_on:
-      - corestub
       - auth
     environment:
       - API_SECRET="12345678"
       - HTTP_ONLY=true
       - HOST_ADDR=0.0.0.0:8080
-      - STITCH_GRPC_ADDR=corestub:10000
+      - STITCH_GRPC_ADDR=some.address
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=auth:8089
       - AZURE_STORAGE_URL=http://az:10000/%s/%s
@@ -43,12 +32,4 @@ services:
       - api
     environment:
       - SC_API_HOST_ADDR=http://api:8080
-      - FIXTURES_PATH=/tmp/fixtures
       - AUTH_ADDR=http://auth:8089/common
-    volumes:
-      - fixture_vol:/tmp/fixtures
-volumes:
-  fixture_vol:
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
