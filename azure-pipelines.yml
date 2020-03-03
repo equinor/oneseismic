@@ -20,7 +20,7 @@ jobs:
           docker-compose build
         displayName: 'Build docker images'
       - script: |
-          docker-compose -f docker-compose_tests.yml up --build --exit-code-from test
+          docker-compose -f docker-compose.yml -f docker-compose_tests.yml up --build --exit-code-from test
         displayName: 'Run integration tests'
       - script: |
           export VERSION=`git describe --tags`
