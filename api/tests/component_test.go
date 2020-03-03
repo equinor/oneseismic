@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 	defer cancel()
 
 	opts := []server.HTTPServerOption{
-		server.WithManifestStore(ts.ManifestStore),
+		server.WithContainerURL(ts.ManifestStore),
 		server.WithStitcher(ts.Stitch),
 		server.WithHostAddr(apiurl)}
 	s, err := server.NewHTTPServer(opts...)
