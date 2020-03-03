@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io/ioutil"
@@ -14,16 +13,13 @@ import (
 
 type ManifestStore interface {
 	Download(context.Context, string) (*Manifest, error)
-	Upload(context.Context, string, Manifest) error
 }
 
 type Manifest seismic_core.Geometry
 
-type (
-	manifestBlobStore struct {
-		blobStore *AzBlobStore
-	}
-)
+type manifestBlobStore struct {
+	blobStore *AzBlobStore
+}
 
 func NewManifestStore(persistance interface{}) (ManifestStore, error) {
 
@@ -64,28 +60,4 @@ func (mbs *manifestBlobStore) Download(ctx context.Context, manifestID string) (
 		return mani, events.E("Unmarshaling to Manifest", err, events.Marshalling, events.ErrorLevel)
 	}
 	return mani, nil
-}
-
-func (mbs *manifestBlobStore) Upload(ctx context.Context, manifestID string, manifest Manifest) error {
-
-	j, err := json.Marshal(manifest)
-
-	if err != nil {
-		return events.E("Marshaling to Manifest", err, events.Marshalling)
-	}
-
-	blobURL := mbs.blobStore.containerURL.NewBlockBlobURL(manifestID)
-
-	// resp, err := blobURL.UploadUpload(ctx, body io.ReadSeeker, h BlobHTTPHeaders, metadata Metadata, ac BlobAccessConditions)
-	_, err = azb.UploadStreamToBlockBlob(
-		ctx,
-		bytes.NewBuffer(j),
-		blobURL,
-		azb.UploadStreamToBlockBlobOptions{})
-
-	if err != nil {
-		return events.E("Upload to blobstore", err)
-	}
-
-	return nil
 }
