@@ -66,6 +66,7 @@ func main() {
 	}()
 	err := cmd.Serve(getEnvs())
 	if err != nil {
+		l.Wait()
 		l.LogE("Failed to start server", err)
 		os.Exit(1)
 	}
