@@ -1,37 +1,22 @@
 package tests
 
 import (
-	"context"
-
 	"fmt"
 	"log"
 	"os"
 	"testing"
 	"time"
 
-	cserver "github.com/equinor/seismic-cloud/api/corestub/server"
 	server "github.com/equinor/seismic-cloud/api/server"
 )
-
-const apiurl = "localhost:18080"
-const csurl = "localhost:10000"
 
 func TestMain(m *testing.M) {
 	ts := NewTestServiceSetup()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		err := cserver.StartServer(ctx, csurl)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}()
-	defer cancel()
-
 	opts := []server.HTTPServerOption{
 		server.WithContainerURL(ts.ManifestStore),
 		server.WithStitcher(ts.Stitch),
-		server.WithHostAddr(apiurl)}
+	}
 	s, err := server.NewHTTPServer(opts...)
 	if err != nil {
 		log.Fatal(err)

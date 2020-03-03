@@ -20,9 +20,13 @@ services:
     ports:
       - '8080:8080'
     environment:
-      - HTTP_ONLY=true
-      - HOST_ADDR=0.0.0.0:8080
       - STITCH_GRPC_ADDR=core:50051
-      - NO_AUTH=true
-      - MANIFEST_PATH=/tmp/manifest
-      - LOCAL_SURFACE_PATH=/tmp/fixtures/surfaces
+      - API_SECRET
+      - HOST_ADDR=0.0.0.0:8080
+      - STITCH_GRPC_ADDR
+      - AUTHSERVER
+      - ISSUER
+      - AZURE_STORAGE_URL
+      - AZURE_STORAGE_ACCOUNT
+      - AZURE_STORAGE_ACCESS_KEY
+      - AZURE_MANIFEST_CONTAINER
