@@ -206,7 +206,7 @@ func (hs *HTTPServer) Serve() error {
 	return hs.app.Run(iris.Addr(hs.hostAddr))
 }
 
-func WithManifestStore(manifestStore service.ManifestStore) HTTPServerOption {
+func WithContainerURL(manifestStore service.ManifestStore) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.service.manifestStore = manifestStore

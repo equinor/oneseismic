@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"net/url"
 
-	azb "github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/equinor/seismic-cloud/api/events"
 	seismic_core "github.com/equinor/seismic-cloud/api/proto"
@@ -19,14 +19,8 @@ type ManifestStore interface {
 
 type Manifest seismic_core.Geometry
 
-type manifestBlobStore struct {
-	blobStore *AzBlobStore
-}
-
-type AzBlobStore struct {
-	containerURL *azb.ContainerURL
-	bufferSize   int
-	maxBuffers   int
+type ContainerURL struct {
+	azblob.ContainerURL
 }
 
 type AzureBlobSettings struct {
@@ -36,37 +30,22 @@ type AzureBlobSettings struct {
 	ContainerName string
 }
 
-func NewManifestStore(persistance interface{}) (ManifestStore, error) {
-
-	switch persistance := persistance.(type) {
-	case AzureBlobSettings:
-
-		s, err := NewAzBlobStore(persistance)
-		if err != nil {
-			return nil, events.E("new azure blob store", err)
-		}
-		return &manifestBlobStore{blobStore: s}, nil
-	default:
-		return nil, events.E("No manifest store persistance selected", events.ErrorLevel)
-	}
-}
-
-func (mbs *manifestBlobStore) Download(ctx context.Context, manifestID string) (*Manifest, error) {
+func (mbs *ContainerURL) Download(ctx context.Context, manifestID string) (*Manifest, error) {
 	mani := &Manifest{}
 
-	blobURL := mbs.blobStore.containerURL.NewBlockBlobURL(manifestID)
+	blobURL := mbs.NewBlockBlobURL(manifestID)
 
 	resp, err := blobURL.Download(
 		ctx,
 		0,
-		azb.CountToEnd,
-		azb.BlobAccessConditions{},
+		azblob.CountToEnd,
+		azblob.BlobAccessConditions{},
 		false,
 	)
 	if err != nil {
 		return mani, events.E("Download from blobstore", err, events.Marshalling, events.ErrorLevel)
 	}
-	b, err := ioutil.ReadAll(resp.Body(azb.RetryReaderOptions{}))
+	b, err := ioutil.ReadAll(resp.Body(azblob.RetryReaderOptions{}))
 	if err != nil {
 		return mani, events.E("Could not read manifest from blob store", err)
 	}
@@ -77,9 +56,9 @@ func (mbs *manifestBlobStore) Download(ctx context.Context, manifestID string) (
 	return mani, nil
 }
 
-func NewAzBlobStore(az AzureBlobSettings) (*AzBlobStore, error) {
+func NewContainerURL(az AzureBlobSettings) (*ContainerURL, error) {
 
-	credential, err := azb.NewSharedKeyCredential(az.AccountName, az.AccountKey)
+	credential, err := azblob.NewSharedKeyCredential(az.AccountName, az.AccountKey)
 	if err != nil {
 		return nil, err
 	}
@@ -91,13 +70,10 @@ func NewAzBlobStore(az AzureBlobSettings) (*AzBlobStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	containerURL := azb.NewContainerURL(
+	containerURL := azblob.NewContainerURL(
 		*url,
-		azb.NewPipeline(credential, azb.PipelineOptions{}),
+		azblob.NewPipeline(credential, azblob.PipelineOptions{}),
 	)
 
-	return &AzBlobStore{
-		containerURL: &containerURL,
-		bufferSize:   2 * 1024 * 1024,
-		maxBuffers:   100}, nil
+	return &ContainerURL{containerURL}, err
 }

@@ -20,14 +20,6 @@ func stitchConfig(c config) interface{} {
 	return nil
 }
 
-func manifestStoreConfig(c config) interface{} {
-	if len(c.azureBlobSettings.AccountName) > 0 && len(c.azureBlobSettings.AccountKey) > 0 {
-		return c.azureBlobSettings
-	}
-
-	return nil
-}
-
 func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
@@ -41,12 +33,12 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 			}))
 	}
 
-	ms, err := service.NewManifestStore(manifestStoreConfig(c))
+	ms, err := service.NewContainerURL(c.azureBlobSettings)
 	if err != nil {
 		return nil, events.E("Accessing manifest store", err)
 	}
 
-	opts = append(opts, server.WithManifestStore(ms))
+	opts = append(opts, server.WithContainerURL(ms))
 
 	st, err := service.NewStitch(stitchConfig(c))
 	if err != nil {
