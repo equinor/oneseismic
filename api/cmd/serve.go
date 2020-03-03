@@ -23,7 +23,6 @@ func stitchConfig(c config) interface{} {
 
 func manifestStoreConfig(c config) interface{} {
 	if len(c.azureBlobSettings.AccountName) > 0 && len(c.azureBlobSettings.AccountKey) > 0 {
-		c.azureBlobSettings.ContainerName = c.azManifestContainerName
 		return c.azureBlobSettings
 	}
 

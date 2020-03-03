@@ -17,18 +17,16 @@ func (e *errInvalidConfig) Unwrap() error { return e.Err }
 func (e *errInvalidConfig) Error() string { return fmt.Sprintf(e.Name) }
 
 type config struct {
-	noAuth                  bool
-	profiling               bool
-	authServer              url.URL
-	hostAddr                string
-	issuer                  string
-	stitchGrpcAddr          string
-	azureBlobSettings       store.AzureBlobSettings
-	azManifestContainerName string
-	resourceID              string
-	manifestStoragePath     string
-	logDBConnStr            string
-	apiSecret               string
+	noAuth            bool
+	profiling         bool
+	authServer        url.URL
+	hostAddr          string
+	issuer            string
+	stitchGrpcAddr    string
+	azureBlobSettings store.AzureBlobSettings
+	resourceID        string
+	logDBConnStr      string
+	apiSecret         string
 }
 
 func orDefaultBool(val string, def bool) bool {
@@ -60,18 +58,16 @@ func parseConfig(m map[string]string) (*config, error) {
 	}
 
 	conf := &config{
-		apiSecret:               *apiSecret,
-		authServer:              *authServer,
-		azManifestContainerName: m["AZURE_MANIFEST_CONTAINER"],
-		azureBlobSettings:       azb(m),
-		hostAddr:                m["HOST_ADDR"],
-		issuer:                  m["ISSUER"],
-		logDBConnStr:            m["LOGDB_CONNSTR"],
-		manifestStoragePath:     m["MANIFEST_PATH"],
-		noAuth:                  orDefaultBool(m["NO_AUTH"], false),
-		profiling:               orDefaultBool(m["PROFILING"], false),
-		resourceID:              m["RESOURCE_ID"],
-		stitchGrpcAddr:          m["STITCH_GRPC_ADDR"],
+		apiSecret:         *apiSecret,
+		authServer:        *authServer,
+		azureBlobSettings: azb(m),
+		hostAddr:          m["HOST_ADDR"],
+		issuer:            m["ISSUER"],
+		logDBConnStr:      m["LOGDB_CONNSTR"],
+		noAuth:            orDefaultBool(m["NO_AUTH"], false),
+		profiling:         orDefaultBool(m["PROFILING"], false),
+		resourceID:        m["RESOURCE_ID"],
+		stitchGrpcAddr:    m["STITCH_GRPC_ADDR"],
 	}
 
 	return conf, nil
