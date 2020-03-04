@@ -6,11 +6,9 @@ services:
   api:
     depends_on:
       - auth
-      - core
     environment:
       - API_SECRET="12345678"
       - HOST_ADDR=0.0.0.0:8080
-      - STITCH_GRPC_ADDR=core:50051
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=auth:8089
       - AZURE_STORAGE_URL=http://az:10000/%s/%s

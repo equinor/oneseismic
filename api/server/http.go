@@ -31,7 +31,6 @@ type HTTPServer struct {
 
 type APIService struct {
 	manifestStore service.ManifestStore
-	stitcher      service.Stitcher
 }
 
 type HTTPServerOption interface {
@@ -60,10 +59,6 @@ func NewHTTPServer(opts ...HTTPServerOption) (hs *HTTPServer, err error) {
 
 	if hs.service.manifestStore == nil {
 		return nil, fmt.Errorf("Server cannot start, no manifest store set")
-	}
-
-	if hs.service.stitcher == nil {
-		return nil, fmt.Errorf("Server cannot start, stitch command is empty")
 	}
 
 	return hs, nil
@@ -225,15 +220,6 @@ func WithProfiling() HTTPServerOption {
 			m.ServeHTTP(ctx)
 
 		})
-		return
-	})
-}
-
-func WithStitcher(stitcher service.Stitcher) HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-
-		hs.service.stitcher = stitcher
 		return
 	})
 }
