@@ -15,7 +15,6 @@ func TestMain(m *testing.M) {
 
 	opts := []server.HTTPServerOption{
 		server.WithContainerURL(ts.ManifestStore),
-		server.WithStitcher(ts.Stitch),
 	}
 	s, err := server.NewHTTPServer(opts...)
 	if err != nil {

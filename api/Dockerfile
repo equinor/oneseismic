@@ -1,14 +1,11 @@
 FROM golang:buster as builder
 
-RUN apt update && apt install -y protobuf-compiler
-
 WORKDIR /src
 COPY api/go.mod .
 COPY api/go.sum .
 RUN go mod download
 
 COPY api api
-COPY protos protos
 
 WORKDIR /src/api
 RUN go generate

@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 
@@ -12,17 +11,6 @@ import (
 	irisCtx "github.com/kataras/iris/v12/context"
 	"github.com/stretchr/testify/mock"
 )
-
-func (m *MockStitch) Stitch(ctx context.Context, out io.Writer, sp service.StitchParams) (string, error) {
-
-	args := m.Called(ctx, out, sp)
-
-	return args.String(0), args.Error(1)
-}
-
-type MockStitch struct {
-	mock.Mock
-}
 
 type MockManifestStore struct {
 	mock.Mock
@@ -45,13 +33,11 @@ func (ms *MockManifestStore) Download(ctx context.Context, id string) (*service.
 
 type ServiceSetup struct {
 	ManifestStore service.ManifestStore
-	Stitch        *MockStitch
 	Ctx           irisCtx.Context
 	Recorder      *httptest.ResponseRecorder
 }
 
 func NewTestServiceSetup() *ServiceSetup {
-	stitch := &MockStitch{}
 	ctx := irisCtx.NewContext(iris.Default())
 	ms := &MockManifestStore{}
 	recorder := httptest.NewRecorder()
@@ -59,9 +45,8 @@ func NewTestServiceSetup() *ServiceSetup {
 	mani := GenerateManifest("exists")
 	ms.On("Download", mock.Anything, "exists").Return(mani, nil)
 	ms.On("Download", mock.Anything, "not-exists").Return(nil, fmt.Errorf("Not exist"))
-	stitch.On("Stitch", mock.Anything, service.StitchParams{Dim: 0, CubeManifest: mani}).Return()
 
-	return &ServiceSetup{ms, stitch, ctx, recorder}
+	return &ServiceSetup{ms, ctx, recorder}
 }
 
 func (ts *ServiceSetup) Result() *http.Response {

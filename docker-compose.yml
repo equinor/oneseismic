@@ -1,18 +1,6 @@
 version: '3.0'
 services:
-  core:
-    image: lambdaville.azurecr.io/oneseismic-core:${VERSION:-latest}
-    build:
-      context: .
-      dockerfile: core/Dockerfile
-    environment:
-      - AZ_BLOB_ACCOUNT
-      - AZ_BLOB_KEY
-    restart: unless-stopped
-
   api:
-    depends_on:
-      - core
     image: lambdaville.azurecr.io/api:${VERSION:-latest}
     build:
       context: .
@@ -20,10 +8,8 @@ services:
     ports:
       - '8080:8080'
     environment:
-      - STITCH_GRPC_ADDR=core:50051
       - API_SECRET
       - HOST_ADDR=0.0.0.0:8080
-      - STITCH_GRPC_ADDR
       - AUTHSERVER
       - ISSUER
       - AZURE_STORAGE_URL

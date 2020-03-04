@@ -11,15 +11,6 @@ import (
 	"github.com/pkg/profile"
 )
 
-func stitchConfig(c config) interface{} {
-	sGRPC := c.stitchGrpcAddr
-	if len(sGRPC) > 0 {
-		return service.GrpcOpts{Addr: sGRPC, Insecure: true}
-	}
-
-	return nil
-}
-
 func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
@@ -39,13 +30,6 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	}
 
 	opts = append(opts, server.WithContainerURL(ms))
-
-	st, err := service.NewStitch(stitchConfig(c))
-	if err != nil {
-		return nil, events.E("Stitch error", err)
-	}
-
-	opts = append(opts, server.WithStitcher(st))
 
 	if len(c.hostAddr) > 0 {
 		opts = append(

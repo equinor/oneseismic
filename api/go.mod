@@ -13,7 +13,7 @@ require (
 	github.com/fasthttp-contrib/websocket v0.0.0-20160511215533-1f3b11f56072 // indirect
 	github.com/go-openapi/spec v0.19.6 // indirect
 	github.com/go-openapi/swag v0.19.7 // indirect
-	github.com/golang/protobuf v1.3.3
+	github.com/golang/protobuf v1.3.4 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/imkira/go-interpol v1.1.0 // indirect
@@ -26,7 +26,7 @@ require (
 	github.com/kataras/iris/v12 v12.1.7
 	github.com/klauspost/compress v1.10.0 // indirect
 	github.com/lib/pq v1.3.0
-	github.com/mailru/easyjson v0.7.0 // indirect
+	github.com/mailru/easyjson v0.7.1 // indirect
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-ieproxy v0.0.0-20200203040449-2dbc853185d9 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
@@ -47,11 +47,9 @@ require (
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20200210222208-86ce3cb69678 // indirect
-	golang.org/x/net v0.0.0-20200202094626-16171245cfb2 // indirect
+	golang.org/x/net v0.0.0-20200301022130-244492dfa37a // indirect
 	golang.org/x/sys v0.0.0-20200212091648-12a6c2dcc1e4 // indirect
-	golang.org/x/tools v0.0.0-20200211205636-11eff242d136 // indirect
-	google.golang.org/genproto v0.0.0-20200212121238-0849286c0f0e // indirect
-	google.golang.org/grpc v1.27.1
+	golang.org/x/tools v0.0.0-20200304024140-c4206d458c3f // indirect
 	gopkg.in/ini.v1 v1.52.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200121175148-a6ecf24a6d71 // indirect

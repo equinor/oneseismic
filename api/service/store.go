@@ -10,14 +10,15 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/equinor/seismic-cloud/api/events"
-	seismic_core "github.com/equinor/seismic-cloud/api/proto"
 )
 
 type ManifestStore interface {
 	Download(context.Context, string) (*Manifest, error)
 }
 
-type Manifest seismic_core.Geometry
+type Manifest struct {
+	Guid string
+}
 
 type ContainerURL struct {
 	azblob.ContainerURL
