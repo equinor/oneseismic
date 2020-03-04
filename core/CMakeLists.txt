@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
-project(js LANGUAGES CXX)
+project(oneseismic LANGUAGES CXX)
 
 include(CheckIncludeFile)
 include(CTest)
@@ -48,7 +48,7 @@ endif ()
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_library(seismic-cloud
+add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
     src/url.cpp
@@ -59,8 +59,8 @@ add_library(seismic-cloud
     ${PROTO_SRCS}
     ${PROTO_HDRS}
 )
-add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
-target_include_directories(seismic-cloud
+add_library(oneseismic::oneseismic ALIAS oneseismic)
+target_include_directories(oneseismic
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -70,11 +70,11 @@ target_include_directories(seismic-cloud
         ${GNUTLS_INCLUDE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
 )
-target_compile_options(seismic-cloud
+target_compile_options(oneseismic
     PUBLIC
         ${GNUTLS_DEFINITIONS}
 )
-target_link_libraries(seismic-cloud
+target_link_libraries(oneseismic
     PUBLIC
         fmt::fmt
         ${GNUTLS_LIBRARIES}
@@ -85,9 +85,9 @@ target_link_libraries(seismic-cloud
 
 install(
     TARGETS
-        seismic-cloud
+        oneseismic
     EXPORT
-        seismic-cloud-export
+        oneseismic-export
     ARCHIVE DESTINATION
         ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION
@@ -98,21 +98,21 @@ install(
 install(DIRECTORY include/ DESTINATION include)
 install(
     EXPORT
-        seismic-cloud-export
+        oneseismic-export
     DESTINATION
-        ${CMAKE_INSTALL_DATAROOTDIR}/seismic-cloud/cmake
+        ${CMAKE_INSTALL_DATAROOTDIR}/oneseismic/cmake
     FILE
-        seismic-cloud-config.cmake
+        oneseismic-config.cmake
     NAMESPACE
-        seismic-cloud::
+        oneseismic::
 )
 export(
     TARGETS
-        seismic-cloud
+        oneseismic
     FILE
-        seismic-cloud-config.cmake
+        oneseismic-config.cmake
     NAMESPACE
-        seismic-cloud::
+        oneseismic::
 )
 
 add_subdirectory(external/catch2)
@@ -126,7 +126,7 @@ add_executable(tests
 target_link_libraries(tests
     PRIVATE
         catch2
-        seismic-cloud
+        oneseismic::oneseismic
         fmt::fmt
 )
 
