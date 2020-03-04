@@ -51,7 +51,6 @@ set(CMAKE_CXX_STANDARD 14)
 add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
-    src/fetch.cpp
     src/transfer.cpp
     src/azure.cpp
     src/worker.cpp
