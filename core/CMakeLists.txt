@@ -51,7 +51,6 @@ set(CMAKE_CXX_STANDARD 14)
 add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
-    src/url.cpp
     src/fetch.cpp
     src/transfer.cpp
     src/azure.cpp
@@ -120,7 +119,6 @@ add_subdirectory(external/catch2)
 add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
-    tests/request-generator.cpp
     tests/azure-transfer-config.cpp
 )
 target_link_libraries(tests
