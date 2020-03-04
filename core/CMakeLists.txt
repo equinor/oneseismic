@@ -6,9 +6,6 @@ include(CTest)
 include(GNUInstallDirs)
 include(TestBigEndian)
 
-# The libraries will be linked against from python extension module. This requires
-# position independent code.
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_library(json INTERFACE)
 target_include_directories(json INTERFACE external/nlohmann)
