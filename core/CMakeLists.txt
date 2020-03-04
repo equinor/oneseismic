@@ -1,14 +1,11 @@
 cmake_minimum_required(VERSION 3.9)
-project(js LANGUAGES CXX)
+project(oneseismic LANGUAGES CXX)
 
 include(CheckIncludeFile)
 include(CTest)
 include(GNUInstallDirs)
 include(TestBigEndian)
 
-# The libraries will be linked against from python extension module. This requires
-# position independent code.
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_library(json INTERFACE)
 target_include_directories(json INTERFACE external/nlohmann)
@@ -26,57 +23,10 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(microhttpd IMPORTED_TARGET libmicrohttpd)
 pkg_check_modules(zmq IMPORTED_TARGET REQUIRED libzmq)
 
-# gRPC sometimes provide cmake config files, and sometimes provides pkg-config
-# files, depending on how it was built. On debian/ubuntu, the grpc-dev package
-# only includes the pkg-config. When the cmake config does not work out, fall
-# back to pkg-config. The GLOBAL flag, requried for aliasing PkgConfig::grpc++
-# to gRPC::grpc++, is not availble until CMake 3.13 [1], so until that's the
-# minimum required cmake version, emulate it by putting the link-target in a
-# variable.
-#
-# [1] https://cmake.org/cmake/help/v3.13/module/FindPkgConfig.html
-find_package(gRPC QUIET)
-if (gRPC_FOUND)
-    set(ONESEISMIC_GRPC_TARGET gRPC::grpc++)
-elseif (NOT gRPC_FOUND)
-    message(
-        STATUS
-        "gRPC not found with find_package, falling back to pkg-config"
-    )
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(grpc++ REQUIRED IMPORTED_TARGET grpc++)
-    # add_library(gRPC::grpc++ ALIAS PkgConfig::grpc++)
-    set(ONESEISMIC_GRPC_TARGET PkgConfig::grpc++)
-endif ()
-
-# cmake ships a protobuf module, but not one that handles the protobuf-grpc
-# plugin for compiling .proto files into grpc, so set it up manually
-find_program(
-    PROTOC_GRPC_CPP_EXECUTABLE
-    grpc_cpp_plugin
-)
-if (NOT PROTOC_GRPC_CPP_EXECUTABLE)
-    message(FATAL_ERROR "Could not find grpc_cpp_plugin (protoc-grpc)")
-endif ()
-
-# The custom command is pretty much the what is run by protobuf_generate_cpp
 protobuf_generate_cpp(
     PROTO_SRCS
     PROTO_HDRS
     ${CMAKE_CURRENT_SOURCE_DIR}/../protos/core.proto
-)
-add_custom_command(
-    OUTPUT
-        core.grpc.pb.h
-        core.grpc.pb.cc
-    COMMAND
-        ${PROTOBUF_PROTOC_EXECUTABLE}
-            --grpc_out=${CMAKE_CURRENT_BINARY_DIR}
-            --plugin=protoc-gen-grpc=${PROTOC_GRPC_CPP_EXECUTABLE}
-            -I ${CMAKE_CURRENT_SOURCE_DIR}/../protos
-            ${CMAKE_CURRENT_SOURCE_DIR}/../protos/core.proto
-    DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/../protos/core.proto
 )
 
 if (NOT MSVC)
@@ -98,19 +48,17 @@ endif ()
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_library(seismic-cloud
+add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
-    src/url.cpp
-    src/fetch.cpp
     src/transfer.cpp
     src/azure.cpp
     src/worker.cpp
     ${PROTO_SRCS}
     ${PROTO_HDRS}
 )
-add_library(seismic-cloud::seismic-cloud ALIAS seismic-cloud)
-target_include_directories(seismic-cloud
+add_library(oneseismic::oneseismic ALIAS oneseismic)
+target_include_directories(oneseismic
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -120,11 +68,11 @@ target_include_directories(seismic-cloud
         ${GNUTLS_INCLUDE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
 )
-target_compile_options(seismic-cloud
+target_compile_options(oneseismic
     PUBLIC
         ${GNUTLS_DEFINITIONS}
 )
-target_link_libraries(seismic-cloud
+target_link_libraries(oneseismic
     PUBLIC
         fmt::fmt
         ${GNUTLS_LIBRARIES}
@@ -133,34 +81,11 @@ target_link_libraries(seismic-cloud
         protobuf::libprotobuf
 )
 
-add_executable(one-server
-    src/server.cpp
-    ${PROTO_SRCS}
-    ${PROTO_HDRS}
-    ${CMAKE_CURRENT_BINARY_DIR}/core.grpc.pb.h
-    ${CMAKE_CURRENT_BINARY_DIR}/core.grpc.pb.cc
-)
-target_include_directories(one-server
-    PRIVATE
-        ${CMAKE_CURRENT_BINARY_DIR}
-)
-target_link_libraries(one-server
-    PRIVATE
-        clara
-        ${ONESEISMIC_GRPC_TARGET}
-        protobuf::libprotobuf
-        seismic-cloud::seismic-cloud
-        # explicitly link to Threads - the libprotobuf target does not add the
-        # dependency to its target on threads until cmake 3.13
-        Threads::Threads
-)
-
 install(
     TARGETS
-        seismic-cloud
-        one-server
+        oneseismic
     EXPORT
-        seismic-cloud-export
+        oneseismic-export
     ARCHIVE DESTINATION
         ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION
@@ -171,21 +96,21 @@ install(
 install(DIRECTORY include/ DESTINATION include)
 install(
     EXPORT
-        seismic-cloud-export
+        oneseismic-export
     DESTINATION
-        ${CMAKE_INSTALL_DATAROOTDIR}/seismic-cloud/cmake
+        ${CMAKE_INSTALL_DATAROOTDIR}/oneseismic/cmake
     FILE
-        seismic-cloud-config.cmake
+        oneseismic-config.cmake
     NAMESPACE
-        seismic-cloud::
+        oneseismic::
 )
 export(
     TARGETS
-        seismic-cloud
+        oneseismic
     FILE
-        seismic-cloud-config.cmake
+        oneseismic-config.cmake
     NAMESPACE
-        seismic-cloud::
+        oneseismic::
 )
 
 add_subdirectory(external/catch2)
@@ -193,13 +118,12 @@ add_subdirectory(external/catch2)
 add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
-    tests/request-generator.cpp
     tests/azure-transfer-config.cpp
 )
 target_link_libraries(tests
     PRIVATE
         catch2
-        seismic-cloud
+        oneseismic::oneseismic
         fmt::fmt
 )
 
