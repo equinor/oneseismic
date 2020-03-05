@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 
-	"github.com/equinor/seismic-cloud/api/events"
+	"github.com/equinor/oneseismic/api/events"
 )
 
 type ManifestStore interface {

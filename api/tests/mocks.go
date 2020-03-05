@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/equinor/seismic-cloud/api/service"
+	"github.com/equinor/oneseismic/api/service"
 	"github.com/kataras/iris/v12"
 	irisCtx "github.com/kataras/iris/v12/context"
 	"github.com/stretchr/testify/mock"

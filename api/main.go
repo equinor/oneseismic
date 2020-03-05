@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/equinor/seismic-cloud/api/cmd"
-	l "github.com/equinor/seismic-cloud/api/logger"
+	"github.com/equinor/oneseismic/api/cmd"
+	l "github.com/equinor/oneseismic/api/logger"
 	"github.com/joho/godotenv"
 	jww "github.com/spf13/jwalterweatherman"
 )

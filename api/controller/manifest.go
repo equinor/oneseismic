@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	l "github.com/equinor/seismic-cloud/api/logger"
-	"github.com/equinor/seismic-cloud/api/service"
+	l "github.com/equinor/oneseismic/api/logger"
+	"github.com/equinor/oneseismic/api/service"
 	"github.com/kataras/iris/v12"
 )
 

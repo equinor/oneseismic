@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	server "github.com/equinor/seismic-cloud/api/server"
+	server "github.com/equinor/oneseismic/api/server"
 )
 
 func TestMain(m *testing.M) {
