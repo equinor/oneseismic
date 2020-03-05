@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/equinor/seismic-cloud/api/service"
+	"github.com/equinor/oneseismic/api/service"
 )
 
 type errInvalidConfig struct {

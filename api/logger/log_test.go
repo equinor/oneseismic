@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/equinor/seismic-cloud/api/events"
+	"github.com/equinor/oneseismic/api/events"
 	"github.com/stretchr/testify/assert"
 )
 

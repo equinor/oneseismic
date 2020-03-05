@@ -1,4 +1,4 @@
-module github.com/equinor/seismic-cloud/api
+module github.com/equinor/oneseismic/api
 
 go 1.13
 

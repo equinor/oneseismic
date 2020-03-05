@@ -3,11 +3,11 @@ package cmd
 import (
 	"net/http"
 
-	"github.com/equinor/seismic-cloud/api/events"
-	l "github.com/equinor/seismic-cloud/api/logger"
-	"github.com/equinor/seismic-cloud/api/service"
+	"github.com/equinor/oneseismic/api/events"
+	l "github.com/equinor/oneseismic/api/logger"
+	"github.com/equinor/oneseismic/api/service"
 
-	"github.com/equinor/seismic-cloud/api/server"
+	"github.com/equinor/oneseismic/api/server"
 	"github.com/pkg/profile"
 )
 
