@@ -136,13 +136,6 @@ func (hs *HTTPServer) registerMacros() {
 }
 
 func (hs *HTTPServer) registerEndpoints() {
-	hs.app.Get("/", func(ctx iris.Context) {
-		_, err := ctx.HTML("")
-		if err != nil {
-			ctx.StatusCode(500)
-		}
-	})
-
 	mc := controller.NewManifestController(hs.service.manifestStore)
 
 	hs.app.Get("/manifest/{manifestID:string idString() else 502}", mc.Download)
