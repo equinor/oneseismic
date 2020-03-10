@@ -71,24 +71,14 @@ func Serve(m map[string]string) error {
 	var p *profile.Profile
 
 	if c.profiling {
-		l.LogI("Enabling profiling")
-
-		pType := "mem"
 		pOpts := []func(*profile.Profile){
 			profile.ProfilePath("pprof"),
 			profile.NoShutdownHook,
 		}
 
-		switch pType {
-		case "mem":
-			pOpts = append(pOpts, profile.MemProfile)
-		case "cpu":
-			pOpts = append(pOpts, profile.CPUProfile)
-		default:
-			pOpts = append(pOpts, profile.CPUProfile)
-		}
-
+		pOpts = append(pOpts, profile.MemProfile)
 		p = profile.Start(pOpts...).(*profile.Profile)
+
 		defer p.Stop()
 	}
 
