@@ -46,22 +46,6 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	return opts, nil
 }
 
-func serve(opts []server.HTTPServerOption) error {
-	hs, err := server.NewHTTPServer(opts...)
-
-	if err != nil {
-		return events.E("Error configuring http server", err)
-	}
-
-	err = hs.Serve()
-
-	if err != nil && err != http.ErrServerClosed {
-		return events.E("Error running http server", err)
-	}
-
-	return nil
-}
-
 func Serve(m map[string]string) error {
 	c, err := parseConfig(m)
 	if err != nil {
@@ -98,13 +82,14 @@ func Serve(m map[string]string) error {
 		return err
 	}
 
-	l.LogI("Starting server")
-
-	err = serve(opts)
-
+	hs, err := server.NewHTTPServer(server.DefaultHTTPServer(), opts...)
 	if err != nil {
-		l.LogE("Error starting http server", err)
-		return err
+		return events.E("Error configuring http server", err)
+	}
+
+	err = hs.Serve()
+	if err != nil && err != http.ErrServerClosed {
+		return events.E("Error running http server", err)
 	}
 
 	return nil
