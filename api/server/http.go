@@ -37,7 +37,7 @@ type HTTPServerOption interface {
 	apply(*HTTPServer) error
 }
 
-func DefaultHTTPServer() HTTPServer {
+func CreateDefault() HTTPServer {
 
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
@@ -47,20 +47,20 @@ func DefaultHTTPServer() HTTPServer {
 		hostAddr: "localhost:8080"}
 }
 
-func NewHTTPServer(hs HTTPServer, opts ...HTTPServerOption) (HTTPServer, error) {
+func Configure(hs *HTTPServer, opts ...HTTPServerOption) error {
 	for _, opt := range opts {
-		err := opt.apply(&hs)
+		err := opt.apply(hs)
 		if err != nil {
-			return hs, fmt.Errorf("Applying config failed: %v", err)
+			return fmt.Errorf("Applying config failed: %v", err)
 		}
 	}
 	hs.app.Use(iris.Gzip)
 
 	if hs.service.manifestStore == nil {
-		return hs, fmt.Errorf("Server cannot start, no manifest store set")
+		return fmt.Errorf("Server cannot start, no manifest store set")
 	}
 
-	return hs, nil
+	return nil
 }
 
 func WithOAuth2(oauthOpt OAuth2Option) HTTPServerOption {
