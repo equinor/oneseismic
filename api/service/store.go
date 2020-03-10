@@ -2,79 +2,62 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-
-	"github.com/equinor/oneseismic/api/events"
 )
 
 type ManifestStore interface {
-	Download(context.Context, string) (*Manifest, error)
+	List(ctx context.Context) ([]string, error)
 }
 
-type Manifest struct {
-	Guid string
-}
-
-type ContainerURL struct {
-	azblob.ContainerURL
+type ServiceURL struct {
+	azblob.ServiceURL
 }
 
 type AzureBlobSettings struct {
-	StorageURL    string
-	AccountName   string
-	AccountKey    string
-	ContainerName string
+	StorageURL  string
+	AccountName string
+	AccountKey  string
 }
 
-func (mbs *ContainerURL) Download(ctx context.Context, manifestID string) (*Manifest, error) {
-	mani := &Manifest{}
+func (sURL *ServiceURL) List(ctx context.Context) ([]string, error) {
+	names := make([]string, 0)
 
-	blobURL := mbs.NewBlockBlobURL(manifestID)
+	for marker := (azblob.Marker{}); marker.NotDone(); {
+		listContainer, err := sURL.ListContainersSegment(ctx, marker, azblob.ListContainersSegmentOptions{})
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := blobURL.Download(
-		ctx,
-		0,
-		azblob.CountToEnd,
-		azblob.BlobAccessConditions{},
-		false,
-	)
-	if err != nil {
-		return mani, events.E("Download from blobstore", err, events.Marshalling, events.ErrorLevel)
+		for _, val := range listContainer.ContainerItems {
+			names = append(names, val.Name)
+		}
+
+		marker = listContainer.NextMarker
 	}
-	b, err := ioutil.ReadAll(resp.Body(azblob.RetryReaderOptions{}))
-	if err != nil {
-		return mani, events.E("Could not read manifest from blob store", err)
-	}
-	err = json.Unmarshal(b, mani)
-	if err != nil {
-		return mani, events.E("Unmarshaling to Manifest", err, events.Marshalling, events.ErrorLevel)
-	}
-	return mani, nil
+	return names, nil
 }
 
-func NewContainerURL(az AzureBlobSettings) (*ContainerURL, error) {
+func NewServiceURL(az AzureBlobSettings) (*ServiceURL, error) {
+
+	uri, err := url.Parse(
+		fmt.Sprintf(az.StorageURL,
+			az.AccountName))
+	if err != nil {
+		return nil, err
+	}
 
 	credential, err := azblob.NewSharedKeyCredential(az.AccountName, az.AccountKey)
 	if err != nil {
 		return nil, err
 	}
 
-	url, err := url.Parse(
-		fmt.Sprintf(az.StorageURL,
-			az.AccountName,
-			az.ContainerName))
-	if err != nil {
-		return nil, err
-	}
-	containerURL := azblob.NewContainerURL(
-		*url,
+	sURL := azblob.NewServiceURL(
+		*uri,
 		azblob.NewPipeline(credential, azblob.PipelineOptions{}),
 	)
 
-	return &ContainerURL{containerURL}, err
+	return &ServiceURL{sURL}, err
 }

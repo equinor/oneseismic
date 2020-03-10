@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/equinor/oneseismic/api/events"
@@ -23,13 +24,6 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 				ApiSecret:  []byte(c.apiSecret),
 			}))
 	}
-
-	ms, err := service.NewContainerURL(c.azureBlobSettings)
-	if err != nil {
-		return nil, events.E("Accessing manifest store", err)
-	}
-
-	opts = append(opts, server.WithContainerURL(ms))
 
 	if len(c.hostAddr) > 0 {
 		opts = append(
@@ -82,7 +76,15 @@ func Serve(m map[string]string) error {
 		return err
 	}
 
-	hs := server.CreateDefault()
+	sURL, err := service.NewServiceURL(c.azureBlobSettings)
+	if err != nil {
+		return fmt.Errorf("creating ServiceURL: %w", err)
+	}
+
+	if sURL == nil {
+		return fmt.Errorf("sURL should not be nil")
+	}
+	hs := server.Create(*sURL)
 
 	err = server.Configure(&hs, opts...)
 	if err != nil {

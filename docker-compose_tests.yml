@@ -3,24 +3,33 @@ services:
   auth:
     image: lambdaville/no-factor-auth:v0.0.5
 
+  az:
+    image: mcr.microsoft.com/azure-storage/azurite:3.5.0
+    command: azurite-blob --blobHost 0.0.0.0
+
   api:
     depends_on:
       - auth
+      - az
     environment:
       - API_SECRET="12345678"
       - HOST_ADDR=0.0.0.0:8080
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=auth:8089
-      - AZURE_STORAGE_URL=http://az:10000/%s/%s
+      - AZURE_STORAGE_URL=http://az:10000/%s
       - AZURE_STORAGE_ACCOUNT=devstoreaccount1
       - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-      - AZURE_MANIFEST_CONTAINER=exists
 
   test:
     build:
       context: tests/integration
     depends_on:
       - api
+      - az
+      - auth
     environment:
-      - SC_API_HOST_ADDR=http://api:8080
+      - HOST_ADDR=http://api:8080
       - AUTH_ADDR=http://auth:8089/common
+      - AZURE_STORAGE_URL=http://az:10000/%s
+      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
+      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==

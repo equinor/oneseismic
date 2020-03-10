@@ -23,28 +23,24 @@ import (
 )
 
 type HTTPServer struct {
-	service  APIService
-	app      *iris.Application
-	hostAddr string
-	profile  bool
-}
-
-type APIService struct {
 	manifestStore service.ManifestStore
+	app           *iris.Application
+	hostAddr      string
+	profile       bool
 }
 
 type HTTPServerOption interface {
 	apply(*HTTPServer) error
 }
 
-func CreateDefault() HTTPServer {
-
+func Create(sURL service.ServiceURL) HTTPServer {
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
 	l.AddGoLogSource(app.Logger().SetOutput)
 	return HTTPServer{
-		app:      app,
-		hostAddr: "localhost:8080"}
+		manifestStore: &sURL,
+		app:           app,
+		hostAddr:      "localhost:8080"}
 }
 
 func Configure(hs *HTTPServer, opts ...HTTPServerOption) error {
@@ -54,11 +50,9 @@ func Configure(hs *HTTPServer, opts ...HTTPServerOption) error {
 			return fmt.Errorf("Applying config failed: %v", err)
 		}
 	}
-	hs.app.Use(iris.Gzip)
 
-	if hs.service.manifestStore == nil {
-		return fmt.Errorf("Server cannot start, no manifest store set")
-	}
+	hs.app.Use(iris.Gzip)
+	hs.registerEndpoints()
 
 	return nil
 }
@@ -135,14 +129,13 @@ func (hs *HTTPServer) registerMacros() {
 }
 
 func (hs *HTTPServer) registerEndpoints() {
-	mc := controller.NewManifestController(hs.service.manifestStore)
+	mc := controller.NewManifestController(hs.manifestStore)
 
-	hs.app.Get("/manifest/{manifestID:string idString() else 502}", mc.Download)
+	hs.app.Get("/", mc.List)
 }
 
 func (hs *HTTPServer) Serve() error {
 	hs.registerMacros()
-	hs.registerEndpoints()
 
 	config := &swagger.Config{
 		URL: fmt.Sprintf("http://%s/swagger/doc.json", hs.hostAddr), //The url pointing to API definition
@@ -186,7 +179,7 @@ func (hs *HTTPServer) Serve() error {
 func WithContainerURL(manifestStore service.ManifestStore) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
-		hs.service.manifestStore = manifestStore
+		hs.manifestStore = manifestStore
 		return
 	})
 }
