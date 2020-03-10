@@ -39,10 +39,9 @@ func orDefaultBool(val string, def bool) bool {
 
 func azb(m map[string]string) service.AzureBlobSettings {
 	return service.AzureBlobSettings{
-		StorageURL:    m["AZURE_STORAGE_URL"],
-		AccountName:   m["AZURE_STORAGE_ACCOUNT"],
-		AccountKey:    m["AZURE_STORAGE_ACCESS_KEY"],
-		ContainerName: m["AZURE_MANIFEST_CONTAINER"],
+		StorageURL:  m["AZURE_STORAGE_URL"],
+		AccountName: m["AZURE_STORAGE_ACCOUNT"],
+		AccountKey:  m["AZURE_STORAGE_ACCESS_KEY"],
 	}
 }
 
