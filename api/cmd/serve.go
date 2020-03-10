@@ -82,7 +82,9 @@ func Serve(m map[string]string) error {
 		return err
 	}
 
-	hs, err := server.NewHTTPServer(server.DefaultHTTPServer(), opts...)
+	hs := server.CreateDefault()
+
+	err = server.Configure(&hs, opts...)
 	if err != nil {
 		return events.E("Error configuring http server", err)
 	}
