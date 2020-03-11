@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  Ingestion:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Test Ingestion
+        run: docker-compose up --build --exit-code-from int_tests
+        working-directory: ./core/ingestion
+
+  Api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build docker images
+        run: |
+          export VERSION=`git describe --tags`
+          docker-compose build
+
+      - name: Run integration tests
+        run: docker-compose -f docker-compose.yml -f docker-compose_tests.yml up --build --exit-code-from test
