@@ -45,18 +45,6 @@ func getEnvs() map[string]string {
 	return m
 }
 
-//@title Seismic Cloud Api
-//@description The Seismic Cloud Api
-//@license.name proprietary
-//@contact.name Equinor
-//@securityDefinitions.apikey ApiKeyAuth
-//@in header
-//@name Authorization
-
-//@tag.name manifest
-//@tag.description Operations for manifests
-//@tag.name stitch
-//@tag.description Stitch together cube data
 func main() {
 	defer func() {
 		if r := recover(); r != nil {

@@ -1,6 +1,6 @@
 {
-"apiName": "seismic_cloud",
-"packageName": "seismic_cloud_sdk",
-"projectName": "seismic_cloud_sdk",
-"packageVersion": "0.0.1"
+    "apiName": "oneseismic",
+    "packageName": "oneseismic_sdk",
+    "projectName": "oneseismic_sdk",
+    "packageVersion": "0.0.1"
 }
