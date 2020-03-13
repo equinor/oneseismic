@@ -39,6 +39,22 @@ message fragment_shape {
     int32 dim2 = 3;
 };
 
+message api_slice {
+    int32 dim = 1;
+    int32 lineno = 2;
+};
+
+message api_request {
+    string requestid = 1;
+    string root = 2;
+    string guid = 3;
+    fragment_shape shape = 4;
+
+    oneof function {
+        api_slice slice = 5;
+    };
+};
+
 /*
  * Mirrors the slice_layout struct in oneseismic/geometry.hpp
  */
