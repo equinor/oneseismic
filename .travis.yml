@@ -10,9 +10,6 @@ matrix:
       python: 3.7
     - language: python
       python: 3.6
-    - language: c++
-      dist: bionic
-      compiler: clang
 
 install:
   - sudo apt-get install -y libgnutls28-dev libcurl4-gnutls-dev
@@ -34,19 +31,16 @@ install:
   - popd
 
 script:
-    - if [[ -n "${TRAVIS_PYTHON_VERSION+1}" ]]; then
-        pushd core/ingestion/scan &&
-        pip install -r requirements-dev.txt &&
-        python setup.py test && popd;
-        pushd core/ingestion/upload &&
-        pip install -r requirements-dev.txt &&
-        python setup.py test && popd;
-      fi
+  - pushd core/ingestion/scan
+  - pip install -r requirements-dev.txt
+  - python setup.py test && popd
+  - pushd core/ingestion/upload 
+  - pip install -r requirements-dev.txt
+  - python setup.py test && popd
+  - pip install -r core/python/requirements-dev.txt
 
-    - if [[ -z $TRAVIS_PYTHON_VERSION ]]; then
-        mkdir build &&
-        pushd build &&
-        cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON &&
-        make &&
-        ctest --output-on-failure;
-      fi
+  - mkdir build
+  - pushd build
+  - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_PYTHON=ON
+  - make
+  - ctest --output-on-failure;

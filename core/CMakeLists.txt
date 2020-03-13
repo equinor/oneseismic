@@ -6,6 +6,7 @@ include(CTest)
 include(GNUInstallDirs)
 include(TestBigEndian)
 
+option(BUILD_PYTHON "Build Python library" ON)
 
 add_library(json INTERFACE)
 target_include_directories(json INTERFACE external/nlohmann)
@@ -112,6 +113,7 @@ export(
     NAMESPACE
         oneseismic::
 )
+set(ONESEISMIC_LIB_CMAKECONFIG_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE PATH "")
 
 add_subdirectory(external/catch2)
 
@@ -138,3 +140,5 @@ else ()
 endif()
 
 add_test(NAME test COMMAND tests)
+
+add_subdirectory(python)

@@ -30,6 +30,9 @@ public:
     basic_tuple() noexcept (true) { this->fill(0); }
     basic_tuple(const base_type& t) noexcept (true) : base_type(t) {}
 
+    using reference  = typename base_type::reference;
+    using value_type = typename base_type::value_type;
+
     template < typename... Vs >
     basic_tuple(std::size_t v, Vs... vs) noexcept (true) :
     basic_tuple(base_type{ v, static_cast< std::size_t >(vs) ... }) {
