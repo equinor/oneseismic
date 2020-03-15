@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/equinor/oneseismic/api/service"
+	"github.com/equinor/oneseismic/api/server"
 )
 
 type errInvalidConfig struct {
@@ -23,7 +23,7 @@ type config struct {
 	hostAddr          string
 	issuer            string
 	stitchGrpcAddr    string
-	azureBlobSettings service.AzureBlobSettings
+	azureBlobSettings server.AzureBlobSettings
 	resourceID        string
 	logDBConnStr      string
 	apiSecret         string
@@ -37,8 +37,8 @@ func orDefaultBool(val string, def bool) bool {
 	return def
 }
 
-func azb(m map[string]string) service.AzureBlobSettings {
-	return service.AzureBlobSettings{
+func azb(m map[string]string) server.AzureBlobSettings {
+	return server.AzureBlobSettings{
 		StorageURL:  m["AZURE_STORAGE_URL"],
 		AccountName: m["AZURE_STORAGE_ACCOUNT"],
 		AccountKey:  m["AZURE_STORAGE_ACCESS_KEY"],
