@@ -6,7 +6,6 @@ import (
 
 	"github.com/equinor/oneseismic/api/events"
 	l "github.com/equinor/oneseismic/api/logger"
-	"github.com/equinor/oneseismic/api/service"
 
 	"github.com/equinor/oneseismic/api/server"
 	"github.com/pkg/profile"
@@ -76,7 +75,7 @@ func Serve(m map[string]string) error {
 		return err
 	}
 
-	sURL, err := service.NewServiceURL(c.azureBlobSettings)
+	sURL, err := server.NewServiceURL(c.azureBlobSettings)
 	if err != nil {
 		return fmt.Errorf("creating ServiceURL: %w", err)
 	}

@@ -1,18 +1,17 @@
-package controller
+package server
 
 import (
 	"context"
 	"net/http"
 
-	"github.com/equinor/oneseismic/api/service"
 	"github.com/kataras/iris/v12"
 )
 
 type ManifestController struct {
-	ms service.ManifestStore
+	ms ManifestStore
 }
 
-func NewManifestController(ms service.ManifestStore) *ManifestController {
+func NewManifestController(ms ManifestStore) *ManifestController {
 	return &ManifestController{ms: ms}
 }
 
