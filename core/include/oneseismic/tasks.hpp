@@ -16,6 +16,15 @@ public:
         noexcept (false);
 };
 
+class fragment_task {
+public:
+    void run(
+            one::transfer& xfer,
+            zmq::socket_t& input,
+            zmq::socket_t& output)
+        noexcept (false);
+};
+
 }
 
 #endif // ONESEISMIC_TASKS_HPP

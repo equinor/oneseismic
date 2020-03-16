@@ -139,6 +139,7 @@ target_include_directories(tests
 if (TARGET PkgConfig::microhttpd)
     target_sources(tests PRIVATE tests/transfer-http.cpp)
     target_sources(tests PRIVATE tests/manifest-task.cpp)
+    target_sources(tests PRIVATE tests/fragment-task.cpp)
     target_link_libraries(tests PRIVATE PkgConfig::microhttpd)
 else ()
     message(WARNING
