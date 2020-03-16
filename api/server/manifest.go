@@ -7,17 +7,13 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-type ManifestController struct {
-	ms ManifestStore
+type manifestController struct {
+	ms manifestStore
 }
 
-func NewManifestController(ms ManifestStore) *ManifestController {
-	return &ManifestController{ms: ms}
-}
-
-func (msc *ManifestController) List(ctx iris.Context) {
+func (msc *manifestController) list(ctx iris.Context) {
 	bgctx := context.Background()
-	manifests, err := msc.ms.List(bgctx)
+	manifests, err := msc.ms.list(bgctx)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
