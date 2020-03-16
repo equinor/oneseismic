@@ -8,8 +8,8 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
-type ManifestStore interface {
-	List(ctx context.Context) ([]string, error)
+type manifestStore interface {
+	list(ctx context.Context) ([]string, error)
 }
 
 type ServiceURL struct {
@@ -22,7 +22,7 @@ type AzureBlobSettings struct {
 	AccountKey  string
 }
 
-func (sURL *ServiceURL) List(ctx context.Context) ([]string, error) {
+func (sURL *ServiceURL) list(ctx context.Context) ([]string, error) {
 	names := make([]string, 0)
 
 	for marker := (azblob.Marker{}); marker.NotDone(); {

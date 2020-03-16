@@ -20,7 +20,7 @@ import (
 )
 
 type HTTPServer struct {
-	manifestStore ManifestStore
+	manifestStore manifestStore
 	app           *iris.Application
 	hostAddr      string
 	profile       bool
@@ -126,9 +126,9 @@ func (hs *HTTPServer) registerMacros() {
 }
 
 func (hs *HTTPServer) registerEndpoints() {
-	mc := NewManifestController(hs.manifestStore)
+	mc := manifestController{ms: hs.manifestStore}
 
-	hs.app.Get("/", mc.List)
+	hs.app.Get("/", mc.list)
 }
 
 func (hs *HTTPServer) Serve() error {
@@ -173,7 +173,7 @@ func (hs *HTTPServer) Serve() error {
 	return hs.app.Run(iris.Addr(hs.hostAddr))
 }
 
-func WithContainerURL(manifestStore ManifestStore) HTTPServerOption {
+func WithContainerURL(manifestStore manifestStore) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.manifestStore = manifestStore

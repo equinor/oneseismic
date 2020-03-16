@@ -13,7 +13,7 @@ type MockStore struct {
 	manifests []string
 }
 
-func (mbs *MockStore) List(ctx context.Context) ([]string, error) {
+func (mbs *MockStore) list(ctx context.Context) ([]string, error) {
 	manifests := make([]string, len(mbs.manifests))
 	copy(manifests, mbs.manifests)
 	return manifests, nil
