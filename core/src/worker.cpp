@@ -8,11 +8,18 @@
 #include <oneseismic/azure.hpp>
 #include <oneseismic/geometry.hpp>
 #include <oneseismic/transfer.hpp>
-#include <oneseismic/worker.hpp>
+#include <oneseismic/tasks.hpp>
 
+#include "log.hpp"
 #include "core.pb.h"
 
 namespace {
+
+struct module {
+    static constexpr const char* name() { return "fragment"; }
+};
+
+using log = one::basic_log< module >;
 
 /*
  * Every request type (slice, trace, fragment) must know how to transform
@@ -143,7 +150,11 @@ noexcept (false) {
             return this->s;
 
         default:
-            throw std::runtime_error("bad message: oneof name not set");
+            log::log(
+                "{} - malformed input, bad request variant (oneof)",
+                req.requestid()
+            );
+            throw std::runtime_error("bad oneof");
     }
 }
 
@@ -174,10 +185,14 @@ one::batch make_batch(const oneseismic::fetch_request& req) noexcept (false) {
 
 namespace one {
 
-void workloop(transfer& xfer, zmq::socket_t& in, zmq::socket_t& out) {
+void fragment_task::run(
+        transfer& xfer,
+        zmq::socket_t& input,
+        zmq::socket_t& output) {
+
     /*
-     * Keep the protobuf instances alive, as re-using handles is a lot more
-     * efficient than reallocating them every time.
+     * TODO: Keep the protobuf instances alive, as re-using handles is a lot
+     * more efficient than reallocating them every time.
      *
      * https://github.com/protocolbuffers/protobuf/blob/master/docs/performance.md
      *
@@ -186,26 +201,28 @@ void workloop(transfer& xfer, zmq::socket_t& in, zmq::socket_t& out) {
      */
     oneseismic::fetch_request request;
     oneseismic::fetch_response response;
-    std::string responsemsg;
+    std::string outmsg;
     all_actions actions;
 
-    while (true) {
-        zmq::message_t msg;
-        in.recv(msg, zmq::recv_flags::none);
-        const auto ok = request.ParseFromArray(msg.data(), msg.size());
-        if (!ok)
-            throw std::runtime_error("unable to parse request");
-
-        auto& action = actions.select(request);
-        auto batch = make_batch(request);
-        xfer.perform(batch, action);
-
-        action.serialize(response);
-        response.set_requestid(request.requestid());
-        response.SerializeToString(&responsemsg);
-        zmq::message_t reply(responsemsg.data(), responsemsg.size());
-        out.send(reply, zmq::send_flags::none);
+    zmq::message_t in;
+    input.recv(in, zmq::recv_flags::none);
+    const auto ok = request.ParseFromArray(in.data(), in.size());
+    if (!ok) {
+        /* log bad request, then be ready to receive new message */
+        /* TODO: log the actual bytes received too */
+        log::log("badly formatted protobuf message");
+        return;
     }
+
+    auto& action = actions.select(request);
+    auto batch = make_batch(request);
+    xfer.perform(batch, action);
+
+    action.serialize(response);
+    response.set_requestid(request.requestid());
+    response.SerializeToString(&outmsg);
+    zmq::message_t out(outmsg.data(), outmsg.size());
+    output.send(out, zmq::send_flags::none);
 }
 
 }

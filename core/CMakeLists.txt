@@ -55,6 +55,7 @@ add_library(oneseismic
     src/transfer.cpp
     src/azure.cpp
     src/worker.cpp
+    src/manifest.cpp
     ${PROTO_SRCS}
     ${PROTO_HDRS}
 )
@@ -68,6 +69,7 @@ target_include_directories(oneseismic
         include
         ${GNUTLS_INCLUDE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
+        external/nlohmann
 )
 target_compile_options(oneseismic
     PUBLIC
@@ -127,10 +129,17 @@ target_link_libraries(tests
         catch2
         oneseismic::oneseismic
         fmt::fmt
+        Threads::Threads
+)
+target_include_directories(tests
+    PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 if (TARGET PkgConfig::microhttpd)
     target_sources(tests PRIVATE tests/transfer-http.cpp)
+    target_sources(tests PRIVATE tests/manifest-task.cpp)
+    target_sources(tests PRIVATE tests/fragment-task.cpp)
     target_link_libraries(tests PRIVATE PkgConfig::microhttpd)
 else ()
     message(WARNING
