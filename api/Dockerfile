@@ -1,5 +1,7 @@
-FROM golang:buster as builder
-
+FROM golang:buster as base
+RUN apt update && apt install -y libsodium-dev libzmq3-dev libczmq-dev
+FROM base as builder
+RUN apt update && apt install -y protobuf-compiler
 WORKDIR /src
 COPY api/go.mod .
 COPY api/go.sum .
@@ -17,9 +19,8 @@ RUN CGO_ENABLED=0\
     GOARCH=amd64 \
     go build -ldflags="-w -s"
 
-FROM scratch as deployer
+FROM base
 COPY --from=builder /src/api/api /bin/api
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 EXPOSE 8080 8081
 ENTRYPOINT ["api"]
