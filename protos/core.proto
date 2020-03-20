@@ -1,32 +1,6 @@
 syntax = "proto3";
 package oneseismic;
 
-service Core {
-  rpc Slice (SliceRequest) returns (SliceReply) {}
-}
-
-message Geometry {
-  string guid = 1;
-  repeated int64 dim0 = 2;
-  repeated int64 dim1 = 3;
-  repeated int64 dim2 = 4;
-}
-
-message SliceRequest {
-    int32 dim = 1;
-    int64 lineno = 2;
-    int32 dim0 = 3;
-    int32 dim1 = 4;
-    int32 dim2 = 5;
-    Geometry geometry = 6;
-}
-
-message SliceReply {
-    int64 dim0 = 1;
-    int64 dim1 = 2;
-    repeated float v = 3;
-}
-
 message fragment_id {
     int32 dim0 = 1;
     int32 dim1 = 2;
