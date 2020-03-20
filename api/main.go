@@ -35,6 +35,7 @@ func getEnvs() map[string]string {
 		"PROFILING",
 		"RESOURCE_ID",
 		"STITCH_GRPC_ADDR",
+		"CORE_SERVER",
 	}
 
 	for _, env := range envs {

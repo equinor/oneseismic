@@ -8,10 +8,6 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
-type manifestStore interface {
-	list(ctx context.Context) ([]string, error)
-}
-
 type ServiceURL struct {
 	azblob.ServiceURL
 }

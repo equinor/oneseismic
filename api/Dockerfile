@@ -8,16 +8,15 @@ COPY api/go.sum .
 RUN go mod download
 
 COPY api api
+COPY protos protos
 
 WORKDIR /src/api
+
 RUN go generate
 
 RUN go test -race ./...
 
-RUN CGO_ENABLED=0\
-    GOOS=linux\
-    GOARCH=amd64 \
-    go build -ldflags="-w -s"
+RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s"
 
 FROM base
 COPY --from=builder /src/api/api /bin/api

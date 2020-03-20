@@ -9,20 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type MockStore struct {
+type mockStore struct {
 	manifests []string
 }
 
-func (mbs *MockStore) list(ctx context.Context) ([]string, error) {
-	manifests := make([]string, len(mbs.manifests))
-	copy(manifests, mbs.manifests)
-	return manifests, nil
+func (mbs *mockStore) list(ctx context.Context) ([]string, error) {
+	return mbs.manifests, nil
 }
 
 func TestEmptyList(t *testing.T) {
 	hs := HTTPServer{
-		app:           iris.Default(),
-		manifestStore: &MockStore{},
+		app: iris.Default(),
+		mc:  &manifestController{ms: &mockStore{[]string{}}},
 	}
 
 	err := Configure(&hs)
@@ -38,10 +36,10 @@ func TestEmptyList(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	m := []string{"a", "b"}
+	m := []string{}
 	hs := HTTPServer{
-		app:           iris.Default(),
-		manifestStore: &MockStore{m},
+		app: iris.Default(),
+		mc:  &manifestController{ms: &mockStore{manifests: m}},
 	}
 
 	err := Configure(&hs)

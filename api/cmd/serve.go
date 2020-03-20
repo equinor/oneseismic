@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/equinor/oneseismic/api/events"
 	l "github.com/equinor/oneseismic/api/logger"
@@ -69,6 +70,9 @@ func Serve(m map[string]string) error {
 		}
 	}
 
+	go serveZMQ(c.coreServer)
+	time.Sleep(10 * time.Millisecond)
+
 	opts, err := createHTTPServerOptions(*c)
 	if err != nil {
 		l.LogE("Creating http server options", err)
@@ -83,7 +87,7 @@ func Serve(m map[string]string) error {
 	if sURL == nil {
 		return fmt.Errorf("sURL should not be nil")
 	}
-	hs := server.Create(*sURL)
+	hs := server.Create(*sURL, c.coreServer)
 
 	err = server.Configure(&hs, opts...)
 	if err != nil {

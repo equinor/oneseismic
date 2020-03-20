@@ -27,6 +27,7 @@ type config struct {
 	resourceID        string
 	logDBConnStr      string
 	apiSecret         string
+	coreServer        string
 }
 
 func orDefaultBool(val string, def bool) bool {
@@ -67,6 +68,7 @@ func parseConfig(m map[string]string) (*config, error) {
 		profiling:         orDefaultBool(m["PROFILING"], false),
 		resourceID:        m["RESOURCE_ID"],
 		stitchGrpcAddr:    m["STITCH_GRPC_ADDR"],
+		coreServer:        m["CORE_SERVER"],
 	}
 
 	return conf, nil

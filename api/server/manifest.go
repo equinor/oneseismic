@@ -7,6 +7,10 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
+type manifestStore interface {
+	list(ctx context.Context) ([]string, error)
+}
+
 type manifestController struct {
 	ms manifestStore
 }

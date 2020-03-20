@@ -20,24 +20,29 @@ import (
 )
 
 type HTTPServer struct {
-	manifestStore manifestStore
-	app           *iris.Application
-	hostAddr      string
-	profile       bool
+	mc       *manifestController
+	slicer   *sliceController
+	app      *iris.Application
+	hostAddr string
+	profile  bool
 }
 
 type HTTPServerOption interface {
 	apply(*HTTPServer) error
 }
 
-func Create(sURL ServiceURL) HTTPServer {
+func Create(sURL ServiceURL, coreServer string) HTTPServer {
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
 	l.AddGoLogSource(app.Logger().SetOutput)
+
+	zd := newZMQDealer(coreServer, "root")
+
 	return HTTPServer{
-		manifestStore: &sURL,
-		app:           app,
-		hostAddr:      "localhost:8080"}
+		mc:       &manifestController{ms: &sURL},
+		app:      app,
+		slicer:   &sliceController{&zd},
+		hostAddr: "localhost:8080"}
 }
 
 func Configure(hs *HTTPServer, opts ...HTTPServerOption) error {
@@ -126,9 +131,8 @@ func (hs *HTTPServer) registerMacros() {
 }
 
 func (hs *HTTPServer) registerEndpoints() {
-	mc := manifestController{ms: hs.manifestStore}
-
-	hs.app.Get("/", mc.list)
+	hs.app.Get("/", hs.mc.list)
+	hs.app.Get("/{guid:string}/slice/{dim:int32}/{ordinal:int32}", hs.slicer.get)
 }
 
 func (hs *HTTPServer) Serve() error {
@@ -176,7 +180,7 @@ func (hs *HTTPServer) Serve() error {
 func WithContainerURL(manifestStore manifestStore) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
-		hs.manifestStore = manifestStore
+		hs.mc.ms = manifestStore
 		return
 	})
 }

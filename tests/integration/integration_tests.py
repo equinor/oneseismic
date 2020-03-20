@@ -13,12 +13,12 @@ import requests
 protocol = "DefaultEndpointsProtocol=http;"
 account_name = "AccountName={};".format(os.getenv("AZURE_STORAGE_ACCOUNT"))
 account_key = "AccountKey={};".format(os.getenv("AZURE_STORAGE_ACCESS_KEY"))
-uri = os.getenv("AZURE_STORAGE_URL") % os.getenv("AZURE_STORAGE_ACCOUNT")
-blob_endpoint = "BlobEndpoint={};".format(uri)
+az_uri = os.getenv("AZURE_STORAGE_URL") % os.getenv("AZURE_STORAGE_ACCOUNT")
+blob_endpoint = "BlobEndpoint={};".format(az_uri)
 
 
 az_connection_str = protocol + account_name + account_key + blob_endpoint
-uri = os.getenv("HOST_ADDR", "http://localhost:8080")
+api_uri = os.getenv("HOST_ADDR", "http://localhost:8080")
 auth_uri = os.getenv("AUTH_ADDR", "http://localhost:8089")
 
 r = requests.get(auth_uri + "/oauth2/authorize", allow_redirects=False)
@@ -51,11 +51,20 @@ def create_containers():
 
 
 def test_no_auth(create_containers):
-    r = requests.get(uri)
+    r = requests.get(api_uri)
     assert r.status_code == 401
 
 
 def test_auth(create_containers):
-    r = requests.get(uri, headers=auth_header)
+    r = requests.get(api_uri, headers=auth_header)
     assert r.status_code == 200
     assert set(r.json()).difference(set(container_names)) == set()
+
+def test_slice():
+    slice_path = "/any_guid/slice/0/0"
+    r = requests.get(api_uri+slice_path, headers=auth_header)
+
+    assert r.json()["tiles"][0]["v"] == [1]
+    assert r.json()["tiles"][0]["id"] == {}
+    assert r.json()["layout"] == {"chunk_size": 1, "iterations": 1}
+    assert r.status_code == 200
