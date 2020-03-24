@@ -76,25 +76,16 @@ public:
 class transfer_configuration {
 public:
     /*
-     * Called on transfer complete, if the HTTP status code is 200. The
-     * function is called before the handle is released. Buffer data is still
-     * owned by transfer, so copy it if you need to keep it around.
+     * Called on successful transfer. If using file:// (really: not using http,
+     * ftp, or smtp), http_code can safely be ignored. This function is called
+     * before the handle is released. Buffer data is still owned by transfer,
+     * so copy it if you need to keep it around.
      */
     virtual void oncomplete(
             const buffer&,
             const batch&,
-            const std::string& fragment_id) {
-    }
-
-    /*
-     * Called on transfer complete, if the HTTP status is NOT 200. The function
-     * is called before the handle is released. Buffer data is still owned by
-     * transfer, so copy it if you need to keep it around.
-     */
-    virtual void onfailure(
-            const buffer&,
-            const batch&,
-            const std::string& fragment_id) {
+            const std::string& fragment_id,
+            long http_code) {
     }
 
     virtual ~transfer_configuration() = default;

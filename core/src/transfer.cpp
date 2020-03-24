@@ -174,12 +174,12 @@ long response_code(CURL* e) noexcept (false) {
      * The stored value will be zero if no server response code has been
      * received.
      *
+     * When using file://, the return code is still CURLE_OK so there's no
+     * error.
+     *
      * The response code should only be read when the transfer is *complete*,
-     * so if this is zero something else is terribly wrong.
+     * so if this is zero (for HTTP) something else is terribly wrong.
      */
-    if (http_code == 0)
-        throw std::runtime_error("No HTTP response code from server");
-
     return http_code;
 }
 
@@ -282,14 +282,9 @@ void transfer::perform(batch batch, transfer_configuration& cfg) {
             check_multi_error(curl_multi_remove_handle(this->multi, e));
             idle.push_back(e);
 
-            const auto* t = getprivate< task >(e);
             const auto http_code = response_code(e);
-
-            if (http_code == 200) {
-                cfg.oncomplete(t->storage, batch, t->fragment_id);
-            } else {
-                cfg.onfailure(t->storage, batch, t->fragment_id);
-            }
+            const auto* t = getprivate< task >(e);
+            cfg.oncomplete(t->storage, batch, t->fragment_id, http_code);
 
             if (not batch.fragment_ids.empty()) {
                 this->schedule(batch, batch.fragment_ids.back());

@@ -40,21 +40,14 @@ struct manifest_cfg : public one::transfer_configuration {
     void oncomplete(
             const one::buffer& buffer,
             const one::batch&,
-            const std::string&) override {
+            const std::string&,
+            long http_code) override {
+
+        if (http_code != 200)
+            throw std::runtime_error("Status code was not 200/OK");
+
         /* TODO: in debug, store the string too? */
         this->doc = buffer;
-    }
-
-    void onfailure(
-            const one::buffer&,
-            const one::batch&,
-            const std::string&) override {
-        // TODO: Should there be some sort of automatic retry, or should that
-        // decision be pushed up? For now, just fail
-        // TODO: It is *very* likely this should also be responsible to
-        // weed out requests to non-existing cubes, so it is likely it should
-        // push an error message down instead
-        throw std::runtime_error("Error fetching manifest");
     }
 
     one::buffer doc;

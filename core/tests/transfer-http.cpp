@@ -56,22 +56,17 @@ int empty_response(
 }
 
 /*
- * The default implementations of oncomplete and onfailure is to fail the test,
- * so little extra code is needed when either is expected.
+ * The default implementation of oncomplete is to fail the test. This to avoid
+ * accidental passes when the wrong handler is being invoked.
  */
 struct always_fail : public one::transfer_configuration {
     void oncomplete(
             const one::buffer&,
             const one::batch& b,
-            const std::string& id) override {
-        FAIL(fmt::format("HTTP request for '{}' succeeded", id));
-    }
-
-    void onfailure(
-            const one::buffer&,
-            const one::batch& b,
-            const std::string& id) override {
-        FAIL(fmt::format("HTTP request for '{}' failed", id));
+            const std::string& id,
+            long http_code) override {
+        const auto msg = "HTTP request with status {} for '{}'";
+        FAIL(fmt::format(msg, http_code, id));
     }
 };
 
@@ -87,7 +82,9 @@ TEST_CASE(
         void oncomplete(
                 const one::buffer&,
                 const one::batch&,
-                const std::string&) override {
+                const std::string&,
+                long http_code) override {
+            CHECK(http_code == 200);
             this->called += 1;
         }
     } action;
@@ -105,7 +102,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
-    "Transfer calls onfailure on HTTP error",
+    "Transfer calls oncomplete on HTTP error",
     "[transfer][http]") {
 
     constexpr unsigned int statuscodes[] = {
@@ -153,10 +150,12 @@ TEST_CASE(
     struct count_failure : public always_fail {
         int called = 0;
 
-        void onfailure(
+        void oncomplete(
                 const one::buffer&,
                 const one::batch&,
-                const std::string&) override {
+                const std::string&,
+                long http_code) override {
+            CHECK(http_code != 200);
             this->called += 1;
         }
     } config;
@@ -184,7 +183,9 @@ TEST_CASE(
         void oncomplete(
                 const one::buffer&,
                 const one::batch&,
-                const std::string&) override {
+                const std::string&,
+                long http_code) override {
+            CHECK(http_code == 200);
             this->called += 1;
         }
     } config;
