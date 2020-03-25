@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -31,10 +30,8 @@ func getEnvs() map[string]string {
 		"HOST_ADDR",
 		"ISSUER",
 		"LOGDB_CONNSTR",
-		"NO_AUTH",
 		"PROFILING",
 		"RESOURCE_ID",
-		"STITCH_GRPC_ADDR",
 	}
 
 	for _, env := range envs {
@@ -47,10 +44,8 @@ func getEnvs() map[string]string {
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("Recovered in main", r)
 		}
 		l.Wait()
-
 	}()
 	err := cmd.Serve(getEnvs())
 	if err != nil {

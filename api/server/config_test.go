@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 
 func TestDefaultConfigError(t *testing.T) {
 	m := make(map[string]string)
-	_, err := parseConfig(m)
+	_, err := ParseConfig(m)
 	assert.Error(t, err)
 
 	var e *errInvalidConfig
@@ -23,12 +23,11 @@ func TestConfigMinimum(t *testing.T) {
 	m["AUTHSERVER"] = "http://some.host"
 	m["API_SECRET"] = "123456789"
 
-	conf, err := parseConfig(m)
+	conf, err := ParseConfig(m)
 	assert.Nil(t, err)
-	assert.Equal(t, conf.noAuth, false)
-	assert.Equal(t, conf.profiling, false)
-	assert.Equal(t, conf.authServer.String(), m["AUTHSERVER"])
-	assert.Equal(t, conf.apiSecret, m["API_SECRET"])
+	assert.Equal(t, conf.Profiling, false)
+	assert.Equal(t, conf.OAuth2Option.AuthServer.String(), m["AUTHSERVER"])
+	assert.Equal(t, conf.OAuth2Option.APISecret, []byte(m["API_SECRET"]))
 }
 
 func TestConfigAPI_SECRET(t *testing.T) {
@@ -36,7 +35,7 @@ func TestConfigAPI_SECRET(t *testing.T) {
 
 	m["AUTHSERVER"] = "http://some.host"
 
-	_, err := parseConfig(m)
+	_, err := ParseConfig(m)
 
 	var e *errInvalidConfig
 
@@ -49,7 +48,7 @@ func TestConfigAUTHSERVER(t *testing.T) {
 
 	m["API_SECRET"] = "123456789"
 
-	_, err := parseConfig(m)
+	_, err := ParseConfig(m)
 
 	var e *errInvalidConfig
 
