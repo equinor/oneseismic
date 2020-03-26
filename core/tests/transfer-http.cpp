@@ -60,13 +60,22 @@ int empty_response(
  * accidental passes when the wrong handler is being invoked.
  */
 struct always_fail : public one::transfer_configuration {
-    void oncomplete(
+
+    action onstatus(
             const one::buffer&,
             const one::batch& b,
             const std::string& id,
             long http_code) override {
         const auto msg = "HTTP request with status {} for '{}'";
         FAIL(fmt::format(msg, http_code, id));
+        throw std::logic_error("FAIL() not invoked as it should");
+    }
+
+    void oncomplete(
+            const one::buffer&,
+            const one::batch& b,
+            const std::string& id) override {
+        FAIL("oncomplete() called unexpectedly");
     }
 };
 
@@ -79,12 +88,19 @@ TEST_CASE(
     struct count_complete : public always_fail {
         int called = 0;
 
-        void oncomplete(
+        action onstatus(
                 const one::buffer&,
                 const one::batch&,
                 const std::string&,
                 long http_code) override {
             CHECK(http_code == 200);
+            return action::done;
+        }
+
+        void oncomplete(
+                const one::buffer&,
+                const one::batch&,
+                const std::string&) override {
             this->called += 1;
         }
     } action;
@@ -150,13 +166,14 @@ TEST_CASE(
     struct count_failure : public always_fail {
         int called = 0;
 
-        void oncomplete(
+        action onstatus(
                 const one::buffer&,
                 const one::batch&,
                 const std::string&,
                 long http_code) override {
             CHECK(http_code != 200);
             this->called += 1;
+            throw aborted("Error code != 200/OK");
         }
     } config;
 
@@ -168,7 +185,8 @@ TEST_CASE(
 
             one::batch batch;
             batch.fragment_ids.resize(1);
-            xfer.perform(batch, config);
+            using aborted = one::transfer_configuration::aborted;
+            CHECK_THROWS_AS(xfer.perform(batch, config), aborted);
             CHECK(config.called == 1);
         }
     }
@@ -180,12 +198,19 @@ TEST_CASE(
     struct count_complete : public always_fail {
         int called = 0;
 
-        void oncomplete(
+        action onstatus(
                 const one::buffer&,
                 const one::batch&,
                 const std::string&,
                 long http_code) override {
             CHECK(http_code == 200);
+            return action::done;
+        }
+
+        void oncomplete(
+                const one::buffer&,
+                const one::batch&,
+                const std::string&) override {
             this->called += 1;
         }
     } config;

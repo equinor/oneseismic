@@ -5,6 +5,7 @@
 #include <zmq.hpp>
 
 #include <oneseismic/tasks.hpp>
+#include <oneseismic/azure.hpp>
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/geometry.hpp>
 
@@ -36,16 +37,15 @@ one::gvt< 3 > geometry(
     };
 }
 
-struct manifest_cfg : public one::transfer_configuration {
+/*
+ * for now, pin it to the azure transfer config. The manifest-config itself
+ * should probably be a parameter instead
+ */
+struct manifest_cfg : public one::az_transfer_configuration {
     void oncomplete(
             const one::buffer& buffer,
             const one::batch&,
-            const std::string&,
-            long http_code) override {
-
-        if (http_code != 200)
-            throw std::runtime_error("Status code was not 200/OK");
-
+            const std::string&) override {
         /* TODO: in debug, store the string too? */
         this->doc = buffer;
     }

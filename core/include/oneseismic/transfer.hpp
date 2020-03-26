@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -75,17 +76,39 @@ public:
 
 class transfer_configuration {
 public:
+    class aborted : public std::runtime_error {
+    public:
+        aborted(const std::string& reason) : std::runtime_error(reason) {}
+        aborted(const char* reason)        : std::runtime_error(reason) {}
+    };
+
+    enum class action {
+        done,
+        retry,
+    };
+
     /*
-     * Called on successful transfer. If using file:// (really: not using http,
-     * ftp, or smtp), http_code can safely be ignored. This function is called
-     * before the handle is released. Buffer data is still owned by transfer,
-     * so copy it if you need to keep it around.
+     * Check the status code and decide what to do from a transfer point of
+     * view. What exactly is the right choice depends both on back-end,
+     * responsibility, and run-time config, so it should be quite dynamic.
+     *
+     * To abort a transfer, throw the aborted exception.
+     */
+    virtual action onstatus(
+            const buffer&,
+            const batch&,
+            const std::string& fragment_id,
+            long status_code) = 0;
+
+    /*
+     * Called on successful transfer, if onstatus returns done. This function
+     * is called before the handle is released. Buffer data is still owned by
+     * transfer, so copy it if you need to keep it around.
      */
     virtual void oncomplete(
             const buffer&,
             const batch&,
-            const std::string& fragment_id,
-            long http_code) {
+            const std::string& fragment_id) {
     }
 
     virtual ~transfer_configuration() = default;

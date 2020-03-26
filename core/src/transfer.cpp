@@ -229,7 +229,7 @@ transfer::~transfer() {
 }
 
 
-void transfer::perform(batch batch, transfer_configuration& cfg) {
+void transfer::perform(batch batch, transfer_configuration& cfg) try {
     /*
      * batch is copied for now, since jobs are scheduled by just popping
      * fragments to fetch from the end. In the future this might be done with
@@ -284,7 +284,19 @@ void transfer::perform(batch batch, transfer_configuration& cfg) {
 
             const auto http_code = response_code(e);
             const auto* t = getprivate< task >(e);
-            cfg.oncomplete(t->storage, batch, t->fragment_id, http_code);
+            const auto& storage = t->storage;
+            const auto& fragment_id = t->fragment_id;
+
+            switch (cfg.onstatus(storage, batch, fragment_id, http_code)) {
+                using action = transfer_configuration::action;
+                case action::done:
+                    cfg.oncomplete(storage, batch, fragment_id);
+                    break;
+
+                case action::retry:
+                    batch.fragment_ids.push_back(fragment_id);
+                    break;
+            }
 
             if (not batch.fragment_ids.empty()) {
                 this->schedule(batch, batch.fragment_ids.back());
@@ -307,6 +319,14 @@ void transfer::perform(batch batch, transfer_configuration& cfg) {
 
     // TODO: if this happens in release, at least log properly
     assert(this->idle.size() == this->connections.size());
+} catch (...) {
+    // TODO: need a good test for a cancelled multi transfer
+    /* clear up remaining connections and reset state */
+    for (auto* e : this->connections)
+        curl_multi_remove_handle(this->multi, e);
+
+    this->idle = this->connections;
+    throw;
 }
 
 void transfer::schedule(const batch& batch, std::string fragment_id) {

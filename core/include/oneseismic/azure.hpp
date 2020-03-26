@@ -39,6 +39,21 @@ private:
     std::string key;
 };
 
+class az_transfer_configuration : public transfer_configuration {
+public:
+    /*
+     * A reasonable default azure configuration - anything but 200/OK gives a
+     * runtime error and aborts the transfer. Retrying and other fancy stuff
+     * can come later.
+     */
+    action onstatus(
+            const buffer&,
+            const batch&,
+            const std::string& fragment_id,
+            long status_code)
+        override;
+};
+
 }
 
 #endif // ONESEISMIC_AZURE_HPP

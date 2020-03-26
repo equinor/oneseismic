@@ -35,7 +35,7 @@ public:
 /*
  * Union of transfer configuration and the response message serializer.
  */
-class action : public one::transfer_configuration, public wire {};
+class action : public one::az_transfer_configuration, public wire {};
 
 class slice : public action {
 public:
@@ -47,8 +47,7 @@ public:
     void oncomplete(
         const one::buffer& b,
         const one::batch& batch,
-        const std::string& id,
-        long http_code) override;
+        const std::string& id) override;
 
     void serialize(oneseismic::fetch_response&) const override;
     void prepare(const oneseismic::fetch_request& req) override;
@@ -67,15 +66,7 @@ private:
 void slice::oncomplete(
         const one::buffer& b,
         const one::batch& batch,
-        const std::string& id,
-        long http_code) {
-
-    if (http_code != 200) {
-        /* log error, maybe abort the job */
-        throw std::runtime_error(
-            fmt::format("HTTP {} in slice.fragment fetch", http_code)
-        );
-    }
+        const std::string& id) {
 
     auto t = tile();
     t.data.resize(this->lay.iterations * this->lay.chunk_size);
