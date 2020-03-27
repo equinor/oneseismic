@@ -11,18 +11,6 @@ import (
 	"github.com/pkg/profile"
 )
 
-func createHTTPServerOptions(c server.Config) ([]server.HTTPServerOption, error) {
-	opts := make([]server.HTTPServerOption, 0)
-
-	if c.Profiling {
-		opts = append(
-			opts,
-			server.WithProfiling())
-	}
-
-	return opts, nil
-}
-
 func Serve(m map[string]string) error {
 	c, err := server.ParseConfig(m)
 	if err != nil {
@@ -53,21 +41,12 @@ func Serve(m map[string]string) error {
 		}
 	}
 
-	opts, err := createHTTPServerOptions(*c)
-	if err != nil {
-		l.LogE("Creating http server options", err)
-		return err
-	}
-
 	hs, err := server.Create(*c)
 	if err != nil {
 		return fmt.Errorf("could not create server: %w", err)
 	}
 
-	err = server.Configure(hs, opts...)
-	if err != nil {
-		return events.E("Error configuring http server", err)
-	}
+	server.Configure(hs)
 
 	err = hs.Serve()
 	if err != nil && err != http.ErrServerClosed {
