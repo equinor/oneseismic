@@ -12,22 +12,11 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-type HTTPServer struct {
-	manifestController *manifestController
-	app                *iris.Application
-	hostAddr           string
-	profile            bool
-}
-
-func Create(c Config) (*HTTPServer, error) {
+func Serve(c Config) error {
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
 	l.AddGoLogSource(app.Logger().SetOutput)
 	app.Use(iris.Gzip)
-	sURL, err := NewServiceURL(c.AzureBlobSettings)
-	if err != nil {
-		return nil, fmt.Errorf("creating ServiceURL: %w", err)
-	}
 
 	auth, _ := middleware.Oauth2(c.OAuth2Option)
 	app.Use(auth)
@@ -37,32 +26,22 @@ func Create(c Config) (*HTTPServer, error) {
 
 	middleware.EnablePrometheusMiddleware(app)
 
-	hs := HTTPServer{
-		manifestController: &manifestController{sURL},
-		app:                app,
-		hostAddr:           c.HostAddr}
+	sURL, err := NewServiceURL(c.AzureBlobSettings)
+	if err != nil {
+		return fmt.Errorf("creating ServiceURL: %w", err)
+	}
+	mc := &manifestController{sURL}
+	app.Get("/", mc.list)
 
-	return &hs, nil
-}
-
-func Configure(hs *HTTPServer) {
-	hs.registerEndpoints()
-}
-
-func (hs *HTTPServer) registerEndpoints() {
-	hs.app.Get("/", hs.manifestController.list)
-}
-
-func (hs *HTTPServer) Serve() error {
 	config := &swagger.Config{
-		URL: fmt.Sprintf("http://%s/swagger/doc.json", hs.hostAddr), //The url pointing to API definition
+		URL: fmt.Sprintf("http://%s/swagger/doc.json", c.HostAddr), //The url pointing to API definition
 	}
 	// use swagger middleware to
-	hs.app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
+	app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
 
-	if hs.profile {
+	if c.Profiling {
 		middleware.ServeMetrics("8081")
 	}
 
-	return hs.app.Run(iris.Addr(hs.hostAddr))
+	return app.Run(iris.Addr(c.HostAddr))
 }
