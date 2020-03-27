@@ -95,7 +95,7 @@ func WithOAuth2(oauthOpt OAuth2Option) HTTPServerOption {
 				if t.Method.Alg() != "HS256" {
 					return nil, fmt.Errorf("unexpected jwt signing method=%v", t.Header["alg"])
 				}
-				return oauthOpt.ApiSecret, nil
+				return oauthOpt.APISecret, nil
 			},
 			ContextKey:    "service-jwt",
 			SigningMethod: jwt.SigningMethodHS256,

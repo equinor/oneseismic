@@ -15,12 +15,8 @@ func createHTTPServerOptions(c server.Config) ([]server.HTTPServerOption, error)
 	opts := make([]server.HTTPServerOption, 0)
 
 	opts = append(opts,
-		server.WithOAuth2(server.OAuth2Option{
-			AuthServer: &c.AuthServer,
-			Audience:   c.ResourceID,
-			Issuer:     c.Issuer,
-			ApiSecret:  []byte(c.APISecret),
-		}))
+		server.WithOAuth2(c.OAuth2Option),
+	)
 
 	if c.Profiling {
 		opts = append(

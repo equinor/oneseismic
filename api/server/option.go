@@ -25,5 +25,5 @@ type OAuth2Option struct {
 	AuthServer *url.URL
 	Audience   string
 	Issuer     string
-	ApiSecret  []byte
+	APISecret  []byte
 }

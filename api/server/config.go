@@ -16,14 +16,11 @@ func (e *errInvalidConfig) Error() string { return fmt.Sprintf(e.Name) }
 
 type Config struct {
 	Profiling         bool
-	AuthServer        url.URL
 	HostAddr          string
-	Issuer            string
 	StitchGrpcAddr    string
 	AzureBlobSettings AzureBlobSettings
-	ResourceID        string
 	LogDBConnStr      string
-	APISecret         string
+	OAuth2Option      OAuth2Option
 }
 
 func orDefaultBool(val string, def bool) bool {
@@ -54,14 +51,16 @@ func ParseConfig(m map[string]string) (*Config, error) {
 	}
 
 	conf := &Config{
-		APISecret:         *apiSecret,
-		AuthServer:        *authServer,
+		OAuth2Option: OAuth2Option{
+			AuthServer: authServer,
+			APISecret:  []byte(*apiSecret),
+			Audience:   m["RESOURCE_ID"],
+			Issuer:     m["ISSUER"],
+		},
 		AzureBlobSettings: azb(m),
 		HostAddr:          m["HOST_ADDR"],
-		Issuer:            m["ISSUER"],
 		LogDBConnStr:      m["LOGDB_CONNSTR"],
 		Profiling:         orDefaultBool(m["PROFILING"], false),
-		ResourceID:        m["RESOURCE_ID"],
 		StitchGrpcAddr:    m["STITCH_GRPC_ADDR"],
 	}
 
