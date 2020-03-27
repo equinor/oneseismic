@@ -22,12 +22,6 @@ func createHTTPServerOptions(c server.Config) ([]server.HTTPServerOption, error)
 			ApiSecret:  []byte(c.APISecret),
 		}))
 
-	if len(c.HostAddr) > 0 {
-		opts = append(
-			opts,
-			server.WithHostAddr(c.HostAddr))
-	}
-
 	if c.Profiling {
 		opts = append(
 			opts,
@@ -81,7 +75,7 @@ func Serve(m map[string]string) error {
 	if sURL == nil {
 		return fmt.Errorf("sURL should not be nil")
 	}
-	hs := server.Create(*sURL)
+	hs := server.Create(*sURL, *c)
 
 	err = server.Configure(&hs, opts...)
 	if err != nil {

@@ -29,14 +29,17 @@ type HTTPServerOption interface {
 	apply(*HTTPServer) error
 }
 
-func Create(sURL ServiceURL) HTTPServer {
+func Create(sURL ServiceURL, c Config) HTTPServer {
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
 	l.AddGoLogSource(app.Logger().SetOutput)
-	return HTTPServer{
+
+	hs := HTTPServer{
 		manifestStore: &sURL,
 		app:           app,
-		hostAddr:      "localhost:8080"}
+		hostAddr:      c.HostAddr}
+
+	return hs
 }
 
 func Configure(hs *HTTPServer, opts ...HTTPServerOption) error {
@@ -164,14 +167,6 @@ func WithContainerURL(manifestStore manifestStore) HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
 		hs.manifestStore = manifestStore
-		return
-	})
-}
-
-func WithHostAddr(hostAddr string) HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-		hs.hostAddr = hostAddr
 		return
 	})
 }
