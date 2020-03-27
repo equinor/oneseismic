@@ -163,14 +163,6 @@ func (hs *HTTPServer) Serve() error {
 	return hs.app.Run(iris.Addr(hs.hostAddr))
 }
 
-func WithContainerURL(manifestStore manifestStore) HTTPServerOption {
-
-	return newFuncOption(func(hs *HTTPServer) (err error) {
-		hs.manifestStore = manifestStore
-		return
-	})
-}
-
 func WithProfiling() HTTPServerOption {
 
 	return newFuncOption(func(hs *HTTPServer) (err error) {
