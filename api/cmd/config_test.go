@@ -25,7 +25,6 @@ func TestConfigMinimum(t *testing.T) {
 
 	conf, err := parseConfig(m)
 	assert.Nil(t, err)
-	assert.Equal(t, conf.noAuth, false)
 	assert.Equal(t, conf.profiling, false)
 	assert.Equal(t, conf.authServer.String(), m["AUTHSERVER"])
 	assert.Equal(t, conf.apiSecret, m["API_SECRET"])

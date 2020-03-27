@@ -31,7 +31,6 @@ func getEnvs() map[string]string {
 		"HOST_ADDR",
 		"ISSUER",
 		"LOGDB_CONNSTR",
-		"NO_AUTH",
 		"PROFILING",
 		"RESOURCE_ID",
 		"STITCH_GRPC_ADDR",
