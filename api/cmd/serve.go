@@ -14,15 +14,13 @@ import (
 func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
-	if !c.noAuth {
-		opts = append(opts,
-			server.WithOAuth2(server.OAuth2Option{
-				AuthServer: &c.authServer,
-				Audience:   c.resourceID,
-				Issuer:     c.issuer,
-				ApiSecret:  []byte(c.apiSecret),
-			}))
-	}
+	opts = append(opts,
+		server.WithOAuth2(server.OAuth2Option{
+			AuthServer: &c.authServer,
+			Audience:   c.resourceID,
+			Issuer:     c.issuer,
+			ApiSecret:  []byte(c.apiSecret),
+		}))
 
 	if len(c.hostAddr) > 0 {
 		opts = append(
