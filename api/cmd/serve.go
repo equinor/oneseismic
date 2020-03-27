@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/equinor/oneseismic/api/events"
@@ -41,14 +40,7 @@ func Serve(m map[string]string) error {
 		}
 	}
 
-	hs, err := server.Create(*c)
-	if err != nil {
-		return fmt.Errorf("could not create server: %w", err)
-	}
-
-	server.Configure(hs)
-
-	err = hs.Serve()
+	err = server.Serve(*c)
 	if err != nil && err != http.ErrServerClosed {
 		return events.E("Error running http server", err)
 	}
