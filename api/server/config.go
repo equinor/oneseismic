@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+
+	"github.com/equinor/oneseismic/api/middleware"
 )
 
 type errInvalidConfig struct {
@@ -20,7 +22,7 @@ type Config struct {
 	StitchGrpcAddr    string
 	AzureBlobSettings AzureBlobSettings
 	LogDBConnStr      string
-	OAuth2Option      OAuth2Option
+	OAuth2Option      middleware.OAuth2Option
 }
 
 func orDefaultBool(val string, def bool) bool {
@@ -51,7 +53,7 @@ func ParseConfig(m map[string]string) (*Config, error) {
 	}
 
 	conf := &Config{
-		OAuth2Option: OAuth2Option{
+		OAuth2Option: middleware.OAuth2Option{
 			AuthServer: authServer,
 			APISecret:  []byte(*apiSecret),
 			Audience:   m["RESOURCE_ID"],
