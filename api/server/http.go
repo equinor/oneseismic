@@ -29,17 +29,21 @@ type HTTPServerOption interface {
 	apply(*HTTPServer) error
 }
 
-func Create(sURL ServiceURL, c Config) HTTPServer {
+func Create(c Config) (*HTTPServer, error) {
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
 	l.AddGoLogSource(app.Logger().SetOutput)
+	sURL, err := NewServiceURL(c.AzureBlobSettings)
+	if err != nil {
+		return nil, fmt.Errorf("creating ServiceURL: %w", err)
+	}
 
 	hs := HTTPServer{
-		manifestStore: &sURL,
+		manifestStore: sURL,
 		app:           app,
 		hostAddr:      c.HostAddr}
 
-	return hs
+	return &hs, nil
 }
 
 func Configure(hs *HTTPServer, opts ...HTTPServerOption) error {

@@ -67,17 +67,12 @@ func Serve(m map[string]string) error {
 		return err
 	}
 
-	sURL, err := server.NewServiceURL(c.AzureBlobSettings)
+	hs, err := server.Create(*c)
 	if err != nil {
-		return fmt.Errorf("creating ServiceURL: %w", err)
+		return fmt.Errorf("could not create server: %w", err)
 	}
 
-	if sURL == nil {
-		return fmt.Errorf("sURL should not be nil")
-	}
-	hs := server.Create(*sURL, *c)
-
-	err = server.Configure(&hs, opts...)
+	err = server.Configure(hs, opts...)
 	if err != nil {
 		return events.E("Error configuring http server", err)
 	}
