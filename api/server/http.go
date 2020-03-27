@@ -19,10 +19,10 @@ import (
 )
 
 type HTTPServer struct {
-	manifestStore manifestStore
-	app           *iris.Application
-	hostAddr      string
-	profile       bool
+	manifestController *manifestController
+	app                *iris.Application
+	hostAddr           string
+	profile            bool
 }
 
 type HTTPServerOption interface {
@@ -33,15 +33,16 @@ func Create(c Config) (*HTTPServer, error) {
 	app := iris.Default()
 	app.Logger().SetPrefix("iris: ")
 	l.AddGoLogSource(app.Logger().SetOutput)
+
 	sURL, err := NewServiceURL(c.AzureBlobSettings)
 	if err != nil {
 		return nil, fmt.Errorf("creating ServiceURL: %w", err)
 	}
 
 	hs := HTTPServer{
-		manifestStore: sURL,
-		app:           app,
-		hostAddr:      c.HostAddr}
+		manifestController: &manifestController{sURL},
+		app:                app,
+		hostAddr:           c.HostAddr}
 
 	return &hs, nil
 }
@@ -122,9 +123,7 @@ func WithOAuth2(oauthOpt OAuth2Option) HTTPServerOption {
 }
 
 func (hs *HTTPServer) registerEndpoints() {
-	mc := manifestController{ms: hs.manifestStore}
-
-	hs.app.Get("/", mc.list)
+	hs.app.Get("/", hs.manifestController.list)
 }
 
 func (hs *HTTPServer) Serve() error {
