@@ -11,24 +11,24 @@ import (
 	"github.com/pkg/profile"
 )
 
-func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
+func createHTTPServerOptions(c server.Config) ([]server.HTTPServerOption, error) {
 	opts := make([]server.HTTPServerOption, 0)
 
 	opts = append(opts,
 		server.WithOAuth2(server.OAuth2Option{
-			AuthServer: &c.authServer,
-			Audience:   c.resourceID,
-			Issuer:     c.issuer,
-			ApiSecret:  []byte(c.apiSecret),
+			AuthServer: &c.AuthServer,
+			Audience:   c.ResourceID,
+			Issuer:     c.Issuer,
+			ApiSecret:  []byte(c.APISecret),
 		}))
 
-	if len(c.hostAddr) > 0 {
+	if len(c.HostAddr) > 0 {
 		opts = append(
 			opts,
-			server.WithHostAddr(c.hostAddr))
+			server.WithHostAddr(c.HostAddr))
 	}
 
-	if c.profiling {
+	if c.Profiling {
 		opts = append(
 			opts,
 			server.WithProfiling())
@@ -38,14 +38,14 @@ func createHTTPServerOptions(c config) ([]server.HTTPServerOption, error) {
 }
 
 func Serve(m map[string]string) error {
-	c, err := parseConfig(m)
+	c, err := server.ParseConfig(m)
 	if err != nil {
 		return err
 	}
 
 	var p *profile.Profile
 
-	if c.profiling {
+	if c.Profiling {
 		pOpts := []func(*profile.Profile){
 			profile.ProfilePath("pprof"),
 			profile.NoShutdownHook,
@@ -57,10 +57,10 @@ func Serve(m map[string]string) error {
 		defer p.Stop()
 	}
 
-	if len(c.logDBConnStr) > 0 {
+	if len(c.LogDBConnStr) > 0 {
 		l.LogI("Switch log sink from os.Stdout to psqlDB")
 
-		err := l.SetLogSink(l.ConnString(c.logDBConnStr), events.DebugLevel)
+		err := l.SetLogSink(l.ConnString(c.LogDBConnStr), events.DebugLevel)
 		if err != nil {
 			l.LogE("Switching log sink", err)
 			return err
@@ -73,7 +73,7 @@ func Serve(m map[string]string) error {
 		return err
 	}
 
-	sURL, err := server.NewServiceURL(c.azureBlobSettings)
+	sURL, err := server.NewServiceURL(c.AzureBlobSettings)
 	if err != nil {
 		return fmt.Errorf("creating ServiceURL: %w", err)
 	}

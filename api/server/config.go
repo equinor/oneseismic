@@ -1,11 +1,9 @@
-package cmd
+package server
 
 import (
 	"fmt"
 	"net/url"
 	"strconv"
-
-	"github.com/equinor/oneseismic/api/server"
 )
 
 type errInvalidConfig struct {
@@ -16,16 +14,16 @@ type errInvalidConfig struct {
 func (e *errInvalidConfig) Unwrap() error { return e.Err }
 func (e *errInvalidConfig) Error() string { return fmt.Sprintf(e.Name) }
 
-type config struct {
-	profiling         bool
-	authServer        url.URL
-	hostAddr          string
-	issuer            string
-	stitchGrpcAddr    string
-	azureBlobSettings server.AzureBlobSettings
-	resourceID        string
-	logDBConnStr      string
-	apiSecret         string
+type Config struct {
+	Profiling         bool
+	AuthServer        url.URL
+	HostAddr          string
+	Issuer            string
+	StitchGrpcAddr    string
+	AzureBlobSettings AzureBlobSettings
+	ResourceID        string
+	LogDBConnStr      string
+	APISecret         string
 }
 
 func orDefaultBool(val string, def bool) bool {
@@ -36,15 +34,15 @@ func orDefaultBool(val string, def bool) bool {
 	return def
 }
 
-func azb(m map[string]string) server.AzureBlobSettings {
-	return server.AzureBlobSettings{
+func azb(m map[string]string) AzureBlobSettings {
+	return AzureBlobSettings{
 		StorageURL:  m["AZURE_STORAGE_URL"],
 		AccountName: m["AZURE_STORAGE_ACCOUNT"],
 		AccountKey:  m["AZURE_STORAGE_ACCESS_KEY"],
 	}
 }
 
-func parseConfig(m map[string]string) (*config, error) {
+func ParseConfig(m map[string]string) (*Config, error) {
 	authServer, err := url.ParseRequestURI(m["AUTHSERVER"])
 	if err != nil {
 		return nil, &errInvalidConfig{Name: "Invalid AUTHSERVER", Err: err}
@@ -55,16 +53,16 @@ func parseConfig(m map[string]string) (*config, error) {
 		return nil, err
 	}
 
-	conf := &config{
-		apiSecret:         *apiSecret,
-		authServer:        *authServer,
-		azureBlobSettings: azb(m),
-		hostAddr:          m["HOST_ADDR"],
-		issuer:            m["ISSUER"],
-		logDBConnStr:      m["LOGDB_CONNSTR"],
-		profiling:         orDefaultBool(m["PROFILING"], false),
-		resourceID:        m["RESOURCE_ID"],
-		stitchGrpcAddr:    m["STITCH_GRPC_ADDR"],
+	conf := &Config{
+		APISecret:         *apiSecret,
+		AuthServer:        *authServer,
+		AzureBlobSettings: azb(m),
+		HostAddr:          m["HOST_ADDR"],
+		Issuer:            m["ISSUER"],
+		LogDBConnStr:      m["LOGDB_CONNSTR"],
+		Profiling:         orDefaultBool(m["PROFILING"], false),
+		ResourceID:        m["RESOURCE_ID"],
+		StitchGrpcAddr:    m["STITCH_GRPC_ADDR"],
 	}
 
 	return conf, nil
