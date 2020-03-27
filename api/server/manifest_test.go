@@ -20,16 +20,12 @@ func (mbs *MockStore) list(ctx context.Context) ([]string, error) {
 }
 
 func TestEmptyList(t *testing.T) {
-	hs := HTTPServer{
-		app:           iris.Default(),
-		manifestStore: &MockStore{},
-	}
+	app := iris.Default()
 
-	err := Configure(&hs)
+	mc := manifestController{&MockStore{}}
+	app.Get("/", mc.list)
 
-	assert.NoError(t, err)
-
-	e := httptest.New(t, hs.app)
+	e := httptest.New(t, app)
 	j := e.GET("/").
 		Expect().
 		Status(httptest.StatusOK).
@@ -39,16 +35,12 @@ func TestEmptyList(t *testing.T) {
 
 func TestList(t *testing.T) {
 	m := []string{"a", "b"}
-	hs := HTTPServer{
-		app:           iris.Default(),
-		manifestStore: &MockStore{m},
-	}
 
-	err := Configure(&hs)
+	app := iris.Default()
+	mc := manifestController{&MockStore{m}}
+	app.Get("/", mc.list)
 
-	assert.NoError(t, err)
-
-	e := httptest.New(t, hs.app)
+	e := httptest.New(t, app)
 	e.GET("/").
 		Expect().
 		Status(httptest.StatusOK).
