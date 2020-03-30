@@ -16,14 +16,6 @@ type Config struct {
 	OAuth2Option      middleware.OAuth2Option
 }
 
-func orDefaultBool(val string, def bool) bool {
-	if val, err := strconv.ParseBool(val); err == nil {
-		return val
-	}
-
-	return def
-}
-
 func azb(m map[string]string) AzureBlobSettings {
 	return AzureBlobSettings{
 		StorageURL:  m["AZURE_STORAGE_URL"],
@@ -43,6 +35,11 @@ func ParseConfig(m map[string]string) (*Config, error) {
 		return nil, err
 	}
 
+	profiling, err := strconv.ParseBool(m["PROFILING"])
+	if err != nil {
+		return nil, fmt.Errorf("could not parse PROFILING: %w", err)
+	}
+
 	conf := &Config{
 		OAuth2Option: middleware.OAuth2Option{
 			AuthServer: authServer,
@@ -53,7 +50,7 @@ func ParseConfig(m map[string]string) (*Config, error) {
 		AzureBlobSettings: azb(m),
 		HostAddr:          m["HOST_ADDR"],
 		LogDBConnStr:      m["LOGDB_CONNSTR"],
-		Profiling:         orDefaultBool(m["PROFILING"], false),
+		Profiling:         profiling,
 	}
 
 	return conf, nil

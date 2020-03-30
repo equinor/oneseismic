@@ -17,6 +17,7 @@ func TestConfigMinimum(t *testing.T) {
 
 	m["AUTHSERVER"] = "http://some.host"
 	m["API_SECRET"] = "123456789"
+	m["PROFILING"] = "false"
 
 	conf, err := ParseConfig(m)
 	assert.Nil(t, err)
