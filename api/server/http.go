@@ -33,11 +33,7 @@ func Serve(c Config) error {
 	mc := &manifestController{sURL}
 	app.Get("/", mc.list)
 
-	config := &swagger.Config{
-		URL: fmt.Sprintf("http://%s/swagger/doc.json", c.HostAddr), //The url pointing to API definition
-	}
-	// use swagger middleware to
-	app.Get("/swagger/{any:path}", swagger.CustomWrapHandler(config, swaggerFiles.Handler))
+	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 
 	if c.Profiling {
 		middleware.ServeMetrics("8081")
