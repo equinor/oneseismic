@@ -33,7 +33,6 @@ func getEnvs() map[string]string {
 		"LOGDB_CONNSTR",
 		"PROFILING",
 		"RESOURCE_ID",
-		"STITCH_GRPC_ADDR",
 	}
 
 	for _, env := range envs {

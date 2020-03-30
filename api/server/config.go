@@ -19,7 +19,6 @@ func (e *errInvalidConfig) Error() string { return fmt.Sprintf(e.Name) }
 type Config struct {
 	Profiling         bool
 	HostAddr          string
-	StitchGrpcAddr    string
 	AzureBlobSettings AzureBlobSettings
 	LogDBConnStr      string
 	OAuth2Option      middleware.OAuth2Option
@@ -63,7 +62,6 @@ func ParseConfig(m map[string]string) (*Config, error) {
 		HostAddr:          m["HOST_ADDR"],
 		LogDBConnStr:      m["LOGDB_CONNSTR"],
 		Profiling:         orDefaultBool(m["PROFILING"], false),
-		StitchGrpcAddr:    m["STITCH_GRPC_ADDR"],
 	}
 
 	return conf, nil
