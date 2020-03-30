@@ -8,12 +8,12 @@ import (
 	"github.com/equinor/oneseismic/api/middleware"
 )
 
-type Config struct {
-	Profiling         bool
-	HostAddr          string
-	AzureBlobSettings AzureBlobSettings
-	LogDBConnStr      string
-	OAuth2Option      middleware.OAuth2Option
+type config struct {
+	profiling         bool
+	hostAddr          string
+	azureBlobSettings AzureBlobSettings
+	logDBConnStr      string
+	oAuth2Option      middleware.OAuth2Option
 }
 
 func azb(m map[string]string) AzureBlobSettings {
@@ -24,7 +24,7 @@ func azb(m map[string]string) AzureBlobSettings {
 	}
 }
 
-func ParseConfig(m map[string]string) (*Config, error) {
+func ParseConfig(m map[string]string) (*config, error) {
 	authServer, err := url.ParseRequestURI(m["AUTHSERVER"])
 	if err != nil {
 		return nil, fmt.Errorf("invalid AUTHSERVER: %w", err)
@@ -40,17 +40,17 @@ func ParseConfig(m map[string]string) (*Config, error) {
 		return nil, fmt.Errorf("could not parse PROFILING: %w", err)
 	}
 
-	conf := &Config{
-		OAuth2Option: middleware.OAuth2Option{
+	conf := &config{
+		oAuth2Option: middleware.OAuth2Option{
 			AuthServer: authServer,
 			APISecret:  []byte(*apiSecret),
 			Audience:   m["RESOURCE_ID"],
 			Issuer:     m["ISSUER"],
 		},
-		AzureBlobSettings: azb(m),
-		HostAddr:          m["HOST_ADDR"],
-		LogDBConnStr:      m["LOGDB_CONNSTR"],
-		Profiling:         profiling,
+		azureBlobSettings: azb(m),
+		hostAddr:          m["HOST_ADDR"],
+		logDBConnStr:      m["LOGDB_CONNSTR"],
+		profiling:         profiling,
 	}
 
 	return conf, nil

@@ -3,20 +3,21 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/equinor/oneseismic/api/server"
 	"github.com/pkg/profile"
 )
 
 func Serve(m map[string]string) error {
-	c, err := server.ParseConfig(m)
+	profiling, err := strconv.ParseBool(m["PROFILING"])
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse PROFILING: %w", err)
 	}
 
 	var p *profile.Profile
 
-	if c.Profiling {
+	if profiling {
 		pOpts := []func(*profile.Profile){
 			profile.ProfilePath("pprof"),
 			profile.NoShutdownHook,
@@ -28,7 +29,7 @@ func Serve(m map[string]string) error {
 		defer p.Stop()
 	}
 
-	err = server.Serve(*c)
+	err = server.Serve(m)
 	if err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("error running http server: %w", err)
 	}
