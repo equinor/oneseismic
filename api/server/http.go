@@ -33,24 +33,29 @@ func setupLog(app *iris.Application, LogDBConnStr string) error {
 	return nil
 }
 
-func Serve(c Config) error {
+func Serve(m map[string]string) error {
+	c, err := ParseConfig(m)
+	if err != nil {
+		return err
+	}
+
 	app := iris.Default()
-	err := setupLog(app, c.LogDBConnStr)
+	err = setupLog(app, c.logDBConnStr)
 	if err != nil {
 		return fmt.Errorf("could not setup log: %w", err)
 	}
 
 	app.Use(iris.Gzip)
 
-	auth, _ := middleware.Oauth2(c.OAuth2Option)
+	auth, _ := middleware.Oauth2(c.oAuth2Option)
 	app.Use(auth)
 
-	claimsHandler := claimsmiddleware.New(c.OAuth2Option.Audience, c.OAuth2Option.Issuer)
+	claimsHandler := claimsmiddleware.New(c.oAuth2Option.Audience, c.oAuth2Option.Issuer)
 	app.Use(claimsHandler.Validate)
 
 	middleware.EnablePrometheusMiddleware(app)
 
-	sURL, err := NewServiceURL(c.AzureBlobSettings)
+	sURL, err := NewServiceURL(c.azureBlobSettings)
 	if err != nil {
 		return fmt.Errorf("creating ServiceURL: %w", err)
 	}
@@ -59,9 +64,9 @@ func Serve(c Config) error {
 
 	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 
-	if c.Profiling {
+	if c.profiling {
 		middleware.ServeMetrics("8081")
 	}
 
-	return app.Run(iris.Addr(c.HostAddr))
+	return app.Run(iris.Addr(c.hostAddr))
 }
