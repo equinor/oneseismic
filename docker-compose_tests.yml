@@ -12,6 +12,7 @@ services:
       - auth
       - az
     environment:
+      - PROFILING=false
       - API_SECRET="12345678"
       - HOST_ADDR=0.0.0.0:8080
       - AUTHSERVER=http://auth:8089/common

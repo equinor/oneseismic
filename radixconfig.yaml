@@ -40,6 +40,7 @@ spec:
         - AZURE_STORAGE_ACCOUNT
         - AZURE_STORAGE_ACCESS_KEY
         - API_SECRET
+        - PROFILING
       environmentConfig:
         - environment: prod
           replicas: 1
