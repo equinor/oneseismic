@@ -8,14 +8,6 @@ import (
 	"github.com/equinor/oneseismic/api/middleware"
 )
 
-type errInvalidConfig struct {
-	Name string
-	Err  error
-}
-
-func (e *errInvalidConfig) Unwrap() error { return e.Err }
-func (e *errInvalidConfig) Error() string { return fmt.Sprintf(e.Name) }
-
 type Config struct {
 	Profiling         bool
 	HostAddr          string
@@ -43,7 +35,7 @@ func azb(m map[string]string) AzureBlobSettings {
 func ParseConfig(m map[string]string) (*Config, error) {
 	authServer, err := url.ParseRequestURI(m["AUTHSERVER"])
 	if err != nil {
-		return nil, &errInvalidConfig{Name: "Invalid AUTHSERVER", Err: err}
+		return nil, fmt.Errorf("invalid AUTHSERVER: %w", err)
 	}
 
 	apiSecret, err := verifyAPISecret(m["API_SECRET"])
@@ -69,7 +61,7 @@ func ParseConfig(m map[string]string) (*Config, error) {
 
 func verifyAPISecret(sec string) (*string, error) {
 	if len(sec) < 8 {
-		return nil, &errInvalidConfig{"Invalid API_SECRET", fmt.Errorf("len(%s) == %d < 8", sec, len(sec))}
+		return nil, fmt.Errorf("invalid API_SECRET: len(%s) == %d < 8", sec, len(sec))
 	}
 
 	return &sec, nil
