@@ -2,21 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/equinor/oneseismic/api/cmd"
 	l "github.com/equinor/oneseismic/api/logger"
 	"github.com/joho/godotenv"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 func init() {
 	godotenv.Load() // nolint, silently ignore missing or invalid .env
-	jww.SetStdoutThreshold(jww.LevelFatal)
-	log.SetPrefix("[INFO] ")
-	l.AddLoggerSource("main.log", log.SetOutput)
-	l.AddLoggerSource("setup.log", jww.SetLogOutput)
 }
 
 func getEnvs() map[string]string {

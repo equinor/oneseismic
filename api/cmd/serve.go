@@ -1,10 +1,8 @@
 package cmd
 
 import (
+	"fmt"
 	"net/http"
-
-	"github.com/equinor/oneseismic/api/events"
-	l "github.com/equinor/oneseismic/api/logger"
 
 	"github.com/equinor/oneseismic/api/server"
 	"github.com/pkg/profile"
@@ -30,19 +28,9 @@ func Serve(m map[string]string) error {
 		defer p.Stop()
 	}
 
-	if len(c.LogDBConnStr) > 0 {
-		l.LogI("Switch log sink from os.Stdout to psqlDB")
-
-		err := l.SetLogSink(l.ConnString(c.LogDBConnStr), events.DebugLevel)
-		if err != nil {
-			l.LogE("Switching log sink", err)
-			return err
-		}
-	}
-
 	err = server.Serve(*c)
 	if err != nil && err != http.ErrServerClosed {
-		return events.E("Error running http server", err)
+		return fmt.Errorf("error running http server: %w", err)
 	}
 
 	return nil
