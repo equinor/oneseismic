@@ -18,7 +18,6 @@ import (
 
 type logger interface {
 	log(*events.Event) error
-	isFlushed() bool
 }
 
 var innerLogger logger = &fileLogger{file: os.Stdout, verbosity: events.DebugLevel, wg: &sync.WaitGroup{}}
@@ -169,12 +168,6 @@ func (fl *fileLogger) log(ev *events.Event) error {
 	return nil
 }
 
-func (fl *fileLogger) isFlushed() bool {
-	time.Sleep(100 * time.Millisecond)
-	fl.wg.Wait()
-	return true
-}
-
 type dbLogger struct {
 	connStr     string
 	verbosity   events.Severity
@@ -210,10 +203,6 @@ func (dl *dbLogger) log(ev *events.Event) error {
 
 	err := dl.eventBuffer.Enqueue(ev)
 	return err
-}
-
-func (dl *dbLogger) isFlushed() bool {
-	return true
 }
 
 func (dl *dbLogger) bulkInsert() error {
@@ -360,12 +349,4 @@ func LogC(msg string, err error, opts ...LogEventOption) {
 // Log sends error to chosen sink
 func Log(err *events.Event) {
 	logToSink(err)
-}
-
-func Wait() {
-
-	for !innerLogger.isFlushed() {
-		time.Sleep(10 * time.Millisecond)
-	}
-	fmt.Println("Logger flushed")
 }
