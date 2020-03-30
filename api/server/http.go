@@ -12,6 +12,7 @@ import (
 	"github.com/iris-contrib/swagger/v12"
 	"github.com/iris-contrib/swagger/v12/swaggerFiles"
 	"github.com/kataras/iris/v12"
+	"github.com/pkg/profile"
 	jww "github.com/spf13/jwalterweatherman"
 )
 
@@ -37,6 +38,20 @@ func Serve(m map[string]string) error {
 	c, err := ParseConfig(m)
 	if err != nil {
 		return err
+	}
+
+	var p *profile.Profile
+
+	if c.profiling {
+		pOpts := []func(*profile.Profile){
+			profile.ProfilePath("pprof"),
+			profile.NoShutdownHook,
+		}
+
+		pOpts = append(pOpts, profile.MemProfile)
+		p = profile.Start(pOpts...).(*profile.Profile)
+
+		defer p.Stop()
 	}
 
 	app := iris.Default()
