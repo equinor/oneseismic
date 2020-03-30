@@ -2,10 +2,13 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"strconv"
 
-	"github.com/equinor/oneseismic/api/cmd"
+	"github.com/equinor/oneseismic/api/server"
 	"github.com/joho/godotenv"
+	"github.com/pkg/profile"
 )
 
 func init() {
@@ -36,9 +39,27 @@ func getEnvs() map[string]string {
 }
 
 func main() {
-	err := cmd.Serve(getEnvs())
+	profiling, err := strconv.ParseBool(m["PROFILING"])
 	if err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		log.Fatalf("could not parse PROFILING: %v", err)
 	}
 
+	var p *profile.Profile
+
+	if profiling {
+		pOpts := []func(*profile.Profile){
+			profile.ProfilePath("pprof"),
+			profile.NoShutdownHook,
+		}
+
+		pOpts = append(pOpts, profile.MemProfile)
+		p = profile.Start(pOpts...).(*profile.Profile)
+
+		defer p.Stop()
+	}
+
+	err = server.Serve(m)
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatalf("error running http server: %v", err)
+	}
 }
