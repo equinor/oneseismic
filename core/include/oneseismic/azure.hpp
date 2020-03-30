@@ -34,13 +34,6 @@ public:
             const std::string&)
         const override;
 
-private:
-    std::string storage_account;
-    std::string key;
-};
-
-class az_transfer_configuration : public transfer_configuration {
-public:
     /*
      * A reasonable default azure configuration - anything but 200/OK gives a
      * runtime error and aborts the transfer. Retrying and other fancy stuff
@@ -52,6 +45,10 @@ public:
             const std::string& fragment_id,
             long status_code)
         override;
+
+private:
+    std::string storage_account;
+    std::string key;
 };
 
 }

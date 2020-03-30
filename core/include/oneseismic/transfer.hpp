@@ -31,6 +31,12 @@ struct batch {
 
 using buffer = std::vector< std::uint8_t >;
 
+class aborted : public std::runtime_error {
+public:
+    aborted(const std::string& reason) : std::runtime_error(reason) {}
+    aborted(const char*        reason) : std::runtime_error(reason) {}
+};
+
 /*
  * Different backends (e.g. azure, local file system) need to configure
  * transfers differently: set different headers, generate different urls,
@@ -71,35 +77,33 @@ public:
             const batch&,
             const std::string& fragment_id) const = 0;
 
-    virtual ~storage_configuration() = default;
-};
-
-class transfer_configuration {
-public:
-    class aborted : public std::runtime_error {
-    public:
-        aborted(const std::string& reason) : std::runtime_error(reason) {}
-        aborted(const char* reason)        : std::runtime_error(reason) {}
-    };
+    /*
+     * Check the status code and decide what to do for the in-progress
+     * transfer.  What exactly is the right choice depends both on back-end,
+     * responsibility, and run-time config. For example, simple retrying is
+     * pointless for file systems, usually the right choice a couple of times
+     * for cloud storage.
+     *
+     * To abort a transfer, throw the aborted exception.
+     */
 
     enum class action {
         done,
         retry,
     };
 
-    /*
-     * Check the status code and decide what to do from a transfer point of
-     * view. What exactly is the right choice depends both on back-end,
-     * responsibility, and run-time config, so it should be quite dynamic.
-     *
-     * To abort a transfer, throw the aborted exception.
-     */
     virtual action onstatus(
             const buffer&,
             const batch&,
             const std::string& fragment_id,
             long status_code) = 0;
 
+
+    virtual ~storage_configuration() = default;
+};
+
+class transfer_configuration {
+public:
     /*
      * Called on successful transfer, if onstatus returns done. This function
      * is called before the handle is released. Buffer data is still owned by

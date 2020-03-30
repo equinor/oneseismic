@@ -3,7 +3,6 @@
 #define _XOPEN_SOURCE
 #include <time.h>
 
-#include <stdexcept>
 #include <string>
 #include <chrono>
 #include <cassert>
@@ -137,15 +136,14 @@ std::string az::url(const one::batch& batch, const std::string& id) const {
     );
 }
 
-transfer_configuration::action
-az_transfer_configuration::onstatus(
+storage_configuration::action az::onstatus(
         const buffer&,
         const batch&,
         const std::string& fragment_id,
         long status_code) {
 
     if (status_code != 200)
-        throw std::runtime_error("az: status code was not 200/OK");
+        throw aborted("az: status code was not 200/OK");
 
     return action::done;
 }

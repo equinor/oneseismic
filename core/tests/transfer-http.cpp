@@ -21,6 +21,16 @@ TEST_CASE(
         std::string url(const one::batch&, const std::string&) const override {
             return "";
         }
+
+        action onstatus(
+                const one::buffer&,
+                const one::batch& b,
+                const std::string& id,
+                long http_code) override {
+            const auto msg = "HTTP request with status {} for '{}'";
+            FAIL(fmt::format(msg, http_code, id));
+            throw std::logic_error("FAIL() not invoked as it should");
+        }
     } cfg;
 
     CHECK_THROWS_AS(one::transfer( 0, cfg), std::invalid_argument);
@@ -61,16 +71,6 @@ int empty_response(
  */
 struct always_fail : public one::transfer_configuration {
 
-    action onstatus(
-            const one::buffer&,
-            const one::batch& b,
-            const std::string& id,
-            long http_code) override {
-        const auto msg = "HTTP request with status {} for '{}'";
-        FAIL(fmt::format(msg, http_code, id));
-        throw std::logic_error("FAIL() not invoked as it should");
-    }
-
     void oncomplete(
             const one::buffer&,
             const one::batch& b,
@@ -87,15 +87,6 @@ TEST_CASE(
 
     struct count_complete : public always_fail {
         int called = 0;
-
-        action onstatus(
-                const one::buffer&,
-                const one::batch&,
-                const std::string&,
-                long http_code) override {
-            CHECK(http_code == 200);
-            return action::done;
-        }
 
         void oncomplete(
                 const one::buffer&,
@@ -163,7 +154,9 @@ TEST_CASE(
     };
 
     const auto max_connections = GENERATE(1, 2, 3, 5);
-    struct count_failure : public always_fail {
+    struct count_failure : public loopback_cfg {
+        using loopback_cfg::loopback_cfg;
+
         int called = 0;
 
         action onstatus(
@@ -173,21 +166,21 @@ TEST_CASE(
                 long http_code) override {
             CHECK(http_code != 200);
             this->called += 1;
-            throw aborted("Error code != 200/OK");
+            throw one::aborted("Error code != 200/OK");
         }
-    } config;
+    };
 
     for (auto x : statuscodes) {
         SECTION(fmt::format("HTTP {}", x)) {
             mhttpd httpd(empty_response, &x);
-            loopback_cfg storage(httpd.port());
+            count_failure storage(httpd.port());
             one::transfer xfer(max_connections, storage);
 
             one::batch batch;
             batch.fragment_ids.resize(1);
-            using aborted = one::transfer_configuration::aborted;
-            CHECK_THROWS_AS(xfer.perform(batch, config), aborted);
-            CHECK(config.called == 1);
+            always_fail config;
+            CHECK_THROWS_AS(xfer.perform(batch, config), one::aborted);
+            CHECK(storage.called == 1);
         }
     }
 }
@@ -197,15 +190,6 @@ TEST_CASE(
     "[transfer][http]") {
     struct count_complete : public always_fail {
         int called = 0;
-
-        action onstatus(
-                const one::buffer&,
-                const one::batch&,
-                const std::string&,
-                long http_code) override {
-            CHECK(http_code == 200);
-            return action::done;
-        }
 
         void oncomplete(
                 const one::buffer&,

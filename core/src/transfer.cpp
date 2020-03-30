@@ -287,8 +287,14 @@ void transfer::perform(batch batch, transfer_configuration& cfg) try {
             const auto& storage = t->storage;
             const auto& fragment_id = t->fragment_id;
 
-            switch (cfg.onstatus(storage, batch, fragment_id, http_code)) {
-                using action = transfer_configuration::action;
+            const auto status = this->config.onstatus(
+                storage,
+                batch,
+                fragment_id,
+                http_code
+            );
+            switch (status) {
+                using action = storage_configuration::action;
                 case action::done:
                     cfg.oncomplete(storage, batch, fragment_id);
                     break;

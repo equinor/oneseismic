@@ -35,7 +35,7 @@ public:
 /*
  * Union of transfer configuration and the response message serializer.
  */
-class action : public one::az_transfer_configuration, public wire {};
+class action : public one::transfer_configuration, public wire {};
 
 class slice : public action {
 public:
