@@ -1,11 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/equinor/oneseismic/api/cmd"
-	l "github.com/equinor/oneseismic/api/logger"
 	"github.com/joho/godotenv"
 )
 
@@ -37,18 +36,9 @@ func getEnvs() map[string]string {
 }
 
 func main() {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in main", r)
-		}
-		l.Wait()
-
-	}()
 	err := cmd.Serve(getEnvs())
 	if err != nil {
-		l.LogE("Failed to start server", err)
-		l.Wait()
-		os.Exit(1)
+		log.Fatalf("failed to start server: %v", err)
 	}
 
 }
