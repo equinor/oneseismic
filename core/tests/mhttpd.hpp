@@ -70,7 +70,7 @@ private:
 struct loopback_cfg : public one::storage_configuration {
     explicit loopback_cfg(int port) : port(port) {}
 
-    virtual std::string url(
+    std::string url(
             const one::batch&,
             const std::string&) const override {
         return "http://127.0.0.1:" + std::to_string(this->port);
