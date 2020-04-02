@@ -2,11 +2,7 @@ import os
 import pytest
 
 from urllib.parse import parse_qs, urlparse
-from azure.storage.blob import (
-    BlobServiceClient,
-    BlobClient,
-    ContainerClient,
-)
+from azure.storage.blob import BlobServiceClient
 
 import requests
 
@@ -59,3 +55,23 @@ def test_auth(create_containers):
     r = requests.get(uri, headers=auth_header)
     assert r.status_code == 200
     assert set(r.json()).difference(set(container_names)) == set()
+
+
+def test_slice():
+    slice_path = "/0d235a7138104e00c421e63f5e3261bf2dc3254b/slice/0/0"
+    r = requests.get(uri + slice_path, headers=auth_header)
+
+    assert r.status_code == 200
+    print(r.json())
+    assert r.json() is not None
+    assert r.json().get("tiles") is not None
+    assert r.json()["tiles"][0]["v"] == [0]
+    assert r.json()["tiles"][0]["id"] == {"dim0": 1, "dim1": 1, "dim2": 1}
+    assert r.json().get("layout") is not None
+    assert r.json()["layout"] == {
+        "chunk_size": 1,
+        "iterations": 1,
+        "substride": 1,
+        "superstride": 1,
+        "initial_skip": 1,
+    }

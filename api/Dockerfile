@@ -1,4 +1,5 @@
 FROM golang:buster as builder
+RUN apt update && apt install -y protobuf-compiler
 
 WORKDIR /src
 COPY api/go.mod .
@@ -6,6 +7,7 @@ COPY api/go.sum .
 RUN go mod download
 
 COPY api api
+COPY protos protos
 
 WORKDIR /src/api
 RUN go generate
@@ -17,7 +19,7 @@ RUN CGO_ENABLED=0\
     GOARCH=amd64 \
     go build -ldflags="-w -s"
 
-FROM scratch as deployer
+FROM scratch
 COPY --from=builder /src/api/api /bin/api
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
