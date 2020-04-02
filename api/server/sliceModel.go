@@ -1,0 +1,82 @@
+package server
+
+import (
+	"fmt"
+
+	"github.com/equinor/oneseismic/api/oneseismic"
+	"google.golang.org/protobuf/proto"
+)
+
+type messageMultiplexer interface {
+	jobChannel() chan job
+	root() string
+}
+
+type slicer struct {
+	mm messageMultiplexer
+}
+
+func makeSliceRequest(
+	root string,
+	guid string,
+	dim int32,
+	ord int32,
+	requestid string) ([]byte, error) {
+
+	req := oneseismic.ApiRequest{
+		Requestid: requestid,
+		Guid:      guid,
+		Root:      root,
+		Shape: &oneseismic.FragmentShape{
+			Dim0: 64,
+			Dim1: 64,
+			Dim2: 64,
+		},
+		Function: &oneseismic.ApiRequest_Slice{
+			Slice: &oneseismic.ApiSlice{
+				Dim:    dim,
+				Lineno: ord,
+			},
+		},
+	}
+	return proto.Marshal(&req)
+}
+
+type mMultiplexer struct {
+	storageRoot string
+	jobs        chan job
+}
+
+func (m *mMultiplexer) root() string         { return m.storageRoot }
+func (m *mMultiplexer) jobChannel() chan job { return m.jobs }
+
+func (s *slicer) fetchSlice(
+	guid string,
+	dim int32,
+	ord int32,
+	requestid string) (*oneseismic.SliceResponse, error) {
+
+	req, err := makeSliceRequest(s.mm.root(), guid, dim, ord, requestid)
+	if err != nil {
+		return nil, fmt.Errorf("could not make slice request: %w", err)
+	}
+
+	replyChannel := make(chan string)
+	job := job{requestid, string(req), replyChannel}
+
+	fr := oneseismic.FetchResponse{}
+
+	s.mm.jobChannel() <- job
+	err = proto.Unmarshal([]byte(<-replyChannel), &fr)
+	if err != nil {
+		return nil, fmt.Errorf("could not create slice response: %w", err)
+	}
+
+	slice := fr.GetSlice()
+	if slice == nil {
+		return nil, fmt.Errorf("slice not found")
+
+	}
+
+	return fr.GetSlice(), nil
+}

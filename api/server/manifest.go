@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/kataras/iris/v12"
@@ -27,4 +28,14 @@ func (msc *manifestController) list(ctx iris.Context) {
 	}
 
 	return
+}
+
+func createManifestController(a AzureBlobSettings) (*manifestController, error) {
+	sURL, err := newServiceURL(a)
+	if err != nil {
+		return nil, fmt.Errorf("creating ServiceURL: %w", err)
+	}
+
+	mc := manifestController{ms: sURL}
+	return &mc, nil
 }
