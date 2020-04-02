@@ -116,7 +116,7 @@ TEST_CASE("Fragment is sliced and pushed through", "[slice]") {
     REQUIRE(ok);
 
     std::vector< float > expected(4);
-    std::memcpy(expected.data(), index_2x2x2.data(), index_2x2x2.size());
+    std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
 
     const auto& tiles = res.slice().tiles();
     CHECK(tiles.size() == 1);
