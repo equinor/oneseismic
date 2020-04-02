@@ -55,7 +55,7 @@ func serve(c *config) error {
 	enableSwagger(app)
 	middleware.EnablePrometheusMiddleware(app)
 
-	err := server.Register(app, c.azureBlobSettings)
+	err := server.Register(app, c.azureBlobSettings, c.zmqReqAddr, c.zmqRepAddr)
 	if err != nil {
 		return fmt.Errorf("register endpoints: %w", err)
 	}

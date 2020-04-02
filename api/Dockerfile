@@ -1,4 +1,5 @@
 FROM golang:1.14-buster as builder
+RUN apt update && apt install -y protobuf-compiler
 
 WORKDIR /src
 RUN apt-get update && apt-get install -y libzmq5-dev
@@ -7,6 +8,7 @@ COPY api/go.sum .
 RUN go mod download
 
 COPY api api
+COPY protos protos
 
 WORKDIR /src/api
 RUN go generate

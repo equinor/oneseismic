@@ -2,11 +2,7 @@ import os
 import pytest
 
 from urllib.parse import parse_qs, urlparse
-from azure.storage.blob import (
-    BlobServiceClient,
-    BlobClient,
-    ContainerClient,
-)
+from azure.storage.blob import BlobServiceClient
 
 import requests
 

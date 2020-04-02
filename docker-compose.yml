@@ -51,3 +51,5 @@ services:
       - AZURE_STORAGE_ACCESS_KEY
       - AZURE_MANIFEST_CONTAINER
       - PROFILING=false
+      - ZMQ_REP_ADDR=inproc://rep
+      - ZMQ_REQ_ADDR=inproc://req

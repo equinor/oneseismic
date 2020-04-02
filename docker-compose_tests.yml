@@ -20,6 +20,8 @@ services:
       - AZURE_STORAGE_URL=http://az:10000/%s
       - AZURE_STORAGE_ACCOUNT=devstoreaccount1
       - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+      - ZMQ_REP_ADDR=inproc://rep
+      - ZMQ_REQ_ADDR=inproc://req
 
   test:
     build:

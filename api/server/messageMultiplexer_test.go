@@ -3,8 +3,9 @@ package server
 import (
 	"strconv"
 	"testing"
-	"github.com/stretchr/testify/assert"
+
 	zmq "github.com/pebbe/zmq4"
+	"github.com/stretchr/testify/assert"
 )
 
 func msgLoopback() {

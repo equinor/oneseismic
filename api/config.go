@@ -16,6 +16,8 @@ type config struct {
 	azureBlobSettings server.AzureBlobSettings
 	logDBConnStr      string
 	oAuth2Option      middleware.OAuth2Option
+	zmqReqAddr        string
+	zmqRepAddr        string
 }
 
 func azb(m map[string]string) server.AzureBlobSettings {
@@ -78,6 +80,8 @@ func parseConfig(m map[string]string) (*config, error) {
 		hostAddr:          m["HOST_ADDR"],
 		logDBConnStr:      m["LOGDB_CONNSTR"],
 		profiling:         profiling,
+		zmqRepAddr:        m["ZMQ_REP_ADDR"],
+		zmqReqAddr:        m["ZMQ_REQ_ADDR"],
 	}
 
 	return conf, nil
