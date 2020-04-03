@@ -34,6 +34,13 @@ public:
             const std::string&)
         const override;
 
+    virtual std::string canonicalized_resource(
+            const std::string& root,
+            const std::string& guid,
+            const std::string& fragment_shape,
+            const std::string& fragment_id)
+    const noexcept (false);
+
     /*
      * A reasonable default azure configuration - anything but 200/OK gives a
      * runtime error and aborts the transfer. Retrying and other fancy stuff
