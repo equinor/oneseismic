@@ -101,7 +101,8 @@ bool set_slice_request(
 void manifest_task::run(
         transfer& xfer,
         zmq::socket_t& input,
-        zmq::socket_t& output) {
+        zmq::socket_t& output,
+        zmq::socket_t& fail) {
     /*
      * These should be cached probably, as there are performance implications
      * to not reusing them. Exposing the generated code in headers is pretty
@@ -137,6 +138,13 @@ void manifest_task::run(
     manifest_cfg cfg;
     try {
         xfer.perform(batch, cfg);
+    } catch (const notfound& e) {
+        log::log("{} not found: '{}'", batch.guid, e.what());
+
+        const auto signal = fmt::format("notfound: {}", requestid);
+        zmq::message_t msg(signal.data(), signal.size());
+        fail.send(msg, zmq::send_flags::none);
+        return;
     } catch (...) {
         /*
          * what to do here depends on why this failed - maybe re-init the

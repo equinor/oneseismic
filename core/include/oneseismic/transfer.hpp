@@ -37,6 +37,12 @@ public:
     aborted(const char*        reason) : std::runtime_error(reason) {}
 };
 
+class notfound : public std::runtime_error {
+public:
+    notfound(const std::string& reason) : std::runtime_error(reason) {}
+    notfound(const char*        reason) : std::runtime_error(reason) {}
+};
+
 /*
  * Different backends (e.g. azure, local file system) need to configure
  * transfers differently: set different headers, generate different urls,

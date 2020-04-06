@@ -1,3 +1,4 @@
+#include <ciso646>
 #include <string>
 #include <thread>
 
@@ -79,9 +80,10 @@ TEST_CASE("Manifest-message is pushed through") {
         one::transfer xfer(1, storage);
 
         zmq::socket_t sock(ctx, ZMQ_REP);
+        zmq::socket_t fail(ctx, ZMQ_PUSH);
         sock.connect("inproc://queue");
         one::manifest_task mt;
-        mt.run(xfer, sock, sock);
+        mt.run(xfer, sock, sock, fail);
     });
 
     const auto apireq = make_slice_request();
@@ -103,4 +105,52 @@ TEST_CASE("Manifest-message is pushed through") {
     REQUIRE(req.has_slice());
     CHECK(req.slice().dim() == 1);
     CHECK(req.slice().idx() == 1);
+}
+
+TEST_CASE("Manifest-not-found puts message on failure queue") {
+    zmq::context_t ctx;
+
+    zmq::socket_t caller_req( ctx, ZMQ_PUSH);
+    zmq::socket_t caller_rep( ctx, ZMQ_PULL);
+    zmq::socket_t caller_fail(ctx, ZMQ_PULL);
+
+    zmq::socket_t worker_req( ctx, ZMQ_PULL);
+    zmq::socket_t worker_rep( ctx, ZMQ_PUSH);
+    zmq::socket_t worker_fail(ctx, ZMQ_PUSH);
+
+    caller_req.bind( "inproc://req");
+    caller_rep.bind( "inproc://rep");
+    caller_fail.bind("inproc://fail");
+    worker_req.connect( "inproc://req");
+    worker_rep.connect( "inproc://rep");
+    worker_fail.connect("inproc://fail");
+
+    mhttpd httpd(simple_manifest);
+    struct storage_sans_manifest : public loopback_cfg {
+        using loopback_cfg::loopback_cfg;
+
+        action onstatus(
+                const one::buffer&,
+                const one::batch&,
+                const std::string&,
+                long) override {
+            throw one::notfound("no reason");
+        }
+    } storage_cfg(httpd.port());
+
+    const auto apireq = make_slice_request();
+    zmq::message_t apimsg(apireq.data(), apireq.size());
+    caller_req.send(apimsg, zmq::send_flags::none);
+
+    one::transfer xfer(1, storage_cfg);
+    one::manifest_task mt;
+    mt.run(xfer, worker_req, worker_rep, worker_fail);
+
+    zmq::message_t fail;
+    const auto received = caller_fail.recv(fail, zmq::recv_flags::dontwait);
+    CHECK(received);
+
+    zmq::message_t result;
+    const auto res_recv = caller_rep.recv(result, zmq::recv_flags::dontwait);
+    CHECK(not res_recv);
 }
