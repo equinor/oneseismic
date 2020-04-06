@@ -109,7 +109,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
-    "Transfer calls oncomplete on HTTP error",
+    "Transfer does not call oncomplete on HTTP error",
     "[transfer][http]") {
 
     constexpr unsigned int statuscodes[] = {
