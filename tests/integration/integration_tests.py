@@ -73,5 +73,5 @@ def test_slice():
         "iterations": 1,
         "substride": 1,
         "superstride": 1,
-        "initial_skip": 1,
+        "initial_skip": 0,
     }

@@ -101,7 +101,7 @@ func Serve(m map[string]string) error {
 			},
 			Layout: &core.SliceLayout{
 				ChunkSize:   1,
-				InitialSkip: 1,
+				InitialSkip: 0,
 				Iterations:  1,
 				Substride:   1,
 				Superstride: 1,
