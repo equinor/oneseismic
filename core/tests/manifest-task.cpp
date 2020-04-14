@@ -1,5 +1,5 @@
+#include <ciso646>
 #include <string>
-#include <thread>
 
 #include <catch/catch.hpp>
 #include <microhttpd.h>
@@ -68,39 +68,83 @@ std::string make_slice_request() {
     return msg;
 }
 
-TEST_CASE("Manifest-message is pushed through") {
+TEST_CASE("Manifest messages are pushed to the right queue") {
     zmq::context_t ctx;
-    zmq::socket_t sock(ctx, ZMQ_REQ);
-    sock.bind("inproc://queue");
 
-    std::thread task([&ctx] {
-        mhttpd httpd(simple_manifest);
+    zmq::socket_t caller_req( ctx, ZMQ_PUSH);
+    zmq::socket_t caller_rep( ctx, ZMQ_PULL);
+    zmq::socket_t caller_fail(ctx, ZMQ_PULL);
+
+    zmq::socket_t worker_req( ctx, ZMQ_PULL);
+    zmq::socket_t worker_rep( ctx, ZMQ_PUSH);
+    zmq::socket_t worker_fail(ctx, ZMQ_PUSH);
+
+    caller_req.bind( "inproc://req");
+    caller_rep.bind( "inproc://rep");
+    caller_fail.bind("inproc://fail");
+    worker_req.connect( "inproc://req");
+    worker_rep.connect( "inproc://rep");
+    worker_fail.connect("inproc://fail");
+
+    mhttpd httpd(simple_manifest);
+    const auto req = make_slice_request();
+    zmq::message_t reqmsg(req.data(), req.size());
+
+    SECTION("Successful calls are pushed to destination") {
         loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
-
-        zmq::socket_t sock(ctx, ZMQ_REP);
-        sock.connect("inproc://queue");
         one::manifest_task mt;
-        mt.run(xfer, sock, sock);
-    });
 
-    const auto apireq = make_slice_request();
-    zmq::message_t apimsg(apireq.data(), apireq.size());
-    sock.send(apimsg, zmq::send_flags::none);
+        caller_req.send(reqmsg, zmq::send_flags::none);
+        mt.run(xfer, worker_req, worker_rep, worker_fail);
 
-    zmq::message_t msg;
-    sock.recv(msg, zmq::recv_flags::none);
-    oneseismic::fetch_request req;
-    task.join();
-    const auto ok = req.ParseFromArray(msg.data(), msg.size());
-    REQUIRE(ok);
+        zmq::message_t repmsg;
+        const auto rep_recv = caller_rep.recv(
+                repmsg,
+                zmq::recv_flags::dontwait
+        );
+        REQUIRE(rep_recv);
 
-    CHECK(req.root() == "root");
-    CHECK(req.shape().dim0() == 2);
-    CHECK(req.shape().dim1() == 2);
-    CHECK(req.shape().dim2() == 2);
+        oneseismic::fetch_request rep;
+        const auto ok = rep.ParseFromArray(repmsg.data(), repmsg.size());
+        REQUIRE(ok);
 
-    REQUIRE(req.has_slice());
-    CHECK(req.slice().dim() == 1);
-    CHECK(req.slice().idx() == 1);
+        CHECK(rep.root() == "root");
+        CHECK(rep.shape().dim0() == 2);
+        CHECK(rep.shape().dim1() == 2);
+        CHECK(rep.shape().dim2() == 2);
+
+        REQUIRE(rep.has_slice());
+        CHECK(rep.slice().dim() == 1);
+        CHECK(rep.slice().idx() == 1);
+    }
+
+    SECTION("not-found messages are pushed on failure") {
+
+        struct storage_sans_manifest : public loopback_cfg {
+            using loopback_cfg::loopback_cfg;
+
+            action onstatus(
+                    const one::buffer&,
+                    const one::batch&,
+                    const std::string&,
+                    long) override {
+                throw one::notfound("no reason");
+            }
+        } storage_cfg(httpd.port());
+
+        caller_req.send(reqmsg, zmq::send_flags::none);
+
+        one::transfer xfer(1, storage_cfg);
+        one::manifest_task mt;
+        mt.run(xfer, worker_req, worker_rep, worker_fail);
+
+        zmq::message_t fail;
+        auto received = caller_fail.recv(fail, zmq::recv_flags::dontwait);
+        CHECK(received);
+
+        zmq::message_t result;
+        auto res_recv = caller_rep.recv(result, zmq::recv_flags::dontwait);
+        CHECK(not res_recv);
+    }
 }

@@ -174,12 +174,12 @@ long response_code(CURL* e) noexcept (false) {
      * The stored value will be zero if no server response code has been
      * received.
      *
+     * When using file://, the return code is still CURLE_OK so there's no
+     * error.
+     *
      * The response code should only be read when the transfer is *complete*,
-     * so if this is zero something else is terribly wrong.
+     * so if this is zero (for HTTP) something else is terribly wrong.
      */
-    if (http_code == 0)
-        throw std::runtime_error("No HTTP response code from server");
-
     return http_code;
 }
 
@@ -229,7 +229,7 @@ transfer::~transfer() {
 }
 
 
-void transfer::perform(batch batch, transfer_configuration& cfg) {
+void transfer::perform(batch batch, transfer_configuration& cfg) try {
     /*
      * batch is copied for now, since jobs are scheduled by just popping
      * fragments to fetch from the end. In the future this might be done with
@@ -282,13 +282,26 @@ void transfer::perform(batch batch, transfer_configuration& cfg) {
             check_multi_error(curl_multi_remove_handle(this->multi, e));
             idle.push_back(e);
 
-            const auto* t = getprivate< task >(e);
             const auto http_code = response_code(e);
+            const auto* t = getprivate< task >(e);
+            const auto& storage = t->storage;
+            const auto& fragment_id = t->fragment_id;
 
-            if (http_code == 200) {
-                cfg.oncomplete(t->storage, batch, t->fragment_id);
-            } else {
-                cfg.onfailure(t->storage, batch, t->fragment_id);
+            const auto status = this->config.onstatus(
+                storage,
+                batch,
+                fragment_id,
+                http_code
+            );
+            switch (status) {
+                using action = storage_configuration::action;
+                case action::done:
+                    cfg.oncomplete(storage, batch, fragment_id);
+                    break;
+
+                case action::retry:
+                    batch.fragment_ids.push_back(fragment_id);
+                    break;
             }
 
             if (not batch.fragment_ids.empty()) {
@@ -312,6 +325,14 @@ void transfer::perform(batch batch, transfer_configuration& cfg) {
 
     // TODO: if this happens in release, at least log properly
     assert(this->idle.size() == this->connections.size());
+} catch (...) {
+    // TODO: need a good test for a cancelled multi transfer
+    /* clear up remaining connections and reset state */
+    for (auto* e : this->connections)
+        curl_multi_remove_handle(this->multi, e);
+
+    this->idle = this->connections;
+    throw;
 }
 
 void transfer::schedule(const batch& batch, std::string fragment_id) {

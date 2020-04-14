@@ -60,8 +60,7 @@ std::string az::sign(
         const std::string& fragment_id)
 const noexcept (false) {
 
-    const auto canonicalized_resource = fmt::format(
-        "/{}/{}/{}/{}.f32",
+    const auto canonical_resource = this->canonicalized_resource(
         batch.root,
         batch.guid,
         batch.fragment_shape,
@@ -86,7 +85,7 @@ const noexcept (false) {
         "{}",   /* resource to get, i.e. the blob */
         date,
         version,
-        canonicalized_resource
+        canonical_resource
     );
 
     assert(!this->key.empty() && "az.key is empty");
@@ -134,6 +133,37 @@ std::string az::url(const one::batch& batch, const std::string& id) const {
         batch.fragment_shape,
         id
     );
+}
+
+std::string az::canonicalized_resource(
+        const std::string& root,
+        const std::string& guid,
+        const std::string& fragment_shape,
+        const std::string& fragment_id)
+const noexcept (false) {
+    /*
+     * TODO: this could be and URLs be a dynamic config instead of virtual
+     * dispatch?
+     */
+    return fmt::format(
+        "/{}/{}/{}/{}.f32",
+        root,
+        guid,
+        fragment_shape,
+        fragment_id
+    );
+}
+
+storage_configuration::action az::onstatus(
+        const buffer&,
+        const batch&,
+        const std::string& fragment_id,
+        long status_code) {
+
+    if (status_code != 200)
+        throw aborted("az: status code was not 200/OK");
+
+    return action::done;
 }
 
 }

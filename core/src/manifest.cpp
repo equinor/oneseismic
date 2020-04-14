@@ -5,6 +5,7 @@
 #include <zmq.hpp>
 
 #include <oneseismic/tasks.hpp>
+#include <oneseismic/azure.hpp>
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/geometry.hpp>
 
@@ -36,6 +37,10 @@ one::gvt< 3 > geometry(
     };
 }
 
+/*
+ * for now, pin it to the azure transfer config. The manifest-config itself
+ * should probably be a parameter instead
+ */
 struct manifest_cfg : public one::transfer_configuration {
     void oncomplete(
             const one::buffer& buffer,
@@ -43,18 +48,6 @@ struct manifest_cfg : public one::transfer_configuration {
             const std::string&) override {
         /* TODO: in debug, store the string too? */
         this->doc = buffer;
-    }
-
-    void onfailure(
-            const one::buffer&,
-            const one::batch&,
-            const std::string&) override {
-        // TODO: Should there be some sort of automatic retry, or should that
-        // decision be pushed up? For now, just fail
-        // TODO: It is *very* likely this should also be responsible to
-        // weed out requests to non-existing cubes, so it is likely it should
-        // push an error message down instead
-        throw std::runtime_error("Error fetching manifest");
     }
 
     one::buffer doc;
@@ -108,7 +101,8 @@ bool set_slice_request(
 void manifest_task::run(
         transfer& xfer,
         zmq::socket_t& input,
-        zmq::socket_t& output) {
+        zmq::socket_t& output,
+        zmq::socket_t& fail) {
     /*
      * These should be cached probably, as there are performance implications
      * to not reusing them. Exposing the generated code in headers is pretty
@@ -144,6 +138,13 @@ void manifest_task::run(
     manifest_cfg cfg;
     try {
         xfer.perform(batch, cfg);
+    } catch (const notfound& e) {
+        log::log("{} not found: '{}'", batch.guid, e.what());
+
+        const auto signal = fmt::format("notfound: {}", requestid);
+        zmq::message_t msg(signal.data(), signal.size());
+        fail.send(msg, zmq::send_flags::none);
+        return;
     } catch (...) {
         /*
          * what to do here depends on why this failed - maybe re-init the

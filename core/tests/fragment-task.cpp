@@ -1,5 +1,4 @@
 #include <string>
-#include <thread>
 
 #include <catch/catch.hpp>
 #include <microhttpd.h>
@@ -79,28 +78,31 @@ std::string make_slice_request(int dim, int idx) {
 
 TEST_CASE("Fragment is sliced and pushed through", "[slice]") {
     zmq::context_t ctx;
-    zmq::socket_t sock(ctx, ZMQ_REQ);
-    sock.bind("inproc://queue");
+    zmq::socket_t caller_req(ctx, ZMQ_PUSH);
+    zmq::socket_t caller_rep(ctx, ZMQ_PULL);
+    zmq::socket_t worker_req(ctx, ZMQ_PULL);
+    zmq::socket_t worker_rep(ctx, ZMQ_PUSH);
 
-    std::thread task([&ctx] {
-        mhttpd httpd(fragment_response);
-        loopback_cfg storage(httpd.port());
-        one::transfer xfer(1, storage);
+    caller_req.bind("inproc://req");
+    caller_rep.bind("inproc://rep");
+    worker_req.connect("inproc://req");
+    worker_rep.connect("inproc://rep");
 
-        zmq::socket_t sock(ctx, ZMQ_REP);
-        sock.connect("inproc://queue");
-        one::fragment_task ft;
-        ft.run(xfer, sock, sock);
-    });
+    mhttpd httpd(fragment_response);
+
+    loopback_cfg storage(httpd.port());
+    one::transfer xfer(1, storage);
 
     const auto apireq = make_slice_request(0, 0);
     zmq::message_t apimsg(apireq.data(), apireq.size());
-    sock.send(apimsg, zmq::send_flags::none);
+    caller_req.send(apimsg, zmq::send_flags::none);
+
+    one::fragment_task ft;
+    ft.run(xfer, worker_req, worker_rep);
 
     zmq::message_t msg;
-    sock.recv(msg, zmq::recv_flags::none);
+    caller_rep.recv(msg, zmq::recv_flags::none);
     oneseismic::fetch_response res;
-    task.join();
     const auto ok = res.ParseFromArray(msg.data(), msg.size());
     REQUIRE(ok);
 

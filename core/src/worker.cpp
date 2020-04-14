@@ -49,13 +49,6 @@ public:
         const one::batch& batch,
         const std::string& id) override;
 
-    void onfailure(
-        const one::buffer& b,
-        const one::batch& batch,
-        const std::string& id) override {
-        throw std::runtime_error("slice transfer failed");
-    }
-
     void serialize(oneseismic::fetch_response&) const override;
     void prepare(const oneseismic::fetch_request& req) override;
 
@@ -72,8 +65,8 @@ private:
 
 void slice::oncomplete(
         const one::buffer& b,
-        const one::batch& batch, const
-        std::string& id) {
+        const one::batch& batch,
+        const std::string& id) {
 
     auto t = tile();
     t.data.resize(this->lay.iterations * this->lay.chunk_size);
