@@ -32,6 +32,7 @@ require (
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.10.3 // indirect
 	github.com/onsi/gomega v1.7.1 // indirect
+	github.com/pebbe/zmq4 v1.2.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/profile v1.4.0
 	github.com/prometheus/client_golang v1.4.1

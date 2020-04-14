@@ -1,6 +1,7 @@
 FROM golang:buster as builder
 
 WORKDIR /src
+RUN apt-get update && apt-get install -y libzmq5-dev
 COPY api/go.mod .
 COPY api/go.sum .
 RUN go mod download
@@ -12,14 +13,13 @@ RUN go generate
 
 RUN go test -race ./...
 
-RUN CGO_ENABLED=0\
-    GOOS=linux\
+RUN GOOS=linux\
     GOARCH=amd64 \
     go build -ldflags="-w -s"
 
-FROM scratch as deployer
+FROM debian:buster-slim as deployer
+RUN apt-get update && apt-get install -y libzmq5
 COPY --from=builder /src/api/api /bin/api
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 EXPOSE 8080 8081
 ENTRYPOINT ["api"]
