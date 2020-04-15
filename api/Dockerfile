@@ -1,4 +1,4 @@
-FROM golang:buster as builder
+FROM golang:1.14-buster as builder
 
 WORKDIR /src
 RUN apt-get update && apt-get install -y libzmq5-dev
