@@ -95,8 +95,17 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         one::transfer xfer(1, storage);
         one::manifest_task mt;
 
+        // Attach message envelope
+        caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
+
         caller_req.send(reqmsg, zmq::send_flags::none);
         mt.run(xfer, worker_req, worker_rep, worker_fail);
+
+        // Envelope should be passed throug without
+        // interfering with the manifest task
+        zmq::message_t envelope;
+        caller_rep.recv(envelope, zmq::recv_flags::none);
+        CHECK(envelope.to_string() == "ENVELOPE");
 
         zmq::message_t repmsg;
         const auto rep_recv = caller_rep.recv(
@@ -133,11 +142,20 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
             }
         } storage_cfg(httpd.port());
 
+        // Attach message envelope
+        caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
+
         caller_req.send(reqmsg, zmq::send_flags::none);
 
         one::transfer xfer(1, storage_cfg);
         one::manifest_task mt;
         mt.run(xfer, worker_req, worker_rep, worker_fail);
+
+        // Envelope should be passed throug without
+        // interfering with the manifest task
+        zmq::message_t envelope;
+        caller_fail.recv(envelope, zmq::recv_flags::none);
+        CHECK(envelope.to_string() == "ENVELOPE");
 
         zmq::message_t fail;
         auto received = caller_fail.recv(fail, zmq::recv_flags::dontwait);

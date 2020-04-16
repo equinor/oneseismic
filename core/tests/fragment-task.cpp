@@ -93,12 +93,21 @@ TEST_CASE("Fragment is sliced and pushed through", "[slice]") {
     loopback_cfg storage(httpd.port());
     one::transfer xfer(1, storage);
 
+    // Attach message envelope
+    caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
+
     const auto apireq = make_slice_request(0, 0);
     zmq::message_t apimsg(apireq.data(), apireq.size());
     caller_req.send(apimsg, zmq::send_flags::none);
 
     one::fragment_task ft;
     ft.run(xfer, worker_req, worker_rep);
+
+    // Envelope should be passed through without
+    // interfering with the fragment task
+    zmq::message_t envelope;
+    caller_rep.recv(envelope, zmq::recv_flags::none);
+    CHECK(envelope.to_string() == "ENVELOPE");
 
     zmq::message_t msg;
     caller_rep.recv(msg, zmq::recv_flags::none);
@@ -107,7 +116,7 @@ TEST_CASE("Fragment is sliced and pushed through", "[slice]") {
     REQUIRE(ok);
 
     std::vector< float > expected(4);
-    std::memcpy(expected.data(), index_2x2x2.data(), index_2x2x2.size());
+    std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
 
     const auto& tiles = res.slice().tiles();
     CHECK(tiles.size() == 1);

@@ -3,6 +3,7 @@
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 #include <zmq.hpp>
+#include <zmq_addon.hpp>
 
 #include <oneseismic/tasks.hpp>
 #include <oneseismic/azure.hpp>
@@ -118,8 +119,8 @@ void manifest_task::run(
      *
      * Sockets are configured from the outside, so regardless it's time to exit.
      */
-    zmq::message_t req;
-    input.recv(req, zmq::recv_flags::none);
+    zmq::multipart_t multi(input);
+    const zmq::message_t& req = multi.back();
     const auto ok = apirequest.ParseFromArray(req.data(), req.size());
     if (!ok) {
         /* log bad request, then be ready to receive new message */
@@ -143,7 +144,9 @@ void manifest_task::run(
 
         const auto signal = fmt::format("notfound: {}", requestid);
         zmq::message_t msg(signal.data(), signal.size());
-        fail.send(msg, zmq::send_flags::none);
+        multi.remove();
+        multi.add(std::move(msg));
+        multi.send(fail);
         return;
     } catch (...) {
         /*
@@ -199,9 +202,10 @@ void manifest_task::run(
     /* forward request to workers */
     fetchrequest.SerializeToString(&msg);
     zmq::message_t rep(msg.data(), msg.size());
-    /* make this communication multi-part, to track liveness? */
     /* send shouldn't fail (?) in zmq, or at least internally retry (?) */
-    output.send(rep, zmq::send_flags::none);
+    multi.remove();
+    multi.add(std::move(rep));
+    multi.send(output);
 }
 
 }

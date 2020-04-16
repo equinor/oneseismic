@@ -4,6 +4,7 @@
 
 #include <fmt/format.h>
 #include <zmq.hpp>
+#include <zmq_addon.hpp>
 
 #include <oneseismic/azure.hpp>
 #include <oneseismic/geometry.hpp>
@@ -197,8 +198,8 @@ void fragment_task::run(
     std::string outmsg;
     all_actions actions;
 
-    zmq::message_t in;
-    input.recv(in, zmq::recv_flags::none);
+    zmq::multipart_t multi(input);
+    const zmq::message_t& in = multi.back();
     const auto ok = request.ParseFromArray(in.data(), in.size());
     if (!ok) {
         /* log bad request, then be ready to receive new message */
@@ -215,7 +216,10 @@ void fragment_task::run(
     response.set_requestid(request.requestid());
     response.SerializeToString(&outmsg);
     zmq::message_t out(outmsg.data(), outmsg.size());
-    output.send(out, zmq::send_flags::none);
+
+    multi.remove();
+    multi.add(std::move(out));
+    multi.send(output);
 }
 
 }
