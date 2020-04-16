@@ -1,5 +1,6 @@
 syntax = "proto3";
 package oneseismic;
+option go_package = ".;oneseismic";
 
 message fragment_id {
     int32 dim0 = 1;
