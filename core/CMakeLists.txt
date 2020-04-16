@@ -95,10 +95,22 @@ target_link_libraries(oneseismic-manifest
     clara
 )
 
+add_executable(oneseismic-fragment
+    src/server-fragment.cpp
+)
+
+target_link_libraries(oneseismic-fragment
+    oneseismic::oneseismic
+    fmt::fmt
+    PkgConfig::zmq
+    clara
+)
+
 install(
     TARGETS
         oneseismic
         oneseismic-manifest
+        oneseismic-fragment
     EXPORT
         oneseismic-export
     ARCHIVE DESTINATION
