@@ -84,9 +84,33 @@ target_link_libraries(oneseismic
         protobuf::libprotobuf
 )
 
+add_executable(oneseismic-manifest
+    src/server-manifest.cpp
+)
+
+target_link_libraries(oneseismic-manifest
+    oneseismic::oneseismic
+    fmt::fmt
+    PkgConfig::zmq
+    clara
+)
+
+add_executable(oneseismic-fragment
+    src/server-fragment.cpp
+)
+
+target_link_libraries(oneseismic-fragment
+    oneseismic::oneseismic
+    fmt::fmt
+    PkgConfig::zmq
+    clara
+)
+
 install(
     TARGETS
         oneseismic
+        oneseismic-manifest
+        oneseismic-fragment
     EXPORT
         oneseismic-export
     ARCHIVE DESTINATION
