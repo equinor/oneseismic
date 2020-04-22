@@ -7,7 +7,7 @@ import (
 )
 
 func TestServiceURL(t *testing.T) {
-	_, err := NewServiceURL(
+	_, err := newServiceURL(
 		AzureBlobSettings{
 			StorageURL:  "http://localhost:10000/%s",
 			AccountName: "devstoreaccount1",

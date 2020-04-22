@@ -5,7 +5,9 @@ import (
 	"net/url"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/equinor/oneseismic/api/middleware/claims"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
+	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/context"
 )
 
@@ -69,4 +71,12 @@ func Oauth2(oauthOpt OAuth2Option) (context.Handler, error) {
 	}
 
 	return auth, nil
+}
+
+func EnableSecurity(app *iris.Application, a OAuth2Option) {
+	auth, _ := Oauth2(a)
+	app.Use(auth)
+
+	claimsHandler := claims.New(a.Audience, a.Issuer)
+	app.Use(claimsHandler.Validate)
 }

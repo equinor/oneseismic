@@ -22,7 +22,7 @@ func (mbs *MockStore) list(ctx context.Context) ([]string, error) {
 func TestEmptyList(t *testing.T) {
 	app := iris.Default()
 
-	mc := manifestController{&MockStore{}}
+	mc := manifestController{ms: &MockStore{}}
 	app.Get("/", mc.list)
 
 	e := httptest.New(t, app)
@@ -37,7 +37,7 @@ func TestList(t *testing.T) {
 	m := []string{"a", "b"}
 
 	app := iris.Default()
-	mc := manifestController{&MockStore{m}}
+	mc := manifestController{ms: &MockStore{m}}
 	app.Get("/", mc.list)
 
 	e := httptest.New(t, app)

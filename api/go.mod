@@ -40,6 +40,7 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/stretchr/testify v1.4.0
+	github.com/swaggo/files v0.0.0-20190704085106-630677cd5c14
 	github.com/swaggo/swag v1.6.5
 	github.com/valyala/fasthttp v1.6.0 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
