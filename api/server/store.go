@@ -12,7 +12,7 @@ type manifestStore interface {
 	list(ctx context.Context) ([]string, error)
 }
 
-type ServiceURL struct {
+type serviceURL struct {
 	azblob.ServiceURL
 }
 
@@ -22,7 +22,7 @@ type AzureBlobSettings struct {
 	AccountKey  string
 }
 
-func (sURL *ServiceURL) list(ctx context.Context) ([]string, error) {
+func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
 	names := make([]string, 0)
 
 	for marker := (azblob.Marker{}); marker.NotDone(); {
@@ -40,7 +40,7 @@ func (sURL *ServiceURL) list(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-func NewServiceURL(az AzureBlobSettings) (*ServiceURL, error) {
+func newServiceURL(az AzureBlobSettings) (*serviceURL, error) {
 
 	uri, err := url.Parse(
 		fmt.Sprintf(az.StorageURL,
@@ -59,5 +59,5 @@ func NewServiceURL(az AzureBlobSettings) (*ServiceURL, error) {
 		azblob.NewPipeline(credential, azblob.PipelineOptions{}),
 	)
 
-	return &ServiceURL{sURL}, err
+	return &serviceURL{sURL}, err
 }
