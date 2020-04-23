@@ -27,7 +27,6 @@ func TestSliceModel(t *testing.T) {
 		fr := oneseismic.FetchResponse{
 			Requestid: job.jobId,
 		}
-		reply := ""
 		ar := oneseismic.ApiRequest{}
 		err := proto.Unmarshal([]byte(job.request), &ar)
 		if err == nil {
@@ -38,9 +37,10 @@ func TestSliceModel(t *testing.T) {
 
 		bytes, err := proto.Marshal(&fr)
 		if err == nil {
-			reply = string(bytes)
+			job.reply <- bytes
+		} else {
+			job.reply <- []byte("")
 		}
-		job.reply <- reply
 	}()
 
 	sl := slicer{&mMultiplexer{"", jobs}}
@@ -60,7 +60,7 @@ func TestModelMissingSlice(t *testing.T) {
 		if err != nil {
 			log.Fatalln("Failed to encode:", err)
 		}
-		job.reply <- string(bytes)
+		job.reply <- bytes
 	}()
 	sl := slicer{&mMultiplexer{"", jobs}}
 	_, err := sl.fetchSlice("guid", 0, 0, "requestid")

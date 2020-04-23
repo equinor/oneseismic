@@ -2,13 +2,14 @@ package server
 
 import (
 	"log"
+
 	zmq "github.com/pebbe/zmq4"
 )
 
 type job struct {
-	jobId string
-	request string
-	reply chan string
+	jobId   string
+	request []byte
+	reply   chan []byte
 }
 
 func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) {
@@ -20,7 +21,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 
 	req.Bind(reqNdpt)
 
-	rep := make(chan []string)
+	rep := make(chan [][]byte)
 	go func() {
 		r, err := zmq.NewSocket(zmq.DEALER)
 
@@ -32,7 +33,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 		r.Bind(repNdpt)
 
 		for {
-			m, err := r.RecvMessage(0)
+			m, err := r.RecvMessageBytes(0)
 
 			if err != nil {
 				log.Fatal(err)
@@ -43,7 +44,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 	}()
 
 	// TODO: Clean up in case a reply never arrives?
-	replyChnls := make(map[string]chan string)
+	replyChnls := make(map[string]chan []byte)
 
 	for {
 		select {

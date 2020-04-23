@@ -30,14 +30,14 @@ func msgLoopback() {
 
 func verifyCorrectReply(t *testing.T, i int, jobs chan job, done chan struct{}) {
 	id := strconv.Itoa(i)
-	repChnl := make(chan string)
-	msg := "message from " + id
+	repChnl := make(chan []byte)
+	msg := []byte("message from " + id)
 	job := job{id, msg, repChnl}
 	jobs <- job
 
 	rep := <-repChnl
 
-	assert.Equal(t, string(rep), msg)
+	assert.Equal(t, rep, msg)
 	done <- struct{}{}
 }
 
