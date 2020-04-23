@@ -61,8 +61,8 @@ func (s *slicer) fetchSlice(
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}
 
-	replyChannel := make(chan string)
-	job := job{requestid, string(req), replyChannel}
+	replyChannel := make(chan []byte)
+	job := job{requestid, req, replyChannel}
 
 	fr := oneseismic.FetchResponse{}
 
