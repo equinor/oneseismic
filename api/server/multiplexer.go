@@ -7,7 +7,7 @@ import (
 )
 
 type job struct {
-	jobId   string
+	jobID   string
 	request []byte
 	reply   chan []byte
 }
@@ -49,16 +49,16 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 	for {
 		select {
 		case r := <-rep:
-			jobId := string(r[len(r)-2])
+			jobID := string(r[len(r)-2])
 			msg := r[len(r)-1]
-			rc := replyChnls[jobId]
+			rc := replyChnls[jobID]
 
 			rc <- msg
-			delete(replyChnls, jobId)
+			delete(replyChnls, jobID)
 		case j := <-jobs:
-			replyChnls[j.jobId] = j.reply
+			replyChnls[j.jobID] = j.reply
 			req.Send(address, zmq.SNDMORE)
-			req.Send(j.jobId, zmq.SNDMORE)
+			req.Send(j.jobID, zmq.SNDMORE)
 			req.SendMessage(j.request)
 		}
 	}
