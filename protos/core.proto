@@ -2,6 +2,12 @@ syntax = "proto3";
 package oneseismic;
 option go_package = ".;oneseismic";
 
+message cube_shape {
+    int32 dim0 = 1;
+    int32 dim1 = 2;
+    int32 dim2 = 3;
+};
+
 message fragment_id {
     int32 dim0 = 1;
     int32 dim1 = 2;
@@ -50,13 +56,12 @@ message slice_request {
  * The already-sliced fragment
  */
 message slice_tile {
-    fragment_id id = 1;
+    slice_layout layout = 1;
     repeated float v = 2;
 };
 
 message slice_response {
-    slice_layout layout = 1;
-    repeated slice_tile tiles = 2;
+    repeated slice_tile tiles = 1;
 };
 
 message fetch_response {
@@ -71,10 +76,12 @@ message fetch_request {
     string requestid = 1;
     string root = 2;
     string guid = 3;
-    fragment_shape shape = 4;
-    repeated fragment_id ids = 5;
+    fragment_shape fragment_shape = 4;
+    cube_shape cube_shape = 5;
+
+    repeated fragment_id ids = 6;
 
     oneof function {
-        slice_request slice = 6;
+        slice_request slice = 7;
     };
 };
