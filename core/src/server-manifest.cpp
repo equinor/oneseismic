@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
     control.setsockopt(ZMQ_SUBSCRIBE, "ctrl:kill", 0);
 
     try {
-        source.bind(source_address);
+        source.connect(source_address);
     } catch (...) {
         std::cerr << "Invalid source address\n";
         std::exit(EXIT_FAILURE);
