@@ -97,8 +97,9 @@ void slice::serialize(oneseismic::fetch_response& res) const {
     for (const auto& outcome : this->tiles) {
         auto* tile = inner->add_tiles();
 
-        //auto layout = outcome.id.slice_stride(this->dim);
-        const auto layout = this->gvt.slice_stride(this->dim, outcome.id);
+        auto flattened_id = outcome.id;
+        flattened_id[this->dim] = 0;
+        const auto layout = this->gvt.slice_stride(this->dim, flattened_id);
 
         auto* l = tile->mutable_layout();
 
@@ -129,6 +130,7 @@ void slice::prepare(const oneseismic::fetch_request& req) {
         std::size_t(req.cube_shape().dim1()),
         std::size_t(req.cube_shape().dim2()),
     };
+    cube_shape[req.slice().dim()] = 1;
 
     this->dim = one::dimension< 3 >(req.slice().dim());
     this->idx = req.slice().idx();
