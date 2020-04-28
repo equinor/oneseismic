@@ -84,6 +84,11 @@ bool set_slice_request(
         pin / gvt.fragment_shape()[dim]
     );
 
+    auto* cs = req.mutable_cube_shape();
+    cs->set_dim0(manifest_dimensions[0].size());
+    cs->set_dim1(manifest_dimensions[1].size());
+    cs->set_dim2(manifest_dimensions[2].size());
+
     for (const auto& id : ids) {
         auto* c = req.add_ids();
         c->set_dim0(id[0]);
@@ -176,7 +181,7 @@ void manifest_task::run(
     fetchrequest.set_requestid(apirequest.requestid());
     fetchrequest.set_root(apirequest.root());
     fetchrequest.set_guid(apirequest.guid());
-    *fetchrequest.mutable_shape() = apirequest.shape();
+    *fetchrequest.mutable_fragment_shape() = apirequest.shape();
 
     /* set request type-specific parameters */
     switch (apirequest.function_case()) {

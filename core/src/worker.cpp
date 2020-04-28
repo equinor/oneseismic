@@ -41,7 +41,7 @@ class action : public one::transfer_configuration, public wire {};
 class slice : public action {
 public:
     struct tile {
-        one::FS< 3 > id;
+        one::FID< 3 > id;
         std::vector< float > data;
     };
 
@@ -61,6 +61,7 @@ private:
     one::dimension< 3 > dim = one::dimension< 3 >(0);
     int idx;
     one::slice_layout lay;
+    one::gvt< 3 > gvt;
     std::vector< tile > tiles;
 };
 
@@ -90,40 +91,49 @@ void slice::oncomplete(
 
 void slice::serialize(oneseismic::fetch_response& res) const {
     auto* inner = res.mutable_slice();
-    auto* layout = inner->mutable_layout();
-    layout->set_iterations(this->lay.iterations);
-    layout->set_chunk_size(this->lay.chunk_size);
-    layout->set_initial_skip(this->lay.initial_skip);
-    layout->set_superstride(this->lay.superstride);
-    layout->set_substride(this->lay.substride);
 
     oneseismic::fragment_id id;
     inner->clear_tiles();
     for (const auto& outcome : this->tiles) {
         auto* tile = inner->add_tiles();
-        id.set_dim0(outcome.id[0]);
-        id.set_dim1(outcome.id[1]);
-        id.set_dim2(outcome.id[2]);
-        *tile->mutable_id() = id;
+
+        //auto layout = outcome.id.slice_stride(this->dim);
+        const auto layout = this->gvt.slice_stride(this->dim, outcome.id);
+
+        auto* l = tile->mutable_layout();
+
+        l->set_iterations(layout.iterations);
+        l->set_chunk_size(layout.chunk_size);
+        l->set_initial_skip(layout.initial_skip);
+        l->set_superstride(layout.superstride);
+        l->set_substride(layout.substride);
+
         *tile->mutable_v() = { outcome.data.begin(), outcome.data.end() };
     }
 }
 
 void slice::prepare(const oneseismic::fetch_request& req) {
     assert(req.has_slice());
-    assert(req.shape().dim0() > 0);
-    assert(req.shape().dim1() > 0);
-    assert(req.shape().dim2() > 0);
+    assert(req.fragment_shape().dim0() > 0);
+    assert(req.fragment_shape().dim1() > 0);
+    assert(req.fragment_shape().dim2() > 0);
 
-    one::FS< 3 > shape {
-        std::size_t(req.shape().dim0()),
-        std::size_t(req.shape().dim1()),
-        std::size_t(req.shape().dim2()),
+    one::FS< 3 > fragment_shape {
+        std::size_t(req.fragment_shape().dim0()),
+        std::size_t(req.fragment_shape().dim1()),
+        std::size_t(req.fragment_shape().dim2()),
+    };
+
+    one::CS< 3 > cube_shape {
+        std::size_t(req.cube_shape().dim0()),
+        std::size_t(req.cube_shape().dim1()),
+        std::size_t(req.cube_shape().dim2()),
     };
 
     this->dim = one::dimension< 3 >(req.slice().dim());
     this->idx = req.slice().idx();
-    this->lay = shape.slice_stride(this->dim);
+    this->lay = fragment_shape.slice_stride(this->dim);
+    this->gvt = one::gvt< 3 >(cube_shape, fragment_shape);
 }
 
 class all_actions {
@@ -158,9 +168,9 @@ one::batch make_batch(const oneseismic::fetch_request& req) noexcept (false) {
     batch.guid = req.guid();
     batch.fragment_shape = fmt::format(
         "src/{}-{}-{}",
-        req.shape().dim0(),
-        req.shape().dim1(),
-        req.shape().dim2()
+        req.fragment_shape().dim0(),
+        req.fragment_shape().dim1(),
+        req.fragment_shape().dim2()
     );
 
     for (const auto& id : req.ids()) {

@@ -10,71 +10,6 @@
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/tasks.hpp>
 
-namespace one {
-
-class az_manifest : public az {
-public:
-    using az::az;
-
-    std::string url(
-            const one::batch& batch,
-            const std::string&) const override {
-
-        return fmt::format(
-            "https://{}.blob.core.windows.net/{}/manifest.json",
-            batch.root,
-            batch.guid
-        );
-
-    }
-
-    std::string canonicalized_resource(
-            const std::string& root,
-            const std::string& guid,
-            const std::string& fragment_shape,
-            const std::string& fragment_id)
-    const noexcept (false) override {
-        return fmt::format(
-                "/{}/{}/manifest.json",
-                root,
-                guid
-        );
-    }
-
-    action onstatus(
-            const buffer& b,
-            const batch&,
-            const std::string& fragment_id,
-            long status_code) override {
-
-        // https://docs.microsoft.com/en-us/rest/api/storageservices/blob-service-error-codes
-
-        if (status_code == 200) {
-            this->ok = true;
-            return action::done;
-        }
-
-        if (status_code == 404) {
-            this->ok = false;
-            this->response.assign(b.begin(), b.end());
-            return action::done;
-        }
-
-        if (status_code == 500) {
-            this->ok = false;
-            this->response.assign(b.begin(), b.end());
-            return action::done;
-        }
-
-        throw aborted(fmt::format("az-manifest: unhandled status code {}", status_code));
-    }
-
-    bool ok;
-    std::string response;
-};
-
-}
-
 int main(int argc, char** argv) {
     std::string source_address;
     std::string sink_address;
@@ -134,7 +69,8 @@ int main(int argc, char** argv) {
 
     zmq::context_t ctx;
     zmq::socket_t source(ctx, ZMQ_PULL);
-    zmq::socket_t sink(ctx, ZMQ_PUSH);
+    zmq::socket_t sink(ctx, ZMQ_ROUTER);
+    sink.setsockopt(ZMQ_ROUTER_MANDATORY, 1);
     zmq::socket_t control(ctx, ZMQ_SUB);
     zmq::socket_t fail(ctx, ZMQ_PUSH);
     control.setsockopt(ZMQ_SUBSCRIBE, "ctrl:kill", 0);
@@ -152,7 +88,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az_manifest az(acc, key);
+    one::az az(acc, key);
     one::transfer xfer(ntransfers, az);
     one::fragment_task task;
 

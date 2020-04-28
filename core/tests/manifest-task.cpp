@@ -54,10 +54,10 @@ std::string make_slice_request() {
     req.set_root("root");
     req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
 
-    auto* shape = req.mutable_shape();
-    shape->set_dim0(2);
-    shape->set_dim1(2);
-    shape->set_dim2(2);
+    auto* fragment_shape = req.mutable_shape();
+    fragment_shape->set_dim0(2);
+    fragment_shape->set_dim1(2);
+    fragment_shape->set_dim2(2);
 
     auto* slice = req.mutable_slice();
     slice->set_dim(1);
@@ -119,9 +119,9 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         REQUIRE(ok);
 
         CHECK(rep.root() == "root");
-        CHECK(rep.shape().dim0() == 2);
-        CHECK(rep.shape().dim1() == 2);
-        CHECK(rep.shape().dim2() == 2);
+        CHECK(rep.fragment_shape().dim0() == 2);
+        CHECK(rep.fragment_shape().dim1() == 2);
+        CHECK(rep.fragment_shape().dim2() == 2);
 
         REQUIRE(rep.has_slice());
         CHECK(rep.slice().dim() == 1);

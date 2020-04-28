@@ -412,6 +412,8 @@ class gvt {
          */
         gvt(CS< ND >, FS< ND >) noexcept (true);
 
+        gvt() = default;
+
         /*
          * map global x, y, z -> m, n, k in the fragment. This is quite useful
          * when extracting arbitrary surfaces, where this function gives the

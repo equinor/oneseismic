@@ -57,10 +57,10 @@ std::string make_slice_request(int dim, int idx) {
     req.set_root("root");
     req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
 
-    auto* shape = req.mutable_shape();
-    shape->set_dim0(2);
-    shape->set_dim1(2);
-    shape->set_dim2(2);
+    auto* fragment_shape = req.mutable_fragment_shape();
+    fragment_shape->set_dim0(2);
+    fragment_shape->set_dim1(2);
+    fragment_shape->set_dim2(2);
 
     auto* slice = req.mutable_slice();
     slice->set_dim(dim);
@@ -120,9 +120,13 @@ TEST_CASE("Fragment is sliced and pushed through", "[slice]") {
 
     const auto& tiles = res.slice().tiles();
     CHECK(tiles.size() == 1);
-    CHECK(tiles.Get(0).id().dim0() == 0);
-    CHECK(tiles.Get(0).id().dim1() == 0);
-    CHECK(tiles.Get(0).id().dim2() == 0);
+
+    CHECK(tiles.Get(0).layout().iterations()   == 2);
+    CHECK(tiles.Get(0).layout().chunk_size()   == 2);
+    CHECK(tiles.Get(0).layout().initial_skip() == 0);
+    CHECK(tiles.Get(0).layout().superstride()  == 0);
+    CHECK(tiles.Get(0).layout().substride()    == 2);
+
     CHECK(tiles.Get(0).v().size() == 4);
     auto v = std::vector< float >(
         tiles.Get(0).v().begin(),
