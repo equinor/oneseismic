@@ -7,13 +7,15 @@ services:
       dockerfile: core/Dockerfile
     command: [
         "oneseismic-manifest",
-        "--source",  "tcp://0.0.0.0:68143",
-        "--sink",    "tcp://*:68142",
-        "--control", "tcp://0.0.0.0:68141",
-        "--fail",    "tcp://0.0.0.0:68140",
+        "--source",  "tcp://api:6143",
+        "--sink",    "tcp://*:6142",
+        "--control", "tcp://0.0.0.0:6141",
+        "--fail",    "tcp://0.0.0.0:6140",
         "--account", "${AZURE_STORAGE_ACCOUNT}",
         "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
     ]
+    depends_on:
+      - api
   fragment:
     image: oneseismic/base:${VERSION:-latest}
     build:
@@ -21,18 +23,16 @@ services:
       dockerfile: core/Dockerfile
     command: [
         "oneseismic-fragment",
-        "--source",  "tcp://0.0.0.0:68142",
-        "--sink",    "tcp://0.0.0.0:68143",
-        "--control", "tcp://0.0.0.0:68141",
-        "--fail",    "tcp://0.0.0.0:68140",
+        "--source",  "tcp://manifest:6142",
+        "--sink",    "tcp://api:6144",
+        "--control", "tcp://0.0.0.0:6141",
+        "--fail",    "tcp://0.0.0.0:6140",
         "--account", "${AZURE_STORAGE_ACCOUNT}",
         "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
     ]
-  core:
-    image: oneseismic/base:${VERSION:-latest}
     depends_on:
+      - api
       - manifest
-      - fragment
 
   api:
     image: lambdaville.azurecr.io/api:${VERSION:-latest}
@@ -51,5 +51,5 @@ services:
       - AZURE_STORAGE_ACCESS_KEY
       - AZURE_MANIFEST_CONTAINER
       - PROFILING=false
-      - ZMQ_REP_ADDR=inproc://rep
-      - ZMQ_REQ_ADDR=inproc://req
+      - ZMQ_REP_ADDR=tcp://*:6144
+      - ZMQ_REQ_ADDR=tcp://*:6143
