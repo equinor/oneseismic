@@ -15,7 +15,7 @@ inline constexpr const char* x_ms_version() noexcept (true) {
 
 class az : public one::storage_configuration {
 public:
-    az(std::string acc, std::string k);
+    az(std::string url, std::string acc, std::string k);
 
     std::string sign(
         const std::string& date,
@@ -52,6 +52,7 @@ public:
             const std::string& fragment_id,
             long status_code)
         override;
+    std::string storage_url;
 
 private:
     std::string storage_account;

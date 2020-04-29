@@ -20,12 +20,13 @@ public:
             const one::batch& batch,
             const std::string&) const override {
 
+        std::string base_url = fmt::format(this->storage_url, batch.root);
+        std::string full_url = base_url + "/{}/manifest.json";
+
         return fmt::format(
-            "https://{}.blob.core.windows.net/{}/manifest.json",
-            batch.root,
+            full_url,
             batch.guid
         );
-
     }
 
     std::string canonicalized_resource(
@@ -82,6 +83,7 @@ int main(int argc, char** argv) {
     std::string fail_address;
     std::string acc;
     std::string key;
+    std::string url;
     bool help = false;
     int ntransfers = 4;
 
@@ -108,6 +110,9 @@ int main(int argc, char** argv) {
         | clara::Opt(key, "key")
             ["-k"]["--key"]
             ("Pre-shared key")
+        | clara::Opt(url, "url")
+            ["-u"]["--url"]
+            ("Url to storage service")
     ;
 
     auto result = cli.parse(clara::Args(argc, argv));
@@ -120,6 +125,11 @@ int main(int argc, char** argv) {
     if (help) {
         std::cout << cli << "\n";
         std::exit(EXIT_SUCCESS);
+    }
+
+    if (url.empty()) {
+        std::cerr << "Need storage url\n" << cli << "\n";
+        std::exit(EXIT_FAILURE);
     }
 
     if (acc.empty()) {
@@ -158,7 +168,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az_manifest az(acc, key);
+    one::az_manifest az(url, acc, key);
     one::transfer xfer(ntransfers, az);
     one::manifest_task task;
 

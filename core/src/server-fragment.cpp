@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
     std::string fail_address;
     std::string acc;
     std::string key;
+    std::string url;
     bool help = false;
     int ntransfers = 4;
 
@@ -43,6 +44,9 @@ int main(int argc, char** argv) {
         | clara::Opt(key, "key")
             ["-k"]["--key"]
             ("Pre-shared key")
+        | clara::Opt(url, "url")
+            ["-u"]["--url"]
+            ("Url to storage service")
     ;
 
     auto result = cli.parse(clara::Args(argc, argv));
@@ -55,6 +59,11 @@ int main(int argc, char** argv) {
     if (help) {
         std::cout << cli << "\n";
         std::exit(EXIT_SUCCESS);
+    }
+
+    if (url.empty()) {
+        std::cerr << "Need storage url\n" << cli << "\n";
+        std::exit(EXIT_FAILURE);
     }
 
     if (acc.empty()) {
@@ -88,7 +97,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az az(acc, key);
+    one::az az(url, acc, key);
     one::transfer xfer(ntransfers, az);
     one::fragment_task task;
 

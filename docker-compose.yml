@@ -11,6 +11,7 @@ services:
         "--sink",    "tcp://*:6142",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://0.0.0.0:6140",
+        "--url",     "https://{}.blob.core.windows.net",
         "--account", "${AZURE_STORAGE_ACCOUNT}",
         "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
     ]
@@ -27,6 +28,7 @@ services:
         "--sink",    "tcp://api:6144",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://0.0.0.0:6140",
+        "--url",     "https://{}.blob.core.windows.net",
         "--account", "${AZURE_STORAGE_ACCOUNT}",
         "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
     ]

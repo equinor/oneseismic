@@ -21,7 +21,7 @@ TEST_CASE(
     batch.root = "acc";
     batch.guid = "guid";
     batch.fragment_shape = "src/64-64-64";
-    one::az az("", "");
+    one::az az("https://{}.blob.core.windows.net", "", "");
     const auto url = az.url(batch, "0-1-2");
     CHECK(url == expected);
 }
@@ -57,7 +57,7 @@ TEST_CASE(
         "Authorization: SharedKey "
         "acc:ESDuiGR/eRRaEsaWYBREWo2gSfx8iVwQpbgkEuGTznI=";
 
-    one::az az("", "key");
+    one::az az("", "", "key");
     one::batch batch;
     batch.root = "acc";
     batch.guid = "guid";
