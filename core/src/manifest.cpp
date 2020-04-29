@@ -81,7 +81,7 @@ bool set_slice_request(
 
     const auto ids = gvt.slice(
         one::dimension< 3 >(dim),
-        pin / gvt.fragment_shape()[dim]
+        pin
     );
 
     auto* cs = req.mutable_cube_shape();
