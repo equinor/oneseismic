@@ -66,9 +66,9 @@ spec:
       ports:
         - name: http
           port: 8080
-        - name: zmq_req
+        - name: zmqreq
           port: 6143
-        - name: zmq_rep
+        - name: zmqrep
           port: 6144
       publicPort: http
       secrets:
