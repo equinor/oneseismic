@@ -15,26 +15,61 @@ spec:
         from: v0.1.0
 
   components:
-    - name: core
+    - name: manifest
       dockerfileName: core/Dockerfile
       ports:
-        - name: grpc
-          port: 50051
+        - name: sink
+          port: 6142
       secrets:
-        - AZ_BLOB_ACCOUNT
-        - AZ_BLOB_KEY
+        - AZURE_STORAGE_ACCOUNT
+        - AZURE_STORAGE_ACCESS_KEY
       environmentConfig:
         - environment: prod
           replicas: 1
         - environment: dev
           replicas: 1
         - environment: demo
-          replicas: 5
+          replicas: 1
+      command: [
+        "oneseismic-manifest",
+        "--source",  "tcp://api:6143",
+        "--sink",    "tcp://*:6142",
+        "--control", "tcp://0.0.0.0:6141",
+        "--fail",    "tcp://0.0.0.0:6140",
+        "--account", "${AZURE_STORAGE_ACCOUNT}",
+        "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
+      ]
+
+    - name: fragment
+      dockerfileName: core/Dockerfile
+      secrets:
+        - AZURE_STORAGE_ACCOUNT
+        - AZURE_STORAGE_ACCESS_KEY
+      environmentConfig:
+        - environment: prod
+          replicas: 1
+        - environment: dev
+          replicas: 1
+        - environment: demo
+          replicas: 1
+      command: [
+        "oneseismic-fragment",
+        "--source",  "tcp://manifest:6142",
+        "--sink",    "tcp://api:6144",
+        "--control", "tcp://0.0.0.0:6141",
+        "--fail",    "tcp://0.0.0.0:6140",
+        "--account", "${AZURE_STORAGE_ACCOUNT}",
+        "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
+      ]
     - name: api
       src: api
       ports:
         - name: http
           port: 8080
+        - name: zmq_req
+          port: 6143
+        - name: zmq_rep
+          port: 6144
       publicPort: http
       secrets:
         - AZURE_STORAGE_ACCOUNT
@@ -45,12 +80,12 @@ spec:
         - environment: prod
           replicas: 1
           variables:
-            HTTP_ONLY: true
             HOST_ADDR: 0.0.0.0:8080
-            STITCH_GRPC_ADDR: core:50051
             AZURE_MANIFEST_CONTAINER: demo-manifests
             AUTHSERVER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0
             ISSUER: https://login.microsoftonline.com/3aa4a235-b6e2-48d5-9195-7fcf05b459b0/v2.0
+            ZMQ_REP_ADDR: tcp://*:6144
+            ZMQ_REQ_ADDR: tcp://*:6143
         - environment: dev
           replicas: 1
           variables:
