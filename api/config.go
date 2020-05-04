@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/equinor/oneseismic/api/middleware"
 	"github.com/equinor/oneseismic/api/server"
@@ -22,7 +23,7 @@ type config struct {
 
 func azb(m map[string]string) server.AzureBlobSettings {
 	return server.AzureBlobSettings{
-		StorageURL:  m["AZURE_STORAGE_URL"],
+		StorageURL:  strings.ReplaceAll(m["AZURE_STORAGE_URL"], "{}", "%s"),
 		AccountName: m["AZURE_STORAGE_ACCOUNT"],
 		AccountKey:  m["AZURE_STORAGE_ACCESS_KEY"],
 	}

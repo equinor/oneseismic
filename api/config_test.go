@@ -47,3 +47,18 @@ func TestConfigAUTHSERVER(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "AUTHSERVER")
 }
+
+func TestConfigAZURE_STORAGE_URL(t *testing.T) {
+	m := make(map[string]string)
+
+	m["API_SECRET"] = "123456789"
+	m["AUTHSERVER"] = "http://some.host"
+	m["PROFILING"] = "false"
+
+	m["AZURE_STORAGE_URL"] = "http://{}.some.host"
+
+	c, err := parseConfig(m)
+
+	assert.NoError(t, err)
+	assert.Equal(t, c.azureBlobSettings.StorageURL, "http://%s.some.host")
+}
