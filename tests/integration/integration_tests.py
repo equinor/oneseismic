@@ -9,7 +9,7 @@ import requests
 protocol = "DefaultEndpointsProtocol=http;"
 account_name = "AccountName={};".format(os.getenv("AZURE_STORAGE_ACCOUNT"))
 account_key = "AccountKey={};".format(os.getenv("AZURE_STORAGE_ACCESS_KEY"))
-uri = os.getenv("AZURE_STORAGE_URL") % os.getenv("AZURE_STORAGE_ACCOUNT")
+uri = os.getenv("AZURE_STORAGE_URL").format(os.getenv("AZURE_STORAGE_ACCOUNT"))
 blob_endpoint = "BlobEndpoint={};".format(uri)
 
 

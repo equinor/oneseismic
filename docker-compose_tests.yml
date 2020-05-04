@@ -12,16 +12,9 @@ services:
       - auth
       - az
     environment:
-      - PROFILING=false
       - API_SECRET="12345678"
-      - HOST_ADDR=0.0.0.0:8080
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=auth:8089
-      - AZURE_STORAGE_URL=http://az:10000/%s
-      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
-      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-      - ZMQ_REP_ADDR=inproc://rep
-      - ZMQ_REQ_ADDR=inproc://req
 
   test:
     build:
@@ -33,6 +26,6 @@ services:
     environment:
       - HOST_ADDR=http://api:8080
       - AUTH_ADDR=http://auth:8089/common
-      - AZURE_STORAGE_URL=http://az:10000/%s
-      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
-      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+      - AZURE_STORAGE_URL
+      - AZURE_STORAGE_ACCOUNT
+      - AZURE_STORAGE_ACCESS_KEY
