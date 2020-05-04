@@ -49,13 +49,16 @@ func main() {
 func serve(c *config) error {
 
 	app := iris.Default()
-	middleware.EnableSecurity(app, c.oAuth2Option)
+	err := middleware.EnableSecurity(app, c.oAuth2Option)
+	if err != nil {
+		return fmt.Errorf("enable security: %w", err)
+	}
 
 	app.Use(iris.Gzip)
 	enableSwagger(app)
 	middleware.EnablePrometheusMiddleware(app)
 
-	err := server.Register(app, c.azureBlobSettings, c.zmqReqAddr, c.zmqRepAddr)
+	err = server.Register(app, c.azureBlobSettings, c.zmqReqAddr, c.zmqRepAddr)
 	if err != nil {
 		return fmt.Errorf("register endpoints: %w", err)
 	}
