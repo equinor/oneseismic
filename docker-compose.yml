@@ -52,3 +52,22 @@ services:
       - PROFILING=false
       - ZMQ_REP_ADDR=tcp://*:6144
       - ZMQ_REQ_ADDR=tcp://*:6143
+
+  auth:
+    image: quay.io/pusher/oauth2_proxy:v5.1.0
+    environment:
+      - OAUTH2_PROXY_PROVIDER=oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=${ISSUER}
+      - OAUTH2_PROXY_CLIENT_ID
+      - OAUTH2_PROXY_CLIENT_SECRET
+      - OAUTH2_PROXY_COOKIE_SECRET
+      - OAUTH2_PROXY_REDIRECT_URL=http://localhost:8000/oauth2/callback
+      - OAUTH2_PROXY_HTTP_ADDRESS=http://:8000
+      - OAUTH2_PROXY_UPSTREAMS=http://api:8080
+      - OAUTH2_PROXY_COOKIE_REFRESH=60m
+      - OAUTH2_PROXY_COOKIE_SECURE=false # only for development
+      - OAUTH2_PROXY_EMAIL_DOMAINS=*
+      - OAUTH2_PROXY_PASS_AUTHORIZATION_HEADER=true
+      - OAUTH2_PROXY_SKIP_PROVIDER_BUTTON=true
+    ports:
+      - 8000:8000
