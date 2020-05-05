@@ -26,6 +26,7 @@ services:
     environment:
       - HOST_ADDR=http://api:8080
       - AUTH_ADDR=http://auth:8089/common
-      - AZURE_STORAGE_URL
+      # To make sure the tests dont run again the real azure:
+      - AZURE_STORAGE_URL=http://az:10000/{}
       - AZURE_STORAGE_ACCOUNT
       - AZURE_STORAGE_ACCESS_KEY
