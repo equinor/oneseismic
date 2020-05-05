@@ -48,9 +48,10 @@ std::string x_ms_date() noexcept (false) {
     return fmt::format(fmtstr, *gmt);
 }
 
-az::az(std::string acc, std::string key) :
+az::az(std::string acc, std::string key, std::string base_url) :
     storage_account(std::move(acc)),
-    key(base64_decode(key))
+    key(base64_decode(key)),
+    base_url(std::move(base_url))
 {}
 
 std::string az::sign(
@@ -126,9 +127,10 @@ curl_slist* az::http_headers(
 }
 
 std::string az::url(const one::batch& batch, const std::string& id) const {
+    std::string base_url = fmt::format(this->base_url, batch.root);
     return fmt::format(
-        "https://{}.blob.core.windows.net/{}/{}/{}.f32",
-        batch.root,
+        "{}/{}/{}/{}.f32",
+	base_url,
         batch.guid,
         batch.fragment_shape,
         id

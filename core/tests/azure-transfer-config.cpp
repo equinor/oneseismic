@@ -27,6 +27,20 @@ TEST_CASE(
 }
 
 TEST_CASE(
+        "Configuration makes the correct URL with base URL passed as argument",
+        "[azure][az]") {
+    const auto expected =
+        "https://127.0.0.1:1000/guid/src/64-64-64/0-1-2.f32";
+
+    one::batch batch;
+    batch.guid = "guid";
+    batch.fragment_shape = "src/64-64-64";
+    one::az az("", "", "https://127.0.0.1:1000");
+    const auto url = az.url(batch, "0-1-2");
+    CHECK(url == expected);
+}
+
+TEST_CASE(
         "x-ms-date starts with x-ms-date",
         "[azure][az]") {
     CHECK_THAT(one::x_ms_date(), StartsWith("x-ms-date:"));

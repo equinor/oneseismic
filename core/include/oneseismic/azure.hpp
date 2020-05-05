@@ -15,7 +15,7 @@ inline constexpr const char* x_ms_version() noexcept (true) {
 
 class az : public one::storage_configuration {
 public:
-    az(std::string acc, std::string k);
+    az(std::string acc, std::string k, std::string base_url = "https://{}.blob.core.windows.net");
 
     std::string sign(
         const std::string& date,
@@ -56,6 +56,7 @@ public:
 private:
     std::string storage_account;
     std::string key;
+    std::string base_url;
 };
 
 }
