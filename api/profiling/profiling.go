@@ -1,4 +1,4 @@
-package middleware
+package profiling
 
 import (
 	"net/http"
