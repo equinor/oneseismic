@@ -6,7 +6,7 @@ import (
 
 	"github.com/equinor/oneseismic/api/events"
 	"github.com/equinor/oneseismic/api/logger"
-	"github.com/equinor/oneseismic/api/middleware"
+	"github.com/equinor/oneseismic/api/auth"
 	"github.com/equinor/oneseismic/api/server"
 	"github.com/equinor/oneseismic/api/profiling"
 	"github.com/iris-contrib/swagger/v12"
@@ -50,7 +50,7 @@ func main() {
 func serve(c *config) error {
 
 	app := iris.Default()
-	err := middleware.EnableSecurity(app, c.oAuth2Option)
+	err := auth.EnableSecurity(app, c.oAuth2Option)
 	if err != nil {
 		return fmt.Errorf("enable security: %w", err)
 	}
