@@ -1,11 +1,11 @@
-package middleware
+package auth
 
 import (
 	"fmt"
 	"net/url"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/equinor/oneseismic/api/middleware/claims"
+	"github.com/equinor/oneseismic/api/auth/claims"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/context"

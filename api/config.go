@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/equinor/oneseismic/api/middleware"
+	"github.com/equinor/oneseismic/api/auth"
 	"github.com/equinor/oneseismic/api/server"
 )
 
@@ -16,7 +16,7 @@ type config struct {
 	hostAddr          string
 	azureBlobSettings server.AzureBlobSettings
 	logDBConnStr      string
-	oAuth2Option      middleware.OAuth2Option
+	oAuth2Option      auth.OAuth2Option
 	zmqReqAddr        string
 	zmqRepAddr        string
 }
@@ -71,7 +71,7 @@ func parseConfig(m map[string]string) (*config, error) {
 	}
 
 	conf := &config{
-		oAuth2Option: middleware.OAuth2Option{
+		oAuth2Option: auth.OAuth2Option{
 			AuthServer: authServer,
 			APISecret:  []byte(*apiSecret),
 			Audience:   m["RESOURCE_ID"],
