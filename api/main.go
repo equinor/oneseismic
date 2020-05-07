@@ -8,6 +8,7 @@ import (
 	"github.com/equinor/oneseismic/api/logger"
 	"github.com/equinor/oneseismic/api/middleware"
 	"github.com/equinor/oneseismic/api/server"
+	"github.com/equinor/oneseismic/api/profiling"
 	"github.com/iris-contrib/swagger/v12"
 	"github.com/joho/godotenv"
 	"github.com/kataras/iris/v12"
@@ -35,7 +36,7 @@ func main() {
 
 		pOpts = append(pOpts, profile.MemProfile)
 		p = profile.Start(pOpts...).(*profile.Profile)
-		middleware.ServeMetrics("8081")
+		profiling.ServeMetrics("8081")
 
 		defer p.Stop()
 	}
@@ -56,7 +57,7 @@ func serve(c *config) error {
 
 	app.Use(iris.Gzip)
 	enableSwagger(app)
-	middleware.EnablePrometheusMiddleware(app)
+	profiling.EnablePrometheusMiddleware(app)
 
 	err = server.Register(app, c.azureBlobSettings, c.zmqReqAddr, c.zmqRepAddr)
 	if err != nil {
