@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/equinor/oneseismic/api/auth"
 	"github.com/equinor/oneseismic/api/server"
 )
 
@@ -16,7 +15,10 @@ type config struct {
 	hostAddr          string
 	azureBlobSettings server.AzureBlobSettings
 	logDBConnStr      string
-	oAuth2Option      auth.OAuth2Option
+	AuthServer        *url.URL
+	Audience          string
+	Issuer            string
+	APISecret         []byte
 	zmqReqAddr        string
 	zmqRepAddr        string
 }
@@ -71,12 +73,10 @@ func parseConfig(m map[string]string) (*config, error) {
 	}
 
 	conf := &config{
-		oAuth2Option: auth.OAuth2Option{
-			AuthServer: authServer,
-			APISecret:  []byte(*apiSecret),
-			Audience:   m["RESOURCE_ID"],
-			Issuer:     m["ISSUER"],
-		},
+		AuthServer:        authServer,
+		APISecret:         []byte(*apiSecret),
+		Audience:          m["RESOURCE_ID"],
+		Issuer:            m["ISSUER"],
 		azureBlobSettings: azb(m),
 		hostAddr:          m["HOST_ADDR"],
 		logDBConnStr:      m["LOGDB_CONNSTR"],
