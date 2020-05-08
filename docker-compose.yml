@@ -46,6 +46,7 @@ services:
       - HOST_ADDR=0.0.0.0:8080
       - AUTHSERVER
       - ISSUER
+      - RESOURCE_ID
       - AZURE_STORAGE_URL
       - AZURE_STORAGE_ACCOUNT
       - AZURE_STORAGE_ACCESS_KEY

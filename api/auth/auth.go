@@ -55,6 +55,12 @@ func ValidateClaims(audience, issuer string) context.Handler {
 			ctx.StopExecution()
 		}
 
+		if !claims.VerifyAudience(audience, true) {
+			l.LogE("invalid audience", fmt.Errorf(claims["aud"].(string)))
+			ctx.StatusCode(iris.StatusUnauthorized)
+			ctx.StopExecution()
+		}
+
 		ctx.Next()
 	}
 }

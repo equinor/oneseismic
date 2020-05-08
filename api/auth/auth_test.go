@@ -42,12 +42,22 @@ func TestClaimsMiddleware_Validate(t *testing.T) {
 			"Valid token",
 			validator,
 			jwt.MapClaims{
+				"aud": "valid_audience",
 				"iss": "valid_issuer"},
 			200},
+		{
+			"Invalid audience",
+			validator,
+			jwt.MapClaims{
+				"aud": "invalid_audience",
+				"iss": "valid_issuer"},
+			401},
+
 		{
 			"Invalid issuer",
 			validator,
 			jwt.MapClaims{
+				"aud": "valid_audience",
 				"iss": "invalid_issuer"},
 			401},
 	}

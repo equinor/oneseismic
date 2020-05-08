@@ -16,8 +16,9 @@ blob_endpoint = "BlobEndpoint={};".format(uri)
 az_connection_str = protocol + account_name + account_key + blob_endpoint
 uri = os.getenv("HOST_ADDR", "http://localhost:8080")
 auth_uri = os.getenv("AUTH_ADDR", "http://localhost:8089")
+auth_path = "/oauth2/authorize?client_id={}".format(os.getenv("RESOURCE_ID"))
 
-r = requests.get(auth_uri + "/oauth2/authorize", allow_redirects=False)
+r = requests.get(auth_uri + auth_path, allow_redirects=False)
 assert r.status_code == 302
 
 token = parse_qs(urlparse(r.headers["Location"]).fragment)["access_token"][0]

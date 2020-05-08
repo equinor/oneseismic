@@ -34,3 +34,4 @@ jobs:
           AZURE_STORAGE_URL: http://az:10000/{}
           AZURE_STORAGE_ACCOUNT: devstoreaccount1
           AZURE_STORAGE_ACCESS_KEY: Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+          RESOURCE_ID: some_id
