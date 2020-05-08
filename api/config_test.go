@@ -22,8 +22,8 @@ func TestConfigMinimum(t *testing.T) {
 	conf, err := parseConfig(m)
 	assert.Nil(t, err)
 	assert.Equal(t, conf.profiling, false)
-	assert.Equal(t, conf.oAuth2Option.AuthServer.String(), m["AUTHSERVER"])
-	assert.Equal(t, conf.oAuth2Option.APISecret, []byte(m["API_SECRET"]))
+	assert.Equal(t, conf.AuthServer.String(), m["AUTHSERVER"])
+	assert.Equal(t, conf.APISecret, []byte(m["API_SECRET"]))
 }
 
 func TestConfigAPI_SECRET(t *testing.T) {

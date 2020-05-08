@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/equinor/oneseismic/api/auth"
 	"github.com/equinor/oneseismic/api/events"
 	"github.com/equinor/oneseismic/api/logger"
-	"github.com/equinor/oneseismic/api/auth"
-	"github.com/equinor/oneseismic/api/server"
 	"github.com/equinor/oneseismic/api/profiling"
+	"github.com/equinor/oneseismic/api/server"
 	"github.com/iris-contrib/swagger/v12"
 	"github.com/joho/godotenv"
 	"github.com/kataras/iris/v12"
@@ -37,7 +37,6 @@ func main() {
 		pOpts = append(pOpts, profile.MemProfile)
 		p = profile.Start(pOpts...).(*profile.Profile)
 		profiling.ServeMetrics("8081")
-
 		defer p.Stop()
 	}
 
@@ -48,12 +47,14 @@ func main() {
 }
 
 func serve(c *config) error {
+	sigKeySet, err := auth.GetOIDCKeySet(c.AuthServer)
+	if err != nil {
+		return fmt.Errorf("could not get keyset: %w", err)
+	}
 
 	app := iris.Default()
-	err := auth.EnableSecurity(app, c.oAuth2Option)
-	if err != nil {
-		return fmt.Errorf("enable security: %w", err)
-	}
+	app.Use(auth.CheckJWT(sigKeySet, c.APISecret))
+	app.Use(auth.ValidateClaims(c.Audience, c.Issuer))
 
 	app.Use(iris.Gzip)
 	enableSwagger(app)
