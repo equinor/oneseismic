@@ -8,7 +8,7 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
-type manifestStore interface {
+type store interface {
 	list(ctx context.Context) ([]string, error)
 }
 
@@ -26,7 +26,11 @@ func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
 	names := make([]string, 0)
 
 	for marker := (azblob.Marker{}); marker.NotDone(); {
-		listContainer, err := sURL.ListContainersSegment(ctx, marker, azblob.ListContainersSegmentOptions{})
+		listContainer, err := sURL.ListContainersSegment(
+			ctx,
+			marker,
+			azblob.ListContainersSegmentOptions{},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +52,6 @@ func newServiceURL(az AzureBlobSettings) (*serviceURL, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	credential, err := azblob.NewSharedKeyCredential(az.AccountName, az.AccountKey)
 	if err != nil {
 		return nil, err
@@ -59,5 +62,5 @@ func newServiceURL(az AzureBlobSettings) (*serviceURL, error) {
 		azblob.NewPipeline(credential, azblob.PipelineOptions{}),
 	)
 
-	return &serviceURL{sURL}, err
+	return &serviceURL{sURL}, nil
 }

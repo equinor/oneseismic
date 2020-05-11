@@ -1,17 +1,17 @@
 package server
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 )
 
-func registerManifestController(app *iris.Application, a AzureBlobSettings) error {
-	mc, err := createManifestController(a)
+func registerStoreController(app *iris.Application, az AzureBlobSettings) error {
+	sURL, err := newServiceURL(az)
 	if err != nil {
-		return fmt.Errorf("creating manifestController: %w", err)
+		return err
 	}
+
+	mc := storeController{sURL}
 	app.Get("/", mc.list)
 
 	return nil
@@ -24,9 +24,9 @@ func RegisterSlicer(app *iris.Application, reqNdpt string, repNdpt string, root 
 }
 
 func Register(app *iris.Application, a AzureBlobSettings, reqNdpt string, repNdpt string) error {
-	err := registerManifestController(app, a)
+	err := registerStoreController(app, a)
 	if err != nil {
-		return fmt.Errorf("register manifestController: %w", err)
+		return err
 	}
 	mPlexName := uuid.New().String()
 	RegisterSlicer(app, reqNdpt, repNdpt, a.AccountName, mPlexName)
