@@ -29,8 +29,6 @@ func TestSlicer(t *testing.T) {
 		Expect().
 		Status(httptest.StatusOK).
 		JSON()
-	jsonResponse.Path("$.tiles[0].layout.initial_skip").Number().Equal(0)
-	jsonResponse.Path("$.tiles[0].layout.iterations").Number().Equal(0)
 	jsonResponse.Path("$.tiles[0].layout.chunk_size").Number().Equal(1)
 	jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
 

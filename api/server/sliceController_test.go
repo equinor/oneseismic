@@ -27,10 +27,10 @@ func (s *sliceMock) fetchSlice(guid string,
 func TestExistingSlice(t *testing.T) {
 	app := iris.Default()
 
-	m := map[string]oneseismic.SliceResponse{"some_guid": oneseismic.SliceResponse{}}
+	m := map[string]oneseismic.SliceResponse{"some_guid": {}}
 	sc := &sliceController{&sliceMock{m}}
 
-	app.Get("/{guid:string}/slice/{dim:int32}/{ordinal:int32}", sc.get)
+	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
 	e := httptest.New(t, app)
 	e.GET("/some_guid/slice/0/0").
@@ -43,7 +43,7 @@ func TestMissingSlice(t *testing.T) {
 	app := iris.Default()
 
 	sc := &sliceController{&sliceMock{}}
-	app.Get("/{guid:string}/slice/{dim:int32}/{ordinal:int32}", sc.get)
+	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
 	e := httptest.New(t, app)
 	e.GET("/some_other_guid/slice/0/0").
