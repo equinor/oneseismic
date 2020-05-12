@@ -11,21 +11,34 @@ func registerStoreController(app *iris.Application, az AzureBlobSettings) error 
 		return err
 	}
 
-	mc := storeController{sURL}
-	app.Get("/", mc.list)
+	sc := storeController{sURL}
+	app.Get("/", sc.list)
+	app.Get("/{guid:string}", sc.services)
+	app.Get("/{guid:string}/slice", sc.dimensions)
+	app.Get("/{guid:string}/slice/{dimension:int32}", sc.lines)
 
 	return nil
 }
 
-func RegisterSlicer(app *iris.Application, reqNdpt string, repNdpt string, root string, mPlexName string) {
+func RegisterSlicer(
+	app *iris.Application,
+	reqNdpt string,
+	repNdpt string,
+	root string,
+	mPlexName string,
+) {
 	sc := createSliceController(reqNdpt, repNdpt, root, mPlexName)
 
-	app.Get("/{guid:string}/slice/{dim:int32}/{ordinal:int32}", sc.get)
+	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 }
 
-func Register(app *iris.Application, a AzureBlobSettings, reqNdpt string, repNdpt string) error {
-	err := registerStoreController(app, a)
-	if err != nil {
+func Register(
+	app *iris.Application,
+	a AzureBlobSettings,
+	reqNdpt string,
+	repNdpt string,
+) error {
+	if err := registerStoreController(app, a); err != nil {
 		return err
 	}
 	mPlexName := uuid.New().String()

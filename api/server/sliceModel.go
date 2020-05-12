@@ -20,7 +20,7 @@ func makeSliceRequest(
 	root string,
 	guid string,
 	dim int32,
-	ord int32,
+	lineno int32,
 	requestid string) ([]byte, error) {
 
 	req := oneseismic.ApiRequest{
@@ -35,7 +35,7 @@ func makeSliceRequest(
 		Function: &oneseismic.ApiRequest_Slice{
 			Slice: &oneseismic.ApiSlice{
 				Dim:    dim,
-				Lineno: ord,
+				Lineno: lineno,
 			},
 		},
 	}
@@ -53,10 +53,10 @@ func (m *mMultiplexer) jobChannel() chan job { return m.jobs }
 func (s *slicer) fetchSlice(
 	guid string,
 	dim int32,
-	ord int32,
+	lineno int32,
 	requestid string) (*oneseismic.SliceResponse, error) {
 
-	req, err := makeSliceRequest(s.mm.root(), guid, dim, ord, requestid)
+	req, err := makeSliceRequest(s.mm.root(), guid, dim, lineno, requestid)
 	if err != nil {
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}

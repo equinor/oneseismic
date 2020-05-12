@@ -5,26 +5,34 @@ import (
 	"log"
 
 	"github.com/equinor/oneseismic/api/auth"
+	_ "github.com/equinor/oneseismic/api/docs"
 	"github.com/equinor/oneseismic/api/events"
 	"github.com/equinor/oneseismic/api/logger"
 	"github.com/equinor/oneseismic/api/profiling"
 	"github.com/equinor/oneseismic/api/server"
 	"github.com/iris-contrib/swagger/v12"
+	"github.com/iris-contrib/swagger/v12/swaggerFiles"
 	"github.com/joho/godotenv"
 	"github.com/kataras/iris/v12"
 	"github.com/pkg/profile"
 	"github.com/spf13/jwalterweatherman"
-	swaggerFiles "github.com/swaggo/files"
 )
 
 func init() {
 	godotenv.Load() // nolint, silently ignore missing or invalid .env
 }
 
+//@title oneseismic
+//@description oneseismic
+//@license.name AGPL3
+//@contact.name Equinor
+//@securityDefinitions.apikey ApiKeyAuth
+//@in header
+//@name Authorization
 func main() {
 	c, err := parseConfig(getEnvs())
 	if err != nil {
-		log.Fatal("Failed to load config")
+		log.Fatal("Failed to load config", err)
 	}
 
 	if c.profiling {
@@ -47,12 +55,12 @@ func main() {
 }
 
 func serve(c *config) error {
+	app := iris.Default()
+
 	sigKeySet, err := auth.GetOIDCKeySet(c.AuthServer)
 	if err != nil {
 		return fmt.Errorf("could not get keyset: %w", err)
 	}
-
-	app := iris.Default()
 	app.Use(auth.CheckJWT(sigKeySet, c.APISecret))
 	app.Use(auth.ValidateClaims(c.Audience, c.Issuer))
 
@@ -60,13 +68,16 @@ func serve(c *config) error {
 	enableSwagger(app)
 	profiling.EnablePrometheusMiddleware(app)
 
-	err = server.Register(app, c.azureBlobSettings, c.zmqReqAddr, c.zmqRepAddr)
-	if err != nil {
+	if err := server.Register(
+		app,
+		c.azureBlobSettings,
+		c.zmqReqAddr,
+		c.zmqRepAddr,
+	); err != nil {
 		return fmt.Errorf("register endpoints: %w", err)
 	}
 
-	err = setupLogger(app, c.logDBConnStr)
-	if err != nil {
+	if err := setupLogger(app, c.logDBConnStr); err != nil {
 		return fmt.Errorf("setup log: %w", err)
 	}
 

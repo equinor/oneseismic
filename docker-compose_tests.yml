@@ -5,7 +5,7 @@ services:
 
   az:
     image: mcr.microsoft.com/azure-storage/azurite:3.5.0
-    command: azurite-blob --blobHost 0.0.0.0
+    command: azurite-blob --blobHost 0.0.0.0 --loose
 
   api:
     depends_on:
@@ -15,6 +15,9 @@ services:
       - API_SECRET="12345678"
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=auth:8089
+      - AZURE_STORAGE_URL=http://az:10000/{}
+      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
+      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
 
   test:
     build:

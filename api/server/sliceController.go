@@ -31,13 +31,13 @@ func (sc *sliceController) get(ctx iris.Context) {
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
-	ordinal, err := ctx.Params().GetInt32("ordinal")
+	lineno, err := ctx.Params().GetInt32("lineno")
 	if err != nil {
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	requestid := ""
-	slice, err := sc.slicer.fetchSlice(guid, dim, ordinal, requestid)
+	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
