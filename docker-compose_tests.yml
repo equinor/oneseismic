@@ -27,5 +27,5 @@ services:
       - HOST_ADDR=http://api:8080
       - AUTH_ADDR=http://auth:8089/common
       - AZURE_STORAGE_URL=http://az:10000/{}
-      - AZURE_STORAGE_ACCOUNT
-      - AZURE_STORAGE_ACCESS_KEY
+      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
+      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
