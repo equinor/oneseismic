@@ -38,10 +38,6 @@ one::gvt< 3 > geometry(
     };
 }
 
-/*
- * for now, pin it to the azure transfer config. The manifest-config itself
- * should probably be a parameter instead
- */
 struct manifest_cfg : public one::transfer_configuration {
     void oncomplete(
             const one::buffer& buffer,
