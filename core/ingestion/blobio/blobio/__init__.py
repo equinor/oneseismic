@@ -130,7 +130,7 @@ class BlobIO:
 
     def readinto(self, b):
         # TODO optimize? Issue #253
-        chunk = self.read()
+        chunk = self.read(b.size * b.itemsize)
         np.copyto(b, np.frombuffer(chunk, b.dtype).reshape(b.shape))
         return len(chunk)
 
