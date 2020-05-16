@@ -7,7 +7,7 @@ class BlobIO:
     interface for python programs
     """
 
-    def __init__(self, blob_service, container):
+    def __init__(self, blob_service, container, cachesize=1e6):
         """
         Parameters
         ----------
@@ -24,7 +24,11 @@ class BlobIO:
         """
         self.blob_service = blob_service
         self.container = str(container)
-        self.container_client = blob_service.get_container_client(self.container)
+        self.cachesize = cachesize
+
+        self.cache_begin = 0
+        self.cache_end = 0
+        self.cache = None
 
     def open(self, blobname):
         """
@@ -35,8 +39,9 @@ class BlobIO:
         """
         self.pos = 0
         self.blobname = str(blobname)
-        blob_client = self.container_client.get_blob_client(self.blobname)
-        self.size = blob_client.get_blob_properties().size
+        container_client = self.blob_service.get_container_client(self.container)
+        self.blob_client = container_client.get_blob_client(self.blobname)
+        self.size = self.blob_client.get_blob_properties().size
         return self
 
 
@@ -95,10 +100,20 @@ class BlobIO:
             return b""
 
         nbytes = min(self.size - self.pos, n)
-        container_client = self.blob_service.get_container_client(self.container)
-        blob_client = container_client.get_blob_client(self.blobname)
-        download_stream = blob_client.download_blob(self.pos, nbytes)
-        chunk = download_stream.readall()
+
+        cache_hit = self.cache_begin <= self.pos < self.cache_end
+
+        if not cache_hit:
+            readsize = max(self.cachesize, nbytes)
+            download_stream = self.blob_client.download_blob(self.pos, readsize)
+            self.cache = download_stream.readall()
+            self.cache_begin = self.pos
+            self.cache_end = self.pos + readsize
+
+        s = self.pos - self.cache_begin
+        e = s + nbytes
+        chunk = self.cache[s:e]
+
         self.pos += len(chunk)
         return chunk
 
