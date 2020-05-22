@@ -11,6 +11,4 @@ RUN pip install ./blobio
 
 RUN pytest upload scan
 
-RUN flake8
-
 ENTRYPOINT [ "pytest", "tests" ]
