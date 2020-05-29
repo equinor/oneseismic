@@ -13,10 +13,13 @@ type sliceMock struct {
 	slices map[string]oneseismic.SliceResponse
 }
 
-func (s *sliceMock) fetchSlice(guid string,
+func (s *sliceMock) fetchSlice(
+	root string,
+	guid string,
 	dim int32,
 	lineno int32,
-	requestid string) (*oneseismic.SliceResponse, error) {
+	requestid string,
+) (*oneseismic.SliceResponse, error) {
 	l, ok := s.slices[guid]
 	if ok {
 		return &l, nil
@@ -30,10 +33,10 @@ func TestExistingSlice(t *testing.T) {
 	m := map[string]oneseismic.SliceResponse{"some_guid": {}}
 	sc := &sliceController{&sliceMock{m}}
 
-	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
+	app.Get("/{root:string}/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
 	e := httptest.New(t, app)
-	e.GET("/some_guid/slice/0/0").
+	e.GET("/some_root/some_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusOK).
 		JSON()
@@ -43,10 +46,10 @@ func TestMissingSlice(t *testing.T) {
 	app := iris.Default()
 
 	sc := &sliceController{&sliceMock{}}
-	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
+	app.Get("/{root:string}/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
 	e := httptest.New(t, app)
-	e.GET("/some_other_guid/slice/0/0").
+	e.GET("/some_root/some_other_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusNotFound)
 }

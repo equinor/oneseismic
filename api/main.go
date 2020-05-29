@@ -14,10 +14,7 @@ import (
 	"github.com/equinor/oneseismic/api/logger"
 	"github.com/equinor/oneseismic/api/profiling"
 	"github.com/equinor/oneseismic/api/server"
-	"github.com/iris-contrib/swagger/v12"
-	"github.com/iris-contrib/swagger/v12/swaggerFiles"
 	"github.com/joho/godotenv"
-	"github.com/kataras/iris/v12"
 	"github.com/pkg/profile"
 )
 
@@ -38,7 +35,7 @@ func main() {
 		log.Fatal("Failed to load config", err)
 	}
 
-	if c.profiling {
+	if c.Profiling {
 		var p *profile.Profile
 		pOpts := []func(*profile.Profile){
 			profile.ProfilePath("pprof"),
@@ -51,51 +48,23 @@ func main() {
 		defer p.Stop()
 	}
 
-	err = serve(c)
+	err = logToDB(c.LogDBConnStr)
+	if err != nil {
+		log.Fatalf("failed to log to db: %v", err)
+	}
+
+	c.SigKeySet, err = auth.GetOIDCKeySet(c.AuthServer)
+	if err != nil {
+		log.Fatalf("could not get keyset: %v", err)
+	}
+
+	err = server.Serve(c)
 	if err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
 }
 
-func serve(c *config) error {
-	app := iris.Default()
-
-	app.Logger().SetLevel(c.logLevel)
-	logger.AddGoLogSource(app.Logger().SetOutput)
-	if err := logToDB(app, c.logDBConnStr); err != nil {
-		return err
-	}
-
-	sigKeySet, err := auth.GetOIDCKeySet(c.authServer)
-	if err != nil {
-		return fmt.Errorf("could not get keyset: %w", err)
-	}
-	app.Use(auth.CheckJWT(sigKeySet, c.apiSecret))
-	app.Use(auth.ValidateIssuer(c.issuer))
-
-	app.Use(iris.Gzip)
-	enableSwagger(app)
-	profiling.EnablePrometheusMiddleware(app)
-
-	if err := server.Register(
-		app,
-		c.storageURL,
-		c.accountName,
-		c.accountKey,
-		c.zmqReqAddr,
-		c.zmqRepAddr,
-	); err != nil {
-		return fmt.Errorf("register endpoints: %w", err)
-	}
-
-	return app.Run(iris.Addr(c.hostAddr))
-}
-
-func enableSwagger(app *iris.Application) {
-	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
-}
-
-func logToDB(app *iris.Application, logDBConnStr string) error {
+func logToDB(logDBConnStr string) error {
 
 	if len(logDBConnStr) > 0 {
 		logger.LogI("switch log sink from os.Stdout to psqlDB")
@@ -109,22 +78,7 @@ func logToDB(app *iris.Application, logDBConnStr string) error {
 	return nil
 }
 
-type config struct {
-	profiling    bool
-	hostAddr     string
-	storageURL   string
-	accountName  string
-	accountKey   string
-	logDBConnStr string
-	logLevel     string
-	authServer   *url.URL
-	issuer       string
-	apiSecret    []byte
-	zmqReqAddr   string
-	zmqRepAddr   string
-}
-
-func getConfig() (*config, error) {
+func getConfig() (*server.Config, error) {
 	authServer, err := url.ParseRequestURI(os.Getenv("AUTHSERVER"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid AUTHSERVER: %w", err)
@@ -135,19 +89,17 @@ func getConfig() (*config, error) {
 		return nil, fmt.Errorf("could not parse PROFILING: %w", err)
 	}
 
-	conf := &config{
-		authServer:   authServer,
-		apiSecret:    []byte(os.Getenv("API_SECRET")),
-		issuer:       os.Getenv("ISSUER"),
-		storageURL:   strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
-		accountName:  os.Getenv("AZURE_STORAGE_ACCOUNT"),
-		accountKey:   os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
-		hostAddr:     os.Getenv("HOST_ADDR"),
-		logDBConnStr: os.Getenv("LOGDB_CONNSTR"),
-		logLevel:     os.Getenv("LOG_LEVEL"),
-		profiling:    profiling,
-		zmqRepAddr:   os.Getenv("ZMQ_REP_ADDR"),
-		zmqReqAddr:   os.Getenv("ZMQ_REQ_ADDR"),
+	conf := &server.Config{
+		AuthServer:   authServer,
+		APISecret:    []byte(os.Getenv("API_SECRET")),
+		Issuer:       os.Getenv("ISSUER"),
+		StorageURL:   strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
+		HostAddr:     os.Getenv("HOST_ADDR"),
+		LogDBConnStr: os.Getenv("LOGDB_CONNSTR"),
+		LogLevel:     os.Getenv("LOG_LEVEL"),
+		Profiling:    profiling,
+		ZmqRepAddr:   os.Getenv("ZMQ_REP_ADDR"),
+		ZmqReqAddr:   os.Getenv("ZMQ_REQ_ADDR"),
 	}
 
 	return conf, nil

@@ -10,6 +10,7 @@ import (
 
 type sliceModel interface {
 	fetchSlice(
+		root string,
 		guid string,
 		dim int32,
 		lineno int32,
@@ -21,6 +22,11 @@ type sliceController struct {
 }
 
 func (sc *sliceController) get(ctx iris.Context) {
+	root := ctx.Params().GetString("root")
+	if len(root) == 0 {
+		ctx.StatusCode(http.StatusBadRequest)
+		return
+	}
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)
@@ -37,7 +43,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := ""
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid)
+	slice, err := sc.slicer.fetchSlice(root, guid, dim, lineno, requestid)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
@@ -62,12 +68,9 @@ func (sc *sliceController) get(ctx iris.Context) {
 func createSliceController(
 	reqNdpt string,
 	repNdpt string,
-	root string,
 	mPlexName string,
 ) sliceController {
 	jobs := make(chan job)
 	go multiplexer(jobs, mPlexName, reqNdpt, repNdpt)
-	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageRoot: root, jobs: jobs}}}
-
-	return sc
+	return sliceController{slicer: &slicer{mm: &mMultiplexer{jobs: jobs}}}
 }

@@ -8,18 +8,18 @@ import (
 	"net/url"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/prometheus/common/log"
+	l "github.com/equinor/oneseismic/api/logger"
 )
 
 type store interface {
-	list(ctx context.Context) ([]string, error)
-	manifest(ctx context.Context, guid string) (*Manifest, error)
-	dimensions(ctx context.Context, guid string) ([]int32, error)
-	lines(ctx context.Context, guid string, dimension int32) ([]int32, error)
+	list(ctx context.Context, accountName, token string) ([]string, error)
+	manifest(ctx context.Context, accountName, guid, token string) (*Manifest, error)
+	dimensions(ctx context.Context, accountName, guid, token string) ([]int32, error)
+	lines(ctx context.Context, accountName, guid string, dimension int32, token string) ([]int32, error)
 }
 
-type serviceURL struct {
-	azblob.ServiceURL
+type storageURL struct {
+	string
 }
 
 type Manifest struct {
@@ -27,15 +27,16 @@ type Manifest struct {
 	Samples    int32     `json:"samples"`
 }
 
-func (sURL *serviceURL) manifest(ctx context.Context, guid string) (*Manifest, error) {
-	cURL := sURL.NewContainerURL(guid)
-
-	blobURL := cURL.NewBlockBlobURL("manifest.json")
+func (sURL *storageURL) manifest(ctx context.Context, accountName, guid, token string) (*Manifest, error) {
+	uri, err := parseStorageURL(accountName, sURL.string)
+	if err != nil {
+		return nil, err
+	}
+	blobURL := createServiceURL(*uri, token).NewContainerURL(guid).NewBlockBlobURL("manifest.json")
 	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
 		return nil, err
 	}
-
 	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
 	downloadedData := bytes.Buffer{}
 	_, err = downloadedData.ReadFrom(bodyStream)
@@ -48,10 +49,9 @@ func (sURL *serviceURL) manifest(ctx context.Context, guid string) (*Manifest, e
 	return &manifest, nil
 }
 
-func (sURL *serviceURL) dimensions(ctx context.Context, guid string) ([]int32, error) {
-	manifest, err := sURL.manifest(ctx, guid)
+func (sURL *storageURL) dimensions(ctx context.Context, accountName, guid, token string) ([]int32, error) {
+	manifest, err := sURL.manifest(ctx, accountName, guid, token)
 	if err != nil {
-		log.Errorf("cube: %s", err)
 		return nil, err
 	}
 	dims := make([]int32, len(manifest.Dimensions))
@@ -62,10 +62,9 @@ func (sURL *serviceURL) dimensions(ctx context.Context, guid string) ([]int32, e
 	return dims, nil
 }
 
-func (sURL *serviceURL) lines(ctx context.Context, guid string, dimension int32) ([]int32, error) {
-	manifest, err := sURL.manifest(ctx, guid)
+func (sURL *storageURL) lines(ctx context.Context, accountName, guid string, dimension int32, token string) ([]int32, error) {
+	manifest, err := sURL.manifest(ctx, accountName, guid, token)
 	if err != nil {
-		log.Errorf("cube: %s", err)
 		return nil, err
 	}
 
@@ -75,11 +74,16 @@ func (sURL *serviceURL) lines(ctx context.Context, guid string, dimension int32)
 	return manifest.Dimensions[dimension], nil
 }
 
-func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
+func (sURL *storageURL) list(ctx context.Context, accountName, token string) ([]string, error) {
+	uri, err := parseStorageURL(accountName, sURL.string)
+	if err != nil {
+		return nil, err
+	}
+	su := createServiceURL(*uri, token)
 	names := make([]string, 0)
 
 	for marker := (azblob.Marker{}); marker.NotDone(); {
-		listContainer, err := sURL.ListContainersSegment(
+		listContainer, err := su.ListContainersSegment(
 			ctx,
 			marker,
 			azblob.ListContainersSegmentOptions{},
@@ -97,23 +101,23 @@ func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-func newServiceURL(storageURL, accountName, accountKey string) (*serviceURL, error) {
-
+func parseStorageURL(accountName, storageURL string) (*url.URL, error) {
 	uri, err := url.Parse(
 		fmt.Sprintf(storageURL,
 			accountName))
 	if err != nil {
+		l.LogE("creating storage url", err)
 		return nil, err
 	}
-	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
-	if err != nil {
-		return nil, err
-	}
+	return uri, nil
+}
 
-	sURL := azblob.NewServiceURL(
-		*uri,
+func createServiceURL(uri url.URL, token string) azblob.ServiceURL {
+	credential := azblob.NewTokenCredential(token, nil)
+
+	return azblob.NewServiceURL(
+		uri,
 		azblob.NewPipeline(credential, azblob.PipelineOptions{}),
 	)
 
-	return &serviceURL{sURL}, nil
 }

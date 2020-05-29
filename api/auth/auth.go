@@ -18,7 +18,11 @@ func CheckJWT(sigKeySet map[string]interface{}, apiSecret []byte) context.Handle
 		jwtmiddleware.New(jwtmiddleware.Config{
 			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
 				if t.Method.Alg() == "RS256" {
-					return sigKeySet[t.Header["kid"].(string)], nil
+					kid, ok := t.Header["kid"]
+					if !ok {
+						return nil, fmt.Errorf("missing kid in jwt header")
+					}
+					return sigKeySet[kid.(string)], nil
 				}
 				if t.Method.Alg() == "HS256" {
 					return apiSecret, nil
@@ -48,7 +52,7 @@ func ValidateIssuer(issuer string) context.Handler {
 		}
 
 		if user.Claims == nil {
-			l.LogE("Check claims", fmt.Errorf("nil Claims"))
+			l.LogE("Claims", fmt.Errorf("nil"))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return

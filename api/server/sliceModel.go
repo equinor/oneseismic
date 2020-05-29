@@ -9,7 +9,6 @@ import (
 
 type messageMultiplexer interface {
 	jobChannel() chan job
-	root() string
 }
 
 type slicer struct {
@@ -43,20 +42,19 @@ func makeSliceRequest(
 }
 
 type mMultiplexer struct {
-	storageRoot string
-	jobs        chan job
+	jobs chan job
 }
 
-func (m *mMultiplexer) root() string         { return m.storageRoot }
 func (m *mMultiplexer) jobChannel() chan job { return m.jobs }
 
 func (s *slicer) fetchSlice(
+	root string,
 	guid string,
 	dim int32,
 	lineno int32,
 	requestid string) (*oneseismic.SliceResponse, error) {
 
-	req, err := makeSliceRequest(s.mm.root(), guid, dim, lineno, requestid)
+	req, err := makeSliceRequest(root, guid, dim, lineno, requestid)
 	if err != nil {
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}

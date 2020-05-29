@@ -1,12 +1,15 @@
 version: '3.0'
 services:
   auth:
-    image: lambdaville/no-factor-auth:v0.0.5
+    image: lambdaville/no-factor-auth:v0.0.6
 
   az:
-    image: mcr.microsoft.com/azure-storage/azurite:3.5.0
-    command: azurite-blob --blobHost 0.0.0.0 --loose
-
+    image: mcr.microsoft.com/azure-storage/azurite:3.7.0
+    command: azurite-blob --blobHost 0.0.0.0 --loose --cert /ssl/az.pem --key /ssl/key.pem --oauth basic
+    volumes:
+      - ./ssl:/ssl
+    ports:
+      - 10000:10000
   api:
     depends_on:
       - auth
@@ -14,14 +17,15 @@ services:
     environment:
       - API_SECRET="12345678"
       - AUTHSERVER=http://auth:8089/common
-      - ISSUER=auth:8089
-      - AZURE_STORAGE_URL=http://az:10000/{}
-      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
-      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-
+      - ISSUER=https://sts.windows.net/
+      - AZURE_STORAGE_URL=https://az:10000/{}
+      - LOG_LEVEL=info
+    volumes:
+      - ./ssl/az.pem:/etc/ssl/certs/az.pem
   test:
     build:
-      context: tests/integration
+      context: .
+      dockerfile: tests/integration/Dockerfile
     depends_on:
       - api
       - az
@@ -29,6 +33,6 @@ services:
     environment:
       - HOST_ADDR=http://api:8080
       - AUTH_ADDR=http://auth:8089/common
-      - AZURE_STORAGE_URL=http://az:10000/{}
+      - AZURE_STORAGE_URL=https://az:10000/{}
       - AZURE_STORAGE_ACCOUNT=devstoreaccount1
       - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==

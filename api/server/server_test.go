@@ -1,11 +1,10 @@
-package main
+package server
 
 import (
 	"log"
 	"testing"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
-	"github.com/equinor/oneseismic/api/server"
 	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
@@ -20,18 +19,16 @@ func TestSlicer(t *testing.T) {
 	repNdpt := "inproc://" + uuid.New().String()
 	go coreMock(reqNdpt, repNdpt)
 
-	root := "azure_account"
 	mPlexName := uuid.New().String()
-	server.RegisterSlicer(app, reqNdpt, repNdpt, root, mPlexName)
+	registerSlicer(app, reqNdpt, repNdpt, mPlexName)
 
 	e := httptest.New(t, app)
-	jsonResponse := e.GET("/some_existing_guid/slice/0/0").
+	jsonResponse := e.GET("/some_root/some_existing_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusOK).
 		JSON()
 	jsonResponse.Path("$.tiles[0].layout.chunk_size").Number().Equal(1)
 	jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
-
 }
 
 func coreMock(reqNdpt string, repNdpt string) {

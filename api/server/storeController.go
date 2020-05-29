@@ -2,8 +2,11 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/equinor/oneseismic/api/logger"
 	"github.com/kataras/iris/v12"
 )
 
@@ -20,12 +23,19 @@ type storeController struct {
 // @security ApiKeyAuth
 // @Router / [get]
 func (sc *storeController) list(ctx iris.Context) {
-	cubes, err := sc.store.list(context.Background())
+	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
+	if !ok {
+		logger.LogE("jwt", fmt.Errorf("missing"))
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+	root := ctx.Params().GetString("root")
+
+	cubes, err := sc.store.list(context.Background(), root, token.Raw)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
-
 	_, err = ctx.JSON(cubes)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
@@ -44,12 +54,19 @@ func (sc *storeController) list(ctx iris.Context) {
 // @security ApiKeyAuth
 // @Router /{guid} [get]
 func (sc *storeController) services(ctx iris.Context) {
+	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+	root := ctx.Params().GetString("root")
+
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
-	_, err := sc.store.manifest(context.Background(), guid)
+	_, err := sc.store.manifest(context.Background(), root, guid, token.Raw)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
@@ -73,12 +90,19 @@ func (sc *storeController) services(ctx iris.Context) {
 // @security ApiKeyAuth
 // @Router /{guid}/slice [get]
 func (sc *storeController) dimensions(ctx iris.Context) {
+	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+	root := ctx.Params().GetString("root")
+
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
-	dimensions, err := sc.store.dimensions(context.Background(), guid)
+	dimensions, err := sc.store.dimensions(context.Background(), root, guid, token.Raw)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
@@ -103,6 +127,13 @@ func (sc *storeController) dimensions(ctx iris.Context) {
 // @security ApiKeyAuth
 // @Router /{guid}/slice/{dimension} [get]
 func (sc *storeController) lines(ctx iris.Context) {
+	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+	root := ctx.Params().GetString("root")
+
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)
@@ -113,7 +144,7 @@ func (sc *storeController) lines(ctx iris.Context) {
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
-	lines, err := sc.store.lines(context.Background(), guid, dimension)
+	lines, err := sc.store.lines(context.Background(), root, guid, dimension, token.Raw)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return

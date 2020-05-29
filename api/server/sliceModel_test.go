@@ -43,8 +43,8 @@ func TestSliceModel(t *testing.T) {
 		}
 	}()
 
-	sl := slicer{&mMultiplexer{"", jobs}}
-	slice, err := sl.fetchSlice("guid", 0, 0, "requestid")
+	sl := slicer{&mMultiplexer{jobs}}
+	slice, err := sl.fetchSlice("root", "guid", 0, 0, "requestid")
 
 	assert.Nil(t, err)
 	assert.NotNil(t, slice)
@@ -62,8 +62,8 @@ func TestModelMissingSlice(t *testing.T) {
 		}
 		job.reply <- bytes
 	}()
-	sl := slicer{&mMultiplexer{"", jobs}}
-	_, err := sl.fetchSlice("guid", 0, 0, "requestid")
+	sl := slicer{&mMultiplexer{jobs}}
+	_, err := sl.fetchSlice("root", "guid", 0, 0, "requestid")
 
 	assert.NotNil(t, err)
 }
