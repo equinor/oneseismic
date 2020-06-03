@@ -30,7 +30,7 @@ func init() {
 //@in header
 //@name Authorization
 func main() {
-	c, err := parseConfig(getEnvs())
+	c, err := getConfig()
 	if err != nil {
 		log.Fatal("Failed to load config", err)
 	}
@@ -57,12 +57,12 @@ func main() {
 func serve(c *config) error {
 	app := iris.Default()
 
-	sigKeySet, err := auth.GetOIDCKeySet(c.AuthServer)
+	sigKeySet, err := auth.GetOIDCKeySet(c.authServer)
 	if err != nil {
 		return fmt.Errorf("could not get keyset: %w", err)
 	}
-	app.Use(auth.CheckJWT(sigKeySet, c.APISecret))
-	app.Use(auth.ValidateClaims(c.Audience, c.Issuer))
+	app.Use(auth.CheckJWT(sigKeySet, c.apiSecret))
+	app.Use(auth.ValidateClaims(c.audience, c.issuer))
 
 	app.Use(iris.Gzip)
 	enableSwagger(app)
@@ -70,7 +70,9 @@ func serve(c *config) error {
 
 	if err := server.Register(
 		app,
-		c.azureBlobSettings,
+		c.storageURL,
+		c.accountName,
+		c.accountKey,
 		c.zmqReqAddr,
 		c.zmqRepAddr,
 	); err != nil {

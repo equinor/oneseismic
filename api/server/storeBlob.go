@@ -22,12 +22,6 @@ type serviceURL struct {
 	azblob.ServiceURL
 }
 
-type AzureBlobSettings struct {
-	StorageURL  string
-	AccountName string
-	AccountKey  string
-}
-
 type Manifest struct {
 	Dimensions [][]int32 `json:"dimensions"`
 	Samples    int32     `json:"samples"`
@@ -103,15 +97,15 @@ func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-func newServiceURL(az AzureBlobSettings) (*serviceURL, error) {
+func newServiceURL(storageURL, accountName, accountKey string) (*serviceURL, error) {
 
 	uri, err := url.Parse(
-		fmt.Sprintf(az.StorageURL,
-			az.AccountName))
+		fmt.Sprintf(storageURL,
+			accountName))
 	if err != nil {
 		return nil, err
 	}
-	credential, err := azblob.NewSharedKeyCredential(az.AccountName, az.AccountKey)
+	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		return nil, err
 	}
