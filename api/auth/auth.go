@@ -29,8 +29,7 @@ func CheckJWT(sigKeySet map[string]interface{}, apiSecret []byte) context.Handle
 	}
 }
 
-// ValidateClaims validates `aud` and `iss` claims which is not checked by CheckJWT
-func ValidateClaims(audience, issuer string) context.Handler {
+func ValidateIssuer(issuer string) context.Handler {
 	return func(ctx context.Context) {
 		userToken := ctx.Values().Get("jwt")
 		if userToken == nil {
@@ -41,8 +40,15 @@ func ValidateClaims(audience, issuer string) context.Handler {
 		}
 
 		user, ok := userToken.(*jwt.Token)
-		if !ok || user.Claims == nil {
-			l.LogE("Check user claims", fmt.Errorf("No claims"))
+		if !ok {
+			l.LogE("Type assertion", fmt.Errorf("not a jwt.Token"))
+			ctx.StatusCode(iris.StatusUnauthorized)
+			ctx.StopExecution()
+			return
+		}
+
+		if user.Claims == nil {
+			l.LogE("Check claims", fmt.Errorf("nil Claims"))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
@@ -53,6 +59,7 @@ func ValidateClaims(audience, issuer string) context.Handler {
 			l.LogE("invalid issuer", fmt.Errorf(claims["iss"].(string)))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
+			return
 		}
 
 		ctx.Next()

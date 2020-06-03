@@ -30,7 +30,7 @@ func (m mockWriter) WriteHeader(statusCode int) {
 
 func TestClaimsMiddleware_Validate(t *testing.T) {
 
-	validator := ValidateClaims("valid_audience", "valid_issuer")
+	validator := ValidateIssuer("valid_issuer")
 	testApp := iris.Default()
 	tests := []struct {
 		name   string

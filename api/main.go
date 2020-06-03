@@ -66,7 +66,7 @@ func serve(c *config) error {
 		return fmt.Errorf("could not get keyset: %w", err)
 	}
 	app.Use(auth.CheckJWT(sigKeySet, c.apiSecret))
-	app.Use(auth.ValidateClaims(c.audience, c.issuer))
+	app.Use(auth.ValidateIssuer(c.issuer))
 
 	app.Use(iris.Gzip)
 	enableSwagger(app)
@@ -120,7 +120,6 @@ type config struct {
 	accountKey   string
 	logDBConnStr string
 	authServer   *url.URL
-	audience     string
 	issuer       string
 	apiSecret    []byte
 	zmqReqAddr   string
@@ -141,7 +140,6 @@ func getConfig() (*config, error) {
 	conf := &config{
 		authServer:   authServer,
 		apiSecret:    []byte(os.Getenv("API_SECRET")),
-		audience:     os.Getenv("RESOURCE_ID"),
 		issuer:       os.Getenv("ISSUER"),
 		storageURL:   strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
 		accountName:  os.Getenv("AZURE_STORAGE_ACCOUNT"),
