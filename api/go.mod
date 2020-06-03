@@ -39,7 +39,6 @@ require (
 	github.com/prometheus/common v0.10.0
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
-	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/stretchr/testify v1.5.1
 	github.com/swaggo/swag v1.6.6
 	github.com/valyala/fasthttp v1.13.1 // indirect

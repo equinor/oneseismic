@@ -19,7 +19,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kataras/iris/v12"
 	"github.com/pkg/profile"
-	"github.com/spf13/jwalterweatherman"
 )
 
 func init() {
@@ -61,6 +60,12 @@ func main() {
 func serve(c *config) error {
 	app := iris.Default()
 
+	app.Logger().SetLevel(c.logLevel)
+	logger.AddGoLogSource(app.Logger().SetOutput)
+	if err := logToDB(app, c.logDBConnStr); err != nil {
+		return err
+	}
+
 	sigKeySet, err := auth.GetOIDCKeySet(c.authServer)
 	if err != nil {
 		return fmt.Errorf("could not get keyset: %w", err)
@@ -83,10 +88,6 @@ func serve(c *config) error {
 		return fmt.Errorf("register endpoints: %w", err)
 	}
 
-	if err := setupLogger(app, c.logDBConnStr); err != nil {
-		return fmt.Errorf("setup log: %w", err)
-	}
-
 	return app.Run(iris.Addr(c.hostAddr))
 }
 
@@ -94,16 +95,12 @@ func enableSwagger(app *iris.Application) {
 	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 }
 
-func setupLogger(app *iris.Application, LogDBConnStr string) error {
-	app.Logger().SetPrefix("iris: ")
-	jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelFatal)
-	log.SetPrefix("[INFO] ")
-	logger.AddGoLogSource(app.Logger().SetOutput)
+func logToDB(app *iris.Application, logDBConnStr string) error {
 
-	if len(LogDBConnStr) > 0 {
+	if len(logDBConnStr) > 0 {
 		logger.LogI("switch log sink from os.Stdout to psqlDB")
 
-		err := logger.SetLogSink(logger.ConnString(LogDBConnStr), events.DebugLevel)
+		err := logger.SetLogSink(logger.ConnString(logDBConnStr), events.DebugLevel)
 		if err != nil {
 			return fmt.Errorf("switching log sink: %w", err)
 		}
@@ -119,6 +116,7 @@ type config struct {
 	accountName  string
 	accountKey   string
 	logDBConnStr string
+	logLevel     string
 	authServer   *url.URL
 	audience     string
 	issuer       string
@@ -148,6 +146,7 @@ func getConfig() (*config, error) {
 		accountKey:   os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
 		hostAddr:     os.Getenv("HOST_ADDR"),
 		logDBConnStr: os.Getenv("LOGDB_CONNSTR"),
+		logLevel:     os.Getenv("LOG_LEVEL"),
 		profiling:    profiling,
 		zmqRepAddr:   os.Getenv("ZMQ_REP_ADDR"),
 		zmqReqAddr:   os.Getenv("ZMQ_REQ_ADDR"),
