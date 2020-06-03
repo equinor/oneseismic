@@ -5,8 +5,8 @@ import (
 	"github.com/kataras/iris/v12"
 )
 
-func registerStoreController(app *iris.Application, az AzureBlobSettings) error {
-	sURL, err := newServiceURL(az)
+func registerStoreController(app *iris.Application, storageURL, accountName, accountKey string) error {
+	sURL, err := newServiceURL(storageURL, accountName, accountKey)
 	if err != nil {
 		return err
 	}
@@ -34,15 +34,17 @@ func RegisterSlicer(
 
 func Register(
 	app *iris.Application,
-	a AzureBlobSettings,
-	reqNdpt string,
+	storageURL,
+	accountName,
+	accountKey,
+	reqNdpt,
 	repNdpt string,
 ) error {
-	if err := registerStoreController(app, a); err != nil {
+	if err := registerStoreController(app, storageURL, accountName, accountKey); err != nil {
 		return err
 	}
 	mPlexName := uuid.New().String()
-	RegisterSlicer(app, reqNdpt, repNdpt, a.AccountName, mPlexName)
+	RegisterSlicer(app, reqNdpt, repNdpt, accountName, mPlexName)
 
 	return nil
 }
