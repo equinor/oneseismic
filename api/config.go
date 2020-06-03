@@ -62,11 +62,6 @@ func parseConfig(m map[string]string) (*config, error) {
 		return nil, fmt.Errorf("invalid AUTHSERVER: %w", err)
 	}
 
-	apiSecret, err := verifyAPISecret(m["API_SECRET"])
-	if err != nil {
-		return nil, err
-	}
-
 	profiling, err := strconv.ParseBool(m["PROFILING"])
 	if err != nil {
 		return nil, fmt.Errorf("could not parse PROFILING: %w", err)
@@ -74,7 +69,7 @@ func parseConfig(m map[string]string) (*config, error) {
 
 	conf := &config{
 		AuthServer:        authServer,
-		APISecret:         []byte(*apiSecret),
+		APISecret:         []byte(m["API_SECRET"]),
 		Audience:          m["RESOURCE_ID"],
 		Issuer:            m["ISSUER"],
 		azureBlobSettings: azb(m),
@@ -86,12 +81,4 @@ func parseConfig(m map[string]string) (*config, error) {
 	}
 
 	return conf, nil
-}
-
-func verifyAPISecret(sec string) (*string, error) {
-	if len(sec) < 8 {
-		return nil, fmt.Errorf("invalid API_SECRET: len(%s) == %d < 8", sec, len(sec))
-	}
-
-	return &sec, nil
 }
