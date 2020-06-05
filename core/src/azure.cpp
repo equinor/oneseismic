@@ -48,8 +48,7 @@ std::string x_ms_date() noexcept (false) {
     return fmt::format(fmtstr, *gmt);
 }
 
-az::az(std::string acc, std::string key) :
-    storage_account(std::move(acc)),
+az::az(std::string key) :
     key(base64_decode(key))
 {}
 
