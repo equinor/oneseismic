@@ -21,6 +21,7 @@ namespace one {
  * single batch must belong to the same cube, given by root, guid, and shape.
  */
 struct batch {
+    std::string storage_endpoint; /* url including storage-account */
     std::string root; /* storage-account in azure */
     std::string guid;
     std::string fragment_shape; /* src/64-64-64 */

@@ -10,6 +10,7 @@ import (
 
 type sliceModel interface {
 	fetchSlice(
+		storageEndpoint string,
 		guid string,
 		dim int32,
 		lineno int32,
@@ -18,6 +19,7 @@ type sliceModel interface {
 
 type sliceController struct {
 	slicer sliceModel
+	storageEndpoint string
 }
 
 func (sc *sliceController) get(ctx iris.Context) {
@@ -37,7 +39,8 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := ""
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid)
+	storageEndpoint := sc.storageEndpoint
+	slice, err := sc.slicer.fetchSlice(storageEndpoint, guid, dim, lineno, requestid)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
@@ -60,6 +63,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 }
 
 func createSliceController(
+	storageEndpoint string,
 	reqNdpt string,
 	repNdpt string,
 	root string,
@@ -67,7 +71,7 @@ func createSliceController(
 ) sliceController {
 	jobs := make(chan job)
 	go multiplexer(jobs, mPlexName, reqNdpt, repNdpt)
-	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageRoot: root, jobs: jobs}}}
+	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageRoot: root, jobs: jobs}}, storageEndpoint: storageEndpoint}
 
 	return sc
 }

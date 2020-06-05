@@ -13,7 +13,9 @@ type sliceMock struct {
 	slices map[string]oneseismic.SliceResponse
 }
 
-func (s *sliceMock) fetchSlice(guid string,
+func (s *sliceMock) fetchSlice(
+	storageEndpoint string,
+	guid string,
 	dim int32,
 	lineno int32,
 	requestid string) (*oneseismic.SliceResponse, error) {
@@ -28,7 +30,7 @@ func TestExistingSlice(t *testing.T) {
 	app := iris.Default()
 
 	m := map[string]oneseismic.SliceResponse{"some_guid": {}}
-	sc := &sliceController{&sliceMock{m}}
+	sc := &sliceController{&sliceMock{m}, "storageEndpoint"}
 
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
@@ -42,7 +44,7 @@ func TestExistingSlice(t *testing.T) {
 func TestMissingSlice(t *testing.T) {
 	app := iris.Default()
 
-	sc := &sliceController{&sliceMock{}}
+	sc := &sliceController{&sliceMock{}, "storageEndpoint"}
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
 	e := httptest.New(t, app)

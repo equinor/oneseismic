@@ -17,6 +17,7 @@ type slicer struct {
 }
 
 func makeSliceRequest(
+	storageEndpoint string,
 	root string,
 	guid string,
 	dim int32,
@@ -24,6 +25,7 @@ func makeSliceRequest(
 	requestid string) ([]byte, error) {
 
 	req := oneseismic.ApiRequest{
+		StorageEndpoint: storageEndpoint,
 		Requestid: requestid,
 		Guid:      guid,
 		Root:      root,
@@ -51,12 +53,13 @@ func (m *mMultiplexer) root() string         { return m.storageRoot }
 func (m *mMultiplexer) jobChannel() chan job { return m.jobs }
 
 func (s *slicer) fetchSlice(
+	storageEndpoint string,
 	guid string,
 	dim int32,
 	lineno int32,
 	requestid string) (*oneseismic.SliceResponse, error) {
 
-	req, err := makeSliceRequest(s.mm.root(), guid, dim, lineno, requestid)
+	req, err := makeSliceRequest(storageEndpoint, s.mm.root(), guid, dim, lineno, requestid)
 	if err != nil {
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}

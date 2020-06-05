@@ -22,12 +22,13 @@ func registerStoreController(app *iris.Application, storageURL, accountName, acc
 
 func RegisterSlicer(
 	app *iris.Application,
+	storageEndpoint string,
 	reqNdpt string,
 	repNdpt string,
 	root string,
 	mPlexName string,
 ) {
-	sc := createSliceController(reqNdpt, repNdpt, root, mPlexName)
+	sc := createSliceController(storageEndpoint, reqNdpt, repNdpt, root, mPlexName)
 
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 }
@@ -44,7 +45,7 @@ func Register(
 		return err
 	}
 	mPlexName := uuid.New().String()
-	RegisterSlicer(app, reqNdpt, repNdpt, accountName, mPlexName)
+	RegisterSlicer(app, storageURL, reqNdpt, repNdpt, accountName, mPlexName)
 
 	return nil
 }

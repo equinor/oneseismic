@@ -21,8 +21,9 @@ func TestSlicer(t *testing.T) {
 	go coreMock(reqNdpt, repNdpt)
 
 	root := "azure_account"
+	storageEndpoint := "storage_endpoint"
 	mPlexName := uuid.New().String()
-	server.RegisterSlicer(app, reqNdpt, repNdpt, root, mPlexName)
+	server.RegisterSlicer(app, storageEndpoint, reqNdpt, repNdpt, root, mPlexName)
 
 	e := httptest.New(t, app)
 	jsonResponse := e.GET("/some_existing_guid/slice/0/0").
