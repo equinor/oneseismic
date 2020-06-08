@@ -30,13 +30,11 @@ func init() {
 //@name Authorization
 func main() {
 	c := &server.Config{
-		APISecret:   []byte(os.Getenv("API_SECRET")),
-		Issuer:      os.Getenv("ISSUER"),
-		StorageURL:  strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
-		AccountName: os.Getenv("AZURE_STORAGE_ACCOUNT"),
-		AccountKey:  os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
-		ZmqRepAddr:  os.Getenv("ZMQ_REP_ADDR"),
-		ZmqReqAddr:  os.Getenv("ZMQ_REQ_ADDR"),
+		APISecret:  []byte(os.Getenv("API_SECRET")),
+		Issuer:     os.Getenv("ISSUER"),
+		StorageURL: strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
+		ZmqRepAddr: os.Getenv("ZMQ_REP_ADDR"),
+		ZmqReqAddr: os.Getenv("ZMQ_REQ_ADDR"),
 	}
 
 	logDB := os.Getenv("LOGDB_CONNSTR")

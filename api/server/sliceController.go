@@ -1,26 +1,31 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/equinor/oneseismic/api/oneseismic"
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/equinor/oneseismic/api/logger"
 	"github.com/kataras/iris/v12"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-type sliceModel interface {
-	fetchSlice(
-		guid string,
-		dim int32,
-		lineno int32,
-		requestid string) (*oneseismic.SliceResponse, error)
-}
 
 type sliceController struct {
 	slicer sliceModel
 }
 
-func (sc *sliceController) get(ctx iris.Context) {
+func (sc *sliceController) slice(ctx iris.Context) {
+	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
+	if !ok {
+		logger.LogE("jwt", fmt.Errorf("missing"))
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+	root := ctx.Params().GetString("root")
+	if len(root) == 0 {
+		ctx.StatusCode(http.StatusBadRequest)
+		return
+	}
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)
@@ -37,7 +42,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := ""
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid)
+	slice, err := sc.slicer.fetchSlice(root, guid, dim, lineno, requestid, token.Raw)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
@@ -60,14 +65,14 @@ func (sc *sliceController) get(ctx iris.Context) {
 }
 
 func createSliceController(
+	storageURL string,
 	reqNdpt string,
 	repNdpt string,
-	root string,
 	mPlexName string,
 ) sliceController {
 	jobs := make(chan job)
-	go multiplexer(jobs, mPlexName, reqNdpt, repNdpt)
-	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageRoot: root, jobs: jobs}}}
 
-	return sc
+	go multiplexer(jobs, mPlexName, reqNdpt, repNdpt)
+
+	return sliceController{slicer: &slicer{storageURL: storageURL, jobs: jobs}}
 }

@@ -48,7 +48,7 @@ func ValidateIssuer(issuer string) context.Handler {
 		}
 
 		if user.Claims == nil {
-			l.LogE("Check claims", fmt.Errorf("nil Claims"))
+			l.LogE("Claims", fmt.Errorf("nil"))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return

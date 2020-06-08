@@ -11,6 +11,9 @@ import (
 func newApp(c *Config) *iris.Application {
 	app := iris.Default()
 
+	app.Use(auth.CheckJWT(c.SigKeySet, c.APISecret))
+	app.Use(auth.ValidateIssuer(c.Issuer))
+
 	app.Use(iris.Gzip)
 
 	return app
@@ -20,41 +23,31 @@ func newApp(c *Config) *iris.Application {
 func App(c *Config) (*iris.Application, error) {
 	app := newApp(c)
 
-	app.Use(auth.CheckJWT(c.SigKeySet, c.APISecret))
-	app.Use(auth.ValidateIssuer(c.Issuer))
-
 	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
-	if err := registerStoreController(app, c.StorageURL, c.AccountName, c.AccountKey); err != nil {
-		return nil, err
-	}
-	registerSlicer(app, c.ZmqReqAddr, c.ZmqRepAddr, c.AccountName, uuid.New().String())
+	registerStoreController(app, c.StorageURL)
+	registerSlicer(app, c.StorageURL, c.ZmqReqAddr, c.ZmqRepAddr, uuid.New().String())
 
 	return app, nil
 }
 
-func registerStoreController(app *iris.Application, storageURL, accountName, accountKey string) error {
-	sURL, err := newServiceURL(storageURL, accountName, accountKey)
-	if err != nil {
-		return err
-	}
-
-	sc := storeController{sURL}
-	app.Get("/", sc.list)
-	app.Get("/{guid:string}", sc.services)
-	app.Get("/{guid:string}/slice", sc.dimensions)
-	app.Get("/{guid:string}/slice/{dimension:int32}", sc.lines)
+func registerStoreController(app *iris.Application, uri string) error {
+	sc := storeController{&storageURL{uri}}
+	app.Get("/{root:string}/", sc.list)
+	app.Get("/{root:string}/{guid:string}", sc.services)
+	app.Get("/{root:string}/{guid:string}/slice", sc.dimensions)
+	app.Get("/{root:string}/{guid:string}/slice/{dim:int32}", sc.lines)
 
 	return nil
 }
 
 func registerSlicer(
 	app *iris.Application,
+	uri string,
 	reqNdpt string,
 	repNdpt string,
-	root string,
 	mPlexName string,
 ) {
-	sc := createSliceController(reqNdpt, repNdpt, root, mPlexName)
+	sc := createSliceController(uri, reqNdpt, repNdpt, mPlexName)
 
-	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
+	app.Get("/{root:string}/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.slice)
 }
