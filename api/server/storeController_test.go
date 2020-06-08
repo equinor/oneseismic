@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
 )
 
@@ -32,7 +31,8 @@ func (ms *mockStore) lines(ctx context.Context, guid string, dimension int32) ([
 }
 
 func TestList(t *testing.T) {
-	app := iris.Default()
+	c := Config{}
+	app := newApp(&c)
 
 	guids := []string{"a", "b"}
 	sc := storeController{&mockStore{guids: guids}}
@@ -46,7 +46,8 @@ func TestList(t *testing.T) {
 }
 
 func TestContainerServices(t *testing.T) {
-	app := iris.Default()
+	c := Config{}
+	app := newApp(&c)
 
 	sc := storeController{&mockStore{}}
 	app.Get("/{guid:string}", sc.services)
@@ -59,7 +60,8 @@ func TestContainerServices(t *testing.T) {
 }
 
 func TestDimensions(t *testing.T) {
-	app := iris.Default()
+	c := Config{}
+	app := newApp(&c)
 
 	dims := []int32{2}
 	sc := storeController{&mockStore{dims: dims}}
@@ -73,7 +75,8 @@ func TestDimensions(t *testing.T) {
 }
 
 func TestLines(t *testing.T) {
-	app := iris.Default()
+	c := Config{}
+	app := newApp(&c)
 
 	lines := []int32{0}
 	sc := storeController{&mockStore{linesMock: lines}}

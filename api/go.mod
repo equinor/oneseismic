@@ -27,7 +27,7 @@ require (
 	github.com/pebbe/zmq4 v1.2.1
 	github.com/pkg/profile v1.5.0
 	github.com/prometheus/client_golang v1.6.0
-	github.com/prometheus/common v0.10.0
+	github.com/prometheus/common v0.10.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/stretchr/testify v1.6.0

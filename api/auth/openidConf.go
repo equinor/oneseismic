@@ -78,16 +78,14 @@ func getJSON(url *url.URL, target interface{}) error {
 	return json.NewDecoder(r.Body).Decode(target)
 }
 
-// GetKey gets the authservers signing key
-func GetOIDCKeySet(authserver *url.URL) (map[string]interface{}, error) {
-	if authserver == nil {
-		return nil, fmt.Errorf("authserver is not found")
-	}
-	oidcConf := OpenIDConfig{}
-	u, err := url.Parse(authserver.String() + "/.well-known/openid-configuration")
+// GetOIDCKeySet gets the jwks from the server
+func GetOIDCKeySet(authserver string) (map[string]interface{}, error) {
+	u, err := url.Parse(authserver + "/.well-known/openid-configuration")
 	if err != nil {
 		return nil, fmt.Errorf("oidcConf url parse failed: %w", err)
+
 	}
+	oidcConf := OpenIDConfig{}
 	err = getJSON(u, &oidcConf)
 	if err != nil {
 		return nil, fmt.Errorf("fetching oidc config failed: %w", err)
