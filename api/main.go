@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rsa"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -14,8 +12,6 @@ import (
 	"github.com/equinor/oneseismic/api/logger"
 	"github.com/equinor/oneseismic/api/profiling"
 	"github.com/equinor/oneseismic/api/server"
-	"github.com/iris-contrib/swagger/v12"
-	"github.com/iris-contrib/swagger/v12/swaggerFiles"
 	"github.com/joho/godotenv"
 	"github.com/kataras/iris/v12"
 	"github.com/pkg/profile"
@@ -33,12 +29,39 @@ func init() {
 //@in header
 //@name Authorization
 func main() {
-	c, err := getConfig()
-	if err != nil {
-		log.Fatal("Failed to load config", err)
+	c := &server.Config{
+		APISecret:   []byte(os.Getenv("API_SECRET")),
+		Issuer:      os.Getenv("ISSUER"),
+		StorageURL:  strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
+		AccountName: os.Getenv("AZURE_STORAGE_ACCOUNT"),
+		AccountKey:  os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
+		ZmqRepAddr:  os.Getenv("ZMQ_REP_ADDR"),
+		ZmqReqAddr:  os.Getenv("ZMQ_REQ_ADDR"),
 	}
 
-	if c.profiling {
+	logDB := os.Getenv("LOGDB_CONNSTR")
+	if len(logDB) > 0 {
+		err := logger.SetLogSink(logger.ConnString(logDB), events.DebugLevel)
+		if err != nil {
+			log.Fatalf("switching log sink to db: %v", err)
+		}
+	}
+	var err error
+	c.RSAKeys, err = auth.GetRSAKeys(os.Getenv("AUTHSERVER") + "/.well-known/openid-configuration")
+	if err != nil {
+		log.Fatalf("could not get RSA keys: %v", err)
+	}
+
+	app, err := server.App(c)
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
+
+	app.Logger().SetLevel(os.Getenv("LOG_LEVEL"))
+	logger.AddGoLogSource(app.Logger().SetOutput)
+
+	doProfiling, _ := strconv.ParseBool(os.Getenv("PROFILING"))
+	if doProfiling {
 		var p *profile.Profile
 		pOpts := []func(*profile.Profile){
 			profile.ProfilePath("pprof"),
@@ -48,103 +71,12 @@ func main() {
 		pOpts = append(pOpts, profile.MemProfile)
 		p = profile.Start(pOpts...).(*profile.Profile)
 		profiling.ServeMetrics("8081")
+		profiling.EnablePrometheusMiddleware(app)
 		defer p.Stop()
 	}
 
-	err = serve(c)
+	err = app.Run(iris.Addr(os.Getenv("HOST_ADDR")))
 	if err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
-}
-
-func serve(c *config) error {
-	app := iris.Default()
-
-	app.Logger().SetLevel(c.logLevel)
-	logger.AddGoLogSource(app.Logger().SetOutput)
-	if err := logToDB(app, c.logDBConnStr); err != nil {
-		return err
-	}
-
-	rsaKeys, err := auth.GetRSAKeys(c.authServer + "/.well-known/openid-configuration")
-	if err != nil {
-		return fmt.Errorf("could not get keyset: %w", err)
-	}
-	app.Use(auth.CheckJWT(rsaKeys, c.apiSecret))
-	app.Use(auth.ValidateIssuer(c.issuer))
-
-	app.Use(iris.Gzip)
-	enableSwagger(app)
-	profiling.EnablePrometheusMiddleware(app)
-
-	if err := server.Register(
-		app,
-		c.storageURL,
-		c.accountName,
-		c.accountKey,
-		c.zmqReqAddr,
-		c.zmqRepAddr,
-	); err != nil {
-		return fmt.Errorf("register endpoints: %w", err)
-	}
-
-	return app.Run(iris.Addr(c.hostAddr))
-}
-
-func enableSwagger(app *iris.Application) {
-	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
-}
-
-func logToDB(app *iris.Application, logDBConnStr string) error {
-
-	if len(logDBConnStr) > 0 {
-		logger.LogI("switch log sink from os.Stdout to psqlDB")
-
-		err := logger.SetLogSink(logger.ConnString(logDBConnStr), events.DebugLevel)
-		if err != nil {
-			return fmt.Errorf("switching log sink: %w", err)
-		}
-	}
-
-	return nil
-}
-
-type config struct {
-	profiling    bool
-	hostAddr     string
-	storageURL   string
-	accountName  string
-	accountKey   string
-	logDBConnStr string
-	logLevel     string
-	authServer   string
-	issuer       string
-	apiSecret    []byte
-	zmqReqAddr   string
-	zmqRepAddr   string
-	SigKeySet    map[string]rsa.PublicKey
-}
-
-func getConfig() (*config, error) {
-	profiling, err := strconv.ParseBool(os.Getenv("PROFILING"))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse PROFILING: %w", err)
-	}
-
-	conf := &config{
-		authServer:   os.Getenv("AUTHSERVER"),
-		apiSecret:    []byte(os.Getenv("API_SECRET")),
-		issuer:       os.Getenv("ISSUER"),
-		storageURL:   strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
-		accountName:  os.Getenv("AZURE_STORAGE_ACCOUNT"),
-		accountKey:   os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
-		hostAddr:     os.Getenv("HOST_ADDR"),
-		logDBConnStr: os.Getenv("LOGDB_CONNSTR"),
-		logLevel:     os.Getenv("LOG_LEVEL"),
-		profiling:    profiling,
-		zmqRepAddr:   os.Getenv("ZMQ_REP_ADDR"),
-		zmqReqAddr:   os.Getenv("ZMQ_REQ_ADDR"),
-	}
-
-	return conf, nil
 }
