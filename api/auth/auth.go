@@ -12,16 +12,13 @@ import (
 )
 
 // CheckJWT ensures that a valid JWT is provided.
-func CheckJWT(rsaKeys map[string]rsa.PublicKey, apiSecret []byte) context.Handler {
+func CheckJWT(rsaKeys map[string]rsa.PublicKey) context.Handler {
 	return func(ctx context.Context) {
 		jwtmiddleware.New(jwtmiddleware.Config{
 			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
 				if t.Method.Alg() == "RS256" {
 					key := rsaKeys[t.Header["kid"].(string)]
 					return &key, nil
-				}
-				if t.Method.Alg() == "HS256" {
-					return apiSecret, nil
 				}
 				return nil, fmt.Errorf("unexpected jwt signing method=%v", t.Method.Alg())
 			},
@@ -48,7 +45,7 @@ func ValidateIssuer(issuer string) context.Handler {
 		}
 
 		if user.Claims == nil {
-			l.LogE("Check claims", fmt.Errorf("nil Claims"))
+			l.LogE("Claims", fmt.Errorf("nil"))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return

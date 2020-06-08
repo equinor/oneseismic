@@ -7,26 +7,34 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type messageMultiplexer interface {
-	jobChannel() chan job
-	root() string
+type sliceModel interface {
+	fetchSlice(
+		root string,
+		guid string,
+		dim int32,
+		lineno int32,
+		requestid string,
+		token string) (*oneseismic.SliceResponse, error)
 }
 
 type slicer struct {
-	mm messageMultiplexer
+	jobs       chan job
+	storageURL string
 }
 
 func makeSliceRequest(
-	root string,
+	storageEndpoint string,
 	guid string,
 	dim int32,
 	lineno int32,
-	requestid string) ([]byte, error) {
+	requestid string,
+	token string,
+) ([]byte, error) {
 
 	req := oneseismic.ApiRequest{
 		Requestid: requestid,
 		Guid:      guid,
-		Root:      root,
+		Root:      storageEndpoint,
 		Shape: &oneseismic.FragmentShape{
 			Dim0: 64,
 			Dim1: 64,
@@ -42,21 +50,19 @@ func makeSliceRequest(
 	return proto.Marshal(&req)
 }
 
-type mMultiplexer struct {
-	storageRoot string
-	jobs        chan job
-}
-
-func (m *mMultiplexer) root() string         { return m.storageRoot }
-func (m *mMultiplexer) jobChannel() chan job { return m.jobs }
-
 func (s *slicer) fetchSlice(
+	root string,
 	guid string,
 	dim int32,
 	lineno int32,
-	requestid string) (*oneseismic.SliceResponse, error) {
-
-	req, err := makeSliceRequest(s.mm.root(), guid, dim, lineno, requestid)
+	requestid string,
+	token string,
+) (*oneseismic.SliceResponse, error) {
+	_, err := parseStorageURL(root, s.storageURL)
+	if err != nil {
+		return nil, err
+	}
+	req, err := makeSliceRequest(root, guid, dim, lineno, requestid, token)
 	if err != nil {
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}
@@ -66,7 +72,7 @@ func (s *slicer) fetchSlice(
 
 	fr := oneseismic.FetchResponse{}
 
-	s.mm.jobChannel() <- job
+	s.jobs <- job
 	err = proto.Unmarshal([]byte(<-replyChannel), &fr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create slice response: %w", err)

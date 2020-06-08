@@ -6,25 +6,26 @@ import (
 
 	"github.com/equinor/oneseismic/api/oneseismic"
 	"github.com/google/uuid"
-	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
 	"github.com/pebbe/zmq4"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestSlicer(t *testing.T) {
-	app := iris.Default()
+	keys, jwt := mockRSAKeysJwt()
+	c := Config{RSAKeys: keys}
+	app := newApp(&c)
 
 	reqNdpt := "inproc://" + uuid.New().String()
 	repNdpt := "inproc://" + uuid.New().String()
 	go coreMock(reqNdpt, repNdpt)
 
-	root := "azure_account"
 	mPlexName := uuid.New().String()
-	registerSlicer(app, reqNdpt, repNdpt, root, mPlexName)
+	registerSlicer(app, "%s.some.url", reqNdpt, repNdpt, mPlexName)
 
 	e := httptest.New(t, app)
-	jsonResponse := e.GET("/some_existing_guid/slice/0/0").
+	jsonResponse := e.GET("/some_root/some_existing_guid/slice/0/0").
+		WithHeader("Authorization", "Bearer "+jwt).
 		Expect().
 		Status(httptest.StatusOK).
 		JSON()
@@ -53,7 +54,7 @@ func coreMock(reqNdpt string, repNdpt string) {
 			fr.Function = &oneseismic.FetchResponse_Slice{
 				Slice: &oneseismic.SliceResponse{
 					Tiles: []*oneseismic.SliceTile{
-						&oneseismic.SliceTile{
+						{
 							Layout: &oneseismic.SliceLayout{
 								ChunkSize:  1,
 								Iterations: 0,
