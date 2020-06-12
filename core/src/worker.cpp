@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstring>
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -191,6 +192,18 @@ void fragment_task::run(
         zmq::socket_t& input,
         zmq::socket_t& output) {
 
+    using clock = std::chrono::steady_clock;
+    using timepoint = std::chrono::time_point< clock >;
+    struct timer {
+        timepoint start;
+        timepoint recv;
+        timepoint parse;
+        timepoint transfer;
+        timepoint json;
+        timepoint serialize;
+        timepoint send;
+    } timer;
+
     /*
      * TODO: Keep the protobuf instances alive, as re-using handles is a lot
      * more efficient than reallocating them every time.
@@ -204,9 +217,11 @@ void fragment_task::run(
     oneseismic::fetch_response response;
     std::string outmsg;
     all_actions actions;
+    timer.start = clock::now();
 
     zmq::multipart_t multi(input);
     const zmq::message_t& in = multi.back();
+    timer.recv = clock::now();
     const auto ok = request.ParseFromArray(in.data(), in.size());
     if (!ok) {
         /* log bad request, then be ready to receive new message */
@@ -215,19 +230,48 @@ void fragment_task::run(
         spdlog::warn("badly formatted protobuf message");
         return;
     }
+    timer.parse = clock::now();
 
     auto& action = actions.select(request);
     auto batch = make_batch(request);
     xfer.perform(batch, action);
 
+    timer.transfer = clock::now();
+
     action.serialize(response);
     response.set_requestid(request.requestid());
     response.SerializeToString(&outmsg);
+    timer.serialize = clock::now();
     zmq::message_t out(outmsg.data(), outmsg.size());
 
     multi.remove();
     multi.add(std::move(out));
     multi.send(output);
+    timer.send = clock::now();
+
+    const auto ms = [] (std::chrono::duration< double, std::milli> p) {
+        using namespace std::chrono;
+        return duration_cast< milliseconds >(p).count();
+    };
+
+    spdlog::info(
+        "time-fragment "
+        "id: {} "
+        "recv: {} "
+        "parse: {} "
+        "xfer: {} "
+        "format: {} "
+        "send: {} "
+        "total: {} "
+        "unit: ms",
+        request.requestid(),
+        ms(timer.recv      - timer.start),
+        ms(timer.parse     - timer.recv),
+        ms(timer.transfer  - timer.parse),
+        ms(timer.serialize - timer.transfer),
+        ms(timer.send      - timer.serialize),
+        ms(timer.send      - timer.start)
+    );
 }
 
 }

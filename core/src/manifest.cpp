@@ -1,4 +1,5 @@
 #include <cassert>
+#include <chrono>
 #include <string>
 
 #include <fmt/format.h>
@@ -42,6 +43,8 @@ struct manifest_cfg : public one::transfer_configuration {
 
     one::buffer doc;
 };
+
+using clock = std::chrono::steady_clock;
 
 bool set_slice_request(
         oneseismic::fetch_request& req,
@@ -102,6 +105,18 @@ void manifest_task::run(
         zmq::socket_t& input,
         zmq::socket_t& output,
         zmq::socket_t& fail) {
+
+    using timepoint = std::chrono::time_point< clock >;
+    struct timer {
+        timepoint start;
+        timepoint recv;
+        timepoint parse;
+        timepoint transfer;
+        timepoint json;
+        timepoint serialize;
+        timepoint send;
+    } timer;
+
     /*
      * These should be cached probably, as there are performance implications
      * to not reusing them. Exposing the generated code in headers is pretty
@@ -117,8 +132,11 @@ void manifest_task::run(
      *
      * Sockets are configured from the outside, so regardless it's time to exit.
      */
+    timer.start = clock::now();
+
     zmq::multipart_t multi(input);
     const zmq::message_t& req = multi.back();
+    timer.recv = clock::now();
     const auto ok = apirequest.ParseFromArray(req.data(), req.size());
     if (!ok) {
         /* log bad request, then be ready to receive new message */
@@ -127,6 +145,7 @@ void manifest_task::run(
         return;
     }
 
+    timer.parse = clock::now();
     const auto& requestid = apirequest.requestid();
 
     /* fetch manifest */
@@ -154,6 +173,7 @@ void manifest_task::run(
          */
         throw;
     }
+    timer.transfer = clock::now();
 
     nlohmann::json manifest;
     try {
@@ -168,6 +188,7 @@ void manifest_task::run(
         );
         return;
     }
+    timer.json = clock::now();
 
     /* set request type-independent parameters */
     /* these really shouldn't fail, and should mean immediate debug */
@@ -199,11 +220,39 @@ void manifest_task::run(
 
     /* forward request to workers */
     fetchrequest.SerializeToString(&msg);
+    timer.serialize = clock::now();
     zmq::message_t rep(msg.data(), msg.size());
     /* send shouldn't fail (?) in zmq, or at least internally retry (?) */
     multi.remove();
     multi.add(std::move(rep));
     multi.send(output);
+
+    timer.send = clock::now();
+    const auto ms = [] (std::chrono::duration< double, std::milli> p) {
+        using namespace std::chrono;
+        return duration_cast< milliseconds >(p).count();
+    };
+
+    spdlog::info(
+        "time-manifest "
+        "id: {} "
+        "recv: {} "
+        "parse: {} "
+        "xfer: {} "
+        "json: {} "
+        "format: {} "
+        "send: {} "
+        "total: {} "
+        "unit: ms",
+        apirequest.requestid(),
+        ms(timer.recv      - timer.start),
+        ms(timer.parse     - timer.recv),
+        ms(timer.transfer  - timer.parse),
+        ms(timer.json      - timer.transfer),
+        ms(timer.serialize - timer.json),
+        ms(timer.send      - timer.serialize),
+        ms(timer.send      - timer.start)
+    );
 }
 
 }
