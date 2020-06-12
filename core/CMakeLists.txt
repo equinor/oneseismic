@@ -19,6 +19,7 @@ find_package(GnuTLS REQUIRED)
 find_package(CURL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Protobuf REQUIRED)
+find_package(spdlog REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(microhttpd IMPORTED_TARGET libmicrohttpd)

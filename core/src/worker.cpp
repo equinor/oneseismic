@@ -1,8 +1,10 @@
+#include <cassert>
 #include <cstring>
 #include <string>
 #include <vector>
 
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 
@@ -11,16 +13,9 @@
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/tasks.hpp>
 
-#include "log.hpp"
 #include "core.pb.h"
 
 namespace {
-
-struct module {
-    static constexpr const char* name() { return "fragment"; }
-};
-
-using log = one::basic_log< module >;
 
 /*
  * Every request type (slice, trace, fragment) must know how to transform
@@ -156,7 +151,7 @@ noexcept (false) {
             return this->s;
 
         default:
-            log::log(
+            spdlog::debug(
                 "{} - malformed input, bad request variant (oneof)",
                 req.requestid()
             );
@@ -216,7 +211,8 @@ void fragment_task::run(
     if (!ok) {
         /* log bad request, then be ready to receive new message */
         /* TODO: log the actual bytes received too */
-        log::log("badly formatted protobuf message");
+        /* TODO: log sender */
+        spdlog::warn("badly formatted protobuf message");
         return;
     }
 

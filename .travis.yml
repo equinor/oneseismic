@@ -14,7 +14,7 @@ matrix:
 install:
   - sudo apt-get install -y libgnutls28-dev libcurl4-gnutls-dev
   - sudo apt-get install -y protobuf-compiler-grpc libprotobuf-dev libgrpc++-dev
-  - sudo apt-get install -y libmicrohttpd-dev libzmq3-dev
+  - sudo apt-get install -y libmicrohttpd-dev libzmq3-dev libspdlog-dev
   - wget https://github.com/fmtlib/fmt/releases/download/6.0.0/fmt-6.0.0.zip
   - unzip fmt-6.0.0.zip
   - mkdir -p fmt-6.0.0/build
@@ -27,6 +27,13 @@ install:
   - mkdir -p cppzmq-4.6.0/build
   - pushd cppzmq-4.6.0/build
   - cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON
+  - sudo make install -j2
+  - popd
+  - wget https://github.com/gabime/spdlog/archive/v1.6.1.tar.gz
+  - tar xzvf v1.6.1.tar.gz
+  - mkdir spdlog-1.6.1/build
+  - pushd spdlog-1.6.1/build
+  - cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
   - sudo make install -j2
   - popd
 

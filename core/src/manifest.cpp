@@ -1,7 +1,9 @@
+#include <cassert>
 #include <string>
 
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 
@@ -10,20 +12,11 @@
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/geometry.hpp>
 
-#include "log.hpp"
 #include "core.pb.h"
 
 namespace one {
 
 namespace {
-
-struct module {
-    static constexpr const char* name() noexcept (true) {
-        return "manifest";
-    }
-};
-
-using log = basic_log< module >;
 
 one::gvt< 3 > geometry(
         const nlohmann::json& dimensions,
@@ -68,7 +61,11 @@ bool set_slice_request(
     const auto index = manifest_dimensions[dim].get< std::vector< int > >();
     auto itr = std::find(index.begin(), index.end(), lineno);
     if (itr == index.end()) {
-        log::log("{}: lineno (= {}) not found in index", api.requestid(), lineno);
+        spdlog::info(
+                "{}: lineno (= {}) not found in index",
+                api.requestid(),
+                lineno
+        );
         return false;
     }
 
@@ -126,7 +123,7 @@ void manifest_task::run(
     if (!ok) {
         /* log bad request, then be ready to receive new message */
         /* TODO: log the actual bytes received too */
-        log::log("badly formatted protobuf message");
+        spdlog::warn("badly formatted protobuf message");
         return;
     }
 
@@ -141,7 +138,7 @@ void manifest_task::run(
     try {
         xfer.perform(batch, cfg);
     } catch (const notfound& e) {
-        log::log("{} not found: '{}'", batch.guid, e.what());
+        spdlog::info("{} not found: '{}'", batch.guid, e.what());
 
         const auto signal = fmt::format("notfound: {}", requestid);
         zmq::message_t msg(signal.data(), signal.size());
@@ -163,7 +160,7 @@ void manifest_task::run(
         manifest = nlohmann::json::parse(cfg.doc);
     } catch (const nlohmann::json::parse_error& e) {
         /* log error, and await new request */
-        log::log(
+        spdlog::error(
             "{} - badly formatted manifest: {}/{}",
             requestid,
             batch.root,
@@ -193,7 +190,7 @@ void manifest_task::run(
              * this means a malformed input message - log the error, then
              * just await new request
              */
-            log::log(
+            spdlog::debug(
                 "{} - malformed input, bad request variant (oneof)",
                 requestid
             );
