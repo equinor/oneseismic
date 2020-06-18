@@ -1,7 +1,10 @@
+#include <cassert>
+#include <chrono>
 #include <string>
 
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
+#include <spdlog/spdlog.h>
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 
@@ -10,20 +13,11 @@
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/geometry.hpp>
 
-#include "log.hpp"
 #include "core.pb.h"
 
 namespace one {
 
 namespace {
-
-struct module {
-    static constexpr const char* name() noexcept (true) {
-        return "manifest";
-    }
-};
-
-using log = basic_log< module >;
 
 one::gvt< 3 > geometry(
         const nlohmann::json& dimensions,
@@ -38,10 +32,6 @@ one::gvt< 3 > geometry(
     };
 }
 
-/*
- * for now, pin it to the azure transfer config. The manifest-config itself
- * should probably be a parameter instead
- */
 struct manifest_cfg : public one::transfer_configuration {
     void oncomplete(
             const one::buffer& buffer,
@@ -53,6 +43,8 @@ struct manifest_cfg : public one::transfer_configuration {
 
     one::buffer doc;
 };
+
+using clock = std::chrono::steady_clock;
 
 bool set_slice_request(
         oneseismic::fetch_request& req,
@@ -72,7 +64,11 @@ bool set_slice_request(
     const auto index = manifest_dimensions[dim].get< std::vector< int > >();
     auto itr = std::find(index.begin(), index.end(), lineno);
     if (itr == index.end()) {
-        log::log("{}: lineno (= {}) not found in index", api.requestid(), lineno);
+        spdlog::info(
+                "{}: lineno (= {}) not found in index",
+                api.requestid(),
+                lineno
+        );
         return false;
     }
 
@@ -109,6 +105,18 @@ void manifest_task::run(
         zmq::socket_t& input,
         zmq::socket_t& output,
         zmq::socket_t& fail) {
+
+    using timepoint = std::chrono::time_point< clock >;
+    struct timer {
+        timepoint start;
+        timepoint recv;
+        timepoint parse;
+        timepoint transfer;
+        timepoint json;
+        timepoint serialize;
+        timepoint send;
+    } timer;
+
     /*
      * These should be cached probably, as there are performance implications
      * to not reusing them. Exposing the generated code in headers is pretty
@@ -124,16 +132,20 @@ void manifest_task::run(
      *
      * Sockets are configured from the outside, so regardless it's time to exit.
      */
+    timer.start = clock::now();
+
     zmq::multipart_t multi(input);
     const zmq::message_t& req = multi.back();
+    timer.recv = clock::now();
     const auto ok = apirequest.ParseFromArray(req.data(), req.size());
     if (!ok) {
         /* log bad request, then be ready to receive new message */
         /* TODO: log the actual bytes received too */
-        log::log("badly formatted protobuf message");
+        spdlog::warn("badly formatted protobuf message");
         return;
     }
 
+    timer.parse = clock::now();
     const auto& requestid = apirequest.requestid();
 
     /* fetch manifest */
@@ -145,7 +157,7 @@ void manifest_task::run(
     try {
         xfer.perform(batch, cfg);
     } catch (const notfound& e) {
-        log::log("{} not found: '{}'", batch.guid, e.what());
+        spdlog::info("{} not found: '{}'", batch.guid, e.what());
 
         const auto signal = fmt::format("notfound: {}", requestid);
         zmq::message_t msg(signal.data(), signal.size());
@@ -161,13 +173,14 @@ void manifest_task::run(
          */
         throw;
     }
+    timer.transfer = clock::now();
 
     nlohmann::json manifest;
     try {
         manifest = nlohmann::json::parse(cfg.doc);
     } catch (const nlohmann::json::parse_error& e) {
         /* log error, and await new request */
-        log::log(
+        spdlog::error(
             "{} - badly formatted manifest: {}/{}",
             requestid,
             batch.root,
@@ -175,6 +188,7 @@ void manifest_task::run(
         );
         return;
     }
+    timer.json = clock::now();
 
     /* set request type-independent parameters */
     /* these really shouldn't fail, and should mean immediate debug */
@@ -197,7 +211,7 @@ void manifest_task::run(
              * this means a malformed input message - log the error, then
              * just await new request
              */
-            log::log(
+            spdlog::debug(
                 "{} - malformed input, bad request variant (oneof)",
                 requestid
             );
@@ -206,11 +220,39 @@ void manifest_task::run(
 
     /* forward request to workers */
     fetchrequest.SerializeToString(&msg);
+    timer.serialize = clock::now();
     zmq::message_t rep(msg.data(), msg.size());
     /* send shouldn't fail (?) in zmq, or at least internally retry (?) */
     multi.remove();
     multi.add(std::move(rep));
     multi.send(output);
+
+    timer.send = clock::now();
+    const auto ms = [] (std::chrono::duration< double, std::milli> p) {
+        using namespace std::chrono;
+        return duration_cast< milliseconds >(p).count();
+    };
+
+    spdlog::info(
+        "time-manifest "
+        "id: {} "
+        "recv: {} "
+        "parse: {} "
+        "xfer: {} "
+        "json: {} "
+        "format: {} "
+        "send: {} "
+        "total: {} "
+        "unit: ms",
+        apirequest.requestid(),
+        ms(timer.recv      - timer.start),
+        ms(timer.parse     - timer.recv),
+        ms(timer.transfer  - timer.parse),
+        ms(timer.json      - timer.transfer),
+        ms(timer.serialize - timer.json),
+        ms(timer.send      - timer.serialize),
+        ms(timer.send      - timer.start)
+    );
 }
 
 }

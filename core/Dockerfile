@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     wget \
     unzip \
     libzmq3-dev \
+    libspdlog-dev \
     ca-certificates
 RUN apt-get autoremove -y \
     && apt-get clean -y \
