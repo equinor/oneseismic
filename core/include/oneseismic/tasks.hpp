@@ -1,6 +1,8 @@
 #ifndef ONESEISMIC_TASKS_HPP
 #define ONESEISMIC_TASKS_HPP
 
+#include <memory>
+
 #include <zmq.hpp>
 
 namespace one {
@@ -15,6 +17,17 @@ public:
             zmq::socket_t& output,
             zmq::socket_t& fail)
         noexcept (false);
+
+    manifest_task();
+    ~manifest_task();
+
+private:
+    /*
+     * a herb-style compilation firewall for storage
+     * https://herbsutter.com/gotw/_100/
+     */
+    class impl;
+    std::unique_ptr< impl > p;
 };
 
 class fragment_task {

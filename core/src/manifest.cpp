@@ -1,5 +1,5 @@
 #include <cassert>
-#include <chrono>
+#include <exception>
 #include <string>
 
 #include <fmt/format.h>
@@ -16,6 +16,11 @@
 #include "core.pb.h"
 
 namespace one {
+
+struct bad_message : std::exception {};
+struct line_not_found : std::invalid_argument {
+    using invalid_argument::invalid_argument;
+};
 
 namespace {
 
@@ -44,12 +49,48 @@ struct manifest_cfg : public one::transfer_configuration {
     one::buffer doc;
 };
 
-using clock = std::chrono::steady_clock;
+/*
+ * Simple automation for parsing api_request messages
+ */
+class api_request : public oneseismic::api_request {
+public:
+    void parse(const zmq::message_t&) noexcept (false);
+};
 
-bool set_slice_request(
-        oneseismic::fetch_request& req,
-        const oneseismic::api_request& api,
-        const nlohmann::json& manifest) noexcept (false) {
+void api_request::parse(const zmq::message_t& msg) noexcept (false) {
+    const auto ok = this->ParseFromArray(msg.data(), msg.size());
+    if (!ok) throw bad_message();
+}
+
+/*
+ * This class is fairly straight-forward automation over the somewhat clunky
+ * protobuf API.
+ */
+class fetch_request : public oneseismic::fetch_request {
+public:
+    /*
+     * Set the basic, shared fields in a request (ID, guid etc)
+     */
+    void basic(const api_request&) noexcept (false);
+
+    const std::string& serialize() noexcept (false);
+
+    void slice(const api_request& req, const nlohmann::json&) noexcept (false);
+
+private:
+    /*
+     * Cache the string-buffer used for serialization, to avoid allocating new
+     * memory every time a message is serialized. There's a practical upper
+     * bound on how large messages get, so this should very quickly reach a
+     * size where no more allocations will happen.
+     */
+    std::string serialized;
+};
+
+void fetch_request::slice(
+        const api_request& api,
+        const nlohmann::json& manifest)
+noexcept (false) {
     assert(api.has_slice());
 
     const auto dim = api.slice().dim();
@@ -64,198 +105,226 @@ bool set_slice_request(
     const auto index = manifest_dimensions[dim].get< std::vector< int > >();
     auto itr = std::find(index.begin(), index.end(), lineno);
     if (itr == index.end()) {
-        spdlog::info(
-                "{}: lineno (= {}) not found in index",
-                api.requestid(),
-                lineno
-        );
-        return false;
+        const auto msg = fmt::format("line (= {}) not found in index");
+        throw line_not_found(msg);
     }
 
     const auto pin = std::distance(index.begin(), itr);
     auto gvt = geometry(manifest_dimensions, api.shape());
 
-    const auto ids = gvt.slice(
-        one::dimension< 3 >(dim),
-        pin
-    );
+    const auto ids = gvt.slice(one::dimension< 3 >(dim), pin);
 
-    auto* cs = req.mutable_cube_shape();
+    auto* cs = this->mutable_cube_shape();
     cs->set_dim0(manifest_dimensions[0].size());
     cs->set_dim1(manifest_dimensions[1].size());
     cs->set_dim2(manifest_dimensions[2].size());
 
+    this->clear_ids();
     for (const auto& id : ids) {
-        auto* c = req.add_ids();
+        auto* c = this->add_ids();
         c->set_dim0(id[0]);
         c->set_dim1(id[1]);
         c->set_dim2(id[2]);
     }
 
-    auto* slice = req.mutable_slice();
+    auto* slice = this->mutable_slice();
     slice->set_dim(dim);
     slice->set_idx(pin % gvt.fragment_shape()[dim]);
-    return true;
+}
+
+const std::string& fetch_request::serialize() noexcept (false) {
+    this->SerializeToString(&this->serialized);
+    return this->serialized;
+}
+
+nlohmann::json get_manifest(
+        one::transfer& xfer,
+        const std::string& root,
+        const std::string& storage_endpoint,
+        const std::string& guid)
+noexcept (false) {
+
+    one::batch batch;
+    batch.root = root;
+    batch.storage_endpoint = storage_endpoint;
+    batch.guid = guid;
+    batch.fragment_ids.resize(1);
+    manifest_cfg cfg;
+    xfer.perform(batch, cfg); // TODO: get(object) -> bytes
+    return nlohmann::json::parse(cfg.doc);
+}
+
+void fetch_request::basic(const api_request& req) {
+    /* set request type-independent parameters */
+    /* these really shouldn't fail, and should mean immediate debug */
+    this->set_requestid(req.requestid());
+    this->set_storage_endpoint(req.requestid());
+    this->set_root(req.root());
+    this->set_guid(req.guid());
+    *this->mutable_fragment_shape() = req.shape();
 }
 
 }
 
+/**
+ *
+ * A storage and cache class for the task, so that protobuf instances [1] and
+ * other objects can be reused, without having to expose them in the headers.
+ *
+ * [1] https://github.com/protocolbuffers/protobuf/blob/master/docs/performance.md
+ */
+class manifest_task::impl {
+public:
+
+    /*
+     * Transition into "processing" mode - this should be the first method
+     * called whenever a message is received from the queue and a job is about
+     * to start.
+     */
+    void start_processing(zmq::multipart_t& job);
+
+    /*
+     * Create a failure message with the current job-id and an appropriate
+     * category, for signaling downstream that a job must be failed for some
+     * reason.
+     */
+    zmq::multipart_t failure(const std::string& key) noexcept (false);
+
+    std::string current_request_id;
+    api_request request;
+    fetch_request query;
+};
+
+void manifest_task::impl::start_processing(zmq::multipart_t& job) {
+    /*
+     * Currently, the only thing this function does is parse and set the job
+     * id, which is not actually cleared between invocations (so calling
+     * methods out-of-order is not detected). This can certainly change in the
+     * future though, and gets the clunky read-bytes-from-message out of the
+     * way in the body.
+     */
+
+    /*
+     * The job argument is conceptually const, but can't be since the
+     * zmq::multipart_t is not marked as such (even though it is)
+     */
+    const auto& job_id = job.front();
+    this->current_request_id.assign(
+            static_cast< const char* >(job_id.data()),
+            job_id.size()
+    );
+}
+
+zmq::multipart_t manifest_task::impl::failure(const std::string& key)
+noexcept (false) {
+    zmq::multipart_t msg;
+    msg.addstr(this->current_request_id);
+    msg.addstr(key);
+    return msg;
+}
+
+/*
+ * The run() function:
+ *  - pulls a job from the session manager queue
+ *  - reads the request and fetches a manifest from storage
+ *  - reads the manifest and uses it to create job descriptions
+ *  - pushes job description on the output queue
+ *
+ * This requires tons of helpers, and they all use exceptions to communicate
+ * failures, whenever they can't do the job. That includes a failed transfer,
+ * requesting objects that aren't in storage, and more.
+ *
+ * The outcome of a lot of failures is to signal the error back to whoevers
+ * listening, discard this request, and wait for a new one. The most obvious
+ * example is when a cube is requested that isn't in storage - detecting this
+ * is the responsibility of the manifest task, whenever 404 NOTFOUND is
+ * received from the storage. This isn't a hard error, just bad input, and
+ * there are no fragment jobs to schedule.
+ *
+ * Centralised handling of failures also mean that the failure socket don't
+ * have to be sent farther down the call chain, which really cleans up
+ * interfaces and control flow.
+ *
+ * In most other code, it would make sense to have the catch much closer to the
+ * source of the failure, but instead distinct exception types are used to
+ * distinguish expected failures. Now, all failures are pretty much handled the
+ * same way (signal error to session manager, log it, and continue operating),
+ * and keeping them together gives a nice symmetry to it.
+ *
+ * This could have been accomplished with std::outcome or haskell's Either, but
+ * since the function doesn't return anything anyway, it becomes a bit awkward.
+ * Furthermore, the exceptions can be seen as a side-channel Either with the
+ * failure source embedded.
+ */
 void manifest_task::run(
         transfer& xfer,
         zmq::socket_t& input,
         zmq::socket_t& output,
-        zmq::socket_t& fail) {
+        zmq::socket_t& failure)
+try {
+    auto envelope = zmq::multipart_t(input);
+    this->p->start_processing(envelope);
 
-    using timepoint = std::chrono::time_point< clock >;
-    struct timer {
-        timepoint start;
-        timepoint recv;
-        timepoint parse;
-        timepoint transfer;
-        timepoint json;
-        timepoint serialize;
-        timepoint send;
-    } timer;
+    const auto& body = envelope.remove();
+    this->p->request.parse(body);
 
-    /*
-     * These should be cached probably, as there are performance implications
-     * to not reusing them. Exposing the generated code in headers is pretty
-     * bad though, so something clever needs to be done.
-     */
-    std::string msg;
-    oneseismic::api_request apirequest;
-    oneseismic::fetch_request fetchrequest;
+    const auto manifest = get_manifest(
+            xfer,
+            this->p->request.root(),
+            this->p->request.storage_endpoint(),
+            this->p->request.guid()
+    );
 
-    /*
-     * Virtually any failure here means socket restart, with the exception
-     * of EINTR, which means interrupted and rather a process tear down.
-     *
-     * Sockets are configured from the outside, so regardless it's time to exit.
-     */
-    timer.start = clock::now();
-
-    zmq::multipart_t multi(input);
-    const zmq::message_t& req = multi.back();
-    timer.recv = clock::now();
-    const auto ok = apirequest.ParseFromArray(req.data(), req.size());
-    if (!ok) {
-        /* log bad request, then be ready to receive new message */
-        /* TODO: log the actual bytes received too */
-        spdlog::warn("badly formatted protobuf message");
-        return;
-    }
-
-    timer.parse = clock::now();
-    const auto& requestid = apirequest.requestid();
-
-    /* fetch manifest */
-    one::batch batch;
-    batch.root = apirequest.root();
-    batch.storage_endpoint = apirequest.storage_endpoint();
-    batch.guid = apirequest.guid();
-    batch.fragment_ids.resize(1);
-    manifest_cfg cfg;
-    try {
-        xfer.perform(batch, cfg);
-    } catch (const notfound& e) {
-        spdlog::info("{} not found: '{}'", batch.guid, e.what());
-
-        const auto signal = fmt::format("notfound: {}", requestid);
-        zmq::message_t msg(signal.data(), signal.size());
-        multi.remove();
-        multi.add(std::move(msg));
-        multi.send(fail);
-        return;
-    } catch (...) {
-        /*
-         * what to do here depends on why this failed - maybe re-init the
-         * transfer object, maybe re-init the sockets (by breaking the loop),
-         * maybe take down the service
-         */
-        throw;
-    }
-    timer.transfer = clock::now();
-
-    nlohmann::json manifest;
-    try {
-        manifest = nlohmann::json::parse(cfg.doc);
-    } catch (const nlohmann::json::parse_error& e) {
-        /* log error, and await new request */
-        spdlog::error(
-            "{} - badly formatted manifest: {}/{}",
-            requestid,
-            batch.root,
-            batch.storage_endpoint,
-            batch.guid
-        );
-        return;
-    }
-    timer.json = clock::now();
-
-    /* set request type-independent parameters */
-    /* these really shouldn't fail, and should mean immediate debug */
-    fetchrequest.set_requestid(apirequest.requestid());
-    fetchrequest.set_root(apirequest.root());
-    fetchrequest.set_storage_endpoint(apirequest.storage_endpoint());
-    fetchrequest.set_guid(apirequest.guid());
-    *fetchrequest.mutable_fragment_shape() = apirequest.shape();
-
-    /* set request type-specific parameters */
-    switch (apirequest.function_case()) {
+    this->p->query.basic(this->p->request);
+    switch (this->p->request.function_case()) {
         using oneof = oneseismic::api_request;
 
         case oneof::kSlice:
-            if (not set_slice_request(fetchrequest, apirequest, manifest))
-                return;
+            this->p->query.slice(this->p->request, manifest);
             break;
 
         default:
-            /*
-             * this means a malformed input message - log the error, then
-             * just await new request
-             */
-            spdlog::debug(
-                "{} - malformed input, bad request variant (oneof)",
-                requestid
+            spdlog::error(
+                "{} bad request variant (oneof)",
+                this->p->current_request_id
             );
             return;
     }
 
-    /* forward request to workers */
-    fetchrequest.SerializeToString(&msg);
-    timer.serialize = clock::now();
-    zmq::message_t rep(msg.data(), msg.size());
-    /* send shouldn't fail (?) in zmq, or at least internally retry (?) */
-    multi.remove();
-    multi.add(std::move(rep));
-    multi.send(output);
+    auto msg = envelope.clone();
+    msg.addstr(this->p->query.serialize());
+    msg.send(output);
+    spdlog::info("{} queued for fragment retrieval", this->p->current_request_id);
 
-    timer.send = clock::now();
-    const auto ms = [] (std::chrono::duration< double, std::milli> p) {
-        using namespace std::chrono;
-        return duration_cast< milliseconds >(p).count();
-    };
-
-    spdlog::info(
-        "time-manifest "
-        "id: {} "
-        "recv: {} "
-        "parse: {} "
-        "xfer: {} "
-        "json: {} "
-        "format: {} "
-        "send: {} "
-        "total: {} "
-        "unit: ms",
-        apirequest.requestid(),
-        ms(timer.recv      - timer.start),
-        ms(timer.parse     - timer.recv),
-        ms(timer.transfer  - timer.parse),
-        ms(timer.json      - timer.transfer),
-        ms(timer.serialize - timer.json),
-        ms(timer.send      - timer.serialize),
-        ms(timer.send      - timer.start)
+} catch (const bad_message&) {
+    spdlog::error(
+            "{} badly formatted protobuf message",
+            this->p->current_request_id
     );
+    this->p->failure("bad-message").send(failure);
+} catch (const notfound& e) {
+    spdlog::info(
+            "{} {} manifest not found: '{}'",
+            this->p->current_request_id,
+            this->p->request.guid(),
+            e.what()
+    );
+    this->p->failure("manifest-not-found").send(failure);
+} catch (const nlohmann::json::parse_error& e) {
+    spdlog::error(
+            "{} badly formatted manifest: {}/{}",
+            this->p->current_request_id,
+            this->p->request.root(),
+            this->p->request.guid()
+    );
+    spdlog::error(e.what());
+    this->p->failure("json-parse-error").send(failure);
+} catch (const line_not_found& e) {
+    spdlog::info("{} {}", this->p->current_request_id, e.what());
+    this->p->failure("line-not-found").send(failure);
 }
+
+manifest_task::manifest_task() : p(new impl()) {}
+manifest_task::~manifest_task() = default;
 
 }
