@@ -10,57 +10,30 @@ import (
 	"time"
 )
 
-// OpenIDConfig is the expected return from the well-known endpoint
-type OpenIDConfig struct {
-	Issuer                                     string   `json:"issuer"`
-	AuthorizationEndpoint                      string   `json:"authorization_endpoint"`
-	TokenEndpoint                              string   `json:"token_endpoint"`
-	TokenEndpointAuthMethodsSupported          []string `json:"token_endpoint_auth_methods_supported"`
-	TokenEndpointAuthSigningAlgValuesSupported []string `json:"token_endpoint_auth_signing_alg_values_supported"`
-	UserinfoEndpoint                           string   `json:"userinfo_endpoint"`
-	CheckSessionIframe                         string   `json:"check_session_iframe"`
-	EndSessionEndpoint                         string   `json:"end_session_endpoint"`
-	JwksURI                                    string   `json:"jwks_uri"`
-	RegistrationEndpoint                       string   `json:"registration_endpoint"`
-	ScopesSupported                            []string `json:"scopes_supported"`
-	ResponseTypesSupported                     []string `json:"response_types_supported"`
-	AcrValuesSupported                         []string `json:"acr_values_supported"`
-	SubjectTypesSupported                      []string `json:"subject_types_supported"`
-	UserinfoSigningAlgValuesSupported          []string `json:"userinfo_signing_alg_values_supported"`
-	UserinfoEncryptionAlgValuesSupported       []string `json:"userinfo_encryption_alg_values_supported"`
-	UserinfoEncryptionEncValuesSupported       []string `json:"userinfo_encryption_enc_values_supported"`
-	IDTokenSigningAlgValuesSupported           []string `json:"id_token_signing_alg_values_supported"`
-	IDTokenEncryptionAlgValuesSupported        []string `json:"id_token_encryption_alg_values_supported"`
-	IDTokenEncryptionEncValuesSupported        []string `json:"id_token_encryption_enc_values_supported"`
-	RequestObjectSigningAlgValuesSupported     []string `json:"request_object_signing_alg_values_supported"`
-	DisplayValuesSupported                     []string `json:"display_values_supported"`
-	ClaimTypesSupported                        []string `json:"claim_types_supported"`
-	ClaimsSupported                            []string `json:"claims_supported"`
-	ClaimsParameterSupported                   bool     `json:"claims_parameter_supported"`
-	ServiceDocumentation                       string   `json:"service_documentation"`
-	UILocalesSupported                         []string `json:"ui_locales_supported"`
+type openIDConfig struct {
+	JwksURI string `json:"jwks_uri"`
 }
 
-// JWK JSON Web Key
-type JWK struct {
-	Kty string   `json:"kty"`
-	Use string   `json:"use"`
-	Kid string   `json:"kid"`
-	X5T string   `json:"x5t"`
-	N   string   `json:"n"`
-	E   string   `json:"e"`
-	X5C []string `json:"x5c"`
+type jwk struct {
+	Kty string `json:"kty"`
+	Kid string `json:"kid"`
+	N   string `json:"n"`
+	E   string `json:"e"`
 }
 
-// JWKS keyset from openID
-type JWKS struct {
-	Keys []JWK `json:"keys"`
+type jwks struct {
+	Keys []jwk `json:"keys"`
 }
 
-var configClient = &http.Client{Timeout: 10 * time.Second}
+var httpGet func(string) (*http.Response, error)
+
+func init() {
+	configClient := &http.Client{Timeout: 10 * time.Second}
+	httpGet = configClient.Get
+}
 
 func getJSON(url string, target interface{}) error {
-	r, err := configClient.Get(url)
+	r, err := httpGet(url)
 	if err != nil {
 		return fmt.Errorf("http request failed: %w", err)
 	}
@@ -77,15 +50,14 @@ func getJSON(url string, target interface{}) error {
 	return json.NewDecoder(r.Body).Decode(target)
 }
 
-// GetKey gets the authservers signing key
-func GetOIDCKeySet(authserver string) (map[string]interface{}, error) {
-	oidcConf := OpenIDConfig{}
+func getJwksURI(authserver string) (string, error) {
+	oidcConf := openIDConfig{}
 	err := getJSON(authserver, &oidcConf)
 	if err != nil {
-		return nil, fmt.Errorf("fetching oidc config failed: %w", err)
+		return "", fmt.Errorf("fetching oidc config failed: %w", err)
 	}
 
-	return createWebKeySet(oidcConf.JwksURI)
+	return oidcConf.JwksURI, nil
 }
 
 func fromB64(b64 string) (big.Int, error) {
@@ -99,37 +71,39 @@ func fromB64(b64 string) (big.Int, error) {
 	return bi, nil
 }
 
-func createWebKeySet(keysetURL string) (map[string]interface{}, error) {
-	jwks := JWKS{}
-	err := getJSON(keysetURL, &jwks)
+// GetRSAKeys gets a map of kid with rsa.PublicKey
+func GetRSAKeys(authserver string) (map[string]rsa.PublicKey, error) {
+	jwksURI, err := getJwksURI(authserver)
 	if err != nil {
-		return nil, fmt.Errorf("fetching keyset failed: %w", err)
+		return nil, fmt.Errorf("getting jwks_uri failed: %w", err)
 	}
 
-	if len(jwks.Keys) == 0 {
-		return nil, fmt.Errorf(
-			"could not create keyset. No keys in key set")
+	keyList := jwks{}
+	err = getJSON(jwksURI, &keyList)
+	if err != nil {
+		return nil, fmt.Errorf("fetching jwks failed: %w", err)
 	}
-	jwksMap := make(map[string]interface{})
 
-	for _, jwk := range jwks.Keys {
+	keys := make(map[string]rsa.PublicKey)
 
-		if jwk.Kty == "RSA" {
+	for _, key := range keyList.Keys {
 
-			e, err := fromB64(jwk.E)
+		if key.Kty == "RSA" {
+
+			e, err := fromB64(key.E)
 			if err != nil {
 				return nil, fmt.Errorf("big int from  E: %w", err)
 			}
-			n, err := fromB64(jwk.N)
+			n, err := fromB64(key.N)
 			if err != nil {
 				return nil, fmt.Errorf("big int from  N: %w", err)
 			}
 
-			jwksMap[jwk.Kid] = &rsa.PublicKey{N: &n, E: int(e.Int64())}
+			keys[key.Kid] = rsa.PublicKey{N: &n, E: int(e.Int64())}
 
 		}
 	}
 
-	return jwksMap, nil
+	return keys, nil
 
 }

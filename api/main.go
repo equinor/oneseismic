@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rsa"
 	"fmt"
 	"log"
 	"os"
@@ -65,11 +66,11 @@ func serve(c *config) error {
 		return err
 	}
 
-	sigKeySet, err := auth.GetOIDCKeySet(c.authServer + "/.well-known/openid-configuration")
+	rsaKeys, err := auth.GetRSAKeys(c.authServer + "/.well-known/openid-configuration")
 	if err != nil {
 		return fmt.Errorf("could not get keyset: %w", err)
 	}
-	app.Use(auth.CheckJWT(sigKeySet, c.apiSecret))
+	app.Use(auth.CheckJWT(rsaKeys, c.apiSecret))
 	app.Use(auth.ValidateIssuer(c.issuer))
 
 	app.Use(iris.Gzip)
@@ -121,7 +122,7 @@ type config struct {
 	apiSecret    []byte
 	zmqReqAddr   string
 	zmqRepAddr   string
-	SigKeySet    map[string]interface{}
+	SigKeySet    map[string]rsa.PublicKey
 }
 
 func getConfig() (*config, error) {

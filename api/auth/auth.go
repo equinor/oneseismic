@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/rsa"
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
@@ -11,14 +12,13 @@ import (
 )
 
 // CheckJWT ensures that a valid JWT is provided.
-// Expects a bearer token in the Authorization header.
-// Supports RS256 and H256.
-func CheckJWT(sigKeySet map[string]interface{}, apiSecret []byte) context.Handler {
+func CheckJWT(rsaKeys map[string]rsa.PublicKey, apiSecret []byte) context.Handler {
 	return func(ctx context.Context) {
 		jwtmiddleware.New(jwtmiddleware.Config{
 			ValidationKeyGetter: func(t *jwt.Token) (interface{}, error) {
 				if t.Method.Alg() == "RS256" {
-					return sigKeySet[t.Header["kid"].(string)], nil
+					key := rsaKeys[t.Header["kid"].(string)]
+					return &key, nil
 				}
 				if t.Method.Alg() == "HS256" {
 					return apiSecret, nil
