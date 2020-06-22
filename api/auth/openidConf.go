@@ -35,13 +35,13 @@ func init() {
 func getJSON(url string, target interface{}) error {
 	r, err := httpGet(url)
 	if err != nil {
-		return fmt.Errorf("http request failed: %w", err)
+		return err
 	}
 	defer r.Body.Close()
 
 	if r.StatusCode != 200 {
 		return fmt.Errorf(
-			"Json fetch error %s on %s",
+			"bad status: %s on %s",
 			r.Status,
 			url)
 

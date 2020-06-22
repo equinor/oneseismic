@@ -34,7 +34,6 @@ func makeSliceRequest(
 	req := oneseismic.ApiRequest{
 		Requestid: requestid,
 		Guid:      guid,
-		Root:      storageEndpoint,
 		Shape: &oneseismic.FragmentShape{
 			Dim0: 64,
 			Dim1: 64,
@@ -68,20 +67,12 @@ func (s *slicer) fetchSlice(
 	}
 
 	replyChannel := make(chan []byte)
-	job := job{requestid, req, replyChannel}
+	s.jobs <- job{requestid, req, replyChannel}
 
 	fr := oneseismic.FetchResponse{}
-
-	s.jobs <- job
 	err = proto.Unmarshal([]byte(<-replyChannel), &fr)
 	if err != nil {
-		return nil, fmt.Errorf("could not create slice response: %w", err)
-	}
-
-	slice := fr.GetSlice()
-	if slice == nil {
-		return nil, fmt.Errorf("slice not found")
-
+		return nil, fmt.Errorf("could not unmarshal slice response: %w", err)
 	}
 
 	return fr.GetSlice(), nil

@@ -1,11 +1,10 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/equinor/oneseismic/api/logger"
+	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -17,33 +16,38 @@ type sliceController struct {
 func (sc *sliceController) slice(ctx iris.Context) {
 	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
 	if !ok {
-		logger.LogE("jwt", fmt.Errorf("missing"))
+		golog.Errorf("jwt missing from context")
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
 	root := ctx.Params().GetString("root")
 	if len(root) == 0 {
+		golog.Errorf("root missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
+		golog.Errorf("guid missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	dim, err := ctx.Params().GetInt32("dim")
 	if err != nil {
+		golog.Errorf("dim missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	lineno, err := ctx.Params().GetInt32("lineno")
 	if err != nil {
+		golog.Errorf("lineno missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	requestid := ""
 	slice, err := sc.slicer.fetchSlice(root, guid, dim, lineno, requestid, token.Raw)
 	if err != nil {
+		golog.Warnf("could not fetch slice: %w", err)
 		ctx.StatusCode(http.StatusNotFound)
 		return
 	}
@@ -52,6 +56,7 @@ func (sc *sliceController) slice(ctx iris.Context) {
 	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
 	js, err := m.Marshal(slice)
 	if err != nil {
+		golog.Errorf("could not marshal fetch slice to json: %w", err)
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}

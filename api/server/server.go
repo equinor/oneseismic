@@ -20,27 +20,22 @@ func newApp(c *Config) *iris.Application {
 }
 
 // App for oneseismic
-func App(c *Config) (*iris.Application, error) {
+func App(c *Config) *iris.Application {
 	app := newApp(c)
-
-	app.Use(auth.CheckJWT(c.RSAKeys, c.APISecret))
-	app.Use(auth.ValidateIssuer(c.Issuer))
 
 	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 	registerStoreController(app, c.StorageURL)
 	registerSlicer(app, c.StorageURL, c.ZmqReqAddr, c.ZmqRepAddr, uuid.New().String())
 
-	return app, nil
+	return app
 }
 
-func registerStoreController(app *iris.Application, uri string) error {
+func registerStoreController(app *iris.Application, uri string) {
 	sc := storeController{&storageURL{uri}}
 	app.Get("/{root:string}/", sc.list)
 	app.Get("/{root:string}/{guid:string}", sc.services)
 	app.Get("/{root:string}/{guid:string}/slice", sc.dimensions)
 	app.Get("/{root:string}/{guid:string}/slice/{dim:int32}", sc.lines)
-
-	return nil
 }
 
 func registerSlicer(

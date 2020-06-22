@@ -1,8 +1,7 @@
 package server
 
 import (
-	"log"
-
+	"github.com/kataras/golog"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -14,9 +13,8 @@ type job struct {
 
 func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) {
 	req, err := zmq.NewSocket(zmq.PUSH)
-
 	if err != nil {
-		log.Fatal(err)
+		golog.Fatal(err)
 	}
 
 	req.Bind(reqNdpt)
@@ -24,9 +22,8 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 	rep := make(chan [][]byte)
 	go func() {
 		r, err := zmq.NewSocket(zmq.DEALER)
-
 		if err != nil {
-			log.Fatal(err)
+			golog.Fatal(err)
 		}
 
 		r.SetIdentity(address)
@@ -34,9 +31,9 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 
 		for {
 			m, err := r.RecvMessageBytes(0)
-
+			//TODO do not crash, send error?
 			if err != nil {
-				log.Fatal(err)
+				golog.Fatal(err)
 			}
 
 			rep <- m

@@ -1,24 +1,21 @@
 package main
 
 import (
-	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/equinor/oneseismic/api/auth"
 	_ "github.com/equinor/oneseismic/api/docs"
-	"github.com/equinor/oneseismic/api/events"
-	"github.com/equinor/oneseismic/api/logger"
-	"github.com/equinor/oneseismic/api/profiling"
 	"github.com/equinor/oneseismic/api/server"
 	"github.com/joho/godotenv"
+	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
-	"github.com/pkg/profile"
 )
 
 func init() {
 	godotenv.Load() // nolint, silently ignore missing or invalid .env
+	golog.SetTimeFormat("")
+	golog.SetLevel(os.Getenv("LOG_LEVEL"))
 }
 
 //@title oneseismic
@@ -37,44 +34,17 @@ func main() {
 		ZmqReqAddr: os.Getenv("ZMQ_REQ_ADDR"),
 	}
 
-	logDB := os.Getenv("LOGDB_CONNSTR")
-	if len(logDB) > 0 {
-		err := logger.SetLogSink(logger.ConnString(logDB), events.DebugLevel)
-		if err != nil {
-			log.Fatalf("switching log sink to db: %v", err)
-		}
-	}
 	var err error
 	c.RSAKeys, err = auth.GetRSAKeys(os.Getenv("AUTHSERVER") + "/.well-known/openid-configuration")
 	if err != nil {
-		log.Fatalf("could not get RSA keys: %v", err)
+		golog.Fatalf("could not get RSA keys: %v", err)
 	}
 
-	app, err := server.App(c)
-	if err != nil {
-		log.Fatalf("failed to create server: %v", err)
-	}
-
+	app := server.App(c)
 	app.Logger().SetLevel(os.Getenv("LOG_LEVEL"))
-	logger.AddGoLogSource(app.Logger().SetOutput)
-
-	doProfiling, _ := strconv.ParseBool(os.Getenv("PROFILING"))
-	if doProfiling {
-		var p *profile.Profile
-		pOpts := []func(*profile.Profile){
-			profile.ProfilePath("pprof"),
-			profile.NoShutdownHook,
-		}
-
-		pOpts = append(pOpts, profile.MemProfile)
-		p = profile.Start(pOpts...).(*profile.Profile)
-		profiling.ServeMetrics("8081")
-		profiling.EnablePrometheusMiddleware(app)
-		defer p.Stop()
-	}
 
 	err = app.Run(iris.Addr(os.Getenv("HOST_ADDR")))
 	if err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		golog.Fatalf("failed to start server: %v", err)
 	}
 }

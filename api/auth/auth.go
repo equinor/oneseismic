@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
-	l "github.com/equinor/oneseismic/api/logger"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
+	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/context"
 )
@@ -33,7 +33,7 @@ func ValidateIssuer(issuer string) context.Handler {
 	return func(ctx context.Context) {
 		userToken := ctx.Values().Get("jwt")
 		if userToken == nil {
-			l.LogE("Get token from context", fmt.Errorf("missing token"))
+			golog.Errorf("missing token from context")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
@@ -41,14 +41,14 @@ func ValidateIssuer(issuer string) context.Handler {
 
 		user, ok := userToken.(*jwt.Token)
 		if !ok {
-			l.LogE("Type assertion", fmt.Errorf("not a jwt.Token"))
+			golog.Errorf("not a jwt.Token in context")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
 		}
 
 		if user.Claims == nil {
-			l.LogE("Claims", fmt.Errorf("nil"))
+			golog.Errorf("token missing claims")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
@@ -56,7 +56,7 @@ func ValidateIssuer(issuer string) context.Handler {
 
 		claims := user.Claims.(jwt.MapClaims)
 		if !claims.VerifyIssuer(issuer, false) {
-			l.LogE("invalid issuer", fmt.Errorf(claims["iss"].(string)))
+			golog.Warnf("invalid issuer: %s", claims["iss"].(string))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return

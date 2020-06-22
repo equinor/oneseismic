@@ -2,11 +2,10 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/equinor/oneseismic/api/logger"
+	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
 )
 
@@ -25,19 +24,25 @@ type storeController struct {
 func (sc *storeController) list(ctx iris.Context) {
 	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
 	if !ok {
-		logger.LogE("jwt", fmt.Errorf("missing"))
+		golog.Error("missing jwt")
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
 	root := ctx.Params().GetString("root")
-
-	cubes, err := sc.store.list(context.Background(), root, token.Raw)
+	if len(root) == 0 {
+		golog.Errorf("root missing from request")
+		ctx.StatusCode(http.StatusBadRequest)
+		return
+	}
+	containers, err := sc.store.list(context.Background(), root, token.Raw)
 	if err != nil {
+		golog.Warnf("could not fetch slice: %w", err)
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
-	_, err = ctx.JSON(cubes)
+	_, err = ctx.JSON(containers)
 	if err != nil {
+		golog.Warnf("could not make json of container list: %w", err)
 		ctx.StatusCode(http.StatusInternalServerError)
 	}
 }
@@ -56,24 +61,35 @@ func (sc *storeController) list(ctx iris.Context) {
 func (sc *storeController) services(ctx iris.Context) {
 	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
 	if !ok {
+		golog.Error("missing jwt")
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
-	root := ctx.Params().GetString("root")
 
-	guid := ctx.Params().GetString("guid")
-	if len(guid) == 0 {
+	root := ctx.Params().GetString("root")
+	if len(root) == 0 {
+		golog.Error("root missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
+
+	guid := ctx.Params().GetString("guid")
+	if len(guid) == 0 {
+		golog.Error("guid missing from request")
+		ctx.StatusCode(http.StatusBadRequest)
+		return
+	}
+
 	_, err := sc.store.manifest(context.Background(), root, guid, token.Raw)
 	if err != nil {
+		golog.Errorf("manifest not found: %w", err)
 		ctx.StatusCode(http.StatusNotFound)
 		return
 	}
 
 	_, err = ctx.JSON([]string{"slice"})
 	if err != nil {
+		golog.Warnf("could not make json of service list: %w", err)
 		ctx.StatusCode(http.StatusInternalServerError)
 	}
 }
@@ -92,24 +108,33 @@ func (sc *storeController) services(ctx iris.Context) {
 func (sc *storeController) dimensions(ctx iris.Context) {
 	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
 	if !ok {
+		golog.Error("missing jwt")
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
 	root := ctx.Params().GetString("root")
+	if len(root) == 0 {
+		golog.Error("root missing from request")
+		ctx.StatusCode(http.StatusBadRequest)
+		return
+	}
 
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
+		golog.Error("guid missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	dimensions, err := sc.store.dimensions(context.Background(), root, guid, token.Raw)
 	if err != nil {
+		golog.Error(err)
 		ctx.StatusCode(http.StatusNotFound)
 		return
 	}
 
 	_, err = ctx.JSON(dimensions)
 	if err != nil {
+		golog.Error(err)
 		ctx.StatusCode(http.StatusInternalServerError)
 	}
 }
@@ -129,29 +154,38 @@ func (sc *storeController) dimensions(ctx iris.Context) {
 func (sc *storeController) lines(ctx iris.Context) {
 	token, ok := ctx.Values().Get("jwt").(*jwt.Token)
 	if !ok {
+		golog.Error("missing jwt")
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
 	root := ctx.Params().GetString("root")
-
+	if len(root) == 0 {
+		golog.Error("root missing from request")
+		ctx.StatusCode(http.StatusBadRequest)
+		return
+	}
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
+		golog.Error("guid missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	dimension, err := ctx.Params().GetInt32("dim")
 	if err != nil {
+		golog.Error("dim missing from request")
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
 	lines, err := sc.store.lines(context.Background(), root, guid, dimension, token.Raw)
 	if err != nil {
+		golog.Error(err)
 		ctx.StatusCode(http.StatusNotFound)
 		return
 	}
 
 	_, err = ctx.JSON(lines)
 	if err != nil {
+		golog.Error(err)
 		ctx.StatusCode(http.StatusInternalServerError)
 	}
 }
