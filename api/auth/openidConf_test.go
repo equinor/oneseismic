@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"reflect"
 	"testing"
 )
 
 var testAuthServer *httptest.Server
-var testAuthServerURL *url.URL
+var testAuthServerURL string
 
 func mockResponses(r *http.Request) string {
 	switch r.URL.String() {
@@ -54,7 +53,7 @@ func TestMain(m *testing.M) {
 
 		fmt.Fprintln(w, resp)
 	}))
-	testAuthServerURL, _ = url.Parse(testAuthServer.URL)
+	testAuthServerURL = testAuthServer.URL + "/.well-known/openid-configuration"
 	r := m.Run()
 	testAuthServer.Close()
 	os.Exit(r)
@@ -62,7 +61,7 @@ func TestMain(m *testing.M) {
 
 func TestGetKey(t *testing.T) {
 	type args struct {
-		authserver *url.URL
+		authserver string
 	}
 	e, err := fromB64("AQAB")
 	if err != nil {
@@ -103,7 +102,7 @@ func TestGetKey(t *testing.T) {
 
 func Test_getJSON(t *testing.T) {
 	type args struct {
-		url    *url.URL
+		url    string
 		target interface{}
 	}
 	tests := []struct {

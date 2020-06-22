@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -66,7 +65,7 @@ func serve(c *config) error {
 		return err
 	}
 
-	sigKeySet, err := auth.GetOIDCKeySet(c.authServer)
+	sigKeySet, err := auth.GetOIDCKeySet(c.authServer + "/.well-known/openid-configuration")
 	if err != nil {
 		return fmt.Errorf("could not get keyset: %w", err)
 	}
@@ -117,26 +116,22 @@ type config struct {
 	accountKey   string
 	logDBConnStr string
 	logLevel     string
-	authServer   *url.URL
+	authServer   string
 	issuer       string
 	apiSecret    []byte
 	zmqReqAddr   string
 	zmqRepAddr   string
+	SigKeySet    map[string]interface{}
 }
 
 func getConfig() (*config, error) {
-	authServer, err := url.ParseRequestURI(os.Getenv("AUTHSERVER"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid AUTHSERVER: %w", err)
-	}
-
 	profiling, err := strconv.ParseBool(os.Getenv("PROFILING"))
 	if err != nil {
 		return nil, fmt.Errorf("could not parse PROFILING: %w", err)
 	}
 
 	conf := &config{
-		authServer:   authServer,
+		authServer:   os.Getenv("AUTHSERVER"),
 		apiSecret:    []byte(os.Getenv("API_SECRET")),
 		issuer:       os.Getenv("ISSUER"),
 		storageURL:   strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),

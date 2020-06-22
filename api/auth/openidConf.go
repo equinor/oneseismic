@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -60,8 +59,8 @@ type JWKS struct {
 
 var configClient = &http.Client{Timeout: 10 * time.Second}
 
-func getJSON(url *url.URL, target interface{}) error {
-	r, err := configClient.Get(url.String())
+func getJSON(url string, target interface{}) error {
+	r, err := configClient.Get(url)
 	if err != nil {
 		return fmt.Errorf("http request failed: %w", err)
 	}
@@ -79,26 +78,14 @@ func getJSON(url *url.URL, target interface{}) error {
 }
 
 // GetKey gets the authservers signing key
-func GetOIDCKeySet(authserver *url.URL) (map[string]interface{}, error) {
-	if authserver == nil {
-		return nil, fmt.Errorf("authserver is not found")
-	}
+func GetOIDCKeySet(authserver string) (map[string]interface{}, error) {
 	oidcConf := OpenIDConfig{}
-	u, err := url.Parse(authserver.String() + "/.well-known/openid-configuration")
-	if err != nil {
-		return nil, fmt.Errorf("oidcConf url parse failed: %w", err)
-	}
-	err = getJSON(u, &oidcConf)
+	err := getJSON(authserver, &oidcConf)
 	if err != nil {
 		return nil, fmt.Errorf("fetching oidc config failed: %w", err)
 	}
 
-	jwksURI := oidcConf.JwksURI
-	u, err = url.Parse(jwksURI)
-	if err != nil {
-		return nil, fmt.Errorf("jwks url parse failed: %w", err)
-	}
-	return createWebKeySet(u)
+	return createWebKeySet(oidcConf.JwksURI)
 }
 
 func fromB64(b64 string) (big.Int, error) {
@@ -112,7 +99,7 @@ func fromB64(b64 string) (big.Int, error) {
 	return bi, nil
 }
 
-func createWebKeySet(keysetURL *url.URL) (map[string]interface{}, error) {
+func createWebKeySet(keysetURL string) (map[string]interface{}, error) {
 	jwks := JWKS{}
 	err := getJSON(keysetURL, &jwks)
 	if err != nil {
