@@ -37,6 +37,13 @@ public:
             zmq::socket_t& input,
             zmq::socket_t& output)
         noexcept (false);
+
+    fragment_task();
+    ~fragment_task();
+
+private:
+    class impl;
+    std::unique_ptr< impl > p;
 };
 
 }

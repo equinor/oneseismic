@@ -1,6 +1,6 @@
 #include <cassert>
 #include <cstring>
-#include <chrono>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -184,26 +184,84 @@ one::batch make_batch(const oneseismic::fetch_request& req) noexcept (false) {
     return batch;
 }
 
+struct bad_message : std::exception {};
+
+class fetch_request : public oneseismic::fetch_request {
+public:
+    void parse(const zmq::message_t&) noexcept (false);
+};
+
+void fetch_request::parse(const zmq::message_t& msg) noexcept (false) {
+    const auto ok = this->ParseFromArray(msg.data(), msg.size());
+    if (!ok) throw bad_message();
+}
+
+class fetch_response : public oneseismic::fetch_response {
+public:
+    const std::string& serialize() noexcept (false);
+
+private:
+    std::string serialized;
+};
+
+const std::string& fetch_response::serialize() noexcept (false) {
+    this->SerializeToString(&this->serialized);
+    return this->serialized;
+}
+
 }
 
 namespace one {
 
+class fragment_task::impl {
+public:
+    /*
+     * Transition into "processing" mode - this should be the first method
+     * called whenever a message is received from the queue and a job is about
+     * to start.
+     */
+    void start_processing(zmq::multipart_t& job);
+
+    zmq::multipart_t failure(const std::string& key) noexcept (false);
+
+    std::string current_request_id;
+    fetch_request query;
+    fetch_response result;
+    all_actions actions;
+};
+
+void fragment_task::impl::start_processing(zmq::multipart_t& job) {
+    /*
+     * Currently, the only thing this function does is parse and set the job
+     * id, which is not actually cleared between invocations (so calling
+     * methods out-of-order is not detected). This can certainly change in the
+     * future though, and gets the clunky read-bytes-from-message out of the
+     * way in the body.
+     */
+
+    /*
+     * The job argument is conceptually const, but can't be since the
+     * zmq::multipart_t is not marked as such (even though it is)
+     */
+    const auto& job_id = job.front();
+    this->current_request_id.assign(
+            static_cast< const char* >(job_id.data()),
+            job_id.size()
+    );
+}
+
+zmq::multipart_t fragment_task::impl::failure(const std::string& key)
+noexcept (false) {
+    zmq::multipart_t msg;
+    msg.addstr(this->current_request_id);
+    msg.addstr(key);
+    return msg;
+}
+
 void fragment_task::run(
         transfer& xfer,
         zmq::socket_t& input,
-        zmq::socket_t& output) {
-
-    using clock = std::chrono::steady_clock;
-    using timepoint = std::chrono::time_point< clock >;
-    struct timer {
-        timepoint start;
-        timepoint recv;
-        timepoint parse;
-        timepoint transfer;
-        timepoint json;
-        timepoint serialize;
-        timepoint send;
-    } timer;
+        zmq::socket_t& output) try {
 
     /*
      * TODO: Keep the protobuf instances alive, as re-using handles is a lot
@@ -214,65 +272,45 @@ void fragment_task::run(
      * TODO: maintain individual response instances in the action, as they can
      * reuse the same oneof every invocation
      */
-    oneseismic::fetch_request request;
-    oneseismic::fetch_response response;
-    std::string outmsg;
-    all_actions actions;
-    timer.start = clock::now();
+    zmq::multipart_t envelope(input);
+    this->p->start_processing(envelope);
 
-    zmq::multipart_t multi(input);
-    const zmq::message_t& in = multi.back();
-    timer.recv = clock::now();
-    const auto ok = request.ParseFromArray(in.data(), in.size());
-    if (!ok) {
-        /* log bad request, then be ready to receive new message */
-        /* TODO: log the actual bytes received too */
-        /* TODO: log sender */
-        spdlog::warn("badly formatted protobuf message");
-        return;
-    }
-    timer.parse = clock::now();
+    const auto& body = envelope.remove();
+    auto& query = this->p->query;
+    query.parse(body);
 
-    auto& action = actions.select(request);
-    auto batch = make_batch(request);
+    auto& action = this->p->actions.select(query);
+    auto batch = make_batch(query);
     xfer.perform(batch, action);
 
-    timer.transfer = clock::now();
+    auto& result = this->p->result;
+    result.set_requestid(query.requestid());
+    action.serialize(result);
 
-    action.serialize(response);
-    response.set_requestid(request.requestid());
-    response.SerializeToString(&outmsg);
-    timer.serialize = clock::now();
-    zmq::message_t out(outmsg.data(), outmsg.size());
+    auto msg = envelope.clone();
+    msg.addstr(result.serialize());
+    msg.send(output);
 
-    multi.remove();
-    multi.add(std::move(out));
-    multi.send(output);
-    timer.send = clock::now();
-
-    const auto ms = [] (std::chrono::duration< double, std::milli> p) {
-        using namespace std::chrono;
-        return duration_cast< milliseconds >(p).count();
-    };
-
-    spdlog::info(
-        "time-fragment "
-        "id: {} "
-        "recv: {} "
-        "parse: {} "
-        "xfer: {} "
-        "format: {} "
-        "send: {} "
-        "total: {} "
-        "unit: ms",
-        request.requestid(),
-        ms(timer.recv      - timer.start),
-        ms(timer.parse     - timer.recv),
-        ms(timer.transfer  - timer.parse),
-        ms(timer.serialize - timer.transfer),
-        ms(timer.send      - timer.serialize),
-        ms(timer.send      - timer.start)
+    /*
+     * TODO: catch other network related errors that should not bring down the
+     * process (currently will because of unhandled exceptions)
+     */
+} catch (const bad_message&) {
+    /* TODO: log the actual bytes received too */
+    /* TODO: log sender */
+    spdlog::error(
+            "{} badly formatted protobuf message",
+            this->p->current_request_id
+    );
+} catch (const notfound& e) {
+    spdlog::warn(
+            "{} fragment not found: '{}'",
+            this->p->current_request_id,
+            e.what()
     );
 }
+
+fragment_task::fragment_task() : p(new impl()) {}
+fragment_task::~fragment_task() = default;
 
 }
