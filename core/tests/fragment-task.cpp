@@ -3,6 +3,7 @@
 #include <catch/catch.hpp>
 #include <microhttpd.h>
 #include <zmq.hpp>
+#include <zmq_addon.hpp>
 
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/tasks.hpp>
@@ -163,23 +164,23 @@ TEST_CASE(
             }
         } storage_cfg(httpd.port());
 
-        // Attach message envelope
-        caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
-        caller_req.send(apimsg, zmq::send_flags::none);
+        zmq::multipart_t request;
+        request.addstr("job-id");
+        request.add(std::move(apimsg));
+        request.send(caller_req);
 
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
-        // Envelope should be passed throug without
-        // interfering with the fragment task
-        zmq::message_t envelope;
-        caller_fail.recv(envelope, zmq::recv_flags::none);
-        CHECK(envelope.to_string() == "ENVELOPE");
-
-        zmq::message_t fail;
-        auto received = caller_fail.recv(fail, zmq::recv_flags::dontwait);
+        zmq::multipart_t fail;
+        const auto received = fail.recv(
+                caller_fail,
+                static_cast< int >(zmq::recv_flags::dontwait)
+        );
         CHECK(received);
+        CHECK(fail.front().to_string() == "job-id");
+        CHECK(fail.back().to_string() == "fragment-not-found");
 
         zmq::message_t result;
         auto res_recv = caller_rep.recv(result, zmq::recv_flags::dontwait);
