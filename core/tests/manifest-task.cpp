@@ -10,6 +10,7 @@
 #include <oneseismic/tasks.hpp>
 
 #include "mhttpd.hpp"
+#include "utility.hpp"
 #include "core.pb.h"
 
 using namespace Catch::Matchers;
@@ -161,8 +162,6 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         CHECK(fail.front().to_string() == "job-id");
         CHECK(fail.back().to_string() == "manifest-not-found");
 
-        zmq::message_t result;
-        auto res_recv = caller_rep.recv(result, zmq::recv_flags::dontwait);
-        CHECK(not res_recv);
+        CHECK(not received_message(caller_rep));
     }
 }
