@@ -261,7 +261,8 @@ noexcept (false) {
 void fragment_task::run(
         transfer& xfer,
         zmq::socket_t& input,
-        zmq::socket_t& output) try {
+        zmq::socket_t& output,
+        zmq::socket_t& failure) try {
 
     /*
      * TODO: Keep the protobuf instances alive, as re-using handles is a lot
@@ -302,12 +303,14 @@ void fragment_task::run(
             "{} badly formatted protobuf message",
             this->p->current_request_id
     );
+    this->p->failure("bad-message").send(failure);
 } catch (const notfound& e) {
     spdlog::warn(
             "{} fragment not found: '{}'",
             this->p->current_request_id,
             e.what()
     );
+    this->p->failure("fragment-not-found").send(failure);
 }
 
 fragment_task::fragment_task() : p(new impl()) {}

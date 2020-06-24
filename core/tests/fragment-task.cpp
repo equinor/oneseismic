@@ -86,15 +86,20 @@ TEST_CASE(
         "[slice]")
 {
     zmq::context_t ctx;
-    zmq::socket_t caller_req(ctx, ZMQ_PUSH);
-    zmq::socket_t caller_rep(ctx, ZMQ_PULL);
-    zmq::socket_t worker_req(ctx, ZMQ_PULL);
-    zmq::socket_t worker_rep(ctx, ZMQ_PUSH);
+    zmq::socket_t caller_req( ctx, ZMQ_PUSH);
+    zmq::socket_t caller_rep( ctx, ZMQ_PULL);
+    zmq::socket_t caller_fail(ctx, ZMQ_PULL);
 
-    caller_req.bind("inproc://req");
-    caller_rep.bind("inproc://rep");
-    worker_req.connect("inproc://req");
-    worker_rep.connect("inproc://rep");
+    zmq::socket_t worker_req( ctx, ZMQ_PULL);
+    zmq::socket_t worker_rep( ctx, ZMQ_PUSH);
+    zmq::socket_t worker_fail(ctx, ZMQ_PUSH);
+
+    caller_req.bind( "inproc://req");
+    caller_rep.bind( "inproc://rep");
+    caller_fail.bind("inproc://fail");
+    worker_req.connect( "inproc://req");
+    worker_rep.connect( "inproc://rep");
+    worker_fail.connect("inproc://fail");
 
     mhttpd httpd(fragment_response);
     const auto apireq = make_slice_request(0, 0);
@@ -110,7 +115,7 @@ TEST_CASE(
         caller_req.send(apimsg, zmq::send_flags::none);
 
         one::fragment_task ft;
-        ft.run(xfer, worker_req, worker_rep);
+        ft.run(xfer, worker_req, worker_rep, worker_fail);
 
         // Envelope should be passed through without
         // interfering with the fragment task
@@ -142,5 +147,42 @@ TEST_CASE(
                 tiles.Get(0).v().end()
                 );
         CHECK_THAT(v, Equals(expected));
+    }
+
+    SECTION("not-found messages are pushed on failure") {
+
+        struct fragment_404 : public loopback_cfg {
+            using loopback_cfg::loopback_cfg;
+
+            action onstatus(
+                    const one::buffer&,
+                    const one::batch&,
+                    const std::string&,
+                    long) override {
+                throw one::notfound("no reason");
+            }
+        } storage_cfg(httpd.port());
+
+        // Attach message envelope
+        caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
+        caller_req.send(apimsg, zmq::send_flags::none);
+
+        one::transfer xfer(1, storage_cfg);
+        one::fragment_task ft;
+        ft.run(xfer, worker_req, worker_rep, worker_fail);
+
+        // Envelope should be passed throug without
+        // interfering with the fragment task
+        zmq::message_t envelope;
+        caller_fail.recv(envelope, zmq::recv_flags::none);
+        CHECK(envelope.to_string() == "ENVELOPE");
+
+        zmq::message_t fail;
+        auto received = caller_fail.recv(fail, zmq::recv_flags::dontwait);
+        CHECK(received);
+
+        zmq::message_t result;
+        auto res_recv = caller_rep.recv(result, zmq::recv_flags::dontwait);
+        CHECK(not res_recv);
     }
 }

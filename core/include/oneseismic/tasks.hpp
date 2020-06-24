@@ -35,7 +35,8 @@ public:
     void run(
             one::transfer& xfer,
             zmq::socket_t& input,
-            zmq::socket_t& output)
+            zmq::socket_t& output,
+            zmq::socket_t& fail)
         noexcept (false);
 
     fragment_task();

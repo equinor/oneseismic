@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
         zmq::poll(items, 2, -1);
 
         if (items[0].revents & ZMQ_POLLIN) {
-            task.run(xfer, source, sink);
+            task.run(xfer, source, sink, fail);
         }
 
         if (items[1].revents & ZMQ_POLLIN) {
