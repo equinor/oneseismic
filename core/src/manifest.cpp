@@ -138,8 +138,9 @@ void manifest_task::run(
 
     /* fetch manifest */
     one::batch batch;
-    batch.root = apirequest.root();
+    batch.storage_endpoint = apirequest.storage_endpoint();
     batch.guid = apirequest.guid();
+    batch.token = apirequest.token();
     batch.fragment_ids.resize(1);
     manifest_cfg cfg;
     try {
@@ -170,7 +171,7 @@ void manifest_task::run(
         log::log(
             "{} - badly formatted manifest: {}/{}",
             requestid,
-            batch.root,
+            batch.storage_endpoint,
             batch.guid
         );
         return;
@@ -179,8 +180,9 @@ void manifest_task::run(
     /* set request type-independent parameters */
     /* these really shouldn't fail, and should mean immediate debug */
     fetchrequest.set_requestid(apirequest.requestid());
-    fetchrequest.set_root(apirequest.root());
+    fetchrequest.set_storage_endpoint(apirequest.storage_endpoint());
     fetchrequest.set_guid(apirequest.guid());
+    fetchrequest.set_token(apirequest.token());
     *fetchrequest.mutable_fragment_shape() = apirequest.shape();
 
     /* set request type-specific parameters */

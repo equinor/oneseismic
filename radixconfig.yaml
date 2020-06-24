@@ -36,7 +36,6 @@ spec:
         "--sink",    "tcp://*:6142",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://0.0.0.0:6140",
-        "--account", "${AZURE_STORAGE_ACCOUNT}",
         "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
       ]
 
@@ -58,7 +57,6 @@ spec:
         "--sink",    "tcp://api:6144",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://0.0.0.0:6140",
-        "--account", "${AZURE_STORAGE_ACCOUNT}",
         "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
       ]
     - name: api

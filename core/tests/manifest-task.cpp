@@ -51,7 +51,6 @@ int simple_manifest(
 
 std::string make_slice_request() {
     oneseismic::api_request req;
-    req.set_root("root");
     req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
 
     auto* fragment_shape = req.mutable_shape();
@@ -118,7 +117,6 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         const auto ok = rep.ParseFromArray(repmsg.data(), repmsg.size());
         REQUIRE(ok);
 
-        CHECK(rep.root() == "root");
         CHECK(rep.fragment_shape().dim0() == 2);
         CHECK(rep.fragment_shape().dim1() == 2);
         CHECK(rep.fragment_shape().dim2() == 2);

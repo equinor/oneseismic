@@ -27,12 +27,13 @@ message api_slice {
 
 message api_request {
     string requestid = 1;
-    string root = 2;
-    string guid = 3;
-    fragment_shape shape = 4;
+    string guid = 2;
+    string storage_endpoint = 3;
+    string token = 4;
+    fragment_shape shape = 5;
 
     oneof function {
-        api_slice slice = 5;
+        api_slice slice = 6;
     };
 };
 
@@ -74,14 +75,15 @@ message fetch_response {
 
 message fetch_request {
     string requestid = 1;
-    string root = 2;
-    string guid = 3;
-    fragment_shape fragment_shape = 4;
-    cube_shape cube_shape = 5;
+    string guid = 2;
+    string storage_endpoint = 3;
+    string token = 4;
+    fragment_shape fragment_shape = 5;
+    cube_shape cube_shape = 6;
 
-    repeated fragment_id ids = 6;
+    repeated fragment_id ids = 7;
 
     oneof function {
-        slice_request slice = 7;
+        slice_request slice = 8;
     };
 };

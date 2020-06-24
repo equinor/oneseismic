@@ -32,9 +32,10 @@ func makeSliceRequest(
 ) ([]byte, error) {
 
 	req := oneseismic.ApiRequest{
+		StorageEndpoint: storageEndpoint,
 		Requestid: requestid,
 		Guid:      guid,
-		Root:      storageEndpoint,
+		Token: 	   token,
 		Shape: &oneseismic.FragmentShape{
 			Dim0: 64,
 			Dim1: 64,
@@ -58,11 +59,11 @@ func (s *slicer) fetchSlice(
 	requestid string,
 	token string,
 ) (*oneseismic.SliceResponse, error) {
-	_, err := parseStorageURL(root, s.storageURL)
+	storageEndpoint, err := parseStorageURL(root, s.storageURL)
 	if err != nil {
 		return nil, err
 	}
-	req, err := makeSliceRequest(root, guid, dim, lineno, requestid, token)
+	req, err := makeSliceRequest(storageEndpoint.String(), guid, dim, lineno, requestid, token)
 	if err != nil {
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}

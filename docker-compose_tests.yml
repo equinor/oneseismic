@@ -1,5 +1,11 @@
 version: '3.0'
 services:
+  fragment:
+    volumes:
+      - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
+  manifest:
+    volumes:
+      - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
   auth:
     image: lambdaville/no-factor-auth:v0.0.6
 

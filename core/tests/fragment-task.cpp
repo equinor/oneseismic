@@ -54,7 +54,6 @@ int fragment_response(
 
 std::string make_slice_request(int dim, int idx) {
     oneseismic::fetch_request req;
-    req.set_root("root");
     req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
 
     auto* fragment_shape = req.mutable_fragment_shape();

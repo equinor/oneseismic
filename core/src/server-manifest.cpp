@@ -21,25 +21,13 @@ public:
             const std::string&) const override {
 
         return fmt::format(
-            "https://{}.blob.core.windows.net/{}/manifest.json",
-            batch.root,
+            "{}/{}/manifest.json",
+            batch.storage_endpoint,
             batch.guid
         );
 
     }
 
-    std::string canonicalized_resource(
-            const std::string& root,
-            const std::string& guid,
-            const std::string& fragment_shape,
-            const std::string& fragment_id)
-    const noexcept (false) override {
-        return fmt::format(
-                "/{}/{}/manifest.json",
-                root,
-                guid
-        );
-    }
 
     action onstatus(
             const buffer& b,
@@ -80,8 +68,6 @@ int main(int argc, char** argv) {
     std::string sink_address = "tcp://*:68142";
     std::string control_address;
     std::string fail_address;
-    std::string acc;
-    std::string key;
     bool help = false;
     int ntransfers = 4;
 
@@ -102,12 +88,6 @@ int main(int argc, char** argv) {
         | clara::Opt(ntransfers, "transfers")
             ["-j"]["--transfers"]
             (fmt::format("Concurrent blob connections, default = {}", ntransfers))
-        | clara::Opt(acc, "storage account")
-            ["-a"]["--account"]
-            ("Storage account")
-        | clara::Opt(key, "key")
-            ["-k"]["--key"]
-            ("Pre-shared key")
     ;
 
     auto result = cli.parse(clara::Args(argc, argv));
@@ -122,15 +102,6 @@ int main(int argc, char** argv) {
         std::exit(EXIT_SUCCESS);
     }
 
-    if (acc.empty()) {
-        std::cerr << "Need storage account\n" << cli << "\n";
-        std::exit(EXIT_FAILURE);
-    }
-
-    if (key.empty()) {
-        std::cerr << "Need pre-shared key\n" << cli << "\n";
-        std::exit(EXIT_FAILURE);
-    }
 
     zmq::context_t ctx;
     zmq::socket_t source(ctx, ZMQ_PULL);
@@ -158,7 +129,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az_manifest az(acc, key);
+    one::az_manifest az;
     one::transfer xfer(ntransfers, az);
     one::manifest_task task;
 
