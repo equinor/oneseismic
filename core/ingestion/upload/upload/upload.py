@@ -7,6 +7,8 @@ import segyio
 import segyio._segyio
 import tqdm
 
+from azure.core.exceptions import ResourceExistsError
+
 def segment_limit(segment, end, max_width):
     """ Unpadded segment width
 
@@ -181,7 +183,6 @@ def upload_segment(params, meta, segment, blob, f):
     container = meta['guid']
 
 
-    blob.create_container(name=container)
 
     tqdm_opts = {
         'desc': 'uploading segment {}'.format(segment),
@@ -197,7 +198,7 @@ def upload_segment(params, meta, segment, blob, f):
         # TODO: consider implications and consequences and how to handle an
         # already-existing fragment with this ID
         blob_client = blob.get_blob_client(container=container, blob=bn)
-        blob_client.upload_blob(bytes(dst[:, y_frag, z_frag]))
+        blob_client.upload_blob(bytes(dst[:, y_frag, z_frag]), overwrite=True)
 
 
 def upload(params, meta, filestream, blob):
@@ -206,6 +207,12 @@ def upload(params, meta, filestream, blob):
     dims = meta['dimensions']
     first = params['subcube-dims'][0]
     segments = int(math.ceil(len(dims[0]) / first))
+
+    container = meta['guid']
+    try:
+        blob.create_container(name=container)
+    except ResourceExistsError as error:
+        print(error)
 
     for seg in range(segments):
         upload_segment(params, meta, seg, blob, filestream)
