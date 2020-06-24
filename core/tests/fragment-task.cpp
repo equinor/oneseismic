@@ -81,7 +81,10 @@ std::string make_slice_request(int dim, int idx) {
     return msg;
 }
 
-TEST_CASE("Fragment is sliced and pushed through", "[slice]") {
+TEST_CASE(
+        "Fragment is sliced and pushed through to the right queue",
+        "[slice]")
+{
     zmq::context_t ctx;
     zmq::socket_t caller_req(ctx, ZMQ_PUSH);
     zmq::socket_t caller_rep(ctx, ZMQ_PULL);
@@ -94,48 +97,50 @@ TEST_CASE("Fragment is sliced and pushed through", "[slice]") {
     worker_rep.connect("inproc://rep");
 
     mhttpd httpd(fragment_response);
-
-    loopback_cfg storage(httpd.port());
-    one::transfer xfer(1, storage);
-
-    // Attach message envelope
-    caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
-
     const auto apireq = make_slice_request(0, 0);
     zmq::message_t apimsg(apireq.data(), apireq.size());
-    caller_req.send(apimsg, zmq::send_flags::none);
 
-    one::fragment_task ft;
-    ft.run(xfer, worker_req, worker_rep);
+    SECTION("Successful calls are pushed to destination") {
+        loopback_cfg storage(httpd.port());
+        one::transfer xfer(1, storage);
 
-    // Envelope should be passed through without
-    // interfering with the fragment task
-    zmq::message_t envelope;
-    caller_rep.recv(envelope, zmq::recv_flags::none);
-    CHECK(envelope.to_string() == "ENVELOPE");
+        // Attach message envelope
+        caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
 
-    zmq::message_t msg;
-    caller_rep.recv(msg, zmq::recv_flags::none);
-    oneseismic::fetch_response res;
-    const auto ok = res.ParseFromArray(msg.data(), msg.size());
-    REQUIRE(ok);
+        caller_req.send(apimsg, zmq::send_flags::none);
 
-    std::vector< float > expected(4);
-    std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
+        one::fragment_task ft;
+        ft.run(xfer, worker_req, worker_rep);
 
-    const auto& tiles = res.slice().tiles();
-    CHECK(tiles.size() == 1);
+        // Envelope should be passed through without
+        // interfering with the fragment task
+        zmq::message_t envelope;
+        caller_rep.recv(envelope, zmq::recv_flags::none);
+        CHECK(envelope.to_string() == "ENVELOPE");
 
-    CHECK(tiles.Get(0).layout().iterations()   == 2);
-    CHECK(tiles.Get(0).layout().chunk_size()   == 2);
-    CHECK(tiles.Get(0).layout().initial_skip() == 0);
-    CHECK(tiles.Get(0).layout().superstride()  == 2);
-    CHECK(tiles.Get(0).layout().substride()    == 2);
+        zmq::message_t msg;
+        caller_rep.recv(msg, zmq::recv_flags::none);
+        oneseismic::fetch_response res;
+        const auto ok = res.ParseFromArray(msg.data(), msg.size());
+        REQUIRE(ok);
 
-    CHECK(tiles.Get(0).v().size() == 4);
-    auto v = std::vector< float >(
-        tiles.Get(0).v().begin(),
-        tiles.Get(0).v().end()
-    );
-    CHECK_THAT(v, Equals(expected));
+        std::vector< float > expected(4);
+        std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
+
+        const auto& tiles = res.slice().tiles();
+        CHECK(tiles.size() == 1);
+
+        CHECK(tiles.Get(0).layout().iterations()   == 2);
+        CHECK(tiles.Get(0).layout().chunk_size()   == 2);
+        CHECK(tiles.Get(0).layout().initial_skip() == 0);
+        CHECK(tiles.Get(0).layout().superstride()  == 2);
+        CHECK(tiles.Get(0).layout().substride()    == 2);
+
+        CHECK(tiles.Get(0).v().size() == 4);
+        auto v = std::vector< float >(
+                tiles.Get(0).v().begin(),
+                tiles.Get(0).v().end()
+                );
+        CHECK_THAT(v, Equals(expected));
+    }
 }
