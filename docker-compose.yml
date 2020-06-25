@@ -1,7 +1,7 @@
 version: '3.0'
 services:
   manifest:
-    image: oneseismic/base:${VERSION:-latest}
+    image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
       context: .
       dockerfile: core/Dockerfile
@@ -17,7 +17,7 @@ services:
     depends_on:
       - api
   fragment:
-    image: oneseismic/base:${VERSION:-latest}
+    image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
       context: .
       dockerfile: core/Dockerfile
@@ -35,7 +35,7 @@ services:
       - manifest
 
   api:
-    image: lambdaville.azurecr.io/api:${VERSION:-latest}
+    image: oneseismic.azurecr.io/api:${VERSION:-latest}
     build:
       context: .
       dockerfile: api/Dockerfile
