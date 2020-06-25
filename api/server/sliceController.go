@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
+	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -36,7 +37,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 		ctx.StatusCode(http.StatusBadRequest)
 		return
 	}
-	requestid := ""
+	requestid := uuid.New().String()
 	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
