@@ -8,7 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func msgLoopback() {
+/*
+ * Emulate the core pipeline, but instead of producing an artifact of seismic,
+ * just echo the payload. Even though the payload processing is the identity
+ * function, the messages going in and coming out must be properly structured.
+ */
+func echoAsWorker() {
 	in, _ := zmq.NewSocket(zmq.PULL)
 	in.Connect("inproc://req1")
 	in.Connect("inproc://req2")
@@ -65,9 +70,9 @@ func TestMultiplexer(t *testing.T) {
 	go multiplexer(jobs, "mplx1", "inproc://req1", "inproc://rep1")
 	go multiplexer(jobs, "mplx2", "inproc://req2", "inproc://rep2")
 
-	go msgLoopback()
-	go msgLoopback()
-	go msgLoopback()
+	go echoAsWorker()
+	go echoAsWorker()
+	go echoAsWorker()
 
 	done := make(chan struct{})
 	for i := 0; i < 100; i++ {
