@@ -28,6 +28,18 @@ func msgLoopback() {
 			jobID: partition.jobID,
 			payload: partition.request,
 		}
+
+		/*
+		 * There is an awkward race condition in this test Connect() does not
+		 * block, and it can happen that the source is available with messages
+		 * waiting before the sink. In those cases, the sink will be
+		 * unreachable, but the sink is an inproc queue, so host unreachable is
+		 * somewhat non-sensical. Just re-try sending until it actually
+		 * completes.
+		 *
+		 * In the presence of super bad bugs, this could lead to a difficult to
+		 * diagnose infinite loop
+		 */
 		_, err := partial.sendZMQ(out)
 		for err == zmq.EHOSTUNREACH {
 			_, err = partial.sendZMQ(out)
