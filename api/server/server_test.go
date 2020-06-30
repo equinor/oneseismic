@@ -47,8 +47,10 @@ func coreMock(reqNdpt string, repNdpt string) {
 	out.Connect(repNdpt)
 
 	for {
-		m, _ := in.RecvMessage(0)
-		fr := oneseismic.FetchResponse{Requestid: m[1]}
+		m, _ := in.RecvMessageBytes(0)
+		pr := partitionRequest{}
+		pr.loadZMQ(m)
+		fr := oneseismic.FetchResponse{Requestid: pr.jobID}
 		fr.Function = &oneseismic.FetchResponse_Slice{
 			Slice: &oneseismic.SliceResponse{
 				Tiles: []*oneseismic.SliceTile{
@@ -62,8 +64,9 @@ func coreMock(reqNdpt string, repNdpt string) {
 				},
 			},
 		}
+
 		bytes, _ := proto.Marshal(&fr)
-		m[2] = string(bytes)
+		m[2] = bytes
 		_, err := out.SendMessage(m)
 
 		for err == zmq4.EHOSTUNREACH {
