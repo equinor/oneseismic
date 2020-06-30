@@ -1,11 +1,10 @@
-package main
+package server
 
 import (
 	"log"
 	"testing"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
-	"github.com/equinor/oneseismic/api/server"
 	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
@@ -22,7 +21,7 @@ func TestSlicer(t *testing.T) {
 
 	root := "azure_account"
 	mPlexName := uuid.New().String()
-	server.RegisterSlicer(app, reqNdpt, repNdpt, root, mPlexName)
+	RegisterSlicer(app, reqNdpt, repNdpt, root, mPlexName)
 
 	e := httptest.New(t, app)
 	jsonResponse := e.GET("/some_existing_guid/slice/0/0").
