@@ -181,7 +181,6 @@ def upload_segment(params, meta, segment, blob, f):
     container = meta['guid']
 
 
-    blob.create_container(name=container)
 
     tqdm_opts = {
         'desc': 'uploading segment {}'.format(segment),
@@ -206,6 +205,9 @@ def upload(params, meta, filestream, blob):
     dims = meta['dimensions']
     first = params['subcube-dims'][0]
     segments = int(math.ceil(len(dims[0]) / first))
+
+    container = meta['guid']
+    blob.create_container(name=container)
 
     for seg in range(segments):
         upload_segment(params, meta, seg, blob, filestream)
