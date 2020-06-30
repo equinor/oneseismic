@@ -19,11 +19,18 @@ func msgLoopback() {
 	out.Connect("inproc://rep2")
 
 	for {
-		m, _ := in.RecvMessage(0)
-		_, err := out.SendMessage(m)
+		m, _ := in.RecvMessageBytes(0)
+		partition := partitionRequest{}
+		partition.loadZMQ(m)
 
+		partial := partialResult {
+			address: partition.address,
+			jobID: partition.jobID,
+			payload: partition.request,
+		}
+		_, err := partial.sendZMQ(out)
 		for err == zmq.EHOSTUNREACH {
-			_, err = out.SendMessage(m)
+			_, err = partial.sendZMQ(out)
 		}
 	}
 }
