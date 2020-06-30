@@ -66,8 +66,13 @@ func coreMock(reqNdpt string, repNdpt string) {
 		}
 
 		bytes, _ := proto.Marshal(&fr)
-		m[2] = bytes
-		_, err := out.SendMessage(m)
+		partial := partialResult {
+			address: pr.address,
+			jobID: pr.jobID,
+			payload: bytes,
+		}
+
+		_, err = partial.sendZMQ(out)
 
 		for err == zmq4.EHOSTUNREACH {
 			_, err = out.SendMessage(m)

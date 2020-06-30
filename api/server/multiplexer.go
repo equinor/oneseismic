@@ -31,6 +31,21 @@ type partitionRequest struct {
 }
 
 /*
+ * The partialResult is pretty similar to the partitionRequest. Both are
+ * structurally identical [1], but they are used at different steps in the
+ * pipeline. The partialResult is the message sent by fragment/worker nodes
+ * when the result is ready. Currently only one message is sent with all
+ * user-requested data.
+ *
+ * [1] at least at this point, but this may change in the future
+ */
+type partialResult struct {
+	address string
+	jobID string
+	payload []byte
+}
+
+/*
  * The make/send functions are stupid helpers to help formalise the protocol
  * for communication with other parts of oneseismic, and provide a canonical
  * way of formatting messages for both the wire (over ZMQ) and over go channels
@@ -58,6 +73,16 @@ func (p *partitionRequest) loadZMQ(msg [][]byte) {
 	p.address = string(msg[0])
 	p.jobID = string(msg[1])
 	p.request = msg[2]
+}
+
+func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
+	return socket.SendMessage(p.address, p.jobID, p.payload)
+}
+
+func (p *partialResult) loadZMQ(msg [][]byte) {
+	p.address = string(msg[0])
+	p.jobID = string(msg[1])
+	p.payload = msg[2]
 }
 
 func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) {
