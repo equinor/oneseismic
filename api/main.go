@@ -5,20 +5,16 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/equinor/oneseismic/api/auth"
 	_ "github.com/equinor/oneseismic/api/docs"
-	"github.com/equinor/oneseismic/api/events"
-	"github.com/equinor/oneseismic/api/logger"
-	"github.com/equinor/oneseismic/api/profiling"
 	"github.com/equinor/oneseismic/api/server"
 	"github.com/iris-contrib/swagger/v12"
 	"github.com/iris-contrib/swagger/v12/swaggerFiles"
 	"github.com/joho/godotenv"
+	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
-	"github.com/pkg/profile"
 )
 
 func init() {
@@ -38,19 +34,6 @@ func main() {
 		log.Fatal("Failed to load config", err)
 	}
 
-	if c.profiling {
-		var p *profile.Profile
-		pOpts := []func(*profile.Profile){
-			profile.ProfilePath("pprof"),
-			profile.NoShutdownHook,
-		}
-
-		pOpts = append(pOpts, profile.MemProfile)
-		p = profile.Start(pOpts...).(*profile.Profile)
-		profiling.ServeMetrics("8081")
-		defer p.Stop()
-	}
-
 	err = serve(c)
 	if err != nil {
 		log.Fatalf("failed to start server: %v", err)
@@ -58,13 +41,13 @@ func main() {
 }
 
 func serve(c *config) error {
+	logLevel := os.Getenv("LOG_LEVEL")
+	golog.SetTimeFormat("")
+	golog.SetLevel(logLevel)
+
 	app := iris.Default()
 
-	app.Logger().SetLevel(c.logLevel)
-	logger.AddGoLogSource(app.Logger().SetOutput)
-	if err := logToDB(app, c.logDBConnStr); err != nil {
-		return err
-	}
+	app.Logger().SetLevel(logLevel)
 
 	rsaKeys, err := auth.GetRSAKeys(c.authServer + "/.well-known/openid-configuration")
 	if err != nil {
@@ -75,7 +58,6 @@ func serve(c *config) error {
 
 	app.Use(iris.Gzip)
 	enableSwagger(app)
-	profiling.EnablePrometheusMiddleware(app)
 
 	if err := server.Register(
 		app,
@@ -95,55 +77,30 @@ func enableSwagger(app *iris.Application) {
 	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 }
 
-func logToDB(app *iris.Application, logDBConnStr string) error {
-
-	if len(logDBConnStr) > 0 {
-		logger.LogI("switch log sink from os.Stdout to psqlDB")
-
-		err := logger.SetLogSink(logger.ConnString(logDBConnStr), events.DebugLevel)
-		if err != nil {
-			return fmt.Errorf("switching log sink: %w", err)
-		}
-	}
-
-	return nil
-}
-
 type config struct {
-	profiling    bool
-	hostAddr     string
-	storageURL   string
-	accountName  string
-	accountKey   string
-	logDBConnStr string
-	logLevel     string
-	authServer   string
-	issuer       string
-	apiSecret    []byte
-	zmqReqAddr   string
-	zmqRepAddr   string
-	SigKeySet    map[string]rsa.PublicKey
+	hostAddr    string
+	storageURL  string
+	accountName string
+	accountKey  string
+	authServer  string
+	issuer      string
+	apiSecret   []byte
+	zmqReqAddr  string
+	zmqRepAddr  string
+	SigKeySet   map[string]rsa.PublicKey
 }
 
 func getConfig() (*config, error) {
-	profiling, err := strconv.ParseBool(os.Getenv("PROFILING"))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse PROFILING: %w", err)
-	}
-
 	conf := &config{
-		authServer:   os.Getenv("AUTHSERVER"),
-		apiSecret:    []byte(os.Getenv("API_SECRET")),
-		issuer:       os.Getenv("ISSUER"),
-		storageURL:   strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
-		accountName:  os.Getenv("AZURE_STORAGE_ACCOUNT"),
-		accountKey:   os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
-		hostAddr:     os.Getenv("HOST_ADDR"),
-		logDBConnStr: os.Getenv("LOGDB_CONNSTR"),
-		logLevel:     os.Getenv("LOG_LEVEL"),
-		profiling:    profiling,
-		zmqRepAddr:   os.Getenv("ZMQ_REP_ADDR"),
-		zmqReqAddr:   os.Getenv("ZMQ_REQ_ADDR"),
+		authServer:  os.Getenv("AUTHSERVER"),
+		apiSecret:   []byte(os.Getenv("API_SECRET")),
+		issuer:      os.Getenv("ISSUER"),
+		storageURL:  strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
+		accountName: os.Getenv("AZURE_STORAGE_ACCOUNT"),
+		accountKey:  os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
+		hostAddr:    os.Getenv("HOST_ADDR"),
+		zmqRepAddr:  os.Getenv("ZMQ_REP_ADDR"),
+		zmqReqAddr:  os.Getenv("ZMQ_REQ_ADDR"),
 	}
 
 	return conf, nil
