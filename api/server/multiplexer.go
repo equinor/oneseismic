@@ -31,18 +31,29 @@ type partitionRequest struct {
 }
 
 /*
- * The partialResult is pretty similar to the partitionRequest. Both are
- * structurally identical [1], but they are used at different steps in the
- * pipeline. The partialResult is the message sent by fragment/worker nodes
- * when the result is ready. Currently only one message is sent with all
- * user-requested data.
+ * The partialResult is this model internal representation of the message
+ * sent by the worker nodes when a task is done.
  *
- * [1] at least at this point, but this may change in the future
+ * The payload being an opaque blob of bytes is very useful for testing, since
+ * the ZMQ and channel messaging infrastructure now does not depend on the
+ * payload, and instead of structured protobuf messages we can send strings to
+ * compare.
  */
 type partialResult struct {
-	address string
 	jobID string
 	payload []byte
+}
+
+/*
+ * The routedPartialRequest is a more faithful representation of what the
+ * worker nodes *actually* send - they need to include a return address to the
+ * node that holds the session (this program, really). However, ZMQ at some
+ * point strips this address as a part of its routing protocol, and the rest of
+ * the application sees the message as partialResult.
+ */
+type routedPartialResult struct {
+	address string
+	partial partialResult
 }
 
 /*
@@ -75,14 +86,22 @@ func (p *partitionRequest) loadZMQ(msg [][]byte) {
 	p.request = msg[2]
 }
 
-func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.address, p.jobID, p.payload)
+func (p *partialResult) loadZMQ(msg [][]byte) {
+	p.jobID = string(msg[0])
+	p.payload = msg[1]
 }
 
-func (p *partialResult) loadZMQ(msg [][]byte) {
+func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
+	return socket.SendMessage(p.jobID, p.payload)
+}
+
+func (p *routedPartialResult) loadZMQ(msg [][]byte) {
 	p.address = string(msg[0])
-	p.jobID = string(msg[1])
-	p.payload = msg[2]
+	p.partial.loadZMQ(msg[1:])
+}
+
+func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
+	return socket.SendMessage(p.address, p.partial.jobID, p.partial.payload)
 }
 
 func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) {

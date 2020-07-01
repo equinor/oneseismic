@@ -28,10 +28,12 @@ func echoAsWorker() {
 		partition := partitionRequest{}
 		partition.loadZMQ(m)
 
-		partial := partialResult {
+		partial := routedPartialResult {
 			address: partition.address,
-			jobID: partition.jobID,
-			payload: partition.request,
+			partial: partialResult {
+				jobID: partition.jobID,
+				payload: partition.request,
+			},
 		}
 
 		/*

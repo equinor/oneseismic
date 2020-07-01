@@ -66,10 +66,12 @@ func coreMock(reqNdpt string, repNdpt string) {
 		}
 
 		bytes, _ := proto.Marshal(&fr)
-		partial := partialResult {
+		partial := routedPartialResult {
 			address: pr.address,
-			jobID: pr.jobID,
-			payload: bytes,
+			partial: partialResult {
+				jobID: pr.jobID,
+				payload: bytes,
+			},
 		}
 
 		_, err = partial.sendZMQ(out)
