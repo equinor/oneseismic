@@ -3,6 +3,7 @@ package server
 import (
 	"strconv"
 	"testing"
+	"log"
 
 	zmq "github.com/pebbe/zmq4"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,12 @@ func echoAsWorker() {
 	for {
 		m, _ := in.RecvMessageBytes(0)
 		partition := partitionRequest{}
-		partition.loadZMQ(m)
+		err := partition.loadZMQ(m)
+
+		if err != nil {
+			msg := "Broken partitionRequest (loadZMQ) in core emulation: %s"
+			log.Fatalf(msg, err.Error())
+		}
 
 		partial := routedPartialResult {
 			address: partition.address,
@@ -47,7 +53,7 @@ func echoAsWorker() {
 		 * In the presence of super bad bugs, this could lead to a difficult to
 		 * diagnose infinite loop
 		 */
-		_, err := partial.sendZMQ(out)
+		_, err = partial.sendZMQ(out)
 		for err == zmq.EHOSTUNREACH {
 			_, err = partial.sendZMQ(out)
 		}

@@ -149,7 +149,20 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 				log.Fatal(err)
 			}
 
-			partial.loadZMQ(m)
+			err = partial.loadZMQ(m)
+			if err != nil {
+				/*
+				 * This is likely to mean a bug somewhere, so eventually:
+				 *   1. drop the message and fail the request
+				 *   2. log all received bytes, try to recover at least jobID
+				 *   3. then carry on
+				 *
+				 * For now, neither the experience nor infrastructure is in
+				 * place for that, so just log and exit
+				 */
+				log.Fatalf("Broken partialResult (loadZMQ): %s", err.Error())
+			}
+
 			rep <- partial
 		}
 	}()

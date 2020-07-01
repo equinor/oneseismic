@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"net/url"
 	"testing"
+	"log"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/equinor/oneseismic/api/oneseismic"
@@ -49,7 +50,11 @@ func coreMock(reqNdpt string, repNdpt string) {
 	for {
 		m, _ := in.RecvMessageBytes(0)
 		pr := partitionRequest{}
-		pr.loadZMQ(m)
+		err := pr.loadZMQ(m)
+		if err != nil {
+			msg := "Broken partitionRequest (loadZMQ) in core emulation: %s"
+			log.Fatalf(msg, err.Error())
+		}
 		fr := oneseismic.FetchResponse{Requestid: pr.jobID}
 		fr.Function = &oneseismic.FetchResponse_Slice{
 			Slice: &oneseismic.SliceResponse{
