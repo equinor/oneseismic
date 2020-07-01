@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/prometheus/common/log"
+	"github.com/kataras/golog"
 )
 
 type store interface {
@@ -51,7 +51,7 @@ func (sURL *serviceURL) manifest(ctx context.Context, guid string) (*Manifest, e
 func (sURL *serviceURL) dimensions(ctx context.Context, guid string) ([]int32, error) {
 	manifest, err := sURL.manifest(ctx, guid)
 	if err != nil {
-		log.Errorf("cube: %s", err)
+		golog.Error("cube", err)
 		return nil, err
 	}
 	dims := make([]int32, len(manifest.Dimensions))
@@ -65,7 +65,7 @@ func (sURL *serviceURL) dimensions(ctx context.Context, guid string) ([]int32, e
 func (sURL *serviceURL) lines(ctx context.Context, guid string, dimension int32) ([]int32, error) {
 	manifest, err := sURL.manifest(ctx, guid)
 	if err != nil {
-		log.Errorf("cube: %s", err)
+		golog.Error("cube", err)
 		return nil, err
 	}
 
