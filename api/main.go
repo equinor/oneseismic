@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -43,10 +45,18 @@ func main() {
 	app.Use(iris.Gzip)
 	enableSwagger(app)
 
+	storageURL := strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s")
+	account := os.Getenv("AZURE_STORAGE_ACCOUNT")
+
+	primaryURL, err := url.Parse(
+		fmt.Sprintf(storageURL, account))
+	if err != nil {
+		golog.Fatal(err)
+	}
 	err = server.Register(
 		app,
-		strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s"),
-		os.Getenv("AZURE_STORAGE_ACCOUNT"),
+		*primaryURL,
+		account,
 		os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
 		os.Getenv("ZMQ_REQ_ADDR"),
 		os.Getenv("ZMQ_REP_ADDR"),

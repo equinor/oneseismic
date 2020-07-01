@@ -21,7 +21,7 @@ func TestSlicer(t *testing.T) {
 
 	root := "azure_account"
 	mPlexName := uuid.New().String()
-	RegisterSlicer(app, reqNdpt, repNdpt, root, mPlexName)
+	registerSlicer(app, "", reqNdpt, repNdpt, root, mPlexName)
 
 	e := httptest.New(t, app)
 	jsonResponse := e.GET("/some_existing_guid/slice/0/0").
@@ -53,7 +53,7 @@ func coreMock(reqNdpt string, repNdpt string) {
 			fr.Function = &oneseismic.FetchResponse_Slice{
 				Slice: &oneseismic.SliceResponse{
 					Tiles: []*oneseismic.SliceTile{
-						&oneseismic.SliceTile{
+						{
 							Layout: &oneseismic.SliceLayout{
 								ChunkSize:  1,
 								Iterations: 0,

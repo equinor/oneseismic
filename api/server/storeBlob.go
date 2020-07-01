@@ -97,21 +97,15 @@ func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-func newServiceURL(storageURL, accountName, accountKey string) (*serviceURL, error) {
+func newServiceURL(primaryURL url.URL, accountName, accountKey string) (*serviceURL, error) {
 
-	uri, err := url.Parse(
-		fmt.Sprintf(storageURL,
-			accountName))
-	if err != nil {
-		return nil, err
-	}
 	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		return nil, err
 	}
 
 	sURL := azblob.NewServiceURL(
-		*uri,
+		primaryURL,
 		azblob.NewPipeline(credential, azblob.PipelineOptions{}),
 	)
 
