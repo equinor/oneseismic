@@ -2,6 +2,7 @@ package server
 
 import (
 	"log"
+	"fmt"
 
 	zmq "github.com/pebbe/zmq4"
 )
@@ -13,7 +14,7 @@ type job struct {
 }
 
 type wire interface {
-	loadZMQ(msg [][]byte)
+	loadZMQ(msg [][]byte) error
 	sendZMQ(socket *zmq.Socket) (total int, err error)
 }
 
@@ -80,24 +81,40 @@ func (p *partitionRequest) sendZMQ(socket *zmq.Socket) (total int, err error) {
  * multipart message, and *the* go reference for what the messages from the
  * fragment/worker looks like.
  */
-func (p *partitionRequest) loadZMQ(msg [][]byte) {
+func (p *partitionRequest) loadZMQ(msg [][]byte) error {
+	if len(msg) != 3 {
+		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
+	}
+
 	p.address = string(msg[0])
 	p.jobID = string(msg[1])
 	p.request = msg[2]
+	return nil
 }
 
-func (p *partialResult) loadZMQ(msg [][]byte) {
+func (p *partialResult) loadZMQ(msg [][]byte) error {
+	if len(msg) != 2 {
+		return fmt.Errorf("len(msg) = %d; want 2", len(msg))
+	}
 	p.jobID = string(msg[0])
 	p.payload = msg[1]
+	return nil
 }
 
 func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
 	return socket.SendMessage(p.jobID, p.payload)
 }
 
-func (p *routedPartialResult) loadZMQ(msg [][]byte) {
+func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
+	if len(msg) != 3 {
+		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
+	}
 	p.address = string(msg[0])
-	p.partial.loadZMQ(msg[1:])
+	err := p.partial.loadZMQ(msg[1:])
+	if err != nil {
+		return fmt.Errorf("routedPartialResult.partial: %s", err.Error())
+	}
+	return nil
 }
 
 func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
