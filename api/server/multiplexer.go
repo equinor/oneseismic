@@ -113,7 +113,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 
 	req.Bind(reqNdpt)
 
-	rep := make(chan [][]byte)
+	rep := make(chan partialResult)
 	go func() {
 		r, err := zmq.NewSocket(zmq.DEALER)
 
@@ -124,6 +124,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 		r.SetIdentity(address)
 		r.Bind(repNdpt)
 
+		var partial partialResult
 		for {
 			m, err := r.RecvMessageBytes(0)
 
@@ -131,7 +132,8 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 				log.Fatal(err)
 			}
 
-			rep <- m
+			partial.loadZMQ(m)
+			rep <- partial
 		}
 	}()
 
@@ -141,12 +143,10 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 	for {
 		select {
 		case r := <-rep:
-			jobID := string(r[len(r)-2])
-			msg := r[len(r)-1]
-			rc := replyChnls[jobID]
+			rc := replyChnls[r.jobID]
+			rc <- r.payload
+			delete(replyChnls, r.jobID)
 
-			rc <- msg
-			delete(replyChnls, jobID)
 		case j := <-jobs:
 			part := newPartitionRequest(&j, address)
 			replyChnls[j.jobID] = j.reply
