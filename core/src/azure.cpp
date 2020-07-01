@@ -126,8 +126,8 @@ curl_slist* az::http_headers(
 
 std::string az::url(const one::batch& batch, const std::string& id) const {
     return fmt::format(
-        "https://{}.blob.core.windows.net/{}/{}/{}.f32",
-        batch.root,
+        "{}/{}/{}/{}.f32",
+        batch.storage_endpoint,
         batch.guid,
         batch.fragment_shape,
         id

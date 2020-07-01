@@ -21,8 +21,8 @@ public:
             const std::string&) const override {
 
         return fmt::format(
-            "https://{}.blob.core.windows.net/{}/manifest.json",
-            batch.root,
+            "{}/{}/manifest.json",
+            batch.storage_endpoint,
             batch.guid
         );
 

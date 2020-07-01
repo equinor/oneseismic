@@ -63,12 +63,13 @@ func (sc *sliceController) get(ctx iris.Context) {
 func createSliceController(
 	reqNdpt string,
 	repNdpt string,
+	storageEndpoint string,
 	root string,
 	mPlexName string,
 ) sliceController {
 	jobs := make(chan job)
 	go multiplexer(jobs, mPlexName, reqNdpt, repNdpt)
-	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageRoot: root, jobs: jobs}}}
+	sc := sliceController{&slicer{&mMultiplexer{storageEndpoint, root, jobs}}}
 
 	return sc
 }
