@@ -21,7 +21,7 @@ func TestSlicer(t *testing.T) {
 
 	root := "azure_account"
 	mPlexName := uuid.New().String()
-	RegisterSlicer(app, reqNdpt, repNdpt, root, mPlexName)
+	RegisterSlicer(app, "", reqNdpt, repNdpt, root, mPlexName)
 
 	e := httptest.New(t, app)
 	jsonResponse := e.GET("/some_existing_guid/slice/0/0").
