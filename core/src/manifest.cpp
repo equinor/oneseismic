@@ -139,6 +139,7 @@ void manifest_task::run(
     /* fetch manifest */
     one::batch batch;
     batch.root = apirequest.root();
+    batch.storage_endpoint = apirequest.storage_endpoint();
     batch.guid = apirequest.guid();
     batch.fragment_ids.resize(1);
     manifest_cfg cfg;
@@ -180,6 +181,7 @@ void manifest_task::run(
     /* these really shouldn't fail, and should mean immediate debug */
     fetchrequest.set_requestid(apirequest.requestid());
     fetchrequest.set_root(apirequest.root());
+    fetchrequest.set_storage_endpoint(apirequest.storage_endpoint());
     fetchrequest.set_guid(apirequest.guid());
     *fetchrequest.mutable_fragment_shape() = apirequest.shape();
 
