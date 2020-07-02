@@ -38,7 +38,7 @@ func main() {
 
 	app := iris.Default()
 	app.Logger().SetLevel(logLevel)
-	app.Use(auth.CheckJWT(rsaKeys, []byte(os.Getenv("API_SECRET"))))
+	app.Use(auth.CheckJWT(rsaKeys))
 	app.Use(auth.ValidateIssuer(os.Getenv("ISSUER")))
 	app.Use(iris.Gzip)
 	enableSwagger(app)

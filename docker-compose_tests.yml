@@ -12,7 +12,6 @@ services:
       - auth
       - az
     environment:
-      - API_SECRET="12345678"
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=auth:8089
       - AZURE_STORAGE_URL=http://az:10000/{}
