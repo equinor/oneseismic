@@ -53,7 +53,7 @@ func coreMock(reqNdpt string, repNdpt string) {
 			fr.Function = &oneseismic.FetchResponse_Slice{
 				Slice: &oneseismic.SliceResponse{
 					Tiles: []*oneseismic.SliceTile{
-						&oneseismic.SliceTile{
+						{
 							Layout: &oneseismic.SliceLayout{
 								ChunkSize:  1,
 								Iterations: 0,
