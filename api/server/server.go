@@ -22,7 +22,7 @@ func registerStoreController(app *iris.Application, storageEndpoint url.URL, acc
 	return nil
 }
 
-func RegisterSlicer(
+func registerSlicer(
 	app *iris.Application,
 	storageEndpoint string,
 	reqNdpt string,
@@ -47,7 +47,7 @@ func Register(
 		return err
 	}
 	mPlexName := uuid.New().String()
-	RegisterSlicer(app, storageEndpoint.String(), reqNdpt, repNdpt, accountName, mPlexName)
+	registerSlicer(app, storageEndpoint.String(), reqNdpt, repNdpt, accountName, mPlexName)
 
 	return nil
 }
