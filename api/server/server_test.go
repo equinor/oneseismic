@@ -3,7 +3,6 @@ package server
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"log"
 	"net/url"
 	"testing"
 
@@ -30,7 +29,7 @@ func TestSlicer(t *testing.T) {
 	assert.Nil(t, err)
 
 	e := httptest.New(t, app)
-	jsonResponse := e.GET("/some_existing_guid/slice/0/0").
+	jsonResponse := e.GET("/some_guid/slice/0/0").
 		WithHeader("Authorization", "Bearer "+jwt).
 		Expect().
 		Status(httptest.StatusOK).
@@ -50,32 +49,22 @@ func coreMock(reqNdpt string, repNdpt string) {
 	for {
 		m, _ := in.RecvMessage(0)
 		fr := oneseismic.FetchResponse{Requestid: m[1]}
-		req := oneseismic.ApiRequest{}
-		err := proto.Unmarshal([]byte(m[2]), &req)
-		if err != nil {
-			log.Fatalln("Failed to decode request:", err)
-		}
-		if req.Guid == "some_existing_guid" {
-			fr.Function = &oneseismic.FetchResponse_Slice{
-				Slice: &oneseismic.SliceResponse{
-					Tiles: []*oneseismic.SliceTile{
-						{
-							Layout: &oneseismic.SliceLayout{
-								ChunkSize:  1,
-								Iterations: 0,
-							},
-							V: []float32{0.1},
+		fr.Function = &oneseismic.FetchResponse_Slice{
+			Slice: &oneseismic.SliceResponse{
+				Tiles: []*oneseismic.SliceTile{
+					{
+						Layout: &oneseismic.SliceLayout{
+							ChunkSize:  1,
+							Iterations: 0,
 						},
+						V: []float32{0.1},
 					},
 				},
-			}
+			},
 		}
-		bytes, err := proto.Marshal(&fr)
-		if err != nil {
-			log.Fatalln("Failed to encode:", err)
-		}
+		bytes, _ := proto.Marshal(&fr)
 		m[2] = string(bytes)
-		_, err = out.SendMessage(m)
+		_, err := out.SendMessage(m)
 
 		for err == zmq4.EHOSTUNREACH {
 			_, err = out.SendMessage(m)
