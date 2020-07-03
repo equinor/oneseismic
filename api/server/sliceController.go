@@ -67,9 +67,8 @@ func createSliceController(
 	root string,
 	mPlexName string,
 ) sliceController {
-	jobs := make(chan job)
-	go multiplexer(jobs, mPlexName, reqNdpt, repNdpt)
-	sc := sliceController{&slicer{&mMultiplexer{storageEndpoint, root, jobs}}}
-
+	sessions := newSessions()
+	go sessions.Run(mPlexName, reqNdpt, repNdpt)
+	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageEndpoint, root}, sessions: sessions}}
 	return sc
 }

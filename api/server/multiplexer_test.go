@@ -60,34 +60,36 @@ func echoAsWorker() {
 	}
 }
 
-func verifyCorrectReply(t *testing.T, i int, jobs chan job, done chan struct{}) {
+func verifyCorrectReply(t *testing.T, i int, s *sessions, done chan struct{}) {
 	id := strconv.Itoa(i)
-	repChnl := make(chan []byte)
 	msg := []byte("message from " + id)
-	job := job{id, msg, repChnl}
-	jobs <- job
+	job := process{address: "", pid: id, request: msg}
+	res := s.Schedule(&job)
+	result := <-res
 
-	rep := <-repChnl
-
-	assert.Equal(t, rep, msg)
+	assert.Equal(t, result, msg)
 	done <- struct{}{}
 }
 
 func TestMultiplexer(t *testing.T) {
-	jobs := make(chan job)
-	go multiplexer(jobs, "mplx1", "inproc://req1", "inproc://rep1")
-	go multiplexer(jobs, "mplx2", "inproc://req2", "inproc://rep2")
+	s1 := newSessions()
+	s2 := newSessions()
+	go s1.Run("mplx1", "inproc://req1", "inproc://rep1")
+	go s2.Run("mplx2", "inproc://req2", "inproc://rep2")
 
 	go echoAsWorker()
 	go echoAsWorker()
 	go echoAsWorker()
 
-	done := make(chan struct{})
-	for i := 0; i < 100; i++ {
-		go verifyCorrectReply(t, i, jobs, done)
+	done1 := make(chan struct{})
+	done2 := make(chan struct{})
+	for i := 0; i < 50; i++ {
+		go verifyCorrectReply(t, i, s1, done1)
+		go verifyCorrectReply(t, i, s2, done2)
 	}
 
-	for i := 0; i < 100; i++ {
-		<-done
+	for i := 0; i < 50; i++ {
+		<-done1
+		<-done2
 	}
 }

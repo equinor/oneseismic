@@ -109,7 +109,25 @@ func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error)
 	return socket.SendMessage(p.address, p.partial.pid, p.partial.payload)
 }
 
-func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) {
+type sessions struct {
+	queue chan job
+}
+
+func (s *sessions) Schedule(proc *process) chan []byte {
+	c := make(chan []byte)
+	s.queue <- job{
+		jobID: proc.pid,
+		request: proc.request,
+		reply: c,
+	}
+	return c
+}
+
+func newSessions() *sessions {
+	return &sessions{queue: make(chan job)}
+}
+
+func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 	req, err := zmq.NewSocket(zmq.PUSH)
 
 	if err != nil {
@@ -165,12 +183,12 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 			rc <- r.payload
 			delete(replyChnls, r.pid)
 
-		case j := <-jobs:
-            proc := process{
-                address: address,
-                pid: j.jobID,
-                request: j.request,
-            }
+		case j := <-s.queue:
+			proc := process{
+				address: address,
+				pid: j.jobID,
+				request: j.request,
+			}
 			replyChnls[j.jobID] = j.reply
 			proc.sendZMQ(req)
 		}

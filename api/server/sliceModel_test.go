@@ -20,10 +20,10 @@ func TestMakeSliceRequest(t *testing.T) {
 }
 
 func TestSliceModel(t *testing.T) {
-	jobs := make(chan job)
+	sessions := newSessions()
 
 	go func() {
-		job := <-jobs
+		job := <-sessions.queue
 		fr := oneseismic.FetchResponse{
 			Requestid: job.jobID,
 		}
@@ -42,7 +42,8 @@ func TestSliceModel(t *testing.T) {
 			job.reply <- []byte("")
 		}
 	}()
-	sl := slicer{&mMultiplexer{"", "", jobs}}
+
+	sl := slicer{&mMultiplexer{"", ""}, sessions}
 	slice, err := sl.fetchSlice("guid", 0, 0, "requestid")
 
 	assert.Nil(t, err)
@@ -50,10 +51,10 @@ func TestSliceModel(t *testing.T) {
 }
 
 func TestModelMissingSlice(t *testing.T) {
-	jobs := make(chan job)
+	sessions := newSessions()
 
 	go func() {
-		job := <-jobs
+		job := <-sessions.queue
 		fr := oneseismic.FetchResponse{}
 		bytes, err := proto.Marshal(&fr)
 		if err != nil {
@@ -61,7 +62,7 @@ func TestModelMissingSlice(t *testing.T) {
 		}
 		job.reply <- bytes
 	}()
-	sl := slicer{&mMultiplexer{"", "", jobs}}
+	sl := slicer{&mMultiplexer{"", ""}, sessions}
 	_, err := sl.fetchSlice("guid", 0, 0, "requestid")
 
 	assert.NotNil(t, err)
