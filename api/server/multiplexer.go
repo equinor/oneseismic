@@ -174,14 +174,17 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 	}()
 
 	// TODO: Clean up in case a reply never arrives?
-	replyChnls := make(map[string]chan []byte)
+	/*
+	 * Store pid -> channel to send result
+	 */
+	processes := make(map[string]chan []byte)
 
 	for {
 		select {
 		case r := <-rep:
-			rc := replyChnls[r.pid]
+			rc := processes[r.pid]
 			rc <- r.payload
-			delete(replyChnls, r.pid)
+			delete(processes, r.pid)
 
 		case j := <-s.queue:
 			proc := process{
@@ -189,7 +192,7 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 				pid: j.jobID,
 				request: j.request,
 			}
-			replyChnls[j.jobID] = j.reply
+			processes[j.jobID] = j.reply
 			proc.sendZMQ(req)
 		}
 	}
