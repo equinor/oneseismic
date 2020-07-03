@@ -55,7 +55,7 @@ func coreMock(reqNdpt string, repNdpt string) {
 			msg := "Broken process (loadZMQ) in core emulation: %s"
 			log.Fatalf(msg, err.Error())
 		}
-		fr := oneseismic.FetchResponse{Requestid: proc.jobID}
+		fr := oneseismic.FetchResponse{Requestid: proc.pid}
 		fr.Function = &oneseismic.FetchResponse_Slice{
 			Slice: &oneseismic.SliceResponse{
 				Tiles: []*oneseismic.SliceTile{
@@ -74,7 +74,7 @@ func coreMock(reqNdpt string, repNdpt string) {
 		partial := routedPartialResult {
 			address: proc.address,
 			partial: partialResult {
-				jobID: proc.jobID,
+				pid: proc.pid,
 				payload: bytes,
 			},
 		}

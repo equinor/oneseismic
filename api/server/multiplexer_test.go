@@ -37,7 +37,7 @@ func echoAsWorker() {
 		partial := routedPartialResult {
 			address: proc.address,
 			partial: partialResult {
-				jobID: proc.jobID,
+				pid: proc.pid,
 				payload: proc.request,
 			},
 		}

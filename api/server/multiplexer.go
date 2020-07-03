@@ -28,7 +28,7 @@ type process struct {
 	// Return-address that flows through to make sure that data is returned to
 	// the correct node that manages the session
 	address string
-	jobID string
+	pid string
 	request []byte
 }
 
@@ -42,7 +42,7 @@ type process struct {
  * compare.
  */
 type partialResult struct {
-	jobID string
+	pid string
 	payload []byte
 }
 
@@ -59,7 +59,7 @@ type routedPartialResult struct {
 }
 
 func (p *process) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.address, p.jobID, p.request)
+	return socket.SendMessage(p.address, p.pid, p.request)
 }
 
 /*
@@ -75,7 +75,7 @@ func (p *process) loadZMQ(msg [][]byte) error {
 	}
 
 	p.address = string(msg[0])
-	p.jobID = string(msg[1])
+	p.pid = string(msg[1])
 	p.request = msg[2]
 	return nil
 }
@@ -84,13 +84,13 @@ func (p *partialResult) loadZMQ(msg [][]byte) error {
 	if len(msg) != 2 {
 		return fmt.Errorf("len(msg) = %d; want 2", len(msg))
 	}
-	p.jobID = string(msg[0])
+	p.pid = string(msg[0])
 	p.payload = msg[1]
 	return nil
 }
 
 func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.jobID, p.payload)
+	return socket.SendMessage(p.pid, p.payload)
 }
 
 func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
@@ -106,7 +106,7 @@ func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
 }
 
 func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.address, p.partial.jobID, p.partial.payload)
+	return socket.SendMessage(p.address, p.partial.pid, p.partial.payload)
 }
 
 func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) {
@@ -142,7 +142,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 				/*
 				 * This is likely to mean a bug somewhere, so eventually:
 				 *   1. drop the message and fail the request
-				 *   2. log all received bytes, try to recover at least jobID
+				 *   2. log all received bytes, try to recover at least pid
 				 *   3. then carry on
 				 *
 				 * For now, neither the experience nor infrastructure is in
@@ -161,14 +161,14 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 	for {
 		select {
 		case r := <-rep:
-			rc := replyChnls[r.jobID]
+			rc := replyChnls[r.pid]
 			rc <- r.payload
-			delete(replyChnls, r.jobID)
+			delete(replyChnls, r.pid)
 
 		case j := <-jobs:
             proc := process{
                 address: address,
-                jobID: j.jobID,
+                pid: j.jobID,
                 request: j.request,
             }
 			replyChnls[j.jobID] = j.reply
