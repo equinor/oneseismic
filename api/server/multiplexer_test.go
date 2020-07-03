@@ -26,19 +26,19 @@ func echoAsWorker() {
 
 	for {
 		m, _ := in.RecvMessageBytes(0)
-		partition := partitionRequest{}
-		err := partition.loadZMQ(m)
+		proc := process{}
+		err := proc.loadZMQ(m)
 
 		if err != nil {
-			msg := "Broken partitionRequest (loadZMQ) in core emulation: %s"
+			msg := "Broken process (loadZMQ) in core emulation: %s"
 			log.Fatalf(msg, err.Error())
 		}
 
 		partial := routedPartialResult {
-			address: partition.address,
+			address: proc.address,
 			partial: partialResult {
-				jobID: partition.jobID,
-				payload: partition.request,
+				jobID: proc.jobID,
+				payload: proc.request,
 			},
 		}
 

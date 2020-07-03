@@ -19,11 +19,12 @@ type wire interface {
 }
 
 /*
- * The partitionRequest is the message sent from this (the session manager)
- * over ZMQ to the scheduler/job partitioner, which decides what data to
- * retrieve from storage (manifest-server in current vocabulary)
+ * The process is the message sent from this (the session manager) over ZMQ.
+ * The request payload is the protobuf-encoded description description of what
+ * to retrieve. This is conceptually similar to the message/event that spawns
+ * processes on unix systems.
  */
-type partitionRequest struct {
+type process struct {
 	// Return-address that flows through to make sure that data is returned to
 	// the correct node that manages the session
 	address string
@@ -57,31 +58,18 @@ type routedPartialResult struct {
 	partial partialResult
 }
 
-/*
- * The make/send functions are stupid helpers to help formalise the protocol
- * for communication with other parts of oneseismic, and provide a canonical
- * way of formatting messages for both the wire (over ZMQ) and over go channels
- */
-func newPartitionRequest(j *job, address string) *partitionRequest {
-	return &partitionRequest {
-		address: address,
-		jobID: j.jobID,
-		request: j.request,
-	}
-}
-
-func (p *partitionRequest) sendZMQ(socket *zmq.Socket) (total int, err error) {
+func (p *process) sendZMQ(socket *zmq.Socket) (total int, err error) {
 	return socket.SendMessage(p.address, p.jobID, p.request)
 }
 
 /*
  * Parse a partition request as it is delivered in a ZMQ multipart message.
  * While this currently has no error checking, or really does anything
- * sophisticated, it's the canonical way to obtain a partitionRequest from a
+ * sophisticated, it's the canonical way to obtain a process from a
  * multipart message, and *the* go reference for what the messages from the
  * fragment/worker looks like.
  */
-func (p *partitionRequest) loadZMQ(msg [][]byte) error {
+func (p *process) loadZMQ(msg [][]byte) error {
 	if len(msg) != 3 {
 		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
 	}
@@ -178,9 +166,13 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 			delete(replyChnls, r.jobID)
 
 		case j := <-jobs:
-			part := newPartitionRequest(&j, address)
+            proc := process{
+                address: address,
+                jobID: j.jobID,
+                request: j.request,
+            }
 			replyChnls[j.jobID] = j.reply
-			part.sendZMQ(req)
+			proc.sendZMQ(req)
 		}
 	}
 }
