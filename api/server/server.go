@@ -1,16 +1,33 @@
 package server
 
 import (
+	"crypto/rsa"
 	"net/url"
 
+	"github.com/equinor/oneseismic/api/auth"
 	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 )
 
-func registerStoreController(app *iris.Application, storageEndpoint url.URL, accountName, accountKey string) error {
+// App for oneseismic
+func App(
+	rsaKeys map[string]rsa.PublicKey,
+	issuer string,
+	storageEndpoint url.URL,
+	accountName string,
+	accountKey string,
+	zmqReqAddr,
+	zmqRepAddr string,
+) (*iris.Application, error) {
+	app := iris.Default()
+
+	app.Use(auth.CheckJWT(rsaKeys))
+	app.Use(auth.ValidateIssuer(issuer))
+	app.Use(iris.Gzip)
+
 	sURL, err := newServiceURL(storageEndpoint, accountName, accountKey)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sc := storeController{sURL}
@@ -19,35 +36,8 @@ func registerStoreController(app *iris.Application, storageEndpoint url.URL, acc
 	app.Get("/{guid:string}/slice", sc.dimensions)
 	app.Get("/{guid:string}/slice/{dimension:int32}", sc.lines)
 
-	return nil
-}
+	slicer := createSliceController(zmqReqAddr, zmqRepAddr, storageEndpoint.String(), accountName, uuid.New().String())
+	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slicer.get)
 
-func registerSlicer(
-	app *iris.Application,
-	storageEndpoint string,
-	reqNdpt string,
-	repNdpt string,
-	root string,
-	mPlexName string,
-) {
-	sc := createSliceController(reqNdpt, repNdpt, storageEndpoint, root, mPlexName)
-
-	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
-}
-
-func Register(
-	app *iris.Application,
-	storageEndpoint url.URL,
-	accountName,
-	accountKey,
-	reqNdpt,
-	repNdpt string,
-) error {
-	if err := registerStoreController(app, storageEndpoint, accountName, accountKey); err != nil {
-		return err
-	}
-	mPlexName := uuid.New().String()
-	registerSlicer(app, storageEndpoint.String(), reqNdpt, repNdpt, accountName, mPlexName)
-
-	return nil
+	return app, nil
 }

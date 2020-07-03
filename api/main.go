@@ -38,13 +38,6 @@ func main() {
 		golog.Error("could not get keyset", err)
 	}
 
-	app := iris.Default()
-	app.Logger().SetLevel(logLevel)
-	app.Use(auth.CheckJWT(rsaKeys))
-	app.Use(auth.ValidateIssuer(os.Getenv("ISSUER")))
-	app.Use(iris.Gzip)
-	enableSwagger(app)
-
 	storageURL := strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s")
 	account := os.Getenv("AZURE_STORAGE_ACCOUNT")
 
@@ -53,8 +46,10 @@ func main() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	err = server.Register(
-		app,
+
+	app, err := server.App(
+		rsaKeys,
+		os.Getenv("ISSUER"),
 		*storageEndpoint,
 		account,
 		os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
@@ -62,15 +57,12 @@ func main() {
 		os.Getenv("ZMQ_REP_ADDR"),
 	)
 	if err != nil {
-		golog.Error("register endpoints: %w", err)
+		golog.Error("creating app: %w", err)
 	}
+	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 
 	err = app.Run(iris.Addr(os.Getenv("HOST_ADDR")))
 	if err != nil {
 		golog.Fatal(err)
 	}
-}
-
-func enableSwagger(app *iris.Application) {
-	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 }
