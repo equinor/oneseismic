@@ -30,7 +30,7 @@ func (m mockWriter) WriteHeader(statusCode int) {
 
 func TestClaimsMiddleware_Validate(t *testing.T) {
 
-	validator := ValidateIssuer("valid_issuer")
+	validator := Validate("valid_issuer", "valid_audience")
 	testApp := iris.Default()
 	tests := []struct {
 		name   string
@@ -42,13 +42,22 @@ func TestClaimsMiddleware_Validate(t *testing.T) {
 			"Valid token",
 			validator,
 			jwt.MapClaims{
-				"iss": "valid_issuer"},
+				"iss": "valid_issuer",
+				"aud": "valid_audience"},
 			200},
 		{
 			"Invalid issuer",
 			validator,
 			jwt.MapClaims{
-				"iss": "invalid_issuer"},
+				"iss": "invalid_issuer",
+				"aud": "valid_audience"},
+			401},
+		{
+			"Invalid audience",
+			validator,
+			jwt.MapClaims{
+				"iss": "valid_issuer",
+				"aud": "invalid_audience"},
 			401},
 	}
 	for _, tt := range tests {
