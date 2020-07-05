@@ -36,7 +36,7 @@ def az_storage():
 
 
 def auth_header():
-    r = requests.get(AUTH_ADDR + "/oauth2/authorize", allow_redirects=False)
+    r = requests.get(AUTH_ADDR + "/oauth2/authorize?client_id="+os.getenv("AUDIENCE"), allow_redirects=False)
     token = parse_qs(urlparse(r.headers["Location"]).fragment)["access_token"][0]
 
     return {"Authorization": f"Bearer {token}"}

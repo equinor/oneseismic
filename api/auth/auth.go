@@ -26,7 +26,7 @@ func CheckJWT(rsaKeys map[string]rsa.PublicKey) context.Handler {
 	}
 }
 
-func ValidateIssuer(issuer string) context.Handler {
+func Validate(issuer, audience string) context.Handler {
 	return func(ctx context.Context) {
 		userToken := ctx.Values().Get("jwt")
 		if userToken == nil {
@@ -54,6 +54,13 @@ func ValidateIssuer(issuer string) context.Handler {
 		claims := user.Claims.(jwt.MapClaims)
 		if !claims.VerifyIssuer(issuer, true) {
 			golog.Error("invalid issuer", fmt.Errorf(claims["iss"].(string)))
+			ctx.StatusCode(iris.StatusUnauthorized)
+			ctx.StopExecution()
+			return
+		}
+
+		if !claims.VerifyAudience(audience, true) {
+			golog.Error("invalid audience", fmt.Errorf(claims["aud"].(string)))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
