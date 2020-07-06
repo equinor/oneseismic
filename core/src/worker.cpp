@@ -220,40 +220,40 @@ public:
      * called whenever a message is received from the queue and a job is about
      * to start.
      */
-    void start_processing(zmq::multipart_t& job);
+    void start_processing(zmq::multipart_t& task);
 
     zmq::multipart_t failure(const std::string& key) noexcept (false);
 
-    std::string current_request_id;
+    std::string pid;
     fetch_request query;
     fetch_response result;
     all_actions actions;
 };
 
-void fragment_task::impl::start_processing(zmq::multipart_t& job) {
+void fragment_task::impl::start_processing(zmq::multipart_t& task) {
     /*
-     * Currently, the only thing this function does is parse and set the job
-     * id, which is not actually cleared between invocations (so calling
-     * methods out-of-order is not detected). This can certainly change in the
-     * future though, and gets the clunky read-bytes-from-message out of the
-     * way in the body.
+     * Currently, the only thing this function does is parse and set the pid
+     * which is not actually cleared between invocations (so calling methods
+     * out-of-order is not detected). This can certainly change in the future
+     * though, and gets the clunky read-bytes-from-message out of the way in
+     * the body.
      */
 
     /*
      * The job argument is conceptually const, but can't be since the
      * zmq::multipart_t is not marked as such (even though it is)
      */
-    const auto& job_id = job.front();
-    this->current_request_id.assign(
-            static_cast< const char* >(job_id.data()),
-            job_id.size()
+    const auto& pid = task.front();
+    this->pid.assign(
+            static_cast< const char* >(pid.data()),
+            pid.size()
     );
 }
 
 zmq::multipart_t fragment_task::impl::failure(const std::string& key)
 noexcept (false) {
     zmq::multipart_t msg;
-    msg.addstr(this->current_request_id);
+    msg.addstr(this->pid);
     msg.addstr(key);
     return msg;
 }
@@ -301,13 +301,13 @@ void fragment_task::run(
     /* TODO: log sender */
     spdlog::error(
             "{} badly formatted protobuf message",
-            this->p->current_request_id
+            this->p->pid
     );
     this->p->failure("bad-message").send(failure);
 } catch (const notfound& e) {
     spdlog::warn(
             "{} fragment not found: '{}'",
-            this->p->current_request_id,
+            this->p->pid,
             e.what()
     );
     this->p->failure("fragment-not-found").send(failure);

@@ -181,44 +181,44 @@ public:
      * called whenever a message is received from the queue and a job is about
      * to start.
      */
-    void start_processing(zmq::multipart_t& job);
+    void start_processing(zmq::multipart_t& task);
 
     /*
-     * Create a failure message with the current job-id and an appropriate
+     * Create a failure message with the current pid and an appropriate
      * category, for signaling downstream that a job must be failed for some
      * reason.
      */
     zmq::multipart_t failure(const std::string& key) noexcept (false);
 
-    std::string current_request_id;
+    std::string pid;
     api_request request;
     fetch_request query;
 };
 
-void manifest_task::impl::start_processing(zmq::multipart_t& job) {
+void manifest_task::impl::start_processing(zmq::multipart_t& task) {
     /*
-     * Currently, the only thing this function does is parse and set the job
-     * id, which is not actually cleared between invocations (so calling
-     * methods out-of-order is not detected). This can certainly change in the
-     * future though, and gets the clunky read-bytes-from-message out of the
-     * way in the body.
+     * Currently, the only thing this function does is parse and set the pid,
+     * which is not actually cleared between invocations (so calling methods
+     * out-of-order is not detected). This can certainly change in the future
+     * though, and gets the clunky read-bytes-from-message out of the way in
+     * the body.
      */
 
     /*
      * The job argument is conceptually const, but can't be since the
      * zmq::multipart_t is not marked as such (even though it is)
      */
-    const auto& job_id = job.front();
-    this->current_request_id.assign(
-            static_cast< const char* >(job_id.data()),
-            job_id.size()
+    const auto& pid = task.front();
+    this->pid.assign(
+            static_cast< const char* >(pid.data()),
+            pid.size()
     );
 }
 
 zmq::multipart_t manifest_task::impl::failure(const std::string& key)
 noexcept (false) {
     zmq::multipart_t msg;
-    msg.addstr(this->current_request_id);
+    msg.addstr(this->pid);
     msg.addstr(key);
     return msg;
 }
@@ -286,7 +286,7 @@ try {
         default:
             spdlog::error(
                 "{} bad request variant (oneof)",
-                this->p->current_request_id
+                this->p->pid
             );
             return;
     }
@@ -294,18 +294,18 @@ try {
     auto msg = envelope.clone();
     msg.addstr(this->p->query.serialize());
     msg.send(output);
-    spdlog::info("{} queued for fragment retrieval", this->p->current_request_id);
+    spdlog::info("{} queued for fragment retrieval", this->p->pid);
 
 } catch (const bad_message&) {
     spdlog::error(
             "{} badly formatted protobuf message",
-            this->p->current_request_id
+            this->p->pid
     );
     this->p->failure("bad-message").send(failure);
 } catch (const notfound& e) {
     spdlog::info(
             "{} {} manifest not found: '{}'",
-            this->p->current_request_id,
+            this->p->pid,
             this->p->request.guid(),
             e.what()
     );
@@ -313,14 +313,14 @@ try {
 } catch (const nlohmann::json::parse_error& e) {
     spdlog::error(
             "{} badly formatted manifest: {}/{}",
-            this->p->current_request_id,
+            this->p->pid,
             this->p->request.root(),
             this->p->request.guid()
     );
     spdlog::error(e.what());
     this->p->failure("json-parse-error").send(failure);
 } catch (const line_not_found& e) {
-    spdlog::info("{} {}", this->p->current_request_id, e.what());
+    spdlog::info("{} {}", this->p->pid, e.what());
     this->p->failure("line-not-found").send(failure);
 }
 
