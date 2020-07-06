@@ -263,6 +263,7 @@ void manifest_task::run(
         zmq::socket_t& failure)
 try {
     auto envelope = zmq::multipart_t(input);
+    const auto address = envelope.popstr();
     this->p->start_processing(envelope);
 
     const auto& body = envelope.remove();
@@ -291,7 +292,9 @@ try {
             return;
     }
 
-    auto msg = envelope.clone();
+    zmq::multipart_t msg;
+    msg.addstr(address);
+    msg.addstr(this->p->pid);
     msg.addstr(this->p->query.serialize());
     msg.send(output);
     spdlog::info("{} queued for fragment retrieval", this->p->pid);

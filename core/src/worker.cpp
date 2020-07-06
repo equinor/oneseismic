@@ -274,6 +274,7 @@ void fragment_task::run(
      * reuse the same oneof every invocation
      */
     zmq::multipart_t envelope(input);
+    const auto address = envelope.popstr();
     this->p->start_processing(envelope);
 
     const auto& body = envelope.remove();
@@ -288,7 +289,9 @@ void fragment_task::run(
     result.set_requestid(query.requestid());
     action.serialize(result);
 
-    auto msg = envelope.clone();
+    zmq::multipart_t msg;
+    msg.addstr(address);
+    msg.addstr(this->p->pid);
     msg.addstr(result.serialize());
     msg.send(output);
 

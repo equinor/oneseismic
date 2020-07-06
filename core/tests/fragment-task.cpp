@@ -105,28 +105,26 @@ TEST_CASE(
 
     mhttpd httpd(fragment_response);
     const auto apireq = make_slice_request(0, 0);
-    zmq::message_t apimsg(apireq.data(), apireq.size());
 
     SECTION("Successful calls are pushed to destination") {
         loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
 
-        // Attach message envelope
-        caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
-
-        caller_req.send(apimsg, zmq::send_flags::none);
+        zmq::multipart_t request;
+        request.addstr("addr");
+        request.addstr("pid");
+        request.addstr(apireq);
+        request.send(caller_req);
 
         one::fragment_task ft;
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
-        // Envelope should be passed through without
-        // interfering with the fragment task
-        zmq::message_t envelope;
-        caller_rep.recv(envelope, zmq::recv_flags::none);
-        CHECK(envelope.to_string() == "ENVELOPE");
+        zmq::multipart_t response(caller_rep);
+        REQUIRE(response.size() == 3);
+        CHECK(response[0].to_string() == "addr");
+        CHECK(response[1].to_string() == "pid");
+        const auto& msg = response[2];
 
-        zmq::message_t msg;
-        caller_rep.recv(msg, zmq::recv_flags::none);
         oneseismic::fetch_response res;
         const auto ok = res.ParseFromArray(msg.data(), msg.size());
         REQUIRE(ok);
@@ -166,8 +164,9 @@ TEST_CASE(
         } storage_cfg(httpd.port());
 
         zmq::multipart_t request;
-        request.addstr("job-id");
-        request.add(std::move(apimsg));
+        request.addstr("addr");
+        request.addstr("pid");
+        request.addstr(apireq);
         request.send(caller_req);
 
         one::transfer xfer(1, storage_cfg);
@@ -180,8 +179,9 @@ TEST_CASE(
                 static_cast< int >(zmq::recv_flags::dontwait)
         );
         CHECK(received);
-        CHECK(fail.front().to_string() == "job-id");
-        CHECK(fail.back().to_string() == "fragment-not-found");
+        CHECK(fail.size() == 2);
+        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[1].to_string() == "fragment-not-found");
 
         CHECK(not received_message(caller_rep));
     }

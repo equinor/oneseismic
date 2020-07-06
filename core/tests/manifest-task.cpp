@@ -97,27 +97,19 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         one::transfer xfer(1, storage);
         one::manifest_task mt;
 
-        // Attach message envelope
-        caller_req.send(zmq::str_buffer("ENVELOPE"), zmq::send_flags::sndmore);
-
+        caller_req.send(zmq::str_buffer("addr"), zmq::send_flags::sndmore);
+        caller_req.send(zmq::str_buffer("pid"), zmq::send_flags::sndmore);
         caller_req.send(reqmsg, zmq::send_flags::none);
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
-        // Envelope should be passed throug without
-        // interfering with the manifest task
-        zmq::message_t envelope;
-        caller_rep.recv(envelope, zmq::recv_flags::none);
-        CHECK(envelope.to_string() == "ENVELOPE");
-
-        zmq::message_t repmsg;
-        const auto rep_recv = caller_rep.recv(
-                repmsg,
-                zmq::recv_flags::dontwait
-        );
-        REQUIRE(rep_recv);
+        zmq::multipart_t response(caller_rep);
+        REQUIRE(response.size() == 3);
+        CHECK(response[0].to_string() == "addr");
+        CHECK(response[1].to_string() == "pid");
+        const auto& msg = response[2];
 
         oneseismic::fetch_request rep;
-        const auto ok = rep.ParseFromArray(repmsg.data(), repmsg.size());
+        const auto ok = rep.ParseFromArray(msg.data(), msg.size());
         REQUIRE(ok);
 
         CHECK(rep.root() == "root");
@@ -145,7 +137,8 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         } storage_cfg(httpd.port());
 
         zmq::multipart_t request;
-        request.addstr("job-id");
+        request.addstr("addr");
+        request.addstr("pid");
         request.add(std::move(reqmsg));
         request.send(caller_req);
 
@@ -159,8 +152,9 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
                 static_cast< int >(zmq::recv_flags::dontwait)
         );
         CHECK(received);
-        CHECK(fail.front().to_string() == "job-id");
-        CHECK(fail.back().to_string() == "manifest-not-found");
+        CHECK(fail.size() == 2);
+        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[1].to_string() == "manifest-not-found");
 
         CHECK(not received_message(caller_rep));
     }
