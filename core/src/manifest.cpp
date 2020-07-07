@@ -75,7 +75,8 @@ public:
 
     const std::string& serialize() noexcept (false);
 
-    void slice(const api_request& req, const nlohmann::json&) noexcept (false);
+    std::vector< one::FID< 3 > >
+    slice(const api_request& req, const nlohmann::json&) noexcept (false);
 
 private:
     /*
@@ -87,7 +88,8 @@ private:
     std::string serialized;
 };
 
-void fetch_request::slice(
+std::vector< one::FID< 3 > >
+fetch_request::slice(
         const api_request& api,
         const nlohmann::json& manifest)
 noexcept (false) {
@@ -112,24 +114,16 @@ noexcept (false) {
     const auto pin = std::distance(index.begin(), itr);
     auto gvt = geometry(manifest_dimensions, api.shape());
 
-    const auto ids = gvt.slice(one::dimension< 3 >(dim), pin);
-
     auto* cs = this->mutable_cube_shape();
     cs->set_dim0(manifest_dimensions[0].size());
     cs->set_dim1(manifest_dimensions[1].size());
     cs->set_dim2(manifest_dimensions[2].size());
 
-    this->clear_ids();
-    for (const auto& id : ids) {
-        auto* c = this->add_ids();
-        c->set_dim0(id[0]);
-        c->set_dim1(id[1]);
-        c->set_dim2(id[2]);
-    }
-
     auto* slice = this->mutable_slice();
     slice->set_dim(dim);
     slice->set_idx(pin % gvt.fragment_shape()[dim]);
+
+    return gvt.slice(one::dimension< 3 >(dim), pin);
 }
 
 const std::string& fetch_request::serialize() noexcept (false) {
@@ -276,12 +270,14 @@ try {
             this->p->request.guid()
     );
 
-    this->p->query.basic(this->p->request);
+    auto& query = this->p->query;
+    query.basic(this->p->request);
+    std::vector< one::FID< 3 > > ids;
     switch (this->p->request.function_case()) {
         using oneof = oneseismic::api_request;
 
         case oneof::kSlice:
-            this->p->query.slice(this->p->request, manifest);
+            ids = query.slice(this->p->request, manifest);
             break;
 
         default:
@@ -290,6 +286,14 @@ try {
                 this->p->pid
             );
             return;
+    }
+
+    query.clear_ids();
+    for (const auto& id : ids) {
+        auto* c = query.add_ids();
+        c->set_dim0(id[0]);
+        c->set_dim1(id[1]);
+        c->set_dim2(id[2]);
     }
 
     zmq::multipart_t msg;
