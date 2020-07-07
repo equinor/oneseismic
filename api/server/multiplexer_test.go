@@ -38,6 +38,8 @@ func echoAsWorker() {
 			address: proc.address,
 			partial: partialResult {
 				pid: proc.pid,
+				n: 0,
+				m: 1,
 				payload: proc.request,
 			},
 		}
@@ -67,7 +69,7 @@ func verifyCorrectReply(t *testing.T, i int, s *sessions, done chan struct{}) {
 	res := s.Schedule(&job)
 	result := <-res
 
-	assert.Equal(t, result, msg)
+	assert.Equal(t, result.payload, msg)
 	done <- struct{}{}
 }
 

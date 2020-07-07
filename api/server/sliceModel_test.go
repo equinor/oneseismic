@@ -35,12 +35,16 @@ func TestSliceModel(t *testing.T) {
 			}
 		}
 
-		bytes, err := proto.Marshal(&fr)
-		if err == nil {
-			job.reply <- bytes
-		} else {
-			job.reply <- []byte("")
+		bytes, _ := proto.Marshal(&fr)
+		pr := partialResult {
+			pid: "1",
+			n: 0,
+			m: 1,
+			payload: bytes,
 		}
+
+		job.reply <- pr
+		close(job.reply)
 	}()
 
 	sl := slicer{&mMultiplexer{"", ""}, sessions}
@@ -60,7 +64,14 @@ func TestModelMissingSlice(t *testing.T) {
 		if err != nil {
 			log.Fatalln("Failed to encode:", err)
 		}
-		job.reply <- bytes
+		pr := partialResult {
+			pid: "2",
+			n: 0,
+			m: 1,
+			payload: bytes,
+		}
+		job.reply <- pr
+		close(job.reply)
 	}()
 	sl := slicer{&mMultiplexer{"", ""}, sessions}
 	_, err := sl.fetchSlice("guid", 0, 0, "requestid")

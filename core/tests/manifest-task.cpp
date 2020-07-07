@@ -103,10 +103,11 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t response(caller_rep);
-        REQUIRE(response.size() == 3);
+        REQUIRE(response.size() == 4);
         CHECK(response[0].to_string() == "addr");
         CHECK(response[1].to_string() == "pid");
-        const auto& msg = response[2];
+        CHECK(response[2].to_string() == "0/1");
+        const auto& msg = response[3];
 
         oneseismic::fetch_request rep;
         const auto ok = rep.ParseFromArray(msg.data(), msg.size());

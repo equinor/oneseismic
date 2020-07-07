@@ -68,9 +68,13 @@ func (s *slicer) fetchSlice(
 	fr := oneseismic.FetchResponse{}
 
 	replyChannel := s.sessions.Schedule(&proc)
-	err = proto.Unmarshal([]byte(<-replyChannel), &fr)
-	if err != nil {
-		return nil, fmt.Errorf("could not create slice response: %w", err)
+
+	for partial := range replyChannel {
+		err = proto.Unmarshal(partial.payload, &fr)
+
+		if err != nil {
+			return nil, fmt.Errorf("could not create slice response: %w", err)
+		}
 	}
 
 	slice := fr.GetSlice()

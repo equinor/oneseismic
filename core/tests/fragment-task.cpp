@@ -1,6 +1,7 @@
 #include <string>
 
 #include <catch/catch.hpp>
+#include <fmt/format.h>
 #include <microhttpd.h>
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
@@ -54,7 +55,7 @@ int fragment_response(
 
 }
 
-std::string make_slice_request(int dim, int idx) {
+std::string make_slice_request(int dim, int idx, int k = 0) {
     oneseismic::fetch_request req;
     req.set_root("root");
     req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
@@ -76,7 +77,7 @@ std::string make_slice_request(int dim, int idx) {
     auto* id = req.add_ids();
     id->set_dim0(0);
     id->set_dim1(0);
-    id->set_dim2(0);
+    id->set_dim2(k);
 
     std::string msg;
     req.SerializeToString(&msg);
@@ -113,6 +114,7 @@ TEST_CASE(
         zmq::multipart_t request;
         request.addstr("addr");
         request.addstr("pid");
+        request.addstr("0/1");
         request.addstr(apireq);
         request.send(caller_req);
 
@@ -120,10 +122,11 @@ TEST_CASE(
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t response(caller_rep);
-        REQUIRE(response.size() == 3);
+        REQUIRE(response.size() == 4);
         CHECK(response[0].to_string() == "addr");
         CHECK(response[1].to_string() == "pid");
-        const auto& msg = response[2];
+        CHECK(response[2].to_string() == "0/1");
+        const auto& msg = response[3];
 
         oneseismic::fetch_response res;
         const auto ok = res.ParseFromArray(msg.data(), msg.size());
@@ -149,6 +152,45 @@ TEST_CASE(
         CHECK_THAT(v, Equals(expected));
     }
 
+    SECTION("Multi-part job triggers multiple fetches") {
+        struct record_request : public loopback_cfg {
+            using loopback_cfg::loopback_cfg;
+
+            std::string url(
+                    const one::batch& b,
+                    const std::string& id) const override {
+                this->requested.push_back(id);
+                return this->loopback_cfg::url(b, id);
+            }
+
+            mutable std::vector< std::string > requested;
+        } storage_cfg(httpd.port());
+
+        const auto requests = std::vector< std::string > {
+            "0-0-0",
+            "0-0-1",
+            "0-0-2",
+        };
+
+        for (std::size_t i = 0; i < requests.size(); ++i) {
+            zmq::multipart_t request;
+            request.addstr("addr");
+            request.addstr("pid");
+            request.addstr(fmt::format("{}/{}", i, requests.size()));
+            request.addstr(make_slice_request(0, 0, i));
+            request.send(caller_req);
+        }
+
+        one::transfer xfer(1, storage_cfg);
+        one::fragment_task ft;
+        for (const auto& x : requests) {
+            ft.run(xfer, worker_req, worker_rep, worker_fail);
+        }
+
+        std::sort(storage_cfg.requested.begin(), storage_cfg.requested.end());
+        CHECK_THAT(storage_cfg.requested, Equals(requests));
+    }
+
     SECTION("not-found messages are pushed on failure") {
 
         struct fragment_404 : public loopback_cfg {
@@ -166,6 +208,7 @@ TEST_CASE(
         zmq::multipart_t request;
         request.addstr("addr");
         request.addstr("pid");
+        request.addstr("0/1");
         request.addstr(apireq);
         request.send(caller_req);
 

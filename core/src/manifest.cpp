@@ -78,6 +78,9 @@ public:
     std::vector< one::FID< 3 > >
     slice(const api_request& req, const nlohmann::json&) noexcept (false);
 
+    template < typename Itr >
+    void assign(Itr first, Itr last) noexcept (false);
+
 private:
     /*
      * Cache the string-buffer used for serialization, to avoid allocating new
@@ -126,6 +129,19 @@ noexcept (false) {
     return gvt.slice(one::dimension< 3 >(dim), pin);
 }
 
+template < typename Itr >
+void fetch_request::assign(Itr first, Itr last) noexcept (false) {
+    this->clear_ids();
+    std::for_each(first, last, [this] (const auto& id) {
+        auto* c = this->add_ids();
+        c->set_dim0(id[0]);
+        c->set_dim1(id[1]);
+        c->set_dim2(id[2]);
+    });
+}
+
+
+
 const std::string& fetch_request::serialize() noexcept (false) {
     this->SerializeToString(&this->serialized);
     return this->serialized;
@@ -156,6 +172,13 @@ void fetch_request::basic(const api_request& req) {
     this->set_root(req.root());
     this->set_guid(req.guid());
     *this->mutable_fragment_shape() = req.shape();
+}
+
+std::size_t chunk_count(std::size_t jobs, std::size_t chunk_size) {
+    /*
+     * Return the number of chunk-size'd chunks needed to process all jobs
+     */
+    return (jobs + (chunk_size - 1)) / chunk_size;
 }
 
 }
@@ -288,20 +311,32 @@ try {
             return;
     }
 
-    query.clear_ids();
-    for (const auto& id : ids) {
-        auto* c = query.add_ids();
-        c->set_dim0(id[0]);
-        c->set_dim1(id[1]);
-        c->set_dim2(id[2]);
-    }
+    const auto chunk_size = ids.size();
+    const auto chunks = chunk_count(ids.size(), chunk_size);
+    auto first = ids.begin();
+    auto end = ids.end();
 
-    zmq::multipart_t msg;
-    msg.addstr(address);
-    msg.addstr(this->p->pid);
-    msg.addstr(this->p->query.serialize());
-    msg.send(output);
-    spdlog::info("{} queued for fragment retrieval", this->p->pid);
+    for (std::size_t i = 0; i < chunks; ++i) {
+        if (first == end)
+            break;
+
+        auto last = std::min(first + chunk_size, end);
+        query.assign(first, last);
+        std::advance(first, std::distance(first, last));
+
+        zmq::multipart_t msg;
+        msg.addstr(address);
+        msg.addstr(this->p->pid);
+        msg.addstr(fmt::format("{}/{}", i, chunks));
+        msg.addstr(this->p->query.serialize());
+        msg.send(output);
+        spdlog::info(
+                "{} {}/{} queued for fragment retrieval",
+                this->p->pid,
+                i,
+                chunks
+        );
+    }
 
 } catch (const bad_message&) {
     spdlog::error(

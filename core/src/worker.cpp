@@ -243,7 +243,7 @@ void fragment_task::impl::start_processing(zmq::multipart_t& task) {
      * The job argument is conceptually const, but can't be since the
      * zmq::multipart_t is not marked as such (even though it is)
      */
-    const auto& pid = task.front();
+    const auto& pid = task[1];
     this->pid.assign(
             static_cast< const char* >(pid.data()),
             pid.size()
@@ -274,10 +274,12 @@ void fragment_task::run(
      * reuse the same oneof every invocation
      */
     zmq::multipart_t envelope(input);
-    const auto address = envelope.popstr();
+    assert(envelope.size() == 4);
+    const auto& address = envelope[0].to_string();
     this->p->start_processing(envelope);
+    const auto& part = envelope[2].to_string();
 
-    const auto& body = envelope.remove();
+    const auto& body = envelope[3];
     auto& query = this->p->query;
     query.parse(body);
 
@@ -292,6 +294,7 @@ void fragment_task::run(
     zmq::multipart_t msg;
     msg.addstr(address);
     msg.addstr(this->p->pid);
+    msg.addstr(part);
     msg.addstr(result.serialize());
     msg.send(output);
 

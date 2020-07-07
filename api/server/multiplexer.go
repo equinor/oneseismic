@@ -10,7 +10,7 @@ import (
 type job struct {
 	jobID   string
 	request []byte
-	reply   chan []byte
+	reply   chan partialResult
 }
 
 type wire interface {
@@ -43,6 +43,8 @@ type process struct {
  */
 type partialResult struct {
 	pid string
+	n int
+	m int
 	payload []byte
 }
 
@@ -81,16 +83,20 @@ func (p *process) loadZMQ(msg [][]byte) error {
 }
 
 func (p *partialResult) loadZMQ(msg [][]byte) error {
-	if len(msg) != 2 {
-		return fmt.Errorf("len(msg) = %d; want 2", len(msg))
+	if len(msg) != 3 {
+		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
 	}
 	p.pid = string(msg[0])
-	p.payload = msg[1]
+	_, err := fmt.Sscanf(string(msg[1]), "%d/%d", &p.n, &p.m)
+	if err != nil {
+		return fmt.Errorf("%s: %s", err.Error(), string(msg[1]))
+	}
+	p.payload = msg[2]
 	return nil
 }
 
 func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.pid, p.payload)
+	return socket.SendMessage(p.pid, fmt.Sprintf("%d/%d", p.n, p.m), p.payload)
 }
 
 func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
@@ -106,15 +112,20 @@ func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
 }
 
 func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.address, p.partial.pid, p.partial.payload)
+	return socket.SendMessage(
+		p.address,
+		p.partial.pid,
+		fmt.Sprintf("%d/%d", p.partial.n, p.partial.m),
+		p.partial.payload,
+	)
 }
 
 type sessions struct {
 	queue chan job
 }
 
-func (s *sessions) Schedule(proc *process) chan []byte {
-	c := make(chan []byte)
+func (s *sessions) Schedule(proc *process) chan partialResult {
+	c := make(chan partialResult)
 	s.queue <- job{
 		jobID: proc.pid,
 		request: proc.request,
@@ -126,6 +137,16 @@ func (s *sessions) Schedule(proc *process) chan []byte {
 func newSessions() *sessions {
 	return &sessions{queue: make(chan job)}
 }
+
+func all(a []bool) bool {
+	for _, x := range a {
+		if (!x) {
+			return false
+		}
+	}
+	return true
+}
+
 
 func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 	req, err := zmq.NewSocket(zmq.PUSH)
@@ -177,14 +198,28 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 	/*
 	 * Store pid -> channel to send result
 	 */
-	processes := make(map[string]chan []byte)
+	processes := make(map[string]chan partialResult)
+	progress := make(map[string][]bool)
 
 	for {
 		select {
 		case r := <-rep:
 			rc := processes[r.pid]
-			rc <- r.payload
-			delete(processes, r.pid)
+			prog := progress[r.pid]
+
+			if prog == nil {
+				progress[r.pid] = make([]bool, r.m)
+				prog = progress[r.pid]
+			}
+
+			rc <- r
+			prog[r.n] = true
+
+			if all(prog) {
+				close(rc)
+				delete(processes, r.pid)
+				delete(progress, r.pid)
+			}
 
 		case j := <-s.queue:
 			proc := process{
@@ -193,6 +228,7 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 				request: j.request,
 			}
 			processes[j.jobID] = j.reply
+			progress[j.jobID] = nil
 			proc.sendZMQ(req)
 		}
 	}

@@ -75,6 +75,8 @@ func coreMock(reqNdpt string, repNdpt string) {
 			address: proc.address,
 			partial: partialResult {
 				pid: proc.pid,
+				n: 0,
+				m: 1,
 				payload: bytes,
 			},
 		}
