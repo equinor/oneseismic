@@ -65,9 +65,9 @@ std::string make_slice_request(int dim, int idx) {
     fragment_shape->set_dim2(2);
 
     auto* cube_shape = req.mutable_cube_shape();
-    cube_shape->set_dim0(2);
-    cube_shape->set_dim1(2);
-    cube_shape->set_dim2(2);
+    cube_shape->set_dim0(8);
+    cube_shape->set_dim1(8);
+    cube_shape->set_dim2(8);
 
     auto* slice = req.mutable_slice();
     slice->set_dim(dim);
@@ -138,7 +138,7 @@ TEST_CASE(
         CHECK(tiles.Get(0).layout().iterations()   == 2);
         CHECK(tiles.Get(0).layout().chunk_size()   == 2);
         CHECK(tiles.Get(0).layout().initial_skip() == 0);
-        CHECK(tiles.Get(0).layout().superstride()  == 2);
+        CHECK(tiles.Get(0).layout().superstride()  == 8);
         CHECK(tiles.Get(0).layout().substride()    == 2);
 
         CHECK(tiles.Get(0).v().size() == 4);
