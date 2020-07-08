@@ -2,6 +2,7 @@ package server
 
 import (
 	"log"
+	"fmt"
 
 	zmq "github.com/pebbe/zmq4"
 )
@@ -9,10 +10,145 @@ import (
 type job struct {
 	jobID   string
 	request []byte
-	reply   chan []byte
+	reply   chan partialResult
 }
 
-func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) {
+type wire interface {
+	loadZMQ(msg [][]byte) error
+	sendZMQ(socket *zmq.Socket) (total int, err error)
+}
+
+/*
+ * The process is the message sent from this (the session manager) over ZMQ.
+ * The request payload is the protobuf-encoded description description of what
+ * to retrieve. This is conceptually similar to the message/event that spawns
+ * processes on unix systems.
+ */
+type process struct {
+	// Return-address that flows through to make sure that data is returned to
+	// the correct node that manages the session
+	address string
+	pid string
+	request []byte
+}
+
+/*
+ * The partialResult is this model internal representation of the message
+ * sent by the worker nodes when a task is done.
+ *
+ * The payload being an opaque blob of bytes is very useful for testing, since
+ * the ZMQ and channel messaging infrastructure now does not depend on the
+ * payload, and instead of structured protobuf messages we can send strings to
+ * compare.
+ */
+type partialResult struct {
+	pid string
+	n int
+	m int
+	payload []byte
+}
+
+/*
+ * The routedPartialRequest is a more faithful representation of what the
+ * worker nodes *actually* send - they need to include a return address to the
+ * node that holds the session (this program, really). However, ZMQ at some
+ * point strips this address as a part of its routing protocol, and the rest of
+ * the application sees the message as partialResult.
+ */
+type routedPartialResult struct {
+	address string
+	partial partialResult
+}
+
+func (p *process) sendZMQ(socket *zmq.Socket) (total int, err error) {
+	return socket.SendMessage(p.address, p.pid, p.request)
+}
+
+/*
+ * Parse a partition request as it is delivered in a ZMQ multipart message.
+ * While this currently has no error checking, or really does anything
+ * sophisticated, it's the canonical way to obtain a process from a
+ * multipart message, and *the* go reference for what the messages from the
+ * fragment/worker looks like.
+ */
+func (p *process) loadZMQ(msg [][]byte) error {
+	if len(msg) != 3 {
+		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
+	}
+
+	p.address = string(msg[0])
+	p.pid = string(msg[1])
+	p.request = msg[2]
+	return nil
+}
+
+func (p *partialResult) loadZMQ(msg [][]byte) error {
+	if len(msg) != 3 {
+		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
+	}
+	p.pid = string(msg[0])
+	_, err := fmt.Sscanf(string(msg[1]), "%d/%d", &p.n, &p.m)
+	if err != nil {
+		return fmt.Errorf("%s: %s", err.Error(), string(msg[1]))
+	}
+	p.payload = msg[2]
+	return nil
+}
+
+func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
+	return socket.SendMessage(p.pid, fmt.Sprintf("%d/%d", p.n, p.m), p.payload)
+}
+
+func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
+	if len(msg) != 3 {
+		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
+	}
+	p.address = string(msg[0])
+	err := p.partial.loadZMQ(msg[1:])
+	if err != nil {
+		return fmt.Errorf("routedPartialResult.partial: %s", err.Error())
+	}
+	return nil
+}
+
+func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
+	return socket.SendMessage(
+		p.address,
+		p.partial.pid,
+		fmt.Sprintf("%d/%d", p.partial.n, p.partial.m),
+		p.partial.payload,
+	)
+}
+
+type sessions struct {
+	queue chan job
+}
+
+func (s *sessions) Schedule(proc *process) chan partialResult {
+	c := make(chan partialResult)
+	s.queue <- job{
+		jobID: proc.pid,
+		request: proc.request,
+		reply: c,
+	}
+	return c
+}
+
+func newSessions() *sessions {
+	return &sessions{queue: make(chan job)}
+}
+
+func all(a []bool) bool {
+	for _, x := range a {
+		if (!x) {
+			return false
+		}
+	}
+	return true
+}
+
+
+func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 	req, err := zmq.NewSocket(zmq.PUSH)
 
 	if err != nil {
@@ -21,7 +157,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 
 	req.Bind(reqNdpt)
 
-	rep := make(chan [][]byte)
+	rep := make(chan partialResult)
 	go func() {
 		r, err := zmq.NewSocket(zmq.DEALER)
 
@@ -32,6 +168,7 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 		r.SetIdentity(address)
 		r.Bind(repNdpt)
 
+		var partial partialResult
 		for {
 			m, err := r.RecvMessageBytes(0)
 
@@ -39,27 +176,60 @@ func multiplexer(jobs chan job, address string, reqNdpt string, repNdpt string) 
 				log.Fatal(err)
 			}
 
-			rep <- m
+			err = partial.loadZMQ(m)
+			if err != nil {
+				/*
+				 * This is likely to mean a bug somewhere, so eventually:
+				 *   1. drop the message and fail the request
+				 *   2. log all received bytes, try to recover at least pid
+				 *   3. then carry on
+				 *
+				 * For now, neither the experience nor infrastructure is in
+				 * place for that, so just log and exit
+				 */
+				log.Fatalf("Broken partialResult (loadZMQ): %s", err.Error())
+			}
+
+			rep <- partial
 		}
 	}()
 
 	// TODO: Clean up in case a reply never arrives?
-	replyChnls := make(map[string]chan []byte)
+	/*
+	 * Store pid -> channel to send result
+	 */
+	processes := make(map[string]chan partialResult)
+	progress := make(map[string][]bool)
 
 	for {
 		select {
 		case r := <-rep:
-			jobID := string(r[len(r)-2])
-			msg := r[len(r)-1]
-			rc := replyChnls[jobID]
+			rc := processes[r.pid]
+			prog := progress[r.pid]
 
-			rc <- msg
-			delete(replyChnls, jobID)
-		case j := <-jobs:
-			replyChnls[j.jobID] = j.reply
-			req.Send(address, zmq.SNDMORE)
-			req.Send(j.jobID, zmq.SNDMORE)
-			req.SendMessage(j.request)
+			if prog == nil {
+				progress[r.pid] = make([]bool, r.m)
+				prog = progress[r.pid]
+			}
+
+			rc <- r
+			prog[r.n] = true
+
+			if all(prog) {
+				close(rc)
+				delete(processes, r.pid)
+				delete(progress, r.pid)
+			}
+
+		case j := <-s.queue:
+			proc := process{
+				address: address,
+				pid: j.jobID,
+				request: j.request,
+			}
+			processes[j.jobID] = j.reply
+			progress[j.jobID] = nil
+			proc.sendZMQ(req)
 		}
 	}
 }

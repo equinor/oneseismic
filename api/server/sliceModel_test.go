@@ -20,10 +20,10 @@ func TestMakeSliceRequest(t *testing.T) {
 }
 
 func TestSliceModel(t *testing.T) {
-	jobs := make(chan job)
+	sessions := newSessions()
 
 	go func() {
-		job := <-jobs
+		job := <-sessions.queue
 		fr := oneseismic.FetchResponse{
 			Requestid: job.jobID,
 		}
@@ -35,14 +35,19 @@ func TestSliceModel(t *testing.T) {
 			}
 		}
 
-		bytes, err := proto.Marshal(&fr)
-		if err == nil {
-			job.reply <- bytes
-		} else {
-			job.reply <- []byte("")
+		bytes, _ := proto.Marshal(&fr)
+		pr := partialResult {
+			pid: "1",
+			n: 0,
+			m: 1,
+			payload: bytes,
 		}
+
+		job.reply <- pr
+		close(job.reply)
 	}()
-	sl := slicer{&mMultiplexer{"", "", jobs}}
+
+	sl := slicer{&mMultiplexer{"", ""}, sessions}
 	slice, err := sl.fetchSlice("guid", 0, 0, "requestid")
 
 	assert.Nil(t, err)
@@ -50,18 +55,25 @@ func TestSliceModel(t *testing.T) {
 }
 
 func TestModelMissingSlice(t *testing.T) {
-	jobs := make(chan job)
+	sessions := newSessions()
 
 	go func() {
-		job := <-jobs
+		job := <-sessions.queue
 		fr := oneseismic.FetchResponse{}
 		bytes, err := proto.Marshal(&fr)
 		if err != nil {
 			log.Fatalln("Failed to encode:", err)
 		}
-		job.reply <- bytes
+		pr := partialResult {
+			pid: "2",
+			n: 0,
+			m: 1,
+			payload: bytes,
+		}
+		job.reply <- pr
+		close(job.reply)
 	}()
-	sl := slicer{&mMultiplexer{"", "", jobs}}
+	sl := slicer{&mMultiplexer{"", ""}, sessions}
 	_, err := sl.fetchSlice("guid", 0, 0, "requestid")
 
 	assert.NotNil(t, err)

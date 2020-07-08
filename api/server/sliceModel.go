@@ -8,13 +8,13 @@ import (
 )
 
 type messageMultiplexer interface {
-	jobChannel() chan job
 	root() string
 	endpoint() string
 }
 
 type slicer struct {
 	mm messageMultiplexer
+	sessions *sessions
 }
 
 func makeSliceRequest(
@@ -48,11 +48,9 @@ func makeSliceRequest(
 type mMultiplexer struct {
 	storageEndpoint string
 	storageRoot     string
-	jobs            chan job
 }
 
 func (m *mMultiplexer) root() string         { return m.storageRoot }
-func (m *mMultiplexer) jobChannel() chan job { return m.jobs }
 func (m *mMultiplexer) endpoint() string     { return m.storageEndpoint }
 
 func (s *slicer) fetchSlice(
@@ -66,15 +64,17 @@ func (s *slicer) fetchSlice(
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}
 
-	replyChannel := make(chan []byte)
-	job := job{requestid, req, replyChannel}
-
+	proc := process{pid: requestid, request: req}
 	fr := oneseismic.FetchResponse{}
 
-	s.mm.jobChannel() <- job
-	err = proto.Unmarshal([]byte(<-replyChannel), &fr)
-	if err != nil {
-		return nil, fmt.Errorf("could not create slice response: %w", err)
+	replyChannel := s.sessions.Schedule(&proc)
+
+	for partial := range replyChannel {
+		err = proto.Unmarshal(partial.payload, &fr)
+
+		if err != nil {
+			return nil, fmt.Errorf("could not create slice response: %w", err)
+		}
 	}
 
 	slice := fr.GetSlice()

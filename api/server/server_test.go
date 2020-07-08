@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"net/url"
 	"testing"
+	"log"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/equinor/oneseismic/api/oneseismic"
@@ -47,8 +48,14 @@ func coreMock(reqNdpt string, repNdpt string) {
 	out.Connect(repNdpt)
 
 	for {
-		m, _ := in.RecvMessage(0)
-		fr := oneseismic.FetchResponse{Requestid: m[1]}
+		m, _ := in.RecvMessageBytes(0)
+		proc := process{}
+		err := proc.loadZMQ(m)
+		if err != nil {
+			msg := "Broken process (loadZMQ) in core emulation: %s"
+			log.Fatalf(msg, err.Error())
+		}
+		fr := oneseismic.FetchResponse{Requestid: proc.pid}
 		fr.Function = &oneseismic.FetchResponse_Slice{
 			Slice: &oneseismic.SliceResponse{
 				Tiles: []*oneseismic.SliceTile{
@@ -62,9 +69,19 @@ func coreMock(reqNdpt string, repNdpt string) {
 				},
 			},
 		}
+
 		bytes, _ := proto.Marshal(&fr)
-		m[2] = string(bytes)
-		_, err := out.SendMessage(m)
+		partial := routedPartialResult {
+			address: proc.address,
+			partial: partialResult {
+				pid: proc.pid,
+				n: 0,
+				m: 1,
+				payload: bytes,
+			},
+		}
+
+		_, err = partial.sendZMQ(out)
 
 		for err == zmq4.EHOSTUNREACH {
 			_, err = out.SendMessage(m)
