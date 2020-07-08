@@ -27,6 +27,3 @@ jobs:
         run: |
           export VERSION=`git describe --tags`
           docker-compose build
-
-      - name: Run integration tests
-        run: docker-compose -f docker-compose.yml -f docker-compose_tests.yml up --build --exit-code-from test
