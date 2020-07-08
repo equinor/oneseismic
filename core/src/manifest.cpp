@@ -168,7 +168,7 @@ void fetch_request::basic(const api_request& req) {
     /* set request type-independent parameters */
     /* these really shouldn't fail, and should mean immediate debug */
     this->set_requestid(req.requestid());
-    this->set_storage_endpoint(req.requestid());
+    this->set_storage_endpoint(req.storage_endpoint());
     this->set_root(req.root());
     this->set_guid(req.guid());
     *this->mutable_fragment_shape() = req.shape();
