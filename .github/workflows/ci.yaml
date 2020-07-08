@@ -26,4 +26,4 @@ jobs:
       - name: Build docker images
         run: |
           export VERSION=`git describe --tags`
-          docker-compose build
+          docker-compose build --parallel
