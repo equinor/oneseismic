@@ -83,6 +83,7 @@ int main(int argc, char** argv) {
     std::string key;
     bool help = false;
     int ntransfers = 4;
+    int task_size = 10;
 
     auto cli
         = clara::Help(help)
@@ -101,6 +102,9 @@ int main(int argc, char** argv) {
         | clara::Opt(ntransfers, "transfers")
             ["-j"]["--transfers"]
             (fmt::format("Concurrent blob connections, default = {}", ntransfers))
+        | clara::Opt(task_size, "task size")
+            ["-t"]["--task-size"]
+            (fmt::format("Max task size (# of fragments), default = {}", task_size))
         | clara::Opt(key, "key")
             ["-k"]["--key"]
             ("Pre-shared key")
@@ -153,6 +157,12 @@ int main(int argc, char** argv) {
     one::az_manifest az(key);
     one::transfer xfer(ntransfers, az);
     one::manifest_task task;
+    try {
+        task.max_task_size(task_size);
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << "\n";
+        std::exit(EXIT_FAILURE);
+    }
 
     zmq::pollitem_t items[] = {
         { static_cast< void* >(source),  0, ZMQ_POLLIN, 0 },

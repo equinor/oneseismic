@@ -3,6 +3,7 @@
 
 #include <catch/catch.hpp>
 #include <microhttpd.h>
+#include <fmt/format.h>
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 
@@ -160,5 +161,68 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         CHECK(fail[1].to_string() == "manifest-not-found");
 
         CHECK(not received_message(caller_rep));
+    }
+
+    SECTION("Setting task size changes # of IDs") {
+        loopback_cfg storage(httpd.port());
+        one::transfer xfer(1, storage);
+
+        one::manifest_task mt;
+        int size, tasks;
+        /*
+         * The total result is 10 fragments. This table encodes the task size
+         * and the expected jobs to get from the size. The main goal is to make
+         * the test not hang in case of bugs
+         */
+        std::tie(size, tasks) = GENERATE(table< int, int >({
+                {1, 10},
+                {2, 5},
+                {3, 4},
+        }));
+        mt.max_task_size(size);
+
+        caller_req.send(zmq::str_buffer("addr"), zmq::send_flags::sndmore);
+        caller_req.send(zmq::str_buffer("pid"), zmq::send_flags::sndmore);
+        caller_req.send(reqmsg, zmq::send_flags::none);
+        mt.run(xfer, worker_req, worker_rep, worker_fail);
+
+        const auto expected = std::vector< std::string > {
+            "0-0-0",
+            "0-0-1",
+            "0-0-2",
+            "0-0-3",
+            "0-0-4",
+            "1-0-0",
+            "1-0-1",
+            "1-0-2",
+            "1-0-3",
+            "1-0-4",
+        };
+
+        auto received = std::vector< std::string >();
+        for (int i = 0; i < tasks; ++i) {
+            if (not received_message(caller_rep)) {
+                FAIL("Not enough messages received, did not get #" << i + 1);
+            }
+
+            zmq::multipart_t response(caller_rep);
+            const auto& msg = response[3];
+
+            oneseismic::fetch_request rep;
+            const auto ok = rep.ParseFromString(msg.to_string());
+            REQUIRE(ok);
+
+            for (const auto& id : rep.ids()) {
+                received.push_back(fmt::format(
+                    "{}-{}-{}",
+                    id.dim0(),
+                    id.dim1(),
+                    id.dim2()
+                ));
+            }
+        }
+
+        std::sort(received.begin(), received.end());
+        CHECK_THAT(received, Equals(expected));
     }
 }

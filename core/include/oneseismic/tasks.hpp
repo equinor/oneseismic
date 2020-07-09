@@ -18,6 +18,9 @@ public:
             zmq::socket_t& fail)
         noexcept (false);
 
+    int  max_task_size() const noexcept (true);
+    void max_task_size(int)    noexcept (false);
+
     manifest_task();
     ~manifest_task();
 
