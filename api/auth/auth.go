@@ -30,7 +30,7 @@ func Validate(issuer, audience string) context.Handler {
 	return func(ctx context.Context) {
 		userToken := ctx.Values().Get("jwt")
 		if userToken == nil {
-			golog.Error("Get token from context", fmt.Errorf("missing token"))
+			golog.Error("token missing from context")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
@@ -38,14 +38,14 @@ func Validate(issuer, audience string) context.Handler {
 
 		user, ok := userToken.(*jwt.Token)
 		if !ok {
-			golog.Error("Type assertion", fmt.Errorf("not a jwt.Token"))
+			golog.Error("not a jwt.Token")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
 		}
 
 		if user.Claims == nil {
-			golog.Error("Check claims", fmt.Errorf("nil Claims"))
+			golog.Error("missing claims")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
@@ -53,14 +53,14 @@ func Validate(issuer, audience string) context.Handler {
 
 		claims := user.Claims.(jwt.MapClaims)
 		if !claims.VerifyIssuer(issuer, true) {
-			golog.Error("invalid issuer", fmt.Errorf(claims["iss"].(string)))
+			golog.Errorf("invalid issuer: %v != %v", issuer, claims["iss"].(string))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
 		}
 
 		if !claims.VerifyAudience(audience, true) {
-			golog.Error("invalid audience", fmt.Errorf(claims["aud"].(string)))
+			golog.Errorf("invalid audience: %v != %v", audience, claims["aud"].(string))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
