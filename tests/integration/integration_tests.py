@@ -48,12 +48,11 @@ AUTH_HEADER = auth_header()
 @pytest.fixture(scope="session")
 def create_cubes():
     blob_service_client = BlobServiceClient.from_connection_string(az_storage())
+    for c in blob_service_client.list_containers():
+        blob_service_client.delete_container(c)
 
     for name in CUBE_NAMES:
-        try:
-            blob_service_client.create_container(name)
-        except ResourceExistsError:
-            None
+        blob_service_client.create_container(name)
         blob_client = blob_service_client.get_blob_client(
             container=name, blob="manifest.json"
         )
