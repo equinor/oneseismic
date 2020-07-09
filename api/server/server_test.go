@@ -1,15 +1,13 @@
 package server
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
+	"log"
 	"net/url"
 	"testing"
-	"log"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/equinor/oneseismic/api/oneseismic"
 	"github.com/google/uuid"
+	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
 	"github.com/pebbe/zmq4"
 	"github.com/stretchr/testify/assert"
@@ -17,8 +15,6 @@ import (
 )
 
 func TestSlicer(t *testing.T) {
-	keys, jwt := mockRSAKeysJwt()
-	issuer := ""
 	storageEndpoint, _ := url.Parse("http://some.url")
 	account := ""
 	accountKey := ""
@@ -27,12 +23,12 @@ func TestSlicer(t *testing.T) {
 	zmqFailureAddr := "inproc://" + uuid.New().String()
 
 	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
-	app, err := App(keys, issuer, *storageEndpoint, account, accountKey, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
+	app := iris.Default()
+	err := Register(app, *storageEndpoint, account, accountKey, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 	assert.Nil(t, err)
 
 	e := httptest.New(t, app)
 	jsonResponse := e.GET("/some_guid/slice/0/0").
-		WithHeader("Authorization", "Bearer "+jwt).
 		Expect().
 		Status(httptest.StatusOK).
 		JSON()
@@ -88,25 +84,4 @@ func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
 			_, err = out.SendMessage(m)
 		}
 	}
-}
-
-func mockRSAKeysJwt() (map[string]rsa.PublicKey, string) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(err)
-	}
-
-	kid := "a"
-
-	keys := make(map[string]rsa.PublicKey)
-	keys[kid] = *privateKey.Public().(*rsa.PublicKey)
-
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{})
-	token.Header["kid"] = kid
-	jwt, err := token.SignedString(privateKey)
-	if err != nil {
-		panic(err)
-	}
-
-	return keys, jwt
 }

@@ -1,33 +1,24 @@
 package server
 
 import (
-	"crypto/rsa"
 	"net/url"
 
-	"github.com/equinor/oneseismic/api/auth"
 	"github.com/kataras/iris/v12"
 )
 
-// App for oneseismic
-func App(
-	rsaKeys map[string]rsa.PublicKey,
-	issuer string,
+// Register endpoints for oneseismic
+func Register(
+	app *iris.Application,
 	storageEndpoint url.URL,
 	accountName string,
 	accountKey string,
 	zmqReqAddr,
 	zmqRepAddr string,
 	zmqFailureAddr string,
-) (*iris.Application, error) {
-	app := iris.Default()
-
-	app.Use(auth.CheckJWT(rsaKeys))
-	app.Use(auth.ValidateIssuer(issuer))
-	app.Use(iris.Gzip)
-
+) error {
 	sURL, err := newServiceURL(storageEndpoint, accountName, accountKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	sessions := newSessions()
@@ -48,5 +39,5 @@ func App(
 	}
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slice.get)
 
-	return app, nil
+	return nil
 }

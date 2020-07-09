@@ -47,9 +47,14 @@ func main() {
 		golog.Fatal(err)
 	}
 
-	app, err := server.App(
-		rsaKeys,
-		os.Getenv("ISSUER"),
+	app := iris.Default()
+
+	app.Use(auth.CheckJWT(rsaKeys))
+	app.Use(auth.ValidateIssuer(os.Getenv("ISSUER")))
+	app.Use(iris.Gzip)
+
+	err = server.Register(
+		app,
 		*storageEndpoint,
 		account,
 		os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
