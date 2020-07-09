@@ -15,9 +15,7 @@ RUN go generate
 
 RUN go test -race ./...
 
-RUN GOOS=linux\
-    GOARCH=amd64 \
-    go build -ldflags="-w -s"
+RUN go build
 
 FROM debian:buster-slim as deployer
 RUN apt-get update && apt-get install -y libzmq5
