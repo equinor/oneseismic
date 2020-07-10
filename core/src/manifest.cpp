@@ -168,7 +168,7 @@ void fetch_request::basic(const api_request& req) {
     /* set request type-independent parameters */
     /* these really shouldn't fail, and should mean immediate debug */
     this->set_requestid(req.requestid());
-    this->set_storage_endpoint(req.requestid());
+    this->set_storage_endpoint(req.storage_endpoint());
     this->set_root(req.root());
     this->set_guid(req.guid());
     *this->mutable_fragment_shape() = req.shape();
@@ -210,6 +210,7 @@ public:
     std::string pid;
     api_request request;
     fetch_request query;
+    int task_size = 10;
 };
 
 void manifest_task::impl::start_processing(zmq::multipart_t& task) {
@@ -311,7 +312,7 @@ try {
             return;
     }
 
-    const auto chunk_size = ids.size();
+    const auto chunk_size = this->p->task_size;
     const auto chunks = chunk_count(ids.size(), chunk_size);
     auto first = ids.begin();
     auto end = ids.end();
@@ -364,6 +365,18 @@ try {
 } catch (const line_not_found& e) {
     spdlog::info("{} {}", this->p->pid, e.what());
     this->p->failure("line-not-found").send(failure);
+}
+
+int manifest_task::max_task_size() const noexcept (true) {
+    return this->p->task_size;
+}
+
+void manifest_task::max_task_size(int size) noexcept (false) {
+    if (size <= 0) {
+        const auto msg = "expected task size > 0, was {}";
+        throw std::invalid_argument(fmt::format(msg, size));
+    }
+    this->p->task_size = size;
 }
 
 manifest_task::manifest_task() : p(new impl()) {}

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
 	"google.golang.org/protobuf/proto"
@@ -69,19 +70,42 @@ func (s *slicer) fetchSlice(
 
 	replyChannel := s.sessions.Schedule(&proc)
 
+	/*
+	 * Read and parse messages as they come, and consider the process complete
+	 * when the reply-channel closes.
+	 *
+	 * Right now, the result is assembled here and returned in one piece to
+	 * users, so it never looks like a parallelised job. This is so that we can
+	 * experiment with chunk sizes, worker nodes, load etc. without having to
+	 * be bothered with a more complex protocol between API and users, and so
+	 * that previously-written clients still work. In the future, this will
+	 * probably change and partial results will be transmitted.
+	 *
+	 * TODO: This gives weak failure handling, and Session needs a way to
+	 * signal failed processes
+	 */
+	var tiles []*oneseismic.SliceTile
 	for partial := range replyChannel {
 		err = proto.Unmarshal(partial.payload, &fr)
 
 		if err != nil {
 			return nil, fmt.Errorf("could not create slice response: %w", err)
 		}
+
+		slice := fr.GetSlice()
+		// TODO: cancel job on failure channel
+		if slice == nil {
+			switch x := fr.Function.(type) {
+			default:
+				msg := "%s Expected FetchResponse.Function = %T; was %T"
+				log.Printf(msg, requestid, slice, x)
+				return nil, fmt.Errorf("internal error")
+			}
+		}
+
+		tiles = append(tiles, slice.GetTiles()...)
 	}
 
-	slice := fr.GetSlice()
-	if slice == nil {
-		return nil, fmt.Errorf("slice not found")
-
-	}
-
+	fr.GetSlice().Tiles = tiles
 	return fr.GetSlice(), nil
 }
