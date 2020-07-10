@@ -8,7 +8,7 @@ import (
 )
 
 type job struct {
-	jobID   string
+	pid     string
 	request []byte
 	reply   chan partialResult
 }
@@ -127,7 +127,7 @@ type sessions struct {
 func (s *sessions) Schedule(proc *process) chan partialResult {
 	c := make(chan partialResult)
 	s.queue <- job{
-		jobID: proc.pid,
+		pid: proc.pid,
 		request: proc.request,
 		reply: c,
 	}
@@ -194,41 +194,48 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 		}
 	}()
 
+	type procstatus struct {
+		/*
+		 * Channel to send replies (read from ZMQ) to, to be assembled and
+		 * returned to users
+		 */
+		out chan partialResult
+		/*
+		 * Bit-array of already-received parts for this process
+		 */
+		completed []bool
+	}
+
 	// TODO: Clean up in case a reply never arrives?
-	/*
-	 * Store pid -> channel to send result
-	 */
-	processes := make(map[string]chan partialResult)
-	progress := make(map[string][]bool)
+	processes := make(map[string]procstatus)
 
 	for {
 		select {
 		case r := <-rep:
-			rc := processes[r.pid]
-			prog := progress[r.pid]
+			proc := processes[r.pid]
 
-			if prog == nil {
-				progress[r.pid] = make([]bool, r.m)
-				prog = progress[r.pid]
+			if proc.completed == nil {
+				proc.completed = make([]bool, r.m)
 			}
 
-			rc <- r
-			prog[r.n] = true
+			proc.out <- r
+			proc.completed[r.n] = true
 
-			if all(prog) {
-				close(rc)
+			if all(proc.completed) {
+				close(proc.out)
 				delete(processes, r.pid)
-				delete(progress, r.pid)
 			}
 
 		case j := <-s.queue:
 			proc := process{
 				address: address,
-				pid: j.jobID,
+				pid: j.pid,
 				request: j.request,
 			}
-			processes[j.jobID] = j.reply
-			progress[j.jobID] = nil
+			processes[j.pid] = procstatus {
+				out: j.reply,
+				completed: nil,
+			}
 			proc.sendZMQ(req)
 		}
 	}

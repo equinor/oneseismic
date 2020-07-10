@@ -25,7 +25,7 @@ func TestSliceModel(t *testing.T) {
 	go func() {
 		job := <-sessions.queue
 		fr := oneseismic.FetchResponse{
-			Requestid: job.jobID,
+			Requestid: job.pid,
 		}
 		ar := oneseismic.ApiRequest{}
 		err := proto.Unmarshal([]byte(job.request), &ar)
