@@ -8,7 +8,7 @@ import (
 )
 
 type job struct {
-	jobID   string
+	pid     string
 	request []byte
 	reply   chan partialResult
 }
@@ -127,7 +127,7 @@ type sessions struct {
 func (s *sessions) Schedule(proc *process) chan partialResult {
 	c := make(chan partialResult)
 	s.queue <- job{
-		jobID: proc.pid,
+		pid: proc.pid,
 		request: proc.request,
 		reply: c,
 	}
@@ -229,10 +229,10 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 		case j := <-s.queue:
 			proc := process{
 				address: address,
-				pid: j.jobID,
+				pid: j.pid,
 				request: j.request,
 			}
-			processes[j.jobID] = procstatus {
+			processes[j.pid] = procstatus {
 				out: j.reply,
 				completed: nil,
 			}
