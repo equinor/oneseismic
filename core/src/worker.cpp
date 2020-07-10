@@ -213,41 +213,34 @@ const std::string& fetch_response::serialize() noexcept (false) {
 
 namespace one {
 
+/**
+ * Cache instances - for rationale, see manifest_task::impl
+ */
 class fragment_task::impl {
 public:
-    /*
-     * Transition into "processing" mode - this should be the first method
-     * called whenever a message is received from the queue and a job is about
-     * to start.
-     */
-    void start_processing(zmq::multipart_t& task);
+    void parse(const zmq::multipart_t& task);
 
     zmq::multipart_t failure(const std::string& key) noexcept (false);
 
+    std::string address;
     std::string pid;
+    std::string part;
     fetch_request query;
     fetch_response result;
     all_actions actions;
 };
 
-void fragment_task::impl::start_processing(zmq::multipart_t& task) {
-    /*
-     * Currently, the only thing this function does is parse and set the pid
-     * which is not actually cleared between invocations (so calling methods
-     * out-of-order is not detected). This can certainly change in the future
-     * though, and gets the clunky read-bytes-from-message out of the way in
-     * the body.
-     */
+void fragment_task::impl::parse(const zmq::multipart_t& task) {
+    assert(task.size() == 4);
+    const auto& addr = task[0];
+    const auto& pid  = task[1];
+    const auto& part = task[2];
+    const auto& body = task[3];
 
-    /*
-     * The job argument is conceptually const, but can't be since the
-     * zmq::multipart_t is not marked as such (even though it is)
-     */
-    const auto& pid = task[1];
-    this->pid.assign(
-            static_cast< const char* >(pid.data()),
-            pid.size()
-    );
+    this->address.assign(static_cast< const char* >(addr.data()), addr.size());
+    this->pid.assign(    static_cast< const char* >(pid.data()),  pid.size());
+    this->part.assign(   static_cast< const char* >(part.data()), part.size());
+    this->query.parse(body);
 }
 
 zmq::multipart_t fragment_task::impl::failure(const std::string& key)
@@ -264,25 +257,10 @@ void fragment_task::run(
         zmq::socket_t& output,
         zmq::socket_t& failure) try {
 
-    /*
-     * TODO: Keep the protobuf instances alive, as re-using handles is a lot
-     * more efficient than reallocating them every time.
-     *
-     * https://github.com/protocolbuffers/protobuf/blob/master/docs/performance.md
-     *
-     * TODO: maintain individual response instances in the action, as they can
-     * reuse the same oneof every invocation
-     */
-    zmq::multipart_t envelope(input);
-    assert(envelope.size() == 4);
-    const auto& address = envelope[0].to_string();
-    this->p->start_processing(envelope);
-    const auto& part = envelope[2].to_string();
+    zmq::multipart_t process(input);
+    this->p->parse(process);
 
-    const auto& body = envelope[3];
-    auto& query = this->p->query;
-    query.parse(body);
-
+    const auto& query = this->p->query;
     auto& action = this->p->actions.select(query);
     auto batch = make_batch(query);
     xfer.perform(batch, action);
@@ -292,9 +270,9 @@ void fragment_task::run(
     action.serialize(result);
 
     zmq::multipart_t msg;
-    msg.addstr(address);
+    msg.addstr(this->p->address);
     msg.addstr(this->p->pid);
-    msg.addstr(part);
+    msg.addstr(this->p->part);
     msg.addstr(result.serialize());
     msg.send(output);
 
