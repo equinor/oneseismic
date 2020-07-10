@@ -272,28 +272,28 @@ try {
     auto process = zmq::multipart_t(input);
     this->p->parse(process);
 
+    const auto& pid = this->p->pid;
+    const auto& request = this->p->request;
+
     const auto manifest = get_manifest(
             xfer,
-            this->p->request.root(),
-            this->p->request.storage_endpoint(),
-            this->p->request.guid()
+            request.root(),
+            request.storage_endpoint(),
+            request.guid()
     );
 
     auto& query = this->p->query;
-    query.basic(this->p->request);
+    query.basic(request);
     std::vector< one::FID< 3 > > ids;
-    switch (this->p->request.function_case()) {
+    switch (request.function_case()) {
         using oneof = oneseismic::api_request;
 
         case oneof::kSlice:
-            ids = query.slice(this->p->request, manifest);
+            ids = query.slice(request, manifest);
             break;
 
         default:
-            spdlog::error(
-                "{} bad request variant (oneof)",
-                this->p->pid
-            );
+            spdlog::error("{} bad request variant (oneof)", pid);
             return;
     }
 
@@ -312,16 +312,11 @@ try {
 
         zmq::multipart_t msg;
         msg.addstr(this->p->address);
-        msg.addstr(this->p->pid);
+        msg.addstr(pid);
         msg.addstr(fmt::format("{}/{}", i, chunks));
-        msg.addstr(this->p->query.serialize());
+        msg.addstr(query.serialize());
         msg.send(output);
-        spdlog::info(
-                "{} {}/{} queued for fragment retrieval",
-                this->p->pid,
-                i,
-                chunks
-        );
+        spdlog::info("{} {}/{} queued for fragment retrieval", pid, i, chunks);
     }
 
 } catch (const bad_message&) {
