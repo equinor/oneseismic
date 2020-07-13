@@ -207,7 +207,7 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 	}
 
 	// TODO: Clean up in case a reply never arrives?
-	processes := make(map[string]procstatus)
+	processes := make(map[string]*procstatus)
 
 	for {
 		select {
@@ -232,7 +232,7 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 				pid: j.pid,
 				request: j.request,
 			}
-			processes[j.pid] = procstatus {
+			processes[j.pid] = &procstatus {
 				out: j.reply,
 				completed: nil,
 			}

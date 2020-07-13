@@ -14,7 +14,7 @@ import (
  * just echo the payload. Even though the payload processing is the identity
  * function, the messages going in and coming out must be properly structured.
  */
-func echoAsWorker() {
+func echoAsWorker(tasks int) {
 	in, _ := zmq.NewSocket(zmq.PULL)
 	in.Connect("inproc://req1")
 	in.Connect("inproc://req2")
@@ -34,30 +34,32 @@ func echoAsWorker() {
 			log.Fatalf(msg, err.Error())
 		}
 
-		partial := routedPartialResult {
-			address: proc.address,
-			partial: partialResult {
-				pid: proc.pid,
-				n: 0,
-				m: 1,
-				payload: proc.request,
-			},
-		}
+		for i := 0; i < tasks; i++ {
+			partial := routedPartialResult {
+				address: proc.address,
+				partial: partialResult {
+					pid: proc.pid,
+					n: i,
+					m: tasks,
+					payload: proc.request,
+				},
+			}
 
-		/*
-		 * There is an awkward race condition in this test Connect() does not
-		 * block, and it can happen that the source is available with messages
-		 * waiting before the sink. In those cases, the sink will be
-		 * unreachable, but the sink is an inproc queue, so host unreachable is
-		 * somewhat non-sensical. Just re-try sending until it actually
-		 * completes.
-		 *
-		 * In the presence of super bad bugs, this could lead to a difficult to
-		 * diagnose infinite loop
-		 */
-		_, err = partial.sendZMQ(out)
-		for err == zmq.EHOSTUNREACH {
+			/*
+			* There is an awkward race condition in this test Connect() does
+			* not block, and it can happen that the source is available with
+			* messages waiting before the sink. In those cases, the sink will
+			* be unreachable, but the sink is an inproc queue, so host
+			* unreachable is somewhat non-sensical. Just re-try sending until
+			* it actually completes.
+			*
+			* In the presence of super bad bugs, this could lead to a difficult
+			* to diagnose infinite loop
+			*/
 			_, err = partial.sendZMQ(out)
+			for err == zmq.EHOSTUNREACH {
+				_, err = partial.sendZMQ(out)
+			}
 		}
 	}
 }
@@ -67,9 +69,10 @@ func verifyCorrectReply(t *testing.T, i int, s *sessions, done chan struct{}) {
 	msg := []byte("message from " + id)
 	job := process{address: "", pid: id, request: msg}
 	res := s.Schedule(&job)
-	result := <-res
 
-	assert.Equal(t, result.payload, msg)
+	for result := range res {
+		assert.Equal(t, result.payload, msg)
+	}
 	done <- struct{}{}
 }
 
@@ -79,9 +82,9 @@ func TestMultiplexer(t *testing.T) {
 	go s1.Run("mplx1", "inproc://req1", "inproc://rep1")
 	go s2.Run("mplx2", "inproc://req2", "inproc://rep2")
 
-	go echoAsWorker()
-	go echoAsWorker()
-	go echoAsWorker()
+	go echoAsWorker(1)
+	go echoAsWorker(2)
+	go echoAsWorker(3)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
