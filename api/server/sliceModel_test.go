@@ -10,7 +10,7 @@ import (
 )
 
 func TestMakeSliceRequest(t *testing.T) {
-	bytes, err := makeSliceRequest("", "", "", 0, 0, "")
+	bytes, err := makeSliceRequest("", "", "", "", 0, 0, "")
 	assert.Nil(t, err)
 	sr := oneseismic.ApiRequest{}
 	err = proto.Unmarshal(bytes, &sr)
@@ -48,7 +48,7 @@ func TestSliceModel(t *testing.T) {
 	}()
 
 	sl := slicer{&mMultiplexer{"", ""}, sessions}
-	slice, err := sl.fetchSlice("guid", 0, 0, "requestid")
+	slice, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
 
 	assert.Nil(t, err)
 	assert.NotNil(t, slice)
@@ -74,7 +74,7 @@ func TestModelMissingSlice(t *testing.T) {
 		close(job.reply)
 	}()
 	sl := slicer{&mMultiplexer{"", ""}, sessions}
-	_, err := sl.fetchSlice("guid", 0, 0, "requestid")
+	_, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
 
 	assert.NotNil(t, err)
 }

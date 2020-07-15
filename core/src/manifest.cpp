@@ -151,12 +151,14 @@ nlohmann::json get_manifest(
         one::transfer& xfer,
         const std::string& root,
         const std::string& storage_endpoint,
+        const std::string& authorization,
         const std::string& guid)
 noexcept (false) {
 
     one::batch batch;
     batch.root = root;
     batch.storage_endpoint = storage_endpoint;
+    batch.authorization = authorization;
     batch.guid = guid;
     batch.fragment_ids.resize(1);
     manifest_cfg cfg;
@@ -171,6 +173,7 @@ void fetch_request::basic(const api_request& req) {
     this->set_storage_endpoint(req.storage_endpoint());
     this->set_root(req.root());
     this->set_guid(req.guid());
+    this->set_authorization(req.authorization());
     *this->mutable_fragment_shape() = req.shape();
 }
 
@@ -279,6 +282,7 @@ try {
             xfer,
             request.root(),
             request.storage_endpoint(),
+            request.authorization(),
             request.guid()
     );
 

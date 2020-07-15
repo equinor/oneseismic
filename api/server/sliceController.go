@@ -11,6 +11,7 @@ import (
 
 type sliceModel interface {
 	fetchSlice(
+		auth string,
 		guid string,
 		dim int32,
 		lineno int32,
@@ -38,7 +39,8 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid)
+	auth := ctx.GetHeader("Authorization")
+	slice, err := sc.slicer.fetchSlice(auth, guid, dim, lineno, requestid)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return

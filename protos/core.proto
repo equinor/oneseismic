@@ -27,6 +27,7 @@ message api_slice {
 
 message api_request {
     string requestid = 1;
+    string authorization = 7;
     string root = 2;
     string guid = 3;
     string storage_endpoint = 4;
@@ -75,6 +76,7 @@ message fetch_response {
 
 message fetch_request {
     string requestid = 1;
+    string authorization = 9;
     string root = 2;
     string guid = 3;
     string storage_endpoint = 4;

@@ -23,6 +23,7 @@ namespace one {
 struct batch {
     std::string root; /* storage-account in azure */
     std::string storage_endpoint; /* url including storage-account */
+    std::string authorization;    /* For azure this is "Bearer $token" */
     std::string guid;
     std::string fragment_shape; /* src/64-64-64 */
 
