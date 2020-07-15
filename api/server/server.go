@@ -5,7 +5,6 @@ import (
 	"net/url"
 
 	"github.com/equinor/oneseismic/api/auth"
-	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 )
 
@@ -36,7 +35,7 @@ func App(
 	app.Get("/{guid:string}/slice", sc.dimensions)
 	app.Get("/{guid:string}/slice/{dimension:int32}", sc.lines)
 
-	slicer := createSliceController(zmqReqAddr, zmqRepAddr, storageEndpoint.String(), accountName, uuid.New().String())
+	slicer := createSliceController(zmqReqAddr, zmqRepAddr, storageEndpoint.String(), accountName)
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slicer.get)
 
 	return app, nil

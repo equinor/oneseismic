@@ -67,10 +67,9 @@ func createSliceController(
 	repNdpt string,
 	storageEndpoint string,
 	root string,
-	mPlexName string,
 ) sliceController {
 	sessions := newSessions()
-	go sessions.Run(mPlexName, reqNdpt, repNdpt)
+	go sessions.Run(reqNdpt, repNdpt)
 	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageEndpoint, root}, sessions: sessions}}
 	return sc
 }

@@ -79,8 +79,8 @@ func verifyCorrectReply(t *testing.T, i int, s *sessions, done chan struct{}) {
 func TestMultiplexer(t *testing.T) {
 	s1 := newSessions()
 	s2 := newSessions()
-	go s1.Run("mplx1", "inproc://req1", "inproc://rep1")
-	go s2.Run("mplx2", "inproc://req2", "inproc://rep2")
+	go s1.Run("inproc://req1", "inproc://rep1")
+	go s2.Run("inproc://req2", "inproc://rep2")
 
 	go echoAsWorker(1)
 	go echoAsWorker(2)

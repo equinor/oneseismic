@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	zmq "github.com/pebbe/zmq4"
+	"github.com/google/uuid"
 )
 
 type job struct {
@@ -121,6 +122,7 @@ func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error)
 }
 
 type sessions struct {
+	identity string
 	queue chan job
 }
 
@@ -135,7 +137,10 @@ func (s *sessions) Schedule(proc *process) chan partialResult {
 }
 
 func newSessions() *sessions {
-	return &sessions{queue: make(chan job)}
+	return &sessions{
+		identity: uuid.New().String(),
+		queue: make(chan job),
+	}
 }
 
 func all(a []bool) bool {
@@ -148,7 +153,7 @@ func all(a []bool) bool {
 }
 
 
-func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
+func (s *sessions) Run(reqNdpt string, repNdpt string) {
 	req, err := zmq.NewSocket(zmq.PUSH)
 
 	if err != nil {
@@ -165,7 +170,7 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 			log.Fatal(err)
 		}
 
-		r.SetIdentity(address)
+		r.SetIdentity(s.identity)
 		r.Bind(repNdpt)
 
 		var partial partialResult
@@ -228,7 +233,7 @@ func (s *sessions) Run(address string, reqNdpt string, repNdpt string) {
 
 		case j := <-s.queue:
 			proc := process{
-				address: address,
+				address: s.identity,
 				pid: j.pid,
 				request: j.request,
 			}
