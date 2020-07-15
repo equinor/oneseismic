@@ -61,15 +61,3 @@ func (sc *sliceController) get(ctx iris.Context) {
 
 	return
 }
-
-func createSliceController(
-	reqNdpt string,
-	repNdpt string,
-	storageEndpoint string,
-	root string,
-) sliceController {
-	sessions := newSessions()
-	go sessions.Run(reqNdpt, repNdpt)
-	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageEndpoint, root}, sessions: sessions}}
-	return sc
-}

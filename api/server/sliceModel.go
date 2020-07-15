@@ -8,13 +8,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type messageMultiplexer interface {
-	root() string
-	endpoint() string
-}
-
 type slicer struct {
-	mm messageMultiplexer
+	root string
+	endpoint string
 	sessions *sessions
 }
 
@@ -48,14 +44,6 @@ func makeSliceRequest(
 	return proto.Marshal(&req)
 }
 
-type mMultiplexer struct {
-	storageEndpoint string
-	storageRoot     string
-}
-
-func (m *mMultiplexer) root() string         { return m.storageRoot }
-func (m *mMultiplexer) endpoint() string     { return m.storageEndpoint }
-
 func (s *slicer) fetchSlice(
 	auth string,
 	guid string,
@@ -63,7 +51,7 @@ func (s *slicer) fetchSlice(
 	lineno int32,
 	requestid string) (*oneseismic.SliceResponse, error) {
 
-	req, err := makeSliceRequest(auth, s.mm.endpoint(), s.mm.root(), guid, dim, lineno, requestid)
+	req, err := makeSliceRequest(auth, s.endpoint, s.root, guid, dim, lineno, requestid)
 	if err != nil {
 		return nil, fmt.Errorf("could not make slice request: %w", err)
 	}

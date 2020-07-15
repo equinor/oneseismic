@@ -29,14 +29,23 @@ func App(
 		return nil, err
 	}
 
+	sessions := newSessions()
+	go sessions.Run(zmqReqAddr, zmqRepAddr)
+
 	sc := storeController{sURL}
 	app.Get("/", sc.list)
 	app.Get("/{guid:string}", sc.services)
 	app.Get("/{guid:string}/slice", sc.dimensions)
 	app.Get("/{guid:string}/slice/{dimension:int32}", sc.lines)
 
-	slicer := createSliceController(zmqReqAddr, zmqRepAddr, storageEndpoint.String(), accountName)
-	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slicer.get)
+	slice := sliceController {
+		slicer: &slicer {
+			root: accountName,
+			endpoint: storageEndpoint.String(),
+			sessions: sessions,
+		},
+	}
+	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slice.get)
 
 	return app, nil
 }

@@ -47,7 +47,11 @@ func TestSliceModel(t *testing.T) {
 		close(job.reply)
 	}()
 
-	sl := slicer{&mMultiplexer{"", ""}, sessions}
+	sl := slicer{
+		root: "",
+		endpoint: "",
+		sessions: sessions,
+	}
 	slice, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
 
 	assert.Nil(t, err)
@@ -73,7 +77,11 @@ func TestModelMissingSlice(t *testing.T) {
 		job.reply <- pr
 		close(job.reply)
 	}()
-	sl := slicer{&mMultiplexer{"", ""}, sessions}
+	sl := slicer{
+		root: "",
+		endpoint: "",
+		sessions: sessions,
+	}
 	_, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
 
 	assert.NotNil(t, err)
