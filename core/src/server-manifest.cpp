@@ -80,7 +80,6 @@ int main(int argc, char** argv) {
     std::string sink_address = "tcp://*:68142";
     std::string control_address;
     std::string fail_address;
-    std::string key;
     bool help = false;
     int ntransfers = 4;
     int task_size = 10;
@@ -105,9 +104,6 @@ int main(int argc, char** argv) {
         | clara::Opt(task_size, "task size")
             ["-t"]["--task-size"]
             (fmt::format("Max task size (# of fragments), default = {}", task_size))
-        | clara::Opt(key, "key")
-            ["-k"]["--key"]
-            ("Pre-shared key")
     ;
 
     auto result = cli.parse(clara::Args(argc, argv));
@@ -120,12 +116,6 @@ int main(int argc, char** argv) {
     if (help) {
         std::cout << cli << "\n";
         std::exit(EXIT_SUCCESS);
-    }
-
-
-    if (key.empty()) {
-        std::cerr << "Need pre-shared key\n" << cli << "\n";
-        std::exit(EXIT_FAILURE);
     }
 
     zmq::context_t ctx;
@@ -154,7 +144,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az_manifest az(key);
+    one::az_manifest az("");
     one::transfer xfer(ntransfers, az);
     one::manifest_task task;
     try {
