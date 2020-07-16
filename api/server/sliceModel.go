@@ -14,21 +14,19 @@ type slicer struct {
 	sessions *sessions
 }
 
-func makeSliceRequest(
+func (s *slicer) fetchSlice(
 	auth string,
-	storageEndpoint string,
-	root string,
 	guid string,
 	dim int32,
 	lineno int32,
-	requestid string) ([]byte, error) {
+	requestid string) (*oneseismic.SliceResponse, error) {
 
-	req := oneseismic.ApiRequest{
+	msg := oneseismic.ApiRequest {
 		Requestid:       requestid,
 		Authorization:   auth,
 		Guid:            guid,
-		Root:            root,
-		StorageEndpoint: storageEndpoint,
+		Root:            s.root,
+		StorageEndpoint: s.endpoint,
 		Shape: &oneseismic.FragmentShape{
 			Dim0: 64,
 			Dim1: 64,
@@ -41,19 +39,10 @@ func makeSliceRequest(
 			},
 		},
 	}
-	return proto.Marshal(&req)
-}
 
-func (s *slicer) fetchSlice(
-	auth string,
-	guid string,
-	dim int32,
-	lineno int32,
-	requestid string) (*oneseismic.SliceResponse, error) {
-
-	req, err := makeSliceRequest(auth, s.endpoint, s.root, guid, dim, lineno, requestid)
+	req, err := proto.Marshal(&msg)
 	if err != nil {
-		return nil, fmt.Errorf("could not make slice request: %w", err)
+		return nil, fmt.Errorf("Marshalling oneseisimc.ApiRequest: %w", err)
 	}
 
 	proc := process{pid: requestid, request: req}

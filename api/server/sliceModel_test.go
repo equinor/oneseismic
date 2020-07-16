@@ -9,16 +9,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestMakeSliceRequest(t *testing.T) {
-	bytes, err := makeSliceRequest("", "", "", "", 0, 0, "")
-	assert.Nil(t, err)
-	sr := oneseismic.ApiRequest{}
-	err = proto.Unmarshal(bytes, &sr)
-	assert.Nil(t, err)
-	assert.NotNil(t, sr.Shape)
-	assert.NotNil(t, sr.GetSlice())
-}
-
 func TestSliceModel(t *testing.T) {
 	sessions := newSessions()
 
