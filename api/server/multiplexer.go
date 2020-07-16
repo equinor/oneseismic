@@ -169,8 +169,38 @@ func all(a []bool) bool {
 	return true
 }
 
+/*
+ * Pipe failures from ZMQ into the failures channel, so it can be given to the
+ * right session
+ */
+func pipeFailures(addr string, failures chan []string) {
+	r, err := zmq.NewSocket(zmq.PULL)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-func (s *sessions) Run(reqNdpt string, repNdpt string) {
+	err = r.Bind(addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for {
+		msg, err := r.RecvMessage(0)
+		if err != nil {
+			/*
+			 * An error reading from the failure channel is *probably* not
+			 * fatal, and can be logged & ignored. More sophisticated
+			 * handling can be necessary, but don't deal with it until it
+			 * becomes an issue
+			 */
+			log.Print(err)
+			continue
+		}
+		failures <- msg
+	}
+}
+
+func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 	req, err := zmq.NewSocket(zmq.PUSH)
 
 	if err != nil {
@@ -216,6 +246,9 @@ func (s *sessions) Run(reqNdpt string, repNdpt string) {
 		}
 	}()
 
+	failures := make(chan []string)
+	go pipeFailures(failureAddr, failures)
+
 	type procstatus struct {
 		io procIO
 		/*
@@ -243,6 +276,27 @@ func (s *sessions) Run(reqNdpt string, repNdpt string) {
 				close(proc.io.out)
 				close(proc.io.err)
 				delete(processes, r.pid)
+			}
+
+		case f := <-failures:
+			pid := f[0]
+			msg := f[1]
+
+			proc, ok := processes[pid]
+			/*
+			 * If not in the process table, just ignore the fail command and
+			 * continue
+			 */
+			if !ok {
+				errmsg := "%s failed (%s); was not in process table"
+				log.Printf(errmsg, pid, msg)
+			} else {
+				errmsg := "%s failed (%s); removing from process table"
+				log.Printf(errmsg, pid, msg)
+				proc.io.err <- msg
+				close(proc.io.out)
+				close(proc.io.err)
+				delete(processes, pid)
 			}
 
 		case j := <-s.queue:

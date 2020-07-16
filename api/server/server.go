@@ -17,6 +17,7 @@ func App(
 	accountKey string,
 	zmqReqAddr,
 	zmqRepAddr string,
+	zmqFailureAddr string,
 ) (*iris.Application, error) {
 	app := iris.Default()
 
@@ -30,7 +31,7 @@ func App(
 	}
 
 	sessions := newSessions()
-	go sessions.Run(zmqReqAddr, zmqRepAddr)
+	go sessions.Run(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 
 	sc := storeController{sURL}
 	app.Get("/", sc.list)

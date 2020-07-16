@@ -79,8 +79,8 @@ func verifyCorrectReply(t *testing.T, i int, s *sessions, done chan struct{}) {
 func TestMultiplexer(t *testing.T) {
 	s1 := newSessions()
 	s2 := newSessions()
-	go s1.Run("inproc://req1", "inproc://rep1")
-	go s2.Run("inproc://req2", "inproc://rep2")
+	go s1.Run("inproc://req1", "inproc://rep1", "inproc://fail1")
+	go s2.Run("inproc://req2", "inproc://rep2", "inproc://fail2")
 
 	go echoAsWorker(1)
 	go echoAsWorker(2)
@@ -96,5 +96,82 @@ func TestMultiplexer(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		<-done1
 		<-done2
+	}
+}
+
+func makeSocket(addr string, socktype zmq.Type) *zmq.Socket {
+	queue, err := zmq.NewSocket(socktype)
+	if err != nil {
+		msg := "Unable to create socket %s: %w"
+		log.Fatalf(msg, addr, err.Error())
+	}
+
+	err = queue.Connect(addr)
+	if err != nil {
+		msg := "Unable to connect to %s: %w"
+		log.Fatalf(msg, addr, err.Error())
+	}
+
+	return queue
+}
+
+func TestFailureCancelsProcess(t *testing.T) {
+	session := newSessions()
+	go session.Run("inproc://req", "inproc://rep", "inproc://fail")
+
+	/*
+	 * The queue must be connected, otherwise the Schedule() will hang until it
+	 * is. Go will not compile as long as the variable is unused, so while the
+	 * defer in.Close() shouldn't necessary (will be cleaned up on gc), it is
+	 * to make the variable used somehow
+	 */
+	in := makeSocket("inproc://req", zmq.PULL)
+	defer in.Close()
+	fail := makeSocket("inproc://fail", zmq.PUSH)
+
+	io := make([]procIO, 10)
+	for i := 0; i < 10; i++ {
+		job := process {
+			address: "",
+			pid: strconv.Itoa(i),
+			request: []byte("should never arrive"),
+		}
+		io[i] = session.Schedule(&job)
+	}
+
+	// emulate failures from the workers
+	for i := 0; i < 10; i++ {
+		msg := []string {
+			strconv.Itoa(i),
+			strconv.Itoa(i) + " manual-failure",
+		}
+		_, err := fail.SendMessage(msg)
+		for err == zmq.EHOSTUNREACH {
+			_, err = fail.SendMessage(msg)
+		}
+	}
+
+	for i, proc := range io {
+		select {
+		case m := <-proc.out:
+			fmt := "Unexpected message (%s) received - test is likely broken"
+			t.Fatalf(fmt, m)
+
+		case msg := <-proc.err:
+			expected := strconv.Itoa(i) + " manual-failure"
+			if msg != expected {
+				fmt := "Unexpected fail-message = '%s'; want '%s'"
+				t.Errorf(fmt, msg, expected)
+			}
+		}
+
+		_, open := <-proc.out
+		if open {
+			t.Errorf("proc.out (pid = %d) not closed as it should be", i)
+		}
+		_, open = <-proc.err
+		if open {
+			t.Errorf("proc.err (pid = %d) not closed as it should be", i)
+		}
 	}
 }

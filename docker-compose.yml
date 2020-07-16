@@ -47,3 +47,4 @@ services:
       - LOG_LEVEL
       - ZMQ_REP_ADDR=tcp://*:6144
       - ZMQ_REQ_ADDR=tcp://*:6143
+      - ZMQ_FAILURE_ADDR=tcp://*:6140
