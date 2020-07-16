@@ -33,8 +33,9 @@ func TestSliceModel(t *testing.T) {
 			payload: bytes,
 		}
 
-		job.reply <- pr
-		close(job.reply)
+		job.io.out <- pr
+		close(job.io.out)
+		close(job.io.err)
 	}()
 
 	sl := slicer{
@@ -64,8 +65,9 @@ func TestModelMissingSlice(t *testing.T) {
 			m: 1,
 			payload: bytes,
 		}
-		job.reply <- pr
-		close(job.reply)
+		job.io.out <- pr
+		close(job.io.out)
+		close(job.io.err)
 	}()
 	sl := slicer{
 		root: "",

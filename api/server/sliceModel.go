@@ -48,7 +48,7 @@ func (s *slicer) fetchSlice(
 	proc := process{pid: requestid, request: req}
 	fr := oneseismic.FetchResponse{}
 
-	replyChannel := s.sessions.Schedule(&proc)
+	io := s.sessions.Schedule(&proc)
 
 	/*
 	 * Read and parse messages as they come, and consider the process complete
@@ -65,7 +65,7 @@ func (s *slicer) fetchSlice(
 	 * signal failed processes
 	 */
 	var tiles []*oneseismic.SliceTile
-	for partial := range replyChannel {
+	for partial := range io.out {
 		err = proto.Unmarshal(partial.payload, &fr)
 
 		if err != nil {

@@ -11,7 +11,7 @@ import (
 type job struct {
 	pid     string
 	request []byte
-	reply   chan partialResult
+	io      procIO
 }
 
 type wire interface {
@@ -126,14 +126,31 @@ type sessions struct {
 	queue chan job
 }
 
-func (s *sessions) Schedule(proc *process) chan partialResult {
-	c := make(chan partialResult)
+/*
+ * Per-process I/O channels, similar to stdout/stderr
+ */
+type procIO struct {
+	/*
+	 * Callers read the results from this channel
+	 */
+	out chan partialResult
+	/*
+	 * A message on this channel means the process failed
+	 */
+	err chan string
+}
+
+func (s *sessions) Schedule(proc *process) procIO {
+	io := procIO {
+		out: make(chan partialResult),
+		err: make(chan string),
+	}
 	s.queue <- job{
 		pid: proc.pid,
 		request: proc.request,
-		reply: c,
+		io: io,
 	}
-	return c
+	return io
 }
 
 func newSessions() *sessions {
@@ -200,11 +217,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string) {
 	}()
 
 	type procstatus struct {
-		/*
-		 * Channel to send replies (read from ZMQ) to, to be assembled and
-		 * returned to users
-		 */
-		out chan partialResult
+		io procIO
 		/*
 		 * Bit-array of already-received parts for this process
 		 */
@@ -223,11 +236,12 @@ func (s *sessions) Run(reqNdpt string, repNdpt string) {
 				proc.completed = make([]bool, r.m)
 			}
 
-			proc.out <- r
+			proc.io.out <- r
 			proc.completed[r.n] = true
 
 			if all(proc.completed) {
-				close(proc.out)
+				close(proc.io.out)
+				close(proc.io.err)
 				delete(processes, r.pid)
 			}
 
@@ -238,7 +252,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string) {
 				request: j.request,
 			}
 			processes[j.pid] = &procstatus {
-				out: j.reply,
+				io: j.io,
 				completed: nil,
 			}
 			proc.sendZMQ(req)

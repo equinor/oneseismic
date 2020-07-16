@@ -68,9 +68,9 @@ func verifyCorrectReply(t *testing.T, i int, s *sessions, done chan struct{}) {
 	id := strconv.Itoa(i)
 	msg := []byte("message from " + id)
 	job := process{address: "", pid: id, request: msg}
-	res := s.Schedule(&job)
+	io := s.Schedule(&job)
 
-	for result := range res {
+	for result := range io.out {
 		assert.Equal(t, result.payload, msg)
 	}
 	done <- struct{}{}
