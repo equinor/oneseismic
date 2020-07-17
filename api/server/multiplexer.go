@@ -263,7 +263,12 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 	for {
 		select {
 		case r := <-rep:
-			proc := processes[r.pid]
+			proc, ok := processes[r.pid]
+			if !ok {
+				errmsg := "%s %d/%d dropped; was not in process table"
+				log.Printf(errmsg, r.pid, r.n, r.m)
+				break
+			}
 
 			if proc.completed == nil {
 				proc.completed = make([]bool, r.m)

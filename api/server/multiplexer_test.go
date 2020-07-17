@@ -179,3 +179,73 @@ func TestFailureCancelsProcess(t *testing.T) {
 		}
 	}
 }
+
+func TestMessagesToCancelledJobsAreDropped(t *testing.T) {
+	session := newSessions()
+	reqaddr  := "inproc://req"  + "cancelled-jobs-msg-dropped"
+	repaddr  := "inproc://rep"  + "cancelled-jobs-msg-dropped"
+	failaddr := "inproc://fail" + "cancelled-jobs-msg-dropped"
+	go session.Run(reqaddr, repaddr, failaddr)
+
+	in := makeSocket(reqaddr, zmq.PULL)
+	defer in.Close()
+	rep := makeSocket(repaddr, zmq.PUSH)
+	fail := makeSocket(failaddr, zmq.PUSH)
+
+	io := make([]procIO, 10)
+	for i := 0; i < 10; i++ {
+		job := process {
+			address: "addr",
+			pid: strconv.Itoa(i),
+			request: []byte("late"),
+		}
+		io[i] = session.Schedule(&job)
+	}
+
+	/* pid 9 does not fail! */
+	for i := 0; i < 9; i++ {
+		msg := []string { strconv.Itoa(i), "msg-" + strconv.Itoa(i) }
+		_, err := fail.SendMessage(msg)
+		for err == zmq.EHOSTUNREACH {
+			_, err = fail.SendMessage(msg)
+		}
+	}
+
+	/*
+	 * Workers send their messages *after* the failure has happened It's not
+	 * the routedPartialResult because rep is a PUSH socket, not a ROUTER
+	 *
+	 * This test could've been more elegant if the reply-queue was exposed, and
+	 * ZMQ was circumvented (as it really plays no part in what's being tested
+	 * here). This is probably a good hint for refactoring.
+	 */
+	for i := 0; i < 10; i++ {
+		partial := partialResult {
+			pid: strconv.Itoa(i),
+			n: 0,
+			m: 1,
+			payload: []byte("late"),
+		}
+		_, err := partial.sendZMQ(rep)
+		for err == zmq.EHOSTUNREACH {
+			_, err = partial.sendZMQ(rep)
+		}
+	}
+
+	/* consume all processes, failed or otherwise */
+	/*
+	 * This test is quite racy - it wants to make sure that messages arriving
+	 * after a process has failed does not crash. In that case, the output
+	 * channels are already closed, and if the range-for consumes all channels
+	 * before the message-to-be-dropped is scheduled, there's no way to catch
+	 * it.
+	 *
+	 * The flaky nature of this particular test is another good clue for
+	 * refactoring the sessions so that message ordering and sensitivity can be
+	 * fleshed out, documented, reproduced, and tested.
+	 */
+	for _, proc := range io {
+		for _ = range proc.out {}
+		for _ = range proc.err {}
+	}
+}
