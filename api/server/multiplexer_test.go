@@ -116,8 +116,11 @@ func makeSocket(addr string, socktype zmq.Type) *zmq.Socket {
 }
 
 func TestFailureCancelsProcess(t *testing.T) {
+	reqaddr  := "inproc://req"  + "failure-cancels-process"
+	repaddr  := "inproc://rep"  + "failure-cancels-process"
+	failaddr := "inproc://fail" + "failure-cancels-process"
 	session := newSessions()
-	go session.Run("inproc://req", "inproc://rep", "inproc://fail")
+	go session.Run(reqaddr, repaddr, failaddr)
 
 	/*
 	 * The queue must be connected, otherwise the Schedule() will hang until it
@@ -125,9 +128,9 @@ func TestFailureCancelsProcess(t *testing.T) {
 	 * defer in.Close() shouldn't necessary (will be cleaned up on gc), it is
 	 * to make the variable used somehow
 	 */
-	in := makeSocket("inproc://req", zmq.PULL)
+	in := makeSocket(reqaddr, zmq.PULL)
 	defer in.Close()
-	fail := makeSocket("inproc://fail", zmq.PUSH)
+	fail := makeSocket(failaddr, zmq.PUSH)
 
 	io := make([]procIO, 10)
 	for i := 0; i < 10; i++ {
