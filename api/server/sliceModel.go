@@ -8,29 +8,25 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type messageMultiplexer interface {
-	root() string
-	endpoint() string
-}
-
 type slicer struct {
-	mm messageMultiplexer
+	root string
+	endpoint string
 	sessions *sessions
 }
 
-func makeSliceRequest(
-	storageEndpoint string,
-	root string,
+func (s *slicer) fetchSlice(
+	auth string,
 	guid string,
 	dim int32,
 	lineno int32,
-	requestid string) ([]byte, error) {
+	requestid string) (*oneseismic.SliceResponse, error) {
 
-	req := oneseismic.ApiRequest{
+	msg := oneseismic.ApiRequest {
 		Requestid:       requestid,
+		Authorization:   auth,
 		Guid:            guid,
-		Root:            root,
-		StorageEndpoint: storageEndpoint,
+		Root:            s.root,
+		StorageEndpoint: s.endpoint,
 		Shape: &oneseismic.FragmentShape{
 			Dim0: 64,
 			Dim1: 64,
@@ -43,32 +39,16 @@ func makeSliceRequest(
 			},
 		},
 	}
-	return proto.Marshal(&req)
-}
 
-type mMultiplexer struct {
-	storageEndpoint string
-	storageRoot     string
-}
-
-func (m *mMultiplexer) root() string         { return m.storageRoot }
-func (m *mMultiplexer) endpoint() string     { return m.storageEndpoint }
-
-func (s *slicer) fetchSlice(
-	guid string,
-	dim int32,
-	lineno int32,
-	requestid string) (*oneseismic.SliceResponse, error) {
-
-	req, err := makeSliceRequest(s.mm.endpoint(), s.mm.root(), guid, dim, lineno, requestid)
+	req, err := proto.Marshal(&msg)
 	if err != nil {
-		return nil, fmt.Errorf("could not make slice request: %w", err)
+		return nil, fmt.Errorf("Marshalling oneseisimc.ApiRequest: %w", err)
 	}
 
 	proc := process{pid: requestid, request: req}
 	fr := oneseismic.FetchResponse{}
 
-	replyChannel := s.sessions.Schedule(&proc)
+	io := s.sessions.Schedule(&proc)
 
 	/*
 	 * Read and parse messages as they come, and consider the process complete
@@ -85,7 +65,7 @@ func (s *slicer) fetchSlice(
 	 * signal failed processes
 	 */
 	var tiles []*oneseismic.SliceTile
-	for partial := range replyChannel {
+	for partial := range io.out {
 		err = proto.Unmarshal(partial.payload, &fr)
 
 		if err != nil {

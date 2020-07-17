@@ -55,6 +55,7 @@ func main() {
 		os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
 		os.Getenv("ZMQ_REQ_ADDR"),
 		os.Getenv("ZMQ_REP_ADDR"),
+		os.Getenv("ZMQ_FAILURE_ADDR"),
 	)
 	if err != nil {
 		golog.Error("creating app: %w", err)

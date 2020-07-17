@@ -5,7 +5,6 @@ import (
 	"net/url"
 
 	"github.com/equinor/oneseismic/api/auth"
-	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 )
 
@@ -18,6 +17,7 @@ func App(
 	accountKey string,
 	zmqReqAddr,
 	zmqRepAddr string,
+	zmqFailureAddr string,
 ) (*iris.Application, error) {
 	app := iris.Default()
 
@@ -30,14 +30,23 @@ func App(
 		return nil, err
 	}
 
+	sessions := newSessions()
+	go sessions.Run(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
+
 	sc := storeController{sURL}
 	app.Get("/", sc.list)
 	app.Get("/{guid:string}", sc.services)
 	app.Get("/{guid:string}/slice", sc.dimensions)
 	app.Get("/{guid:string}/slice/{dimension:int32}", sc.lines)
 
-	slicer := createSliceController(zmqReqAddr, zmqRepAddr, storageEndpoint.String(), accountName, uuid.New().String())
-	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slicer.get)
+	slice := sliceController {
+		slicer: &slicer {
+			root: accountName,
+			endpoint: storageEndpoint.String(),
+			sessions: sessions,
+		},
+	}
+	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slice.get)
 
 	return app, nil
 }

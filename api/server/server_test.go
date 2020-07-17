@@ -24,9 +24,10 @@ func TestSlicer(t *testing.T) {
 	accountKey := ""
 	zmqReqAddr := "inproc://" + uuid.New().String()
 	zmqRepAddr := "inproc://" + uuid.New().String()
+	zmqFailureAddr := "inproc://" + uuid.New().String()
 
-	go coreMock(zmqReqAddr, zmqRepAddr)
-	app, err := App(keys, issuer, *storageEndpoint, account, accountKey, zmqReqAddr, zmqRepAddr)
+	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
+	app, err := App(keys, issuer, *storageEndpoint, account, accountKey, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 	assert.Nil(t, err)
 
 	e := httptest.New(t, app)
@@ -39,7 +40,7 @@ func TestSlicer(t *testing.T) {
 	jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
 }
 
-func coreMock(reqNdpt string, repNdpt string) {
+func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
 	in, _ := zmq4.NewSocket(zmq4.PULL)
 	in.Connect(reqNdpt)
 

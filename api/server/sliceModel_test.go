@@ -9,16 +9,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestMakeSliceRequest(t *testing.T) {
-	bytes, err := makeSliceRequest("", "", "", 0, 0, "")
-	assert.Nil(t, err)
-	sr := oneseismic.ApiRequest{}
-	err = proto.Unmarshal(bytes, &sr)
-	assert.Nil(t, err)
-	assert.NotNil(t, sr.Shape)
-	assert.NotNil(t, sr.GetSlice())
-}
-
 func TestSliceModel(t *testing.T) {
 	sessions := newSessions()
 
@@ -43,12 +33,17 @@ func TestSliceModel(t *testing.T) {
 			payload: bytes,
 		}
 
-		job.reply <- pr
-		close(job.reply)
+		job.io.out <- pr
+		close(job.io.out)
+		close(job.io.err)
 	}()
 
-	sl := slicer{&mMultiplexer{"", ""}, sessions}
-	slice, err := sl.fetchSlice("guid", 0, 0, "requestid")
+	sl := slicer{
+		root: "",
+		endpoint: "",
+		sessions: sessions,
+	}
+	slice, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
 
 	assert.Nil(t, err)
 	assert.NotNil(t, slice)
@@ -70,11 +65,16 @@ func TestModelMissingSlice(t *testing.T) {
 			m: 1,
 			payload: bytes,
 		}
-		job.reply <- pr
-		close(job.reply)
+		job.io.out <- pr
+		close(job.io.out)
+		close(job.io.err)
 	}()
-	sl := slicer{&mMultiplexer{"", ""}, sessions}
-	_, err := sl.fetchSlice("guid", 0, 0, "requestid")
+	sl := slicer{
+		root: "",
+		endpoint: "",
+		sessions: sessions,
+	}
+	_, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
 
 	assert.NotNil(t, err)
 }

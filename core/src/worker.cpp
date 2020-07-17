@@ -165,6 +165,7 @@ one::batch make_batch(const oneseismic::fetch_request& req) noexcept (false) {
     batch.root = req.root();
     batch.guid = req.guid();
     batch.storage_endpoint = req.storage_endpoint();
+    batch.authorization = req.authorization();
     batch.fragment_shape = fmt::format(
         "src/{}-{}-{}",
         req.fragment_shape().dim0(),

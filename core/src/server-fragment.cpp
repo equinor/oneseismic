@@ -15,7 +15,6 @@ int main(int argc, char** argv) {
     std::string sink_address;
     std::string control_address;
     std::string fail_address;
-    std::string key;
     bool help = false;
     int ntransfers = 4;
 
@@ -36,9 +35,6 @@ int main(int argc, char** argv) {
         | clara::Opt(ntransfers, "transfers")
             ["-j"]["--transfers"]
             (fmt::format("Concurrent blob connections, default = {}", ntransfers))
-        | clara::Opt(key, "key")
-            ["-k"]["--key"]
-            ("Pre-shared key")
     ;
 
     auto result = cli.parse(clara::Args(argc, argv));
@@ -51,12 +47,6 @@ int main(int argc, char** argv) {
     if (help) {
         std::cout << cli << "\n";
         std::exit(EXIT_SUCCESS);
-    }
-
-
-    if (key.empty()) {
-        std::cerr << "Need pre-shared key\n" << cli << "\n";
-        std::exit(EXIT_FAILURE);
     }
 
     zmq::context_t ctx;
@@ -80,7 +70,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az az(key);
+    one::az az("");
     one::transfer xfer(ntransfers, az);
     one::fragment_task task;
 

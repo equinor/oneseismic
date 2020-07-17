@@ -66,3 +66,25 @@ TEST_CASE(
     const auto auth = az.sign("date", "version", batch, "0-1-2");
     CHECK(auth == expected);
 }
+
+std::vector< std::string > to_vector(curl_slist* slist) {
+    auto cur = slist;
+    std::vector< std::string > headers;
+    while (cur) {
+        headers.push_back(cur->data);
+        cur = cur->next;
+    }
+    curl_slist_free_all(slist);
+    return headers;
+}
+
+TEST_CASE(
+        "Bearer authorization is added as a http header",
+        "[azure][az][http]") {
+    one::az az("key");
+    one::batch batch;
+    batch.authorization = "Bearer $token";
+    const auto headers = to_vector(az.http_headers(batch, "pid"));
+    const auto expected = std::string("Authorization: Bearer $token");
+    CHECK_THAT(headers, VectorContains(expected));
+}

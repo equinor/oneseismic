@@ -11,6 +11,7 @@ import (
 
 type sliceModel interface {
 	fetchSlice(
+		auth string,
 		guid string,
 		dim int32,
 		lineno int32,
@@ -38,7 +39,8 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid)
+	auth := ctx.GetHeader("Authorization")
+	slice, err := sc.slicer.fetchSlice(auth, guid, dim, lineno, requestid)
 	if err != nil {
 		ctx.StatusCode(http.StatusNotFound)
 		return
@@ -58,17 +60,4 @@ func (sc *sliceController) get(ctx iris.Context) {
 	}
 
 	return
-}
-
-func createSliceController(
-	reqNdpt string,
-	repNdpt string,
-	storageEndpoint string,
-	root string,
-	mPlexName string,
-) sliceController {
-	sessions := newSessions()
-	go sessions.Run(mPlexName, reqNdpt, repNdpt)
-	sc := sliceController{slicer: &slicer{mm: &mMultiplexer{storageEndpoint, root}, sessions: sessions}}
-	return sc
 }

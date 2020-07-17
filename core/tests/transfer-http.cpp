@@ -266,3 +266,70 @@ TEST_CASE(
     always_fail action;
     CHECK_THROWS_WITH(xfer.perform(batch, action), Contains("Timeout"));
 }
+
+TEST_CASE(
+    "Custom headers are added to the fetch request",
+    "[transfer][http]") {
+
+    const auto header_accumulate_response = [] (
+        void*,
+        struct MHD_Connection* conn,
+        const char*,
+        const char*,
+        const char*,
+        const char*,
+        size_t*,
+        void** ptr) {
+
+        auto gather = [] (
+                void* heads,
+                MHD_ValueKind kind,
+                const char* key,
+                const char* value) {
+            REQUIRE(kind == MHD_HEADER_KIND);
+            auto headers = static_cast< std::vector< std::string >* >(heads);
+            headers->push_back(fmt::format("{}: {}", key, value));
+            return MHD_YES;
+        };
+
+        std::vector< std::string > headers;
+        MHD_get_connection_values(conn, MHD_HEADER_KIND, gather, &headers);
+        const auto expected = std::string("Custom: Expected");
+        CHECK_THAT(headers, VectorContains(expected));
+
+        unsigned int OK = MHD_HTTP_OK;
+        return empty_response(
+            &OK,
+            conn,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr
+        );
+    };
+
+    struct succeed : public always_fail {
+        void oncomplete(
+                const one::buffer&,
+                const one::batch&,
+                const std::string&) override {
+            /* no-op */
+        }
+    } action;
+
+    mhttpd httpd(header_accumulate_response);
+    struct loopback_with_headers : loopback_cfg {
+        using loopback_cfg::loopback_cfg;
+        curl_slist* http_headers(
+                const one::batch&,
+                const std::string& pid) const override {
+            return curl_slist_append(nullptr, "Custom: Expected");
+        }
+    } config(httpd.port());
+
+    one::batch batch;
+    batch.fragment_ids.resize(2);
+    one::transfer(1, config).perform(batch, action);
+}

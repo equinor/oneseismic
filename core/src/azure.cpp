@@ -114,13 +114,16 @@ curl_slist* az::http_headers(
         const std::string& job) const {
     const auto date = one::x_ms_date();
     const auto version = one::x_ms_version();
-    const auto auth = this->sign(date, version, batch, job);
 
     // TODO: address leak and flag errors here
     curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, date.c_str());
     headers = curl_slist_append(headers, version);
-    headers = curl_slist_append(headers, auth.c_str());
+    if (not batch.authorization.empty()) {
+        const auto format = "Authorization: {}";
+        const auto auth = fmt::format(format, batch.authorization);
+        headers = curl_slist_append(headers, auth.c_str());
+    }
     return headers;
 }
 

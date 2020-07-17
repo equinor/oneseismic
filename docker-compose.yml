@@ -11,7 +11,6 @@ services:
         "--sink",    "tcp://*:6142",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://0.0.0.0:6140",
-        "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
     ]
     depends_on:
       - api
@@ -26,7 +25,6 @@ services:
         "--sink",    "tcp://api:6144",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://0.0.0.0:6140",
-        "--key",     "${AZURE_STORAGE_ACCESS_KEY}"
     ]
     depends_on:
       - api
@@ -49,3 +47,4 @@ services:
       - LOG_LEVEL
       - ZMQ_REP_ADDR=tcp://*:6144
       - ZMQ_REQ_ADDR=tcp://*:6143
+      - ZMQ_FAILURE_ADDR=tcp://*:6140

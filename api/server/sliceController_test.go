@@ -13,7 +13,9 @@ type sliceMock struct {
 	slices map[string]oneseismic.SliceResponse
 }
 
-func (s *sliceMock) fetchSlice(guid string,
+func (s *sliceMock) fetchSlice(
+	auth string,
+	guid string,
 	dim int32,
 	lineno int32,
 	requestid string) (*oneseismic.SliceResponse, error) {
