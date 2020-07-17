@@ -293,8 +293,20 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 			} else {
 				errmsg := "%s failed (%s); removing from process table"
 				log.Printf(errmsg, pid, msg)
-				proc.io.err <- msg
+				/*
+				 * The order of statements creates an interesting race
+				 * condition:
+				 *
+				 * If the io.err <- msg is sent *before* the io.out is closed,
+				 * callers cannot use a range-for to aggregate partial results,
+				 * because the sending on io.err will block until it is read.
+				 *
+				 * It is not strictly necessary to close these channels, but it
+				 * does enable to use of ranged-for, which makes for much more
+				 * elegant assembly.
+				 */
 				close(proc.io.out)
+				proc.io.err <- msg
 				close(proc.io.err)
 				delete(processes, pid)
 			}

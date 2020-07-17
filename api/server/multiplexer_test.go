@@ -152,23 +152,24 @@ func TestFailureCancelsProcess(t *testing.T) {
 	}
 
 	for i, proc := range io {
-		select {
-		case m := <-proc.out:
+
+		for m := range proc.out {
 			fmt := "Unexpected message (%s) received - test is likely broken"
 			t.Fatalf(fmt, m)
-
-		case msg := <-proc.err:
-			expected := strconv.Itoa(i) + " manual-failure"
-			if msg != expected {
-				fmt := "Unexpected fail-message = '%s'; want '%s'"
-				t.Errorf(fmt, msg, expected)
-			}
 		}
 
 		_, open := <-proc.out
 		if open {
 			t.Errorf("proc.out (pid = %d) not closed as it should be", i)
 		}
+
+		msg := <-proc.err
+		expected := strconv.Itoa(i) + " manual-failure"
+		if msg != expected {
+			fmt := "Unexpected fail-message = '%s'; want '%s'"
+			t.Errorf(fmt, msg, expected)
+		}
+
 		_, open = <-proc.err
 		if open {
 			t.Errorf("proc.err (pid = %d) not closed as it should be", i)
