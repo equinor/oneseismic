@@ -157,15 +157,34 @@ const noexcept (false) {
 }
 
 storage_configuration::action az::onstatus(
-        const buffer&,
+        const buffer& b,
         const batch&,
         const std::string& fragment_id,
         long status_code) {
 
-    if (status_code != 200)
-        throw aborted("az: status code was not 200/OK");
+    // https://docs.microsoft.com/en-us/rest/api/storageservices/blob-service-error-codes
 
-    return action::done;
+    if (status_code == 200)
+        return action::done;
+
+    const auto response = std::string(b.begin(), b.end());
+    switch (status_code) {
+        case 403:
+            throw notauthorized(response);
+
+        case 404:
+            throw notfound(response);
+
+        case 500:
+            /*
+             * TODO: 500 means a problem with the blob store, and should be
+             * reported as such
+             */
+        default: {
+            const auto msg = "unhandled status code {}: {}";
+            throw aborted(fmt::format(msg, status_code, response));
+        }
+    }
 }
 
 }
