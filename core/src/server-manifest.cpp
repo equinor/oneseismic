@@ -40,37 +40,6 @@ public:
                 guid
         );
     }
-
-    action onstatus(
-            const buffer& b,
-            const batch&,
-            const std::string& fragment_id,
-            long status_code) override {
-
-        // https://docs.microsoft.com/en-us/rest/api/storageservices/blob-service-error-codes
-
-        if (status_code == 200) {
-            this->ok = true;
-            return action::done;
-        }
-
-        if (status_code == 404) {
-            this->ok = false;
-            this->response.assign(b.begin(), b.end());
-            return action::done;
-        }
-
-        if (status_code == 500) {
-            this->ok = false;
-            this->response.assign(b.begin(), b.end());
-            return action::done;
-        }
-
-        throw aborted(fmt::format("az-manifest: unhandled status code {}", status_code));
-    }
-
-    bool ok;
-    std::string response;
 };
 
 }
