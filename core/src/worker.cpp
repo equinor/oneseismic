@@ -296,6 +296,13 @@ void fragment_task::run(
             e.what()
     );
     this->p->failure("fragment-not-found").send(failure);
+} catch (const notauthorized&) {
+    /*
+     * TODO: log the headers?
+     * TODO: log manifest url?
+     */
+    spdlog::info("{} not authorized", this->p->pid);
+    this->p->failure("fragment-not-authorized").send(failure);
 }
 
 fragment_task::fragment_task() : p(new impl()) {}

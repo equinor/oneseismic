@@ -228,4 +228,41 @@ TEST_CASE(
 
         CHECK(not received_message(caller_rep));
     }
+
+    SECTION("not-authorized messages are pushed on failure") {
+        struct fragment_403 : public loopback_cfg {
+            using loopback_cfg::loopback_cfg;
+
+            action onstatus(
+                    const one::buffer&,
+                    const one::batch&,
+                    const std::string&,
+                    long) override {
+                throw one::notauthorized("no reason");
+            }
+        } storage_cfg(httpd.port());
+
+        zmq::multipart_t request;
+        request.addstr("addr");
+        request.addstr("pid");
+        request.addstr("0/1");
+        request.addstr(apireq);
+        request.send(caller_req);
+
+        one::transfer xfer(1, storage_cfg);
+        one::fragment_task ft;
+        ft.run(xfer, worker_req, worker_rep, worker_fail);
+
+        zmq::multipart_t fail;
+        const auto received = fail.recv(
+                caller_fail,
+                static_cast< int >(zmq::recv_flags::dontwait)
+        );
+        CHECK(received);
+        CHECK(fail.size() == 2);
+        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[1].to_string() == "fragment-not-authorized");
+
+        CHECK(not received_message(caller_rep));
+    }
 }
