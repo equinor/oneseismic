@@ -50,6 +50,24 @@ int simple_manifest(
     return ret;
 }
 
+void sendmsg(zmq::socket_t& sock, const std::string& body) {
+    /*
+     * One-off message with placeholer values for address and pid.
+     *
+     * Having this is a test helper achieves two things:
+     * 1. Removes some always-repeated noise from the tests
+     * 2. A single point of reference (and updating) for the protocol/format of
+     *    messages sent to the manifest phase
+     *
+     * All in all it should make tests leaner, and easier to maintain.
+     */
+    zmq::multipart_t msg;
+    msg.addstr("addr");
+    msg.addstr("pid");
+    msg.addstr(body);
+    msg.send(sock);
+}
+
 }
 
 std::string make_slice_request() {
@@ -91,17 +109,14 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
     worker_fail.connect("inproc://fail");
 
     mhttpd httpd(simple_manifest);
-    const auto req = make_slice_request();
-    zmq::message_t reqmsg(req.data(), req.size());
+    const auto reqmsg = make_slice_request();
 
     SECTION("Successful calls are pushed to destination") {
         loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
         one::manifest_task mt;
 
-        caller_req.send(zmq::str_buffer("addr"), zmq::send_flags::sndmore);
-        caller_req.send(zmq::str_buffer("pid"), zmq::send_flags::sndmore);
-        caller_req.send(reqmsg, zmq::send_flags::none);
+        sendmsg(caller_req, reqmsg);
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t response(caller_rep);
@@ -140,11 +155,7 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
             }
         } storage_cfg(httpd.port());
 
-        zmq::multipart_t request;
-        request.addstr("addr");
-        request.addstr("pid");
-        request.add(std::move(reqmsg));
-        request.send(caller_req);
+        sendmsg(caller_req, reqmsg);
 
         one::transfer xfer(1, storage_cfg);
         one::manifest_task mt;
@@ -177,12 +188,7 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
             }
         } storage_cfg(httpd.port());
 
-        zmq::multipart_t request;
-        request.addstr("addr");
-        request.addstr("pid");
-        request.add(std::move(reqmsg));
-        request.send(caller_req);
-
+        sendmsg(caller_req, reqmsg);
         one::transfer xfer(1, storage_cfg);
         one::manifest_task mt;
         mt.run(xfer, worker_req, worker_rep, worker_fail);
@@ -218,9 +224,7 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         }));
         mt.max_task_size(size);
 
-        caller_req.send(zmq::str_buffer("addr"), zmq::send_flags::sndmore);
-        caller_req.send(zmq::str_buffer("pid"), zmq::send_flags::sndmore);
-        caller_req.send(reqmsg, zmq::send_flags::none);
+        sendmsg(caller_req, reqmsg);
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         const auto expected = std::vector< std::string > {
