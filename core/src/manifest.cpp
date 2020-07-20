@@ -329,6 +329,13 @@ try {
             this->p->pid
     );
     this->p->failure("bad-message").send(failure);
+} catch (const notauthorized&) {
+    /*
+     * TODO: log the headers?
+     * TODO: log manifest url?
+     */
+    spdlog::info("{} not authorized", this->p->pid);
+    this->p->failure("manifest-not-authorized").send(failure);
 } catch (const notfound& e) {
     spdlog::info(
             "{} {} manifest not found: '{}'",
