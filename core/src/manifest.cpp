@@ -329,7 +329,7 @@ try {
             this->p->pid
     );
     this->p->failure("bad-message").send(failure);
-} catch (const notauthorized&) {
+} catch (const unauthorized&) {
     /*
      * TODO: log the headers?
      * TODO: log manifest url?

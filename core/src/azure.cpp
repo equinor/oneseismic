@@ -170,7 +170,7 @@ storage_configuration::action az::onstatus(
     const auto response = std::string(b.begin(), b.end());
     switch (status_code) {
         case 403:
-            throw notauthorized(response);
+            throw unauthorized(response);
 
         case 404:
             throw notfound(response);
