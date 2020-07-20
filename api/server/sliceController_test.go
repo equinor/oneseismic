@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
@@ -23,7 +22,7 @@ func (s *sliceMock) fetchSlice(
 	if ok {
 		return &l, nil
 	}
-	return nil, fmt.Errorf("no such slice")
+	return nil, newFailure("manifest-not-found")
 }
 
 func TestExistingSlice(t *testing.T) {
