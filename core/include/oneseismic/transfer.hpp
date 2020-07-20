@@ -45,6 +45,12 @@ public:
     notfound(const char*        reason) : std::runtime_error(reason) {}
 };
 
+class notauthorized : public std::runtime_error {
+public:
+    notauthorized(const std::string& reason) : std::runtime_error(reason) {}
+    notauthorized(const char*        reason) : std::runtime_error(reason) {}
+};
+
 /*
  * Different backends (e.g. azure, local file system) need to configure
  * transfers differently: set different headers, generate different urls,
