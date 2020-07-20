@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     try {
-        fail.bind(fail_address);
+        fail.connect(fail_address);
     } catch (...) {
         std::cerr << "Invalid failure address\n";
         std::exit(EXIT_FAILURE);

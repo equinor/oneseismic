@@ -69,6 +69,12 @@ int main(int argc, char** argv) {
         std::cerr << "Invalid sink address\n";
         std::exit(EXIT_FAILURE);
     }
+    try {
+        fail.connect(fail_address);
+    } catch (...) {
+        std::cerr << "Invalid failure address\n";
+        std::exit(EXIT_FAILURE);
+    }
 
     one::az az("");
     one::transfer xfer(ntransfers, az);

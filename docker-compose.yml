@@ -10,7 +10,7 @@ services:
         "--source",  "tcp://api:6143",
         "--sink",    "tcp://*:6142",
         "--control", "tcp://0.0.0.0:6141",
-        "--fail",    "tcp://0.0.0.0:6140",
+        "--fail",    "tcp://api:6140",
     ]
     depends_on:
       - api
@@ -24,7 +24,7 @@ services:
         "--source",  "tcp://manifest:6142",
         "--sink",    "tcp://api:6144",
         "--control", "tcp://0.0.0.0:6141",
-        "--fail",    "tcp://0.0.0.0:6140",
+        "--fail",    "tcp://api:6140",
     ]
     depends_on:
       - api
