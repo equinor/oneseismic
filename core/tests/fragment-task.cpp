@@ -53,6 +53,27 @@ int fragment_response(
     return ret;
 }
 
+void sendmsg(zmq::socket_t& sock, const std::string& body) {
+    /*
+     * One-off message with placeholer values for address and pid.
+     *
+     * Having this is a test helper achieves two things:
+     * 1. Removes some always-repeated noise from the tests
+     * 2. A single point of reference (and updating) for the protocol/format of
+     * messages sent to the framgents phase
+     *
+     * Please note that this is only intended for single-part tasks, with the
+     * hard-coding of 0/1. Multi-part jobs should probably be explicitly tested
+     * as such, or use a different sendmulti() function.
+     */
+    zmq::multipart_t msg;
+    msg.addstr("addr");
+    msg.addstr("pid");
+    msg.addstr("0/1");
+    msg.addstr(body);
+    msg.send(sock);
+}
+
 }
 
 std::string make_slice_request(int dim, int idx, int k = 0) {
@@ -111,13 +132,7 @@ TEST_CASE(
         loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
 
-        zmq::multipart_t request;
-        request.addstr("addr");
-        request.addstr("pid");
-        request.addstr("0/1");
-        request.addstr(apireq);
-        request.send(caller_req);
-
+        sendmsg(caller_req, apireq);
         one::fragment_task ft;
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
@@ -205,13 +220,7 @@ TEST_CASE(
             }
         } storage_cfg(httpd.port());
 
-        zmq::multipart_t request;
-        request.addstr("addr");
-        request.addstr("pid");
-        request.addstr("0/1");
-        request.addstr(apireq);
-        request.send(caller_req);
-
+        sendmsg(caller_req, apireq);
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
         ft.run(xfer, worker_req, worker_rep, worker_fail);
@@ -242,13 +251,7 @@ TEST_CASE(
             }
         } storage_cfg(httpd.port());
 
-        zmq::multipart_t request;
-        request.addstr("addr");
-        request.addstr("pid");
-        request.addstr("0/1");
-        request.addstr(apireq);
-        request.send(caller_req);
-
+        sendmsg(caller_req, apireq);
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
         ft.run(xfer, worker_req, worker_rep, worker_fail);
