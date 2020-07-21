@@ -7,14 +7,10 @@ from .scan import scan
 def main(argv):
     parser = argparse.ArgumentParser('Scan a SEG-Y for sc ingestion')
     parser.add_argument('input', type = str, help = 'input SEG-Y file')
-    parser.add_argument('--header-format', type = str)
-    parser.add_argument('--primary',   '-p', type = str, default = 'inline')
-    parser.add_argument('--secondary', '-s', type = str, default = 'crossline')
     parser.add_argument('--primary-word',   '-P', type = int, default = 189,
         help = 'primary word byte-offset, defaults to 189 (inline)')
     parser.add_argument('--secondary-word', '-S', type = int, default = 193,
         help = 'primary word byte-offset, defaults to 193 (crossline)')
-    parser.add_argument('--scale', '-k', type = float, default = None)
     parser.add_argument('--little-endian', action = 'store_true', default = None)
     parser.add_argument('--big-endian',    action = 'store_true', default = None)
     parser.add_argument('--pretty', action = 'store_true',
