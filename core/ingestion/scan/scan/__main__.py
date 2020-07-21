@@ -5,7 +5,9 @@ import sys
 from .scan import scan
 
 def main(argv):
-    parser = argparse.ArgumentParser('Scan a SEG-Y for sc ingestion')
+    parser = argparse.ArgumentParser(
+        description = 'Understand seismic cube identity and layout',
+    )
     parser.add_argument('input', type = str, help = 'input SEG-Y file')
     parser.add_argument('--primary-word',   '-P', type = int, default = 189,
         help = 'primary word byte-offset, defaults to 189 (inline)')
