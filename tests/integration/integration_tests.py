@@ -26,7 +26,7 @@ MANIFEST = {
 
 
 def az_storage():
-    protocol = "DefaultEndpointsProtocol=http;"
+    protocol = "DefaultEndpointsProtocol=https;"
     account_name = "AccountName={};".format(os.getenv("AZURE_STORAGE_ACCOUNT"))
     account_key = "AccountKey={};".format(os.getenv("AZURE_STORAGE_ACCESS_KEY"))
     uri = os.getenv("AZURE_STORAGE_URL").format(os.getenv("AZURE_STORAGE_ACCOUNT"))
@@ -36,8 +36,22 @@ def az_storage():
 
 
 def auth_header():
-    r = requests.get(AUTH_ADDR + "/oauth2/authorize?client_id="+os.getenv("AUDIENCE"), allow_redirects=False)
-    token = parse_qs(urlparse(r.headers["Location"]).fragment)["access_token"][0]
+    extra_claims = {
+        "aud": "https://storage.azure.com",
+        "iss": "https://sts.windows.net/",
+    }
+    r = requests.get(
+        AUTH_ADDR
+        + "/oauth2/token"
+        + "?redirect_uri=3"
+        + "&client_id=" + os.getenv("AUDIENCE")
+        + "&grant_type=t"
+        + "&code=c"
+        + "&client_secret=s"
+        + "&extra_claims=" + json.dumps(extra_claims),
+        headers={"content-type": "application/json"},
+    )
+    token = r.json()["access_token"]
 
     return {"Authorization": f"Bearer {token}"}
 
