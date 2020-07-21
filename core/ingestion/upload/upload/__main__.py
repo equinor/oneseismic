@@ -38,6 +38,15 @@ def main(argv):
         metavar = 'K',
         help = dimhelp.format('Z'),
     )
+    parser.add_argument(
+        '--connection-string', '-s',
+        metavar = '',
+        type = str,
+        help = '''
+            Azure connection string for blob store auth. Can also be set
+            with the env-var AZURE_CONNECTION_STRING
+        ''',
+    )
     args = parser.parse_args(argv)
 
     params = {
@@ -51,7 +60,17 @@ def main(argv):
     with open(args.meta) as f:
         meta = json.load(f)
 
-    blob = BlobServiceClient.from_connection_string(os.environ['AZURE_CONNECTION_STRING'])
+    connection_string = os.environ.get('AZURE_CONNECTION_STRING', None)
+    if args.connection_string:
+        connection_string = args.connection_string
+
+    if connection_string is None:
+        problem = 'No azure connection string'
+        solution = 'use --connection-string or env-var AZURE_CONNECTION_STRING'
+        sys.exit('{} - {}'.format(problem, solution))
+
+
+    blob = BlobServiceClient.from_connection_string(connection_string)
     with open(args.input, 'rb') as input:
         upload(params, meta, input, blob)
 
