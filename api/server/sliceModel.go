@@ -86,6 +86,14 @@ func (s *slicer) fetchSlice(
 		tiles = append(tiles, slice.GetTiles()...)
 	}
 
+	/*
+	 * On successful runs, there are no messages on this channel, and the loop
+	 * turns into a no-op.
+	 */
+	for failure := range io.err {
+		return nil, newFailure(failure)
+	}
+
 	fr.GetSlice().Tiles = tiles
 	return fr.GetSlice(), nil
 }

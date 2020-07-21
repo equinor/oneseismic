@@ -296,7 +296,7 @@ void fragment_task::run(
             e.what()
     );
     this->p->failure("fragment-not-found").send(failure);
-} catch (const notauthorized&) {
+} catch (const unauthorized&) {
     /*
      * TODO: log the headers?
      * TODO: log manifest url?

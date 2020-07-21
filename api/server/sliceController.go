@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
@@ -8,6 +9,54 @@ import (
 	"github.com/kataras/iris/v12"
 	"google.golang.org/protobuf/encoding/protojson"
 )
+
+type failure struct {
+	key string
+}
+
+// TODO: maybe test these keys to ensure they're always in sync
+func (f *failure) status() int {
+	switch f.key {
+	case "manifest-not-found":
+		return http.StatusNotFound
+
+	case "fragment-not-found":
+		/*
+		 * If the fragment cannot be found, but the manifest already scheduled
+		 * the process, something has gone wrong in the upload or maintainance
+		 * of storage, and nothing is really wrong with the request itself, so
+		 * this should probably be carefully investigated.
+		 */
+		return http.StatusInternalServerError
+
+	case "bad-message":
+		return http.StatusInternalServerError
+
+	/*
+	 * Azure blobs return 403 Forbidden also when the authentication string is
+	 * broken, so there's no reasonable way for us to distinguish forbidden
+	 * (access not allowed) and just a badly-formatted auth. This is something
+	 * to maybe handle in the future, but is put on a TODO for now.
+	 */
+	case "manifest-not-authorized":
+		return http.StatusUnauthorized
+
+	case "fragment-not-authorized":
+		return http.StatusUnauthorized
+
+	default:
+		log.Printf("unknown failure; key = %s", f.key)
+		return http.StatusInternalServerError
+	}
+}
+
+func (f *failure) Error() string {
+	return f.key
+}
+
+func newFailure(key string) *failure {
+	return &failure{key: key}
+}
 
 type sliceModel interface {
 	fetchSlice(
@@ -42,7 +91,14 @@ func (sc *sliceController) get(ctx iris.Context) {
 	auth := ctx.GetHeader("Authorization")
 	slice, err := sc.slicer.fetchSlice(auth, guid, dim, lineno, requestid)
 	if err != nil {
-		ctx.StatusCode(http.StatusNotFound)
+		switch e := err.(type) {
+		case *failure:
+			ctx.StatusCode(e.status())
+
+		default:
+			log.Println(e)
+			ctx.StatusCode(http.StatusInternalServerError)
+		}
 		return
 	}
 

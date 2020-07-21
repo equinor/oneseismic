@@ -45,10 +45,10 @@ public:
     notfound(const char*        reason) : std::runtime_error(reason) {}
 };
 
-class notauthorized : public std::runtime_error {
+class unauthorized : public std::runtime_error {
 public:
-    notauthorized(const std::string& reason) : std::runtime_error(reason) {}
-    notauthorized(const char*        reason) : std::runtime_error(reason) {}
+    unauthorized(const std::string& reason) : std::runtime_error(reason) {}
+    unauthorized(const char*        reason) : std::runtime_error(reason) {}
 };
 
 /*

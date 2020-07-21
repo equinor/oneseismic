@@ -184,7 +184,7 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
                     const one::batch&,
                     const std::string&,
                     long) override {
-                throw one::notauthorized("no reason");
+                throw one::unauthorized("no reason");
             }
         } storage_cfg(httpd.port());
 
