@@ -57,8 +57,11 @@ def main(argv):
         ),
     }
 
-    with open(args.meta) as f:
-        meta = json.load(f)
+    if args.meta == '-':
+        meta = json.load(sys.stdin)
+    else:
+        with open(args.meta) as f:
+            meta = json.load(f)
 
     connection_string = os.environ.get('AZURE_CONNECTION_STRING', None)
     if args.connection_string:
