@@ -294,6 +294,7 @@ template < std::size_t ND >
 struct FID : public basic_tuple< FID< ND >, ND > {
     using base_type = basic_tuple< FID, ND >;
     using base_type::base_type;
+    FID< ND - 1 > squeeze(dimension< ND >) const noexcept (true);
 };
 
 /*
@@ -309,6 +310,7 @@ struct CS : public basic_tuple< CS< ND >, ND > {
     std::size_t to_offset(CP< ND >)  const noexcept (true);
     std::size_t to_offset(FID< ND >) const noexcept (true);
     std::size_t slice_samples(dimension< ND >) const noexcept (true);
+    CS< ND - 1 > squeeze(dimension< ND >) const noexcept (true);
 };
 
 /*
@@ -324,6 +326,7 @@ struct FS : public basic_tuple< FS< ND >, ND > {
     std::size_t to_offset(FP< ND >) const noexcept (true);
     std::size_t slice_samples(dimension< ND >) const noexcept (true);
     slice_layout slice_stride(dimension< ND >) const noexcept (false);
+    FS< ND - 1 > squeeze(dimension< ND >) const noexcept (true);
 };
 
 /*

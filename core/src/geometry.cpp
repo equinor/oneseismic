@@ -26,6 +26,18 @@ auto product(const Range& r) noexcept (true)
     );
 }
 
+template < template< std::size_t > typename S, std::size_t ND >
+S< ND - 1 > squeeze(const dimension< ND >& d, const S< ND >& s)
+noexcept (true) {
+    S< ND - 1 > squeezed;
+    auto* f = squeezed.begin();
+
+    for (std::size_t i = 0; i < ND; ++i)
+        if(i != d) *(f++) = s[i];
+
+    return squeezed;
+}
+
 }
 
 template < typename Base, std::size_t ND >
@@ -61,6 +73,12 @@ const noexcept (true) {
     }
 
     return cp;
+}
+
+template < std::size_t ND >
+FID< ND - 1 > FID< ND >::squeeze(dimension< ND > d)
+const noexcept (true) {
+    return one::squeeze(d, *this);
 }
 
 template < std::size_t ND >
@@ -368,6 +386,12 @@ const noexcept (true) {
 }
 
 template < std::size_t ND >
+CS< ND - 1 > CS< ND >::squeeze(dimension< ND > d)
+const noexcept (true) {
+    return one::squeeze(d, *this);
+}
+
+template < std::size_t ND >
 std::size_t FS< ND >::to_offset(FP< ND > p)
 const noexcept (true) {
     return get_offset(p, *this);
@@ -404,6 +428,12 @@ const noexcept (false) {
     s.substride = s.chunk_size;
 
     return s;
+}
+
+template < std::size_t ND >
+FS< ND - 1 > FS< ND >::squeeze(dimension< ND > d)
+const noexcept (true) {
+    return one::squeeze(d, *this);
 }
 
 template class gvt< 3 >;
