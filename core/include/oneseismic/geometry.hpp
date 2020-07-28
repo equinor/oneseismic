@@ -439,10 +439,9 @@ class gvt {
         slice(Dimension dim, std::size_t n) noexcept (false);
 
         /*
-         * The slice layout for putting a single fragment into a cube (usually
-         * compacted with the slice-direction = 1)
+         * The slice layout for putting a single fragment into a cube
          */
-        slice_layout slice_stride(Dimension, FID< ND >) const noexcept (true);
+        slice_layout injection_stride(FID< ND >) const noexcept (true);
 
         /*
          * The number of fragments in a direction.

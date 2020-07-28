@@ -94,18 +94,9 @@ FID< ND > gvt< ND >::frag_id(CP< ND > p) const noexcept (true) {
 }
 
 template < std::size_t ND >
-slice_layout gvt< ND >::slice_stride(Dimension dim, FID< ND > id)
+slice_layout gvt< ND >::injection_stride(FID< ND > id)
 const noexcept (true) {
-    /*
-     * last is the last non-queried dimension - usually (given x, y, z) it
-     * would be z/depth, but when reading horizontal slices, it is y.
-     *
-     * TODO: a good illustration would fix any documentation issues.
-     */
-    const auto last = dim != ND - 1
-                    ? Dimension(ND - 1)
-                    : Dimension(ND - 2)
-                    ;
+    const auto last = Dimension(ND - 1);
 
     slice_layout s;
     const auto corner = FP< ND >();
@@ -119,7 +110,6 @@ const noexcept (true) {
     for (std::size_t d = 0; d < ND; ++d)
         dims[d] = fragment_dims[d] - this->padding(id, Dimension(d));
     dims[last] = 1;
-    dims[dim] = 1;
 
     s.iterations = product(dims);
 
@@ -437,9 +427,12 @@ const noexcept (true) {
 }
 
 template class gvt< 3 >;
+template class gvt< 2 >;
 template class CS < 3 >;
+template class CS < 2 >;
 template class FS < 3 >;
 template class FID < 3 >;
+template class FID < 2 >;
 template class basic_tuple< FID< 3 >, 3 >;
 template class basic_tuple< FS < 3 >, 3 >;
 

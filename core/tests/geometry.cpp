@@ -473,7 +473,8 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 0)") {
     const auto dim0 = one::dimension< 3 >(0);
     const auto slice_frag_dim = one::FS< 3 > { 1, 5,  7 };
     const auto slice_dim      = one::CS< 3 > { 1, 5, 14 };
-    auto gvt = one::gvt< 3 >(slice_dim, slice_frag_dim);
+    auto gvt = one::gvt< 2 >(slice_dim.squeeze(dim0),
+                             slice_frag_dim.squeeze(dim0));
     REQUIRE(expected.size() == gvt.global_size() * sizeof(float));
 
     /* extract a slice from a fragment */
@@ -486,7 +487,7 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 0)") {
 
     /* Put the slice tile at the right place in the output array */
     const auto id = one::FID< 3 > { 0, 0, 0 };
-    auto layout = gvt.slice_stride(dim0, id);
+    auto layout = gvt.injection_stride(id.squeeze(dim0));
     auto src = source.begin();
     auto dst = out.begin() + layout.initial_skip * sizeof(float);
     for (auto i = 0; i < layout.iterations; ++i) {
@@ -549,7 +550,8 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 1)") {
     const auto dim1 = one::dimension< 3 >(1);
     const auto slice_frag_dim = one::FS< 3 > { 3, 1,  7 };
     const auto slice_dim      = one::CS< 3 > { 3, 1, 14 };
-    auto gvt = one::gvt< 3 >(slice_dim, slice_frag_dim);
+    auto gvt = one::gvt< 2 >(slice_dim.squeeze(dim1),
+                             slice_frag_dim.squeeze(dim1));
     REQUIRE(expected.size() == gvt.global_size() * sizeof(float));
 
     /* extract a slice from a fragment */
@@ -562,7 +564,7 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 1)") {
 
     /* Put the slice tile at the right place in the output array */
     const auto id = one::FID< 3 > { 0, 0, 1 };
-    auto layout = gvt.slice_stride(dim1, id);
+    auto layout = gvt.injection_stride(id.squeeze(dim1));
     auto src = source.begin();
     auto dst = out.begin() + layout.initial_skip * sizeof(float);
     for (auto i = 0; i < layout.iterations; ++i) {
@@ -624,7 +626,8 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 1, lateral)") {
     const auto dim1 = one::dimension< 3 >(1);
     const auto slice_frag_dim = one::FS< 3 > { 3, 1, 7 };
     const auto slice_dim      = one::CS< 3 > { 6, 1, 7 };
-    auto gvt = one::gvt< 3 >(slice_dim, slice_frag_dim);
+    auto gvt = one::gvt< 2 >(slice_dim.squeeze(dim1),
+                             slice_frag_dim.squeeze(dim1));
     REQUIRE(expected.size() == gvt.global_size() * sizeof(float));
 
     /* extract a slice from a fragment */
@@ -637,7 +640,7 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 1, lateral)") {
 
     /* Put the slice tile at the right place in the output array */
     const auto id = one::FID< 3 > { 1, 0, 0 };
-    auto layout = gvt.slice_stride(dim1, id);
+    auto layout = gvt.injection_stride(id.squeeze(dim1));
     auto src = source.begin();
     auto dst = out.begin() + layout.initial_skip * sizeof(float);
     for (auto i = 0; i < layout.iterations; ++i) {
@@ -687,7 +690,8 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 2)") {
     const auto dim2 = one::dimension< 3 >(2);
     const auto slice_frag_dim = one::FS< 3 > { 3, 5, 1 };
     const auto slice_dim      = one::CS< 3 > { 6, 5, 1 };
-    auto gvt = one::gvt< 3 >(slice_dim, slice_frag_dim);
+    auto gvt = one::gvt< 2 >(slice_dim.squeeze(dim2),
+                             slice_frag_dim.squeeze(dim2));
     REQUIRE(expected.size() == gvt.global_size() * sizeof(float));
 
     /* extract a slice from a fragment */
@@ -700,7 +704,7 @@ TEST_CASE("Put a fragment slice into a cube slice (dimension 2)") {
 
     /* Put the slice tile at the right place in the output array */
     const auto id = one::FID< 3 > { 1, 0, 0 };
-    auto layout = gvt.slice_stride(dim2, id);
+    auto layout = gvt.injection_stride(id.squeeze(dim2));
     auto src = source.begin();
     auto dst = out.begin() + layout.initial_skip * sizeof(float);
     for (auto i = 0; i < layout.iterations; ++i) {
