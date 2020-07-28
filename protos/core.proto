@@ -62,8 +62,14 @@ message slice_tile {
     repeated float v = 2;
 };
 
+message slice_shape {
+    int32 dim0 = 1;
+    int32 dim1 = 2;
+};
+
 message slice_response {
-    repeated slice_tile tiles = 1;
+    slice_shape slice_shape = 1;
+    repeated slice_tile tiles = 2;
 };
 
 message fetch_response {

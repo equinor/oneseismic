@@ -64,7 +64,7 @@ private:
     one::dimension< 3 > dim = one::dimension< 3 >(0);
     int idx;
     one::slice_layout lay;
-    one::gvt< 3 > gvt;
+    one::gvt< 2 > gvt;
     std::vector< tile > tiles;
 };
 
@@ -95,14 +95,17 @@ void slice::oncomplete(
 void slice::serialize(oneseismic::fetch_response& res) const {
     auto* inner = res.mutable_slice();
 
+    auto* ss = inner->mutable_slice_shape();
+    ss->set_dim0(this->gvt.cube_shape()[0]);
+    ss->set_dim1(this->gvt.cube_shape()[1]);
+
     oneseismic::fragment_id id;
     inner->clear_tiles();
     for (const auto& outcome : this->tiles) {
         auto* tile = inner->add_tiles();
 
-        auto flattened_id = outcome.id;
-        flattened_id[this->dim] = 0;
-        const auto layout = this->gvt.slice_stride(this->dim, flattened_id);
+        auto squeezed_id = outcome.id.squeeze(this->dim);
+        const auto layout = this->gvt.injection_stride(squeezed_id);
 
         auto* l = tile->mutable_layout();
 
@@ -133,12 +136,14 @@ void slice::prepare(const oneseismic::fetch_request& req) {
         std::size_t(req.cube_shape().dim1()),
         std::size_t(req.cube_shape().dim2()),
     };
-    cube_shape[req.slice().dim()] = 1;
 
     this->dim = one::dimension< 3 >(req.slice().dim());
     this->idx = req.slice().idx();
     this->lay = fragment_shape.slice_stride(this->dim);
-    this->gvt = one::gvt< 3 >(cube_shape, fragment_shape);
+    this->gvt = one::gvt< 2 >(
+        cube_shape.squeeze(this->dim),
+        fragment_shape.squeeze(this->dim)
+    );
 }
 
 void slice::clear() {
