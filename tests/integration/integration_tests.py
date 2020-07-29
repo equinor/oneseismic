@@ -2,6 +2,8 @@ import os
 import pytest
 import io
 import json
+from upload import upload
+from scan import scan
 
 from urllib.parse import parse_qs, urlparse
 from azure.storage.blob import BlobServiceClient
@@ -12,18 +14,9 @@ import requests
 HOST_ADDR = os.getenv("HOST_ADDR", "http://localhost:8080")
 AUTH_ADDR = os.getenv("AUTH_ADDR", "http://localhost:8089")
 
-CUBE_NAMES = ["a"]
-DIM1 = [10, 20, 30]
-MANIFEST = {
-    "byteoffset-first-trace": 0,
-    "byteorder": "",
-    "dimensions": [[0, 1], DIM1, [100, 200, 300, 400]],
-    "format": "",
-    "guid": CUBE_NAMES[0],
-    "sampleinterval": 0,
-    "samples": 0,
-}
 
+with open("./small.sgy", "rb") as f:
+    META = scan.scan(f)
 
 def az_storage():
     protocol = "DefaultEndpointsProtocol=https;"
@@ -65,13 +58,10 @@ def create_cubes():
     for c in blob_service_client.list_containers():
         blob_service_client.delete_container(c)
 
-    for name in CUBE_NAMES:
-        blob_service_client.create_container(name)
-        blob_client = blob_service_client.get_blob_client(
-            container=name, blob="manifest.json"
-        )
-
-        blob_client.upload_blob(json.dumps(MANIFEST).encode())
+    shape = [64, 64, 64]
+    params = {"subcube-dims": shape}
+    with open("small.sgy", "rb") as f:
+        upload.upload(params, META, f, blob_service_client)
 
 
 def test_no_auth():
@@ -87,11 +77,11 @@ def test_auth():
 def test_list_cubes(create_cubes):
     r = requests.get(HOST_ADDR, headers=AUTH_HEADER)
     assert r.status_code == 200
-    assert r.json() == ["a"]
+    assert r.json() == [META["guid"]]
 
 
 def test_services(create_cubes):
-    r = requests.get(HOST_ADDR + "/a", headers=AUTH_HEADER)
+    r = requests.get(HOST_ADDR + "/" + META["guid"], headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == ["slice"]
 
@@ -102,24 +92,25 @@ def test_cube_404(create_cubes):
 
 
 def test_dimensions(create_cubes):
-    r = requests.get(HOST_ADDR + "/a/slice", headers=AUTH_HEADER)
+    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice", headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == [0, 1, 2]
 
 
 def test_lines(create_cubes):
-    r = requests.get(HOST_ADDR + "/a/slice/1", headers=AUTH_HEADER)
+    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice/1", headers=AUTH_HEADER)
     assert r.status_code == 200
-    assert r.json() == DIM1
+    assert r.json() == META["dimensions"][1]
 
 
 def test_lines_404(create_cubes):
-    r = requests.get(HOST_ADDR + "/a/slice/3", headers=AUTH_HEADER)
+    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice/3", headers=AUTH_HEADER)
     assert r.status_code == 404
 
 
 @pytest.mark.skip(reason="TODO")
 def test_slice(create_cubes):
-    r = requests.get(HOST_ADDR + "/a/slice/1/10", headers=AUTH_HEADER)
+    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice/1/" + str(META["dimensions"][1][1]),
+    headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json()["tiles"] != None
