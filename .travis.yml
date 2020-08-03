@@ -46,6 +46,10 @@ script:
   - python setup.py test && popd
   - pip install -r core/python/requirements-dev.txt
 
+  - pushd client
+  - pip install -r requirements-dev.txt
+  - python setup.py pytest && popd
+
   - mkdir build
   - pushd build
   - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_PYTHON=ON
