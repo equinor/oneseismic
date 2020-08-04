@@ -1,6 +1,7 @@
 import io
 import math
 import logging
+import json
 
 import numpy as np
 import segyio
@@ -211,3 +212,6 @@ def upload(params, meta, filestream, blob):
 
     for seg in range(segments):
         upload_segment(params, meta, seg, blob, filestream)
+
+    blob_client = blob.get_blob_client(container=container, blob="manifest.json")
+    blob_client.upload_blob(json.dumps(meta).encode())
