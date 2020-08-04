@@ -52,7 +52,7 @@ func ValidateIssuer(issuer string) context.Handler {
 		}
 
 		claims := user.Claims.(jwt.MapClaims)
-		if !claims.VerifyIssuer(issuer, false) {
+		if !claims.VerifyIssuer(issuer, true) {
 			golog.Error("invalid issuer", fmt.Errorf(claims["iss"].(string)))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
