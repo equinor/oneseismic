@@ -108,7 +108,6 @@ def test_lines_404(create_cubes):
     assert r.status_code == 404
 
 
-@pytest.mark.skip(reason="TODO")
 def test_slice(create_cubes):
     r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice/1/" + str(META["dimensions"][1][1]),
     headers=AUTH_HEADER)
