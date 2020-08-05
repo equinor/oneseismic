@@ -10,8 +10,9 @@ import (
 	"time"
 )
 
-type openIDConfig struct {
+type oidConfig struct {
 	JwksURI string `json:"jwks_uri"`
+	Issuer string `json:"issuer"`
 }
 
 type jwk struct {
@@ -50,16 +51,6 @@ func getJSON(url string, target interface{}) error {
 	return json.NewDecoder(r.Body).Decode(target)
 }
 
-func getJwksURI(authserver string) (string, error) {
-	oidcConf := openIDConfig{}
-	err := getJSON(authserver, &oidcConf)
-	if err != nil {
-		return "", fmt.Errorf("fetching oidc config failed: %w", err)
-	}
-
-	return oidcConf.JwksURI, nil
-}
-
 func fromB64(b64 string) (big.Int, error) {
 	b, err := base64.RawURLEncoding.DecodeString(b64)
 	bi := big.Int{}
@@ -71,17 +62,24 @@ func fromB64(b64 string) (big.Int, error) {
 	return bi, nil
 }
 
-// GetRSAKeys gets a map of kid with rsa.PublicKey
-func GetRSAKeys(authserver string) (map[string]rsa.PublicKey, error) {
-	jwksURI, err := getJwksURI(authserver)
+// OpenIDConfig has the config we need to enable auth
+type OpenIDConfig struct {
+	Jwks map[string]rsa.PublicKey
+	Issuer string
+}
+
+// GetOidConfig gets OpenIDConfig from a well-known openid-configuration url
+func GetOidConfig(authserver string) (*OpenIDConfig, error) {
+	oidc := oidConfig{}
+	err := getJSON(authserver, &oidc)
 	if err != nil {
-		return nil, fmt.Errorf("getting jwks_uri failed: %w", err)
+		return nil, fmt.Errorf("getting oidc failed: %w", err)
 	}
 
 	keyList := jwks{}
-	err = getJSON(jwksURI, &keyList)
+	err = getJSON(oidc.JwksURI, &keyList)
 	if err != nil {
-		return nil, fmt.Errorf("fetching jwks failed: %w", err)
+		return nil, fmt.Errorf("getting jwks failed: %w", err)
 	}
 
 	keys := make(map[string]rsa.PublicKey)
@@ -104,6 +102,8 @@ func GetRSAKeys(authserver string) (map[string]rsa.PublicKey, error) {
 		}
 	}
 
-	return keys, nil
-
+	return &OpenIDConfig{
+		Jwks:          keys,
+		Issuer:        oidc.Issuer,
+	}, nil
 }

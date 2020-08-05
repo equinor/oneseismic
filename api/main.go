@@ -33,7 +33,7 @@ func main() {
 
 	golog.SetTimeFormat(time.RFC3339)
 	golog.SetLevel(logLevel)
-	rsaKeys, err := auth.GetRSAKeys(os.Getenv("AUTHSERVER") + "/v2.0/.well-known/openid-configuration")
+	oidConf, err := auth.GetOidConfig(os.Getenv("AUTHSERVER") + "/v2.0/.well-known/openid-configuration")
 	if err != nil {
 		golog.Error("could not get keyset", err)
 	}
@@ -49,8 +49,8 @@ func main() {
 
 	app := iris.Default()
 
-	app.Use(auth.CheckJWT(rsaKeys))
-	app.Use(auth.Validate(os.Getenv("ISSUER"), os.Getenv("AUDIENCE")))
+	app.Use(auth.CheckJWT(oidConf.Jwks))
+	app.Use(auth.Validate(oidConf.Issuer, os.Getenv("AUDIENCE")))
 	app.Use(iris.Gzip)
 
 	err = server.Register(
