@@ -32,7 +32,7 @@ func main() {
 
 	golog.SetTimeFormat("")
 	golog.SetLevel(logLevel)
-	rsaKeys, err := auth.GetRSAKeys(os.Getenv("AUTHSERVER") + "/.well-known/openid-configuration")
+	rsaKeys, err := auth.GetRSAKeys(os.Getenv("AUTHSERVER") + "/v2.0/.well-known/openid-configuration")
 	if err != nil {
 		golog.Error("could not get keyset", err)
 	}
