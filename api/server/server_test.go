@@ -24,6 +24,8 @@ func TestSlicer(t *testing.T) {
 
 	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 	app := iris.Default()
+	app.Use(mockOboJWT())
+	
 	err := Register(app, *storageEndpoint, account, accountKey, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 	assert.Nil(t, err)
 

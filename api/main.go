@@ -51,6 +51,7 @@ func main() {
 
 	app.Use(auth.CheckJWT(oidConf.Jwks))
 	app.Use(auth.Validate(oidConf.Issuer, os.Getenv("AUDIENCE")))
+	app.Use(auth.OboJWT(oidConf.TokenEndpoint, os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET")))
 	app.Use(iris.Gzip)
 
 	err = server.Register(
