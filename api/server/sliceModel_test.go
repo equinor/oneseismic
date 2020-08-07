@@ -43,7 +43,7 @@ func TestSliceModel(t *testing.T) {
 		endpoint: "",
 		sessions: sessions,
 	}
-	slice, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
+	slice, err := sl.fetchSlice("guid", 0, 0, "requestid", "token")
 
 	assert.Nil(t, err)
 	assert.NotNil(t, slice)
@@ -74,7 +74,7 @@ func TestModelMissingSlice(t *testing.T) {
 		endpoint: "",
 		sessions: sessions,
 	}
-	_, err := sl.fetchSlice("auth", "guid", 0, 0, "requestid")
+	_, err := sl.fetchSlice("guid", 0, 0, "requestid", "token")
 
 	assert.NotNil(t, err)
 }

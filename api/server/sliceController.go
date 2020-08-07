@@ -60,11 +60,12 @@ func newFailure(key string) *failure {
 
 type sliceModel interface {
 	fetchSlice(
-		auth string,
 		guid string,
 		dim int32,
 		lineno int32,
-		requestid string) (*oneseismic.SliceResponse, error)
+		requestid string,
+		token string,
+) (*oneseismic.SliceResponse, error)
 }
 
 type sliceController struct {
@@ -94,7 +95,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	slice, err := sc.slicer.fetchSlice(token, guid, dim, lineno, requestid)
+	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid, token)
 	if err != nil {
 		switch e := err.(type) {
 		case *failure:

@@ -13,11 +13,12 @@ type sliceMock struct {
 }
 
 func (s *sliceMock) fetchSlice(
-	auth string,
 	guid string,
 	dim int32,
 	lineno int32,
-	requestid string) (*oneseismic.SliceResponse, error) {
+	requestid string,
+	token string,
+) (*oneseismic.SliceResponse, error) {
 	l, ok := s.slices[guid]
 	if ok {
 		return &l, nil
