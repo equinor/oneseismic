@@ -94,8 +94,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	auth := "Bearer " + token
-	slice, err := sc.slicer.fetchSlice(auth, guid, dim, lineno, requestid)
+	slice, err := sc.slicer.fetchSlice(token, guid, dim, lineno, requestid)
 	if err != nil {
 		switch e := err.(type) {
 		case *failure:

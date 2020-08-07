@@ -83,7 +83,7 @@ TEST_CASE(
         "[azure][az][http]") {
     one::az az("key");
     one::batch batch;
-    batch.authorization = "Bearer $token";
+    batch.authorization = "$token";
     const auto headers = to_vector(az.http_headers(batch, "pid"));
     const auto expected = std::string("Authorization: Bearer $token");
     CHECK_THAT(headers, VectorContains(expected));
