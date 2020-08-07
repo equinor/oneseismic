@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/equinor/oneseismic/api/auth"
 	_ "github.com/equinor/oneseismic/api/docs"
@@ -30,7 +31,7 @@ func init() {
 func main() {
 	logLevel := os.Getenv("LOG_LEVEL")
 
-	golog.SetTimeFormat("")
+	golog.SetTimeFormat(time.RFC3339)
 	golog.SetLevel(logLevel)
 	rsaKeys, err := auth.GetRSAKeys(os.Getenv("AUTHSERVER") + "/v2.0/.well-known/openid-configuration")
 	if err != nil {
