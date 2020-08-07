@@ -120,7 +120,7 @@ curl_slist* az::http_headers(
     headers = curl_slist_append(headers, date.c_str());
     headers = curl_slist_append(headers, version);
     if (not batch.authorization.empty()) {
-        const auto format = "Authorization: {}";
+        const auto format = "Authorization: Bearer {}";
         const auto auth = fmt::format(format, batch.authorization);
         headers = curl_slist_append(headers, auth.c_str());
     }
