@@ -27,6 +27,7 @@ func (s *sliceMock) fetchSlice(
 
 func TestExistingSlice(t *testing.T) {
 	app := iris.Default()
+	app.Use(mockOboJWT())
 
 	m := map[string]oneseismic.SliceResponse{"some_guid": {}}
 	sc := &sliceController{&sliceMock{m}}
@@ -42,6 +43,7 @@ func TestExistingSlice(t *testing.T) {
 
 func TestMissingSlice(t *testing.T) {
 	app := iris.Default()
+	app.Use(mockOboJWT())
 
 	sc := &sliceController{&sliceMock{}}
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)

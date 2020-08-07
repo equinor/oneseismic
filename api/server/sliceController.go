@@ -72,6 +72,12 @@ type sliceController struct {
 }
 
 func (sc *sliceController) get(ctx iris.Context) {
+	_, ok := ctx.Values().Get("jwt").(string)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)

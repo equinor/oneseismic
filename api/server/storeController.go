@@ -20,6 +20,12 @@ type storeController struct {
 // @security ApiKeyAuth
 // @Router / [get]
 func (sc *storeController) list(ctx iris.Context) {
+	_, ok := ctx.Values().Get("jwt").(string)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+
 	cubes, err := sc.store.list(context.Background())
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
@@ -44,6 +50,12 @@ func (sc *storeController) list(ctx iris.Context) {
 // @security ApiKeyAuth
 // @Router /{guid} [get]
 func (sc *storeController) services(ctx iris.Context) {
+	_, ok := ctx.Values().Get("jwt").(string)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)
@@ -73,6 +85,12 @@ func (sc *storeController) services(ctx iris.Context) {
 // @security ApiKeyAuth
 // @Router /{guid}/slice [get]
 func (sc *storeController) dimensions(ctx iris.Context) {
+	_, ok := ctx.Values().Get("jwt").(string)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)
@@ -103,6 +121,12 @@ func (sc *storeController) dimensions(ctx iris.Context) {
 // @security ApiKeyAuth
 // @Router /{guid}/slice/{dimension} [get]
 func (sc *storeController) lines(ctx iris.Context) {
+	_, ok := ctx.Values().Get("jwt").(string)
+	if !ok {
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
+	
 	guid := ctx.Params().GetString("guid")
 	if len(guid) == 0 {
 		ctx.StatusCode(http.StatusBadRequest)

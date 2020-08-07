@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"bytes"
 	"crypto/rsa"
+	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/dgrijalva/jwt-go"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
@@ -26,6 +29,59 @@ func CheckJWT(rsaKeys map[string]rsa.PublicKey) context.Handler {
 	}
 }
 
+// OboJWT gets the on behalf token
+func OboJWT(tokenEndpoint, clientID, clientSecret string) context.Handler {
+	return func(ctx context.Context) {
+		token, ok := ctx.Values().Get("jwt").(*jwt.Token)
+		if !ok {
+			ctx.StatusCode(http.StatusInternalServerError)
+			return
+		}
+		data := "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" +
+			"&client_id=" + clientID +
+			"&client_secret=" + clientSecret +
+			"&assertion=" + token.Raw +
+			"&scope=" + "https://storage.azure.com/user_impersonation" +
+			"&requested_token_use=on_behalf_of"
+		oboTokenResponse, err := http.Post(
+			tokenEndpoint,
+			"application/x-www-form-urlencoded", bytes.NewBuffer([]byte(data)))
+
+		if err != nil {
+			ctx.Values().Remove("jwt")
+			golog.Errorf("could not get obo token:  %w", err)
+			ctx.StatusCode(iris.StatusUnauthorized)
+			ctx.StopExecution()
+			return
+		}
+		if oboTokenResponse.StatusCode != 200 {
+			ctx.Values().Remove("jwt")
+			golog.Errorf(
+				"could not get obo token: %v", 
+				oboTokenResponse.Status, 
+			)
+			ctx.StatusCode(iris.StatusUnauthorized)
+			ctx.StopExecution()
+			return
+		}
+
+		// golog.Infof("obo_token: %v", oboTokenResponse)
+		defer oboTokenResponse.Body.Close()
+		type oboToken struct {
+			AccessToken string `json:"access_token"`
+		}
+		obo := oboToken{}
+		err = json.NewDecoder(oboTokenResponse.Body).Decode(&obo)
+		if err != nil {
+			golog.Warn(err)
+			return
+		}
+		ctx.Values().Set("jwt", obo.AccessToken)
+		ctx.Next()
+	}
+}
+
+// Validate iss and aud in claim
 func Validate(issuer, audience string) context.Handler {
 	return func(ctx context.Context) {
 		userToken := ctx.Values().Get("jwt")

@@ -45,6 +45,8 @@ services:
       - AZURE_STORAGE_URL
       - AZURE_STORAGE_ACCOUNT
       - AZURE_STORAGE_ACCESS_KEY
+      - CLIENT_ID
+      - CLIENT_SECRET
       - LOG_LEVEL
       - ZMQ_REP_ADDR=tcp://*:6144
       - ZMQ_REQ_ADDR=tcp://*:6143

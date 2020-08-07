@@ -31,8 +31,16 @@ func (ms *mockStore) lines(ctx context.Context, guid string, dimension int32) ([
 	return ms.linesMock, nil
 }
 
+func mockOboJWT() iris.Handler {
+	return func(ctx iris.Context) {
+		ctx.Values().Set("jwt", "sometoken")
+		ctx.Next()
+	}
+}
+
 func TestList(t *testing.T) {
 	app := iris.Default()
+	app.Use(mockOboJWT())
 
 	guids := []string{"a", "b"}
 	sc := storeController{&mockStore{guids: guids}}
@@ -47,6 +55,7 @@ func TestList(t *testing.T) {
 
 func TestContainerServices(t *testing.T) {
 	app := iris.Default()
+	app.Use(mockOboJWT())
 
 	sc := storeController{&mockStore{}}
 	app.Get("/{guid:string}", sc.services)
@@ -60,6 +69,7 @@ func TestContainerServices(t *testing.T) {
 
 func TestDimensions(t *testing.T) {
 	app := iris.Default()
+	app.Use(mockOboJWT())
 
 	dims := []int32{2}
 	sc := storeController{&mockStore{dims: dims}}
@@ -74,6 +84,7 @@ func TestDimensions(t *testing.T) {
 
 func TestLines(t *testing.T) {
 	app := iris.Default()
+	app.Use(mockOboJWT())
 
 	lines := []int32{0}
 	sc := storeController{&mockStore{linesMock: lines}}
