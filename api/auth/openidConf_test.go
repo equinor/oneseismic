@@ -14,7 +14,7 @@ var testAuthServer *httptest.Server
 var testAuthServerURL string
 
 func mockGet(url string) (*http.Response, error) {
-	oidc := `{"jwks_uri":"jwks", "issuer": "iss"}`
+	oidc := `{"jwks_uri":"jwks", "issuer": "iss", "token_endpoint": "endpoint" }`
 	// no need to include e, n in test; they will become 0
 	keys := `
 	{
@@ -39,7 +39,8 @@ func mockGet(url string) (*http.Response, error) {
 func TestGetRSAKeys(t *testing.T) {
 	httpGet = mockGet
 
-	key, err := GetOidConfig("")
+	oid, err := GetOidConfig("")
 	assert.Nil(t, err)
-	assert.Len(t, key.Jwks, 1)
+	assert.Len(t, oid.Jwks, 1)
+	assert.Equal(t, oid.TokenEndpoint, "endpoint")
 }
