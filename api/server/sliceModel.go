@@ -15,15 +15,16 @@ type slicer struct {
 }
 
 func (s *slicer) fetchSlice(
-	auth string,
 	guid string,
 	dim int32,
 	lineno int32,
-	requestid string) (*oneseismic.SliceResponse, error) {
+	requestid string,
+	token string,
+) (*oneseismic.SliceResponse, error) {
 
 	msg := oneseismic.ApiRequest {
 		Requestid:       requestid,
-		Authorization:   auth,
+		Token:           token,
 		Guid:            guid,
 		Root:            s.root,
 		StorageEndpoint: s.endpoint,

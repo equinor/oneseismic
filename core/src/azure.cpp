@@ -119,9 +119,9 @@ curl_slist* az::http_headers(
     curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, date.c_str());
     headers = curl_slist_append(headers, version);
-    if (not batch.authorization.empty()) {
-        const auto format = "Authorization: Bearer {}";
-        const auto auth = fmt::format(format, batch.authorization);
+    if (not batch.token.empty()) {
+        const auto format = "Authorization: Bearer {}"; // azure blob store uses Bearer token
+        const auto auth = fmt::format(format, batch.token);
         headers = curl_slist_append(headers, auth.c_str());
     }
     return headers;
