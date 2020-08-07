@@ -72,7 +72,7 @@ type sliceController struct {
 }
 
 func (sc *sliceController) get(ctx iris.Context) {
-	_, ok := ctx.Values().Get("jwt").(string)
+	token, ok := ctx.Values().Get("jwt").(string)
 	if !ok {
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
@@ -94,7 +94,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	auth := ctx.GetHeader("Authorization")
+	auth := "Bearer " + token
 	slice, err := sc.slicer.fetchSlice(auth, guid, dim, lineno, requestid)
 	if err != nil {
 		switch e := err.(type) {
