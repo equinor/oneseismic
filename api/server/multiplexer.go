@@ -1,11 +1,11 @@
 package server
 
 import (
-	"log"
 	"fmt"
 
 	zmq "github.com/pebbe/zmq4"
 	"github.com/google/uuid"
+	"github.com/kataras/golog"
 )
 
 type job struct {
@@ -176,12 +176,12 @@ func all(a []bool) bool {
 func pipeFailures(addr string, failures chan []string) {
 	r, err := zmq.NewSocket(zmq.PULL)
 	if err != nil {
-		log.Fatal(err)
+		golog.Fatal(err)
 	}
 
 	err = r.Bind(addr)
 	if err != nil {
-		log.Fatal(err)
+		golog.Fatal(err)
 	}
 
 	for {
@@ -193,7 +193,7 @@ func pipeFailures(addr string, failures chan []string) {
 			 * handling can be necessary, but don't deal with it until it
 			 * becomes an issue
 			 */
-			log.Print(err)
+			golog.Error(err)
 			continue
 		}
 		failures <- msg
@@ -204,7 +204,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 	req, err := zmq.NewSocket(zmq.PUSH)
 
 	if err != nil {
-		log.Fatal(err)
+		golog.Fatal(err)
 	}
 
 	req.Bind(reqNdpt)
@@ -214,7 +214,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 		r, err := zmq.NewSocket(zmq.DEALER)
 
 		if err != nil {
-			log.Fatal(err)
+			golog.Fatal(err)
 		}
 
 		r.SetIdentity(s.identity)
@@ -225,7 +225,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 			m, err := r.RecvMessageBytes(0)
 
 			if err != nil {
-				log.Fatal(err)
+				golog.Fatal(err)
 			}
 
 			err = partial.loadZMQ(m)
@@ -239,7 +239,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 				 * For now, neither the experience nor infrastructure is in
 				 * place for that, so just log and exit
 				 */
-				log.Fatalf("Broken partialResult (loadZMQ): %s", err.Error())
+				golog.Fatalf("Broken partialResult (loadZMQ): %s", err.Error())
 			}
 
 			rep <- partial
@@ -266,7 +266,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 			proc, ok := processes[r.pid]
 			if !ok {
 				errmsg := "%s %d/%d dropped; was not in process table"
-				log.Printf(errmsg, r.pid, r.n, r.m)
+				golog.Errorf(errmsg, r.pid, r.n, r.m)
 				break
 			}
 
@@ -294,10 +294,10 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 			 */
 			if !ok {
 				errmsg := "%s failed (%s); was not in process table"
-				log.Printf(errmsg, pid, msg)
+				golog.Errorf(errmsg, pid, msg)
 			} else {
 				errmsg := "%s failed (%s); removing from process table"
-				log.Printf(errmsg, pid, msg)
+				golog.Errorf(errmsg, pid, msg)
 				/*
 				 * The order of statements creates an interesting race
 				 * condition:
