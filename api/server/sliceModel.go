@@ -2,9 +2,9 @@ package server
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
+	"github.com/kataras/golog"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -78,7 +78,7 @@ func (s *slicer) fetchSlice(
 			switch x := fr.Function.(type) {
 			default:
 				msg := "%s Expected FetchResponse.Function = %T; was %T"
-				log.Printf(msg, requestid, slice, x)
+				golog.Errorf(msg, requestid, slice, x)
 				return nil, fmt.Errorf("internal error")
 			}
 		}
