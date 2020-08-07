@@ -8,18 +8,17 @@ import (
 	"net/url"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/kataras/golog"
 )
 
 type store interface {
-	list(ctx context.Context) ([]string, error)
-	manifest(ctx context.Context, guid string) (*Manifest, error)
-	dimensions(ctx context.Context, guid string) ([]int32, error)
-	lines(ctx context.Context, guid string, dimension int32) ([]int32, error)
+	list(ctx context.Context, token string) ([]string, error)
+	manifest(ctx context.Context, guid, token string) (*Manifest, error)
+	dimensions(ctx context.Context, guid, token string) ([]int32, error)
+	lines(ctx context.Context, guid string, dimension int32, token string) ([]int32, error)
 }
 
-type serviceURL struct {
-	azblob.ServiceURL
+type storageURL struct {
+	url.URL
 }
 
 type Manifest struct {
@@ -27,10 +26,8 @@ type Manifest struct {
 	Samples    int32     `json:"samples"`
 }
 
-func (sURL *serviceURL) manifest(ctx context.Context, guid string) (*Manifest, error) {
-	cURL := sURL.NewContainerURL(guid)
-
-	blobURL := cURL.NewBlockBlobURL("manifest.json")
+func (storage *storageURL) manifest(ctx context.Context, guid, token string) (*Manifest, error) {
+	blobURL := createServiceURL(storage.URL, token).NewContainerURL(guid).NewBlockBlobURL("manifest.json")
 	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
 		return nil, err
@@ -48,10 +45,9 @@ func (sURL *serviceURL) manifest(ctx context.Context, guid string) (*Manifest, e
 	return &manifest, nil
 }
 
-func (sURL *serviceURL) dimensions(ctx context.Context, guid string) ([]int32, error) {
-	manifest, err := sURL.manifest(ctx, guid)
+func (storage *storageURL) dimensions(ctx context.Context, guid, token string) ([]int32, error) {
+	manifest, err := storage.manifest(ctx, guid, token)
 	if err != nil {
-		golog.Error("cube", err)
 		return nil, err
 	}
 	dims := make([]int32, len(manifest.Dimensions))
@@ -62,10 +58,9 @@ func (sURL *serviceURL) dimensions(ctx context.Context, guid string) ([]int32, e
 	return dims, nil
 }
 
-func (sURL *serviceURL) lines(ctx context.Context, guid string, dimension int32) ([]int32, error) {
-	manifest, err := sURL.manifest(ctx, guid)
+func (storage *storageURL) lines(ctx context.Context, guid string, dimension int32, token string) ([]int32, error) {
+	manifest, err := storage.manifest(ctx, guid, token)
 	if err != nil {
-		golog.Error("cube", err)
 		return nil, err
 	}
 
@@ -75,11 +70,12 @@ func (sURL *serviceURL) lines(ctx context.Context, guid string, dimension int32)
 	return manifest.Dimensions[dimension], nil
 }
 
-func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
+func (storage *storageURL) list(ctx context.Context, token string) ([]string, error) {
+	su := createServiceURL(storage.URL, token)
 	names := make([]string, 0)
 
 	for marker := (azblob.Marker{}); marker.NotDone(); {
-		listContainer, err := sURL.ListContainersSegment(
+		listContainer, err := su.ListContainersSegment(
 			ctx,
 			marker,
 			azblob.ListContainersSegmentOptions{},
@@ -97,17 +93,12 @@ func (sURL *serviceURL) list(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-func newServiceURL(storageEndpoint url.URL, accountName, accountKey string) (*serviceURL, error) {
-
-	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
-	if err != nil {
-		return nil, err
-	}
-
-	sURL := azblob.NewServiceURL(
+func createServiceURL(storageEndpoint url.URL, token string) azblob.ServiceURL {
+	return azblob.NewServiceURL(
 		storageEndpoint,
-		azblob.NewPipeline(credential, azblob.PipelineOptions{}),
+		azblob.NewPipeline(
+			azblob.NewTokenCredential(token, nil),
+			azblob.PipelineOptions{},
+		),
 	)
-
-	return &serviceURL{sURL}, nil
 }

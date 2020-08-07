@@ -54,18 +54,14 @@ func main() {
 	app.Use(auth.OboJWT(oidConf.TokenEndpoint, os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET")))
 	app.Use(iris.Gzip)
 
-	err = server.Register(
+	server.Register(
 		app,
 		*storageEndpoint,
 		account,
-		os.Getenv("AZURE_STORAGE_ACCESS_KEY"),
 		os.Getenv("ZMQ_REQ_ADDR"),
 		os.Getenv("ZMQ_REP_ADDR"),
 		os.Getenv("ZMQ_FAILURE_ADDR"),
 	)
-	if err != nil {
-		golog.Error("creating app: %w", err)
-	}
 	app.Get("/swagger/{any:path}", swagger.WrapHandler(swaggerFiles.Handler))
 
 	err = app.Run(iris.Addr(os.Getenv("HOST_ADDR")))
