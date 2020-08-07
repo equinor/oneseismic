@@ -13,6 +13,7 @@ import (
 type oidConfig struct {
 	JwksURI string `json:"jwks_uri"`
 	Issuer string `json:"issuer"`
+	TokenEndpoint string `json:"token_endpoint"`
 }
 
 type jwk struct {
@@ -66,6 +67,7 @@ func fromB64(b64 string) (big.Int, error) {
 type OpenIDConfig struct {
 	Jwks map[string]rsa.PublicKey
 	Issuer string
+	TokenEndpoint string
 }
 
 // GetOidConfig gets OpenIDConfig from a well-known openid-configuration url
@@ -105,5 +107,6 @@ func GetOidConfig(authserver string) (*OpenIDConfig, error) {
 	return &OpenIDConfig{
 		Jwks:          keys,
 		Issuer:        oidc.Issuer,
+		TokenEndpoint: oidc.TokenEndpoint,
 	}, nil
 }
