@@ -10,14 +10,12 @@ import (
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
 	"github.com/pebbe/zmq4"
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestSlicer(t *testing.T) {
 	storageEndpoint, _ := url.Parse("http://some.url")
 	account := ""
-	accountKey := ""
 	zmqReqAddr := "inproc://" + uuid.New().String()
 	zmqRepAddr := "inproc://" + uuid.New().String()
 	zmqFailureAddr := "inproc://" + uuid.New().String()
@@ -25,9 +23,7 @@ func TestSlicer(t *testing.T) {
 	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 	app := iris.Default()
 	app.Use(mockOboJWT())
-	
-	err := Register(app, *storageEndpoint, account, accountKey, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
-	assert.Nil(t, err)
+	Register(app, *storageEndpoint, account, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 
 	e := httptest.New(t, app)
 	jsonResponse := e.GET("/some_guid/slice/0/0").

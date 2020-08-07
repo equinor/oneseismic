@@ -15,19 +15,19 @@ type mockStore struct {
 	linesMock []int32
 }
 
-func (ms *mockStore) list(ctx context.Context) ([]string, error) {
+func (ms *mockStore) list(ctx context.Context, token string) ([]string, error) {
 	return ms.guids, nil
 }
 
-func (ms *mockStore) manifest(ctx context.Context, guid string) (*Manifest, error) {
+func (ms *mockStore) manifest(ctx context.Context, guid, token string) (*Manifest, error) {
 	return &ms.mani, nil
 }
 
-func (ms *mockStore) dimensions(ctx context.Context, guid string) ([]int32, error) {
+func (ms *mockStore) dimensions(ctx context.Context, guid, token string) ([]int32, error) {
 	return ms.dims, nil
 }
 
-func (ms *mockStore) lines(ctx context.Context, guid string, dimension int32) ([]int32, error) {
+func (ms *mockStore) lines(ctx context.Context, guid string, dimension int32, token string) ([]int32, error) {
 	return ms.linesMock, nil
 }
 

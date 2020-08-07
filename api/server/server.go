@@ -11,20 +11,15 @@ func Register(
 	app *iris.Application,
 	storageEndpoint url.URL,
 	accountName string,
-	accountKey string,
 	zmqReqAddr,
 	zmqRepAddr string,
 	zmqFailureAddr string,
-) error {
-	sURL, err := newServiceURL(storageEndpoint, accountName, accountKey)
-	if err != nil {
-		return err
-	}
+) {
+	sc := storeController{&storageURL{storageEndpoint}}
 
 	sessions := newSessions()
 	go sessions.Run(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 
-	sc := storeController{sURL}
 	app.Get("/", sc.list)
 	app.Get("/{guid:string}", sc.services)
 	app.Get("/{guid:string}/slice", sc.dimensions)
@@ -39,5 +34,4 @@ func Register(
 	}
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", slice.get)
 
-	return nil
 }
