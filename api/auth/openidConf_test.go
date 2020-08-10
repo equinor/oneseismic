@@ -14,7 +14,7 @@ var testAuthServer *httptest.Server
 var testAuthServerURL string
 
 func mockGet(url string) (*http.Response, error) {
-	jwksURI := `{"jwks_uri":"jwks"}`
+	oidc := `{"jwks_uri":"jwks"}`
 	// no need to include e, n in test; they will become 0
 	keys := `
 	{
@@ -25,7 +25,7 @@ func mockGet(url string) (*http.Response, error) {
 		  }
 		]
 	}`
-	json := jwksURI
+	json := oidc
 	if url == "jwks" {
 		json = keys
 	}
