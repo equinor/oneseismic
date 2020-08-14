@@ -32,7 +32,13 @@ public:
 /*
  * Union of transfer configuration and the response message serializer.
  */
-class action : public one::transfer_configuration, public wire {};
+class action : public one::transfer_configuration, public wire {
+public:
+    /*
+     * Should be called after each request to allow cleaning up internal state.
+     */
+    virtual void clear() = 0;
+};
 
 class slice : public action {
 public:
@@ -48,6 +54,7 @@ public:
 
     void serialize(oneseismic::fetch_response&) const override;
     void prepare(const oneseismic::fetch_request& req) override;
+    void clear() override;
 
 private:
     /*
@@ -132,6 +139,10 @@ void slice::prepare(const oneseismic::fetch_request& req) {
     this->idx = req.slice().idx();
     this->lay = fragment_shape.slice_stride(this->dim);
     this->gvt = one::gvt< 3 >(cube_shape, fragment_shape);
+}
+
+void slice::clear() {
+    this->tiles.clear();
 }
 
 class all_actions {
@@ -277,6 +288,7 @@ void fragment_task::run(
     msg.addstr(result.serialize());
     msg.send(output);
 
+    action.clear();
     /*
      * TODO: catch other network related errors that should not bring down the
      * process (currently will because of unhandled exceptions)
