@@ -268,4 +268,45 @@ TEST_CASE(
 
         CHECK(not received_message(caller_rep));
     }
+
+    SECTION("Multiple sequential requests are all successful") {
+        loopback_cfg storage(httpd.port());
+        one::transfer xfer(1, storage);
+        one::fragment_task ft;
+
+        for (int i = 0; i < 3; ++i) {
+            sendmsg(caller_req, apireq);
+            ft.run(xfer, worker_req, worker_rep, worker_fail);
+
+            zmq::multipart_t response(caller_rep);
+            REQUIRE(response.size() == 4);
+            CHECK(response[0].to_string() == "addr");
+            CHECK(response[1].to_string() == "pid");
+            CHECK(response[2].to_string() == "0/1");
+            const auto& msg = response[3];
+
+            oneseismic::fetch_response res;
+            const auto ok = res.ParseFromArray(msg.data(), msg.size());
+            REQUIRE(ok);
+
+            std::vector< float > expected(4);
+            std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
+
+            const auto& tiles = res.slice().tiles();
+            CHECK(tiles.size() == 1);
+
+            CHECK(tiles.Get(0).layout().iterations()   == 2);
+            CHECK(tiles.Get(0).layout().chunk_size()   == 2);
+            CHECK(tiles.Get(0).layout().initial_skip() == 0);
+            CHECK(tiles.Get(0).layout().superstride()  == 8);
+            CHECK(tiles.Get(0).layout().substride()    == 2);
+
+            CHECK(tiles.Get(0).v().size() == 4);
+            auto v = std::vector< float >(
+                    tiles.Get(0).v().begin(),
+                    tiles.Get(0).v().end()
+                    );
+            CHECK_THAT(v, Equals(expected));
+        }
+    }
 }
