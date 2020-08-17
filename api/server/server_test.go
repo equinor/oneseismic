@@ -11,6 +11,8 @@ import (
 	"github.com/kataras/iris/v12/httptest"
 	"github.com/pebbe/zmq4"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSlicer(t *testing.T) {
@@ -20,7 +22,18 @@ func TestSlicer(t *testing.T) {
 	zmqRepAddr := "inproc://" + uuid.New().String()
 	zmqFailureAddr := "inproc://" + uuid.New().String()
 
-	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr, 1)
+	slice := &oneseismic.SliceResponse {
+			Tiles: []*oneseismic.SliceTile {
+			{
+				Layout: &oneseismic.SliceLayout {
+					ChunkSize: 1,
+					Iterations: 0,
+				},
+				V: []float32{0.1},
+			},
+		},
+	}
+	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr, slice, 1)
 
 	app := iris.Default()
 	app.Use(mockOboJWT())
@@ -28,18 +41,26 @@ func TestSlicer(t *testing.T) {
 
 	e := httptest.New(t, app)
 
-	jsonResponse := e.GET("/some_guid/slice/0/0").
+	resp := e.GET("/some_guid/slice/0/0").
 		Expect().
-		Status(httptest.StatusOK).
-		JSON()
-    jsonResponse.Path("$.tiles[0].layout.chunk_size").Number().Equal(1)
-    jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
+		Status(httptest.StatusOK)
+
+	m := protojson.UnmarshalOptions{DiscardUnknown: true}
+	sr := oneseismic.SliceResponse{}
+	err := m.Unmarshal([]byte(resp.Body().Raw()), &sr)
+	assert.Nil(t, err)
+	for k, v := range sr.Tiles {
+		assert.Equal(t, v.V, slice.Tiles[k].V)
+		assert.Equal(t, v.Layout.ChunkSize, slice.Tiles[k].Layout.ChunkSize)
+		assert.Equal(t, v.Layout.Iterations, slice.Tiles[k].Layout.Iterations)
+	}
 }
 
 func coreMock(
 	reqNdpt string,
 	repNdpt string,
 	failureAddr string,
+	slice *oneseismic.SliceResponse,
 	numPartials int,
 ) {
 	in, _ := zmq4.NewSocket(zmq4.PULL)
@@ -59,17 +80,7 @@ func coreMock(
 		}
 		fr := oneseismic.FetchResponse{Requestid: proc.pid}
 		fr.Function = &oneseismic.FetchResponse_Slice{
-			Slice: &oneseismic.SliceResponse{
-				Tiles: []*oneseismic.SliceTile{
-					{
-						Layout: &oneseismic.SliceLayout{
-							ChunkSize:  1,
-							Iterations: 0,
-						},
-						V: []float32{0.1},
-					},
-				},
-			},
+			Slice: slice,
 		}
 
 		bytes, _ := proto.Marshal(&fr)
