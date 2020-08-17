@@ -78,7 +78,6 @@ int main(int argc, char** argv) {
 
     one::az az("");
     one::transfer xfer(ntransfers, az);
-    one::fragment_task task;
 
     zmq::pollitem_t items[] = {
         { static_cast< void* >(source),  0, ZMQ_POLLIN, 0 },
@@ -89,6 +88,7 @@ int main(int argc, char** argv) {
         zmq::poll(items, 2, -1);
 
         if (items[0].revents & ZMQ_POLLIN) {
+            one::fragment_task task;
             task.run(xfer, source, sink, fail);
         }
 
