@@ -20,21 +20,28 @@ func TestSlicer(t *testing.T) {
 	zmqRepAddr := "inproc://" + uuid.New().String()
 	zmqFailureAddr := "inproc://" + uuid.New().String()
 
-	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
+	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr, 1)
+
 	app := iris.Default()
 	app.Use(mockOboJWT())
 	Register(app, *storageEndpoint, account, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 
 	e := httptest.New(t, app)
+
 	jsonResponse := e.GET("/some_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusOK).
 		JSON()
-	jsonResponse.Path("$.tiles[0].layout.chunk_size").Number().Equal(1)
-	jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
+    jsonResponse.Path("$.tiles[0].layout.chunk_size").Number().Equal(1)
+    jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
 }
 
-func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
+func coreMock(
+	reqNdpt string,
+	repNdpt string,
+	failureAddr string,
+	numPartials int,
+) {
 	in, _ := zmq4.NewSocket(zmq4.PULL)
 	in.Connect(reqNdpt)
 
@@ -66,20 +73,22 @@ func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
 		}
 
 		bytes, _ := proto.Marshal(&fr)
-		partial := routedPartialResult {
-			address: proc.address,
-			partial: partialResult {
-				pid: proc.pid,
-				n: 0,
-				m: 1,
-				payload: bytes,
-			},
-		}
+		for i := 0; i < numPartials; i++ {
+			partial := routedPartialResult {
+				address: proc.address,
+				partial: partialResult {
+					pid: proc.pid,
+					n: i,
+					m: numPartials,
+					payload: bytes,
+				},
+			}
 
-		_, err = partial.sendZMQ(out)
+			_, err = partial.sendZMQ(out)
 
-		for err == zmq4.EHOSTUNREACH {
-			_, err = out.SendMessage(m)
+			for err == zmq4.EHOSTUNREACH {
+				_, err = out.SendMessage(m)
+			}
 		}
 	}
 }
