@@ -2,7 +2,9 @@ package server
 
 import (
 	"log"
+	"math/rand"
 	"net/url"
+	"os"
 	"testing"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
@@ -13,7 +15,65 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/encoding/protojson"
 	"github.com/stretchr/testify/assert"
+
 )
+
+
+func TestSlicerLarge(t *testing.T) {
+	if os.Getenv("TESTING") != "LARGE" {
+		t.Skip()
+	}		
+	storageEndpoint, _ := url.Parse("http://some.url")
+	account := ""
+	zmqReqAddr := "inproc://" + uuid.New().String()
+	zmqRepAddr := "inproc://" + uuid.New().String()
+	zmqFailureAddr := "inproc://" + uuid.New().String()
+
+	var tiles []*oneseismic.SliceTile
+	r := rand.New(rand.NewSource(99))
+	for i := 0; i < 30; i++ {
+		v := make([]float32, 2500)
+		for i := range v {
+			v[i] = r.Float32()
+		}
+		tile := []*oneseismic.SliceTile{
+			{
+				Layout: &oneseismic.SliceLayout{
+					ChunkSize:  1,
+					Iterations: 0,
+				},
+				V: v,
+			},
+		}
+		tiles = append(tiles, tile...)
+	}
+
+	slice := &oneseismic.SliceResponse{
+		Tiles: tiles,
+	}
+
+	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr, slice, 100)
+	app := iris.Default()
+	app.Use(mockOboJWT())
+	Register(app, *storageEndpoint, account, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
+
+	e := httptest.New(t, app)
+
+	for i := 0; i < 1000000000; i++ {
+		e.GET("/some_guid/slice/0/0").
+			Expect().
+			Status(httptest.StatusOK)
+
+		// m := protojson.UnmarshalOptions{DiscardUnknown: true}
+		// sss := oneseismic.SliceResponse{}
+		// err := m.Unmarshal([]byte(resp.Body().Raw()), &sss)
+		// assert.Nil(t, err)
+		// for k, v := range sss.Tiles {
+		// 	assert.EqualValues(t, v.V, slice.Tiles[k].V)
+		// }
+		log.Printf("%v", i)
+	}
+}
 
 func TestSlicer(t *testing.T) {
 	storageEndpoint, _ := url.Parse("http://some.url")
