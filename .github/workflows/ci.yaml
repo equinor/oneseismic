@@ -7,16 +7,6 @@ on:
     branches: [master]
 
 jobs:
-  Ingestion:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Test Ingestion
-        run: docker-compose up --build --exit-code-from int_tests
-        working-directory: ./core/ingestion
-
   Api:
     runs-on: ubuntu-latest
 
