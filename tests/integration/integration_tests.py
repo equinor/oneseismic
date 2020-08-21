@@ -1,6 +1,8 @@
 import os
 import pytest
 import io
+import segyio
+import numpy as np
 from upload import upload
 from scan import scan
 
@@ -9,6 +11,7 @@ from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceExistsError
 import requests
 
+from oneseismic import client
 
 HOST_ADDR = os.getenv("HOST_ADDR", "http://localhost:8080")
 AUTH_ADDR = os.getenv("AUTH_ADDR", "http://localhost:8089")
@@ -44,7 +47,16 @@ def auth_header():
     return {"Authorization": f"Bearer {token[0]}"}
 
 
+class client_auth:
+    def __init__(self, auth):
+        self.auth = auth
+
+    def token(self):
+        return self.auth
+
+
 AUTH_HEADER = auth_header()
+AUTH_CLIENT = client_auth(auth_header())
 
 
 @pytest.fixture(scope="session")
@@ -103,8 +115,17 @@ def test_lines_404(create_cubes):
     assert r.status_code == 404
 
 
-def test_slice(create_cubes):
-    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice/1/" + str(META["dimensions"][1][1]),
-    headers=AUTH_HEADER)
-    assert r.status_code == 200
-    assert r.json()["tiles"] != None
+def tests_slices(create_cubes):
+    c = client(HOST_ADDR, AUTH_CLIENT)
+    cube_id = c.list_cubes()[0]
+    cube = c.cube(cube_id)
+
+    with segyio.open("small.sgy", "r") as f:
+        expected = segyio.cube(f)
+
+    for i in range(len(cube.dim0)):
+        assert np.allclose(cube.slice(0,cube.dim0[i]), expected[i,:,:], atol=1e-5)
+    for i in range(len(cube.dim1)):
+        assert np.allclose(cube.slice(1,cube.dim1[i]), expected[:,i,:], atol=1e-5)
+    for i in range(len(cube.dim2)):
+        assert np.allclose(cube.slice(2,cube.dim2[i]), expected[:,:,i], atol=1e-5)
