@@ -1,7 +1,6 @@
 import os
 import pytest
 import io
-import json
 from upload import upload
 from scan import scan
 
@@ -29,24 +28,20 @@ def az_storage():
 
 
 def auth_header():
-    extra_claims = {
-        "aud": "https://storage.azure.com",
-        "iss": "https://sts.windows.net/",
-    }
     r = requests.get(
         AUTH_ADDR
-        + "/oauth2/token"
+        + "/oauth2/v2.0/authorize"
         + "?redirect_uri=3"
         + "&client_id=" + os.getenv("AUDIENCE")
         + "&grant_type=t"
         + "&code=c"
-        + "&client_secret=s"
-        + "&extra_claims=" + json.dumps(extra_claims),
+        + "&client_secret=s",
         headers={"content-type": "application/json"},
+        allow_redirects=False,
     )
-    token = r.json()["access_token"]
+    token = parse_qs(urlparse(r.headers["location"]).fragment)["access_token"]
 
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {token[0]}"}
 
 
 AUTH_HEADER = auth_header()
