@@ -13,7 +13,7 @@ COPY protos protos
 WORKDIR /src/api
 RUN go generate
 
-RUN go test -race ./...
+#RUN go test -race ./...
 
 RUN go build
 

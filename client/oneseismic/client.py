@@ -9,21 +9,22 @@ import requests
 
 
 def assemble_slice(parts):
-    tiles = parts['tiles']
-    shape0 = parts['slice_shape']['dim0']
-    shape1 = parts['slice_shape']['dim1']
+    shape0 = parts[0]["slice_shape"]["dim0"]
+    shape1 = parts[0]["slice_shape"]["dim1"]
 
     slice = np.zeros(shape0*shape1)
 
-    for tile in tiles:
-        layout = tile['layout']
-        dst = layout['initial_skip']
-        chunk_size = layout['chunk_size']
-        src = 0
-        for _ in range(layout['iterations']):
-            slice[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
-            src += layout['substride']
-            dst += layout['superstride']
+    for part in parts:
+        tiles = part["tiles"]
+        for tile in tiles:
+            layout = tile["layout"]
+            dst = layout["initial_skip"]
+            chunk_size = layout["chunk_size"]
+            src = 0
+            for _ in range(layout["iterations"]):
+                slice[dst : dst + chunk_size] = tile["v"][src : src + chunk_size]
+                src += layout["substride"]
+                dst += layout["superstride"]
 
     return slice.reshape((shape0, shape1))
 
@@ -164,13 +165,14 @@ class client:
 
     def get(self, resource):
         url = f"{self.endpoint}/{resource}"
+        parts = []
         r = requests.get(url, headers=self.token())
-
         if not r.status_code == 200:
-            raise RuntimeError(
-                f"Request {url} failed with status code {r.status_code}"
-            )
+            raise RuntimeError(f"Request {url} failed with status code {r.status_code}")
 
+        # for chunk in r.iter_content(chunk_size=None):
+        #     parts.append(json.loads(chunk))
+        # print(r.content)
         return json.loads(r.content)
 
     def list_cubes(self):

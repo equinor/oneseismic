@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
@@ -8,6 +9,7 @@ import (
 	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type failure struct {
@@ -65,7 +67,7 @@ type sliceModel interface {
 		lineno int32,
 		requestid string,
 		token string,
-) (*oneseismic.SliceResponse, error)
+	) (*procIO, error)
 }
 
 type sliceController struct {
@@ -95,7 +97,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid, token)
+	io, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid, token)
 	if err != nil {
 		switch e := err.(type) {
 		case *failure:
@@ -109,17 +111,99 @@ func (sc *sliceController) get(ctx iris.Context) {
 	}
 
 	ctx.Header("Content-Type", "application/json")
+	ctx.Header("Transfer-Encoding", "chunked")
 	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
-	js, err := m.Marshal(slice)
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		return
-	}
-	_, err = ctx.Write(js)
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		return
-	}
 
-	return
+	/*
+	 * Read and parse messages as they come, and consider the process complete
+	 * when the reply-channel closes.
+	 *
+	 * Right now, the result is assembled here and returned in one piece to
+	 * users, so it never looks like a parallelised job. This is so that we can
+	 * experiment with chunk sizes, worker nodes, load etc. without having to
+	 * be bothered with a more complex protocol between API and users, and so
+	 * that previously-written clients still work. In the future, this will
+	 * probably change and partial results will be transmitted.
+	 *
+	 * TODO: update comment above
+	 *
+	 * The memory usage when marshalling the entire FetchResponse to json is too large
+	 * Rather send each slice in chunks to the client
+	 *
+	 * TODO: This gives weak failure handling, and Session needs a way to
+	 * signal failed processes
+	 */
+
+	 // TODO: handle errors 
+	// for err := range io.err {
+	// 	if err == "404" {
+	// 		ctx.StatusCode(http.StatusNotFound)
+	// 		return
+	// 	}
+	// 	ctx.StatusCode(http.StatusInternalServerError)
+	// 	return
+	// }
+
+	ctx.WriteString("[")
+	first := true
+	for partial := range io.out {
+		fr := oneseismic.FetchResponse{}
+		err = proto.Unmarshal(partial.payload, &fr)
+		slice := fr.GetSlice()
+		js, err := m.Marshal(slice)
+		if err != nil {
+			ctx.StatusCode(http.StatusInternalServerError)
+			return
+		}
+		if first {
+			ctx.Write(js)
+			first = false
+		} else {
+			ctx.WriteString(",")
+			ctx.Write(js)
+		}
+		ctx.ResponseWriter().Flush()
+	}
+	ctx.WriteString("]")
+}
+
+type slicer struct {
+	root     string
+	endpoint string
+	sessions *sessions
+}
+
+func (s *slicer) fetchSlice(
+	guid string,
+	dim int32,
+	lineno int32,
+	requestid string,
+	token string,
+) (*procIO, error) {
+
+	msg := oneseismic.ApiRequest{
+		Requestid:       requestid,
+		Token:           token,
+		Guid:            guid,
+		Root:            s.root,
+		StorageEndpoint: s.endpoint,
+		Shape: &oneseismic.FragmentShape{
+			Dim0: 64,
+			Dim1: 64,
+			Dim2: 64,
+		},
+		Function: &oneseismic.ApiRequest_Slice{
+			Slice: &oneseismic.ApiSlice{
+				Dim:    dim,
+				Lineno: lineno,
+			},
+		},
+	}
+	req, err := proto.Marshal(&msg)
+	if err != nil {
+		return nil, fmt.Errorf("Marshalling oneseisimc.ApiRequest: %w", err)
+	}
+	proc := process{pid: requestid, request: req}
+	io := s.sessions.Schedule(&proc)
+	return &io, nil
 }

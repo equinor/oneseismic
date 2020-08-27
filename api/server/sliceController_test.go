@@ -6,10 +6,18 @@ import (
 	"github.com/equinor/oneseismic/api/oneseismic"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type sliceMock struct {
-	slices map[string]oneseismic.SliceResponse
+	pio procIO
+}
+
+func mockSession() procIO {
+	return procIO{
+		out: make(chan partialResult),
+		err: make(chan string),
+	}
 }
 
 func (s *sliceMock) fetchSlice(
@@ -18,35 +26,47 @@ func (s *sliceMock) fetchSlice(
 	lineno int32,
 	requestid string,
 	token string,
-) (*oneseismic.SliceResponse, error) {
-	l, ok := s.slices[guid]
-	if ok {
-		return &l, nil
-	}
-	return nil, newFailure("manifest-not-found")
+) (*procIO, error) {
+	return &s.pio, nil
 }
 
 func TestExistingSlice(t *testing.T) {
 	app := iris.Default()
 	app.Use(mockOboJWT())
 
-	m := map[string]oneseismic.SliceResponse{"some_guid": {}}
-	sc := &sliceController{&sliceMock{m}}
+	pio := mockSession()
+	close(pio.err)
+	sc := &sliceController{&sliceMock{pio}}
+	sr := oneseismic.SliceResponse{}
+	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
+	js, _ := m.Marshal(&sr)
+	p := partialResult{payload: js}
+
+	go func() {
+		pio.out <- p
+		pio.out <- p
+		close(pio.out)
+	}()
 
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
 	e := httptest.New(t, app)
 	e.GET("/some_guid/slice/0/0").
 		Expect().
-		Status(httptest.StatusOK).
-		JSON()
+		Status(httptest.StatusOK).JSON()
 }
 
 func TestMissingSlice(t *testing.T) {
 	app := iris.Default()
 	app.Use(mockOboJWT())
 
-	sc := &sliceController{&sliceMock{}}
+	pio := mockSession()
+	close(pio.out)
+
+	sc := &sliceController{&sliceMock{pio}}
+	go func() {
+		pio.err <- "404"
+	}()
 	app.Get("/{guid:string}/slice/{dim:int32}/{lineno:int32}", sc.get)
 
 	e := httptest.New(t, app)
