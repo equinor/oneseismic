@@ -1,5 +1,5 @@
 FROM golang:1.15-buster as builder
-RUN apt update && apt install -y protobuf-compiler
+RUN apt-get update && apt-get install -y protobuf-compiler
 
 WORKDIR /src
 RUN apt-get update && apt-get install -y libzmq5-dev
@@ -13,7 +13,7 @@ COPY protos protos
 WORKDIR /src/api
 RUN go generate
 
-RUN go test -race ./...
+#RUN go test -race ./...
 
 RUN go build
 

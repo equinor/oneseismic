@@ -3,8 +3,8 @@ package server
 import (
 	"fmt"
 
-	zmq "github.com/pebbe/zmq4"
 	"github.com/google/uuid"
+	zmq "github.com/pebbe/zmq4"
 	"github.com/rs/zerolog/log"
 )
 
@@ -12,25 +12,6 @@ type job struct {
 	pid     string
 	request []byte
 	io      procIO
-}
-
-type wire interface {
-	loadZMQ(msg [][]byte) error
-	sendZMQ(socket *zmq.Socket) (total int, err error)
-}
-
-/*
- * The process is the message sent from this (the session manager) over ZMQ.
- * The request payload is the protobuf-encoded description description of what
- * to retrieve. This is conceptually similar to the message/event that spawns
- * processes on unix systems.
- */
-type process struct {
-	// Return-address that flows through to make sure that data is returned to
-	// the correct node that manages the session
-	address string
-	pid string
-	request []byte
 }
 
 /*
@@ -43,44 +24,10 @@ type process struct {
  * compare.
  */
 type partialResult struct {
-	pid string
-	n int
-	m int
+	pid     string
+	m       int
+	n       int
 	payload []byte
-}
-
-/*
- * The routedPartialRequest is a more faithful representation of what the
- * worker nodes *actually* send - they need to include a return address to the
- * node that holds the session (this program, really). However, ZMQ at some
- * point strips this address as a part of its routing protocol, and the rest of
- * the application sees the message as partialResult.
- */
-type routedPartialResult struct {
-	address string
-	partial partialResult
-}
-
-func (p *process) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.address, p.pid, p.request)
-}
-
-/*
- * Parse a partition request as it is delivered in a ZMQ multipart message.
- * While this currently has no error checking, or really does anything
- * sophisticated, it's the canonical way to obtain a process from a
- * multipart message, and *the* go reference for what the messages from the
- * fragment/worker looks like.
- */
-func (p *process) loadZMQ(msg [][]byte) error {
-	if len(msg) != 3 {
-		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
-	}
-
-	p.address = string(msg[0])
-	p.pid = string(msg[1])
-	p.request = msg[2]
-	return nil
 }
 
 func (p *partialResult) loadZMQ(msg [][]byte) error {
@@ -88,7 +35,8 @@ func (p *partialResult) loadZMQ(msg [][]byte) error {
 		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
 	}
 	p.pid = string(msg[0])
-	_, err := fmt.Sscanf(string(msg[1]), "%d/%d", &p.n, &p.m)
+	// TODO have separate []byte for m and n
+	_, err := fmt.Sscanf(string(msg[1]), "%d/%d", &p.m, &p.n)
 	if err != nil {
 		return fmt.Errorf("%s: %s", err.Error(), string(msg[1]))
 	}
@@ -96,34 +44,9 @@ func (p *partialResult) loadZMQ(msg [][]byte) error {
 	return nil
 }
 
-func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(p.pid, fmt.Sprintf("%d/%d", p.n, p.m), p.payload)
-}
-
-func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
-	if len(msg) != 3 {
-		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
-	}
-	p.address = string(msg[0])
-	err := p.partial.loadZMQ(msg[1:])
-	if err != nil {
-		return fmt.Errorf("routedPartialResult.partial: %s", err.Error())
-	}
-	return nil
-}
-
-func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(
-		p.address,
-		p.partial.pid,
-		fmt.Sprintf("%d/%d", p.partial.n, p.partial.m),
-		p.partial.payload,
-	)
-}
-
 type sessions struct {
 	identity string
-	queue chan job
+	queue    chan job
 }
 
 /*
@@ -140,15 +63,15 @@ type procIO struct {
 	err chan string
 }
 
-func (s *sessions) Schedule(proc *process) procIO {
-	io := procIO {
+func (s *sessions) schedule(pid string, request []byte) procIO {
+	io := procIO{
 		out: make(chan partialResult),
 		err: make(chan string),
 	}
 	s.queue <- job{
-		pid: proc.pid,
-		request: proc.request,
-		io: io,
+		pid:     pid,
+		request: request,
+		io:      io,
 	}
 	return io
 }
@@ -156,13 +79,13 @@ func (s *sessions) Schedule(proc *process) procIO {
 func newSessions() *sessions {
 	return &sessions{
 		identity: uuid.New().String(),
-		queue: make(chan job),
+		queue:    make(chan job),
 	}
 }
 
 func all(a []bool) bool {
 	for _, x := range a {
-		if (!x) {
+		if !x {
 			return false
 		}
 	}
@@ -196,7 +119,44 @@ func pipeFailures(addr string, failures chan []string) {
 			log.Fatal().Err(err)
 			continue
 		}
+		log.Trace().Msg(msg[1])
 		failures <- msg
+	}
+}
+
+func listenCore(identity string, repNdpt string, rep chan partialResult) {
+	r, err := zmq.NewSocket(zmq.DEALER)
+
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+
+	r.SetIdentity(identity)
+	r.Bind(repNdpt)
+	log.Debug().Msgf("Listening on core: %v", repNdpt)
+
+	var partial partialResult
+	for {
+		m, err := r.RecvMessageBytes(0)
+		if err != nil {
+			log.Fatal().Err(err)
+		}
+
+		err = partial.loadZMQ(m)
+		if err != nil {
+			/*
+			 * This is likely to mean a bug somewhere, so eventually:
+			 *   1. drop the message and fail the request
+			 *   2. log all received bytes, try to recover at least pid
+			 *   3. then carry on
+			 *
+			 * For now, neither the experience nor infrastructure is in
+			 * place for that, so just log and exit
+			 */
+			log.Fatal().Err(err).Msg("Broken partialResult (loadZMQ)")
+		}
+		log.Trace().Msgf("%v: got partial on zmq, forwarding", partial.pid)
+		rep <- partial
 	}
 }
 
@@ -210,41 +170,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 	req.Bind(reqNdpt)
 
 	rep := make(chan partialResult)
-	go func() {
-		r, err := zmq.NewSocket(zmq.DEALER)
-
-		if err != nil {
-			log.Fatal().Err(err)
-		}
-
-		r.SetIdentity(s.identity)
-		r.Bind(repNdpt)
-
-		var partial partialResult
-		for {
-			m, err := r.RecvMessageBytes(0)
-
-			if err != nil {
-				log.Fatal().Err(err)
-			}
-
-			err = partial.loadZMQ(m)
-			if err != nil {
-				/*
-				 * This is likely to mean a bug somewhere, so eventually:
-				 *   1. drop the message and fail the request
-				 *   2. log all received bytes, try to recover at least pid
-				 *   3. then carry on
-				 *
-				 * For now, neither the experience nor infrastructure is in
-				 * place for that, so just log and exit
-				 */
-				log.Fatal().Err(err).Msg("Broken partialResult (loadZMQ)")
-			}
-
-			rep <- partial
-		}
-	}()
+	go listenCore(s.identity, repNdpt, rep)
 
 	failures := make(chan []string)
 	go pipeFailures(failureAddr, failures)
@@ -253,80 +179,78 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 		io procIO
 		/*
 		 * Bit-array of already-received parts for this process
+		 * TODO why not just keep count? In case of duplicates?
+		 * TODO If so, we have bigger issues.
 		 */
 		completed []bool
+		errClosed bool // TODO hacky
 	}
 
 	// TODO: Clean up in case a reply never arrives?
 	processes := make(map[string]*procstatus)
-
 	for {
 		select {
 		case r := <-rep:
+			log.Trace().Msgf("%v: received %v/%v", r.pid, r.m, r.n)
 			proc, ok := processes[r.pid]
 			if !ok {
 				errmsg := "%s %d/%d dropped; was not in process table"
-				log.Error().Msgf(errmsg, r.pid, r.n, r.m)
+				log.Error().Msgf(errmsg, r.pid, r.m, r.n)
 				break
 			}
-
 			if proc.completed == nil {
-				proc.completed = make([]bool, r.m)
+				proc.completed = make([]bool, r.n)
 			}
 
+			// Close error channel before sending to out
+			// Any errors coming later will just be logged
+			// That is OK as the client cannot easily read them anyway
+			if !proc.errClosed {
+				log.Trace().Msgf("%v: closing err", r.pid)
+				close(proc.io.err)
+				proc.errClosed = true
+			}
+			log.Trace().Msgf("%v: sending to controller", r.pid)
 			proc.io.out <- r
-			proc.completed[r.n] = true
+			proc.completed[r.m] = true
 
 			if all(proc.completed) {
+				log.Trace().Msgf("%v: closing out", r.pid)
 				close(proc.io.out)
-				close(proc.io.err)
 				delete(processes, r.pid)
 			}
 
 		case f := <-failures:
+			log.Error()
 			pid := f[0]
 			msg := f[1]
 
 			proc, ok := processes[pid]
-			/*
-			 * If not in the process table, just ignore the fail command and
-			 * continue
-			 */
 			if !ok {
-				errmsg := "%s failed (%s); was not in process table"
+				errmsg := "%v: failed (%v); not in process table. Continue and ignore."
 				log.Error().Msgf(errmsg, pid, msg)
 			} else {
-				errmsg := "%s failed (%s); removing from process table"
-				log.Error().Msgf(errmsg, pid, msg)
-				/*
-				 * The order of statements creates an interesting race
-				 * condition:
-				 *
-				 * If the io.err <- msg is sent *before* the io.out is closed,
-				 * callers cannot use a range-for to aggregate partial results,
-				 * because the sending on io.err will block until it is read.
-				 *
-				 * It is not strictly necessary to close these channels, but it
-				 * does enable to use of ranged-for, which makes for much more
-				 * elegant assembly.
-				 */
+				errmsg := "%v: failed (%v); removing '%v' from process table"
+				log.Error().Msgf(errmsg, pid, msg, pid)
 				close(proc.io.out)
-				proc.io.err <- msg
-				close(proc.io.err)
+
+				// Errors cannot cleanly be sent to client after streaming has started
+				// Logging them here should suffice
+				if !proc.errClosed {
+					proc.io.err <- msg
+					close(proc.io.err)
+				}
 				delete(processes, pid)
 			}
 
 		case j := <-s.queue:
-			proc := process{
-				address: s.identity,
-				pid: j.pid,
-				request: j.request,
-			}
-			processes[j.pid] = &procstatus {
-				io: j.io,
+			processes[j.pid] = &procstatus{
+				io:        j.io,
 				completed: nil,
+				errClosed: false,
 			}
-			proc.sendZMQ(req)
+			log.Trace().Msgf("%v: expecting core to listen on %v", j.pid, reqNdpt)
+			req.SendMessage(s.identity, j.pid, j.request)
 		}
 	}
 }

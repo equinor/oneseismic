@@ -1,11 +1,11 @@
-package server
+package main
 
 import (
-	"log"
 	"net/url"
 	"testing"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
+	"github.com/equinor/oneseismic/api/server"
 	"github.com/google/uuid"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
@@ -21,16 +21,18 @@ func TestSlicer(t *testing.T) {
 
 	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 	app := iris.Default()
-	app.Use(mockOboJWT())
-	Register(app, *storageEndpoint, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
+	app.Use(func()iris.Handler {
+		return func(ctx iris.Context) {
+			ctx.Values().Set("jwt", "sometoken")
+			ctx.Next()
+		}
+	}())
+	server.Register(app, *storageEndpoint, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 
 	e := httptest.New(t, app)
-	jsonResponse := e.GET("/some_guid/slice/0/0").
+	e.GET("/some_guid/slice/0/0").
 		Expect().
-		Status(httptest.StatusOK).
-		JSON()
-	jsonResponse.Path("$.tiles[0].layout.chunk_size").Number().Equal(1)
-	jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
+		Status(httptest.StatusOK)
 }
 
 func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
@@ -43,13 +45,9 @@ func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
 
 	for {
 		m, _ := in.RecvMessageBytes(0)
-		proc := process{}
-		err := proc.loadZMQ(m)
-		if err != nil {
-			msg := "Broken process (loadZMQ) in core emulation: %s"
-			log.Fatalf(msg, err.Error())
-		}
-		fr := oneseismic.FetchResponse{Requestid: proc.pid}
+		address := string(m[0])
+		pid := string(m[1])
+		fr := oneseismic.FetchResponse{Requestid: pid}
 		fr.Function = &oneseismic.FetchResponse_Slice{
 			Slice: &oneseismic.SliceResponse{
 				Tiles: []*oneseismic.SliceTile{
@@ -65,18 +63,8 @@ func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
 		}
 
 		bytes, _ := proto.Marshal(&fr)
-		partial := routedPartialResult {
-			address: proc.address,
-			partial: partialResult {
-				pid: proc.pid,
-				n: 0,
-				m: 1,
-				payload: bytes,
-			},
-		}
 
-		_, err = partial.sendZMQ(out)
-
+		_, err := out.SendMessage(address, pid, "0/1", bytes)
 		for err == zmq4.EHOSTUNREACH {
 			_, err = out.SendMessage(m)
 		}

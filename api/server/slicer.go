@@ -1,13 +1,15 @@
 package server
 
 import (
+	"encoding/binary"
+	"fmt"
 	"net/http"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/kataras/iris/v12"
-	"google.golang.org/protobuf/encoding/protojson"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/protobuf/proto"
 )
 
 type failure struct {
@@ -15,7 +17,9 @@ type failure struct {
 }
 
 // TODO: maybe test these keys to ensure they're always in sync
-func (f *failure) status() int {
+// TODO: rather add code where these errors are generated?
+// TODO: The failure [][]byte will then add a []byte for code
+func (f *failure) statusCode() int {
 	switch f.key {
 	case "manifest-not-found":
 		return http.StatusNotFound
@@ -50,14 +54,6 @@ func (f *failure) status() int {
 	}
 }
 
-func (f *failure) Error() string {
-	return f.key
-}
-
-func newFailure(key string) *failure {
-	return &failure{key: key}
-}
-
 type sliceModel interface {
 	fetchSlice(
 		guid string,
@@ -65,7 +61,7 @@ type sliceModel interface {
 		lineno int32,
 		requestid string,
 		token string,
-) (*oneseismic.SliceResponse, error)
+	) (*procIO, error)
 }
 
 type sliceController struct {
@@ -95,31 +91,80 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid, token)
+	log.Trace().Msgf("%v: new request", requestid)
+	io, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid, token)
 	if err != nil {
-		switch e := err.(type) {
-		case *failure:
-			ctx.StatusCode(e.status())
+		log.Error().Err(err)
+		ctx.StatusCode(http.StatusInternalServerError)
+		return
+	}
 
-		default:
-			log.Error().Err(e)
+	for msg := range io.err {
+		f := failure{msg}
+		ctx.StatusCode(f.statusCode())
+		return
+	}
+
+	ctx.Header("Content-Type", "application/x-protobuf")
+	ctx.Header("Transfer-Encoding", "chunked")
+
+	for partial := range io.out {
+		fr := oneseismic.FetchResponse{}
+		err = proto.Unmarshal(partial.payload, &fr)
+		slice := fr.GetSlice()
+		//TODO partial.n could be sent to the client to message the number of
+		//chunks to get. Then the client can know if all has been transferred
+		//or there has been an error
+
+		bytes, err := proto.Marshal(slice)
+		if err != nil {
 			ctx.StatusCode(http.StatusInternalServerError)
+			return
 		}
-		return
+		bs := make([]byte, 4)
+		binary.LittleEndian.PutUint32(bs, uint32(len(bytes)))
+		ctx.Write(bs)
+		ctx.Write(bytes)
+		ctx.ResponseWriter().Flush()
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
-	js, err := m.Marshal(slice)
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		return
-	}
-	_, err = ctx.Write(js)
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		return
-	}
+}
 
-	return
+type slicer struct {
+	endpoint string
+	sessions *sessions
+}
+
+func (s *slicer) fetchSlice(
+	guid string,
+	dim int32,
+	lineno int32,
+	requestid string,
+	token string,
+) (*procIO, error) {
+
+	msg := oneseismic.ApiRequest{
+		Requestid:       requestid,
+		Token:           token,
+		Guid:            guid,
+		StorageEndpoint: s.endpoint,
+		Shape: &oneseismic.FragmentShape{
+			Dim0: 64,
+			Dim1: 64,
+			Dim2: 64,
+		},
+		Function: &oneseismic.ApiRequest_Slice{
+			Slice: &oneseismic.ApiSlice{
+				Dim:    dim,
+				Lineno: lineno,
+			},
+		},
+	}
+	req, err := proto.Marshal(&msg)
+	if err != nil {
+		return nil, fmt.Errorf("Marshalling oneseisimc.ApiRequest: %w", err)
+	}
+	log.Trace().Msgf("%v: scheduling", requestid)
+	io := s.sessions.schedule(requestid, req)
+	return &io, nil
 }

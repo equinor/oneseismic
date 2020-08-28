@@ -24,7 +24,7 @@ func main() {
 	if err != nil {
 		panic("unknown LOG_LEVEL: " + logLevel)
 	}
-	zerolog.TimeFieldFormat = time.RFC3339
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.SetGlobalLevel(level)
 	oidConf, err := auth.GetOidConfig(os.Getenv("AUTHSERVER") + "/v2.0/.well-known/openid-configuration")
 	if err != nil {
@@ -36,14 +36,13 @@ func main() {
 		log.Fatal().Err(err)
 	}
 
-	golog.SetTimeFormat(time.RFC3339)
+	golog.SetTimeFormat(time.RFC3339Nano)
 	golog.SetLevel(logLevel)
 	app := iris.Default()
 
 	app.Use(auth.CheckJWT(oidConf.Jwks))
 	app.Use(auth.Validate(oidConf.Issuer, os.Getenv("AUDIENCE")))
 	app.Use(auth.OboJWT(oidConf.TokenEndpoint, os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET")))
-	app.Use(iris.Gzip)
 
 	server.Register(
 		app,

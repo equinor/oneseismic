@@ -1,4 +1,6 @@
 FROM python:buster
+RUN apt-get update && apt-get install -y protobuf-compiler
+
 WORKDIR /code
 COPY /tests/integration/requirements.txt .
 RUN pip install -r requirements.txt
@@ -10,6 +12,8 @@ RUN pip install ./upload
 RUN pip install ./scan
 
 COPY /client client
+COPY /protos protos
+RUN protoc -I=protos --python_out=client/oneseismic protos/core.proto
 RUN pip install ./client
 
 COPY /tests/integration/integration_tests.py .

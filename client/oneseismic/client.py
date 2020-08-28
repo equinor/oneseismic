@@ -6,25 +6,24 @@ import numpy as np
 import os
 from pathlib import Path
 import requests
+from .core_pb2 import *
 
 
 def assemble_slice(parts):
-    tiles = parts['tiles']
-    shape0 = parts['slice_shape']['dim0']
-    shape1 = parts['slice_shape']['dim1']
-
-    slice = np.zeros(shape0*shape1)
-
-    for tile in tiles:
-        layout = tile['layout']
-        dst = layout['initial_skip']
-        chunk_size = layout['chunk_size']
-        src = 0
-        for _ in range(layout['iterations']):
-            slice[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
-            src += layout['substride']
-            dst += layout['superstride']
-
+    shape0 = parts[0].slice_shape.dim0
+    shape1 = parts[0].slice_shape.dim1
+    tiles = parts[0].tiles
+    for part in parts:
+        slice = np.zeros(shape0*shape1)
+        for tile in part.tiles:
+            layout = tile.layout
+            dst = layout.initial_skip
+            chunk_size = layout.chunk_size
+            src = 0
+            for _ in range(layout.iterations):
+                slice[dst: dst + chunk_size] = tile.v[src: src + chunk_size]
+                src += layout.substride
+                dst += layout.superstride
     return slice.reshape((shape0, shape1))
 
 
@@ -34,6 +33,7 @@ class cube:
     Constructing a cube object does not trigger any http calls as all properties
     are fetched lazily.
     """
+
     def __init__(self, id, client):
         self.client = client
         self.id = id
@@ -45,7 +45,7 @@ class cube:
     def dim0(self):
         if not self._dim0:
             resource = f"{self.id}/slice/0"
-            self._dim0 = self.client.get(resource)
+            self._dim0 = json.loads(self.client.get(resource))
 
         return self._dim0
 
@@ -53,7 +53,7 @@ class cube:
     def dim1(self):
         if not self._dim1:
             resource = f"{self.id}/slice/1"
-            self._dim1 = self.client.get(resource)
+            self._dim1 = json.loads(self.client.get(resource))
 
         return self._dim1
 
@@ -61,7 +61,7 @@ class cube:
     def dim2(self):
         if not self._dim2:
             resource = f"{self.id}/slice/2"
-            self._dim2 = self.client.get(resource)
+            self._dim2 = json.loads(self.client.get(resource))
 
         return self._dim2
 
@@ -86,7 +86,20 @@ class cube:
         resource = f"{self.id}/slice/{dim}/{lineno}"
         parts = self.client.get(resource)
 
-        return assemble_slice(parts)
+        return assemble_slice(split(parts))
+
+
+def split(s):
+    parts = []
+    while True:
+        if len(s) == 0:
+            return parts
+        l = int.from_bytes(s[:4], byteorder="little")
+        s = s[4:]
+        sr = slice_response()
+        sr.ParseFromString(s[:l])
+        s = s[l:]
+        parts.append(sr)
 
 
 class azure_auth:
@@ -171,7 +184,7 @@ class client:
                 f"Request {url} failed with status code {r.status_code}"
             )
 
-        return json.loads(r.content)
+        return r.content
 
     def list_cubes(self):
         """ Return a list of cube ids
@@ -181,7 +194,7 @@ class client:
 
         cube_ids : list of strings
         """
-        return self.get('')
+        return json.loads(self.get(''))
 
     def cube(self, id):
         """ Get a cube handle
