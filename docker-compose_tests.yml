@@ -7,7 +7,11 @@ services:
     volumes:
       - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
   auth:
-    image: lambdaville/no-factor-auth:v0.0.6
+    image: lambdaville/no-factor-auth:v0.1.0
+    environment:
+      - TOKEN_ENDPOINT_ISSUER=https://sts.windows.net/
+      - TOKEN_ENDPOINT_AUDIENCE=https://storage.azure.com
+      - TOKEN_ENDPOINT_SUBJECT=https://storage.azure.com
 
   az:
     image: mcr.microsoft.com/azure-storage/azurite:3.7.0
