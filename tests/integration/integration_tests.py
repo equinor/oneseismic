@@ -12,7 +12,7 @@ import requests
 from oneseismic import client
 
 HOST_ADDR = os.getenv("HOST_ADDR", "http://localhost:8080")
-AUTH_ADDR = os.getenv("AUTH_ADDR", "http://localhost:8089")
+AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
 
 
 with open("./small.sgy", "rb") as f:
@@ -31,7 +31,7 @@ def az_storage():
 
 def auth_header():
     r = requests.get(
-        AUTH_ADDR
+        AUTHSERVER
         + "/oauth2/v2.0/authorize"
         + "?redirect_uri=3"
         + "&client_id="
