@@ -29,8 +29,7 @@ services:
       - AUTHSERVER=http://auth:8089/common
       - ISSUER=https://sts.windows.net/
       - AUDIENCE=https://storage.azure.com
-      - AZURE_STORAGE_URL=https://az:10000/{}
-      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
+      - AZURE_STORAGE_URL=https://az:10000/devstoreaccount1
 
     volumes:
       - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
@@ -47,5 +46,4 @@ services:
       - AUDIENCE=https://storage.azure.com
       - API_ADDR=http://api:8080
       - AUTHSERVER=http://auth:8089/common
-      - AZURE_STORAGE_URL=https://az:10000/{}
-      - AZURE_STORAGE_ACCOUNT=devstoreaccount1
+      - AZURE_STORAGE_URL=https://az:10000/devstoreaccount1
