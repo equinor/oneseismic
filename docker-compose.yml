@@ -40,7 +40,6 @@ services:
     environment:
       - HOST_ADDR=0.0.0.0:8080
       - AUTHSERVER
-      - ISSUER
       - AUDIENCE
       - AZURE_STORAGE_URL
       - CLIENT_ID
