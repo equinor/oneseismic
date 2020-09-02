@@ -20,6 +20,7 @@ AUTH_ADDR = os.getenv("AUTH_ADDR", "http://localhost:8089")
 with open("./small.sgy", "rb") as f:
     META = scan.scan(f)
 
+
 def az_storage():
     protocol = "DefaultEndpointsProtocol=https;"
     account_name = "AccountName={};".format(os.getenv("AZURE_STORAGE_ACCOUNT"))
@@ -35,7 +36,8 @@ def auth_header():
         AUTH_ADDR
         + "/oauth2/v2.0/authorize"
         + "?redirect_uri=3"
-        + "&client_id=" + os.getenv("AUDIENCE")
+        + "&client_id="
+        + os.getenv("AUDIENCE")
         + "&grant_type=t"
         + "&code=c"
         + "&client_secret=s",
@@ -124,8 +126,8 @@ def tests_slices(create_cubes):
         expected = segyio.cube(f)
 
     for i in range(len(cube.dim0)):
-        assert np.allclose(cube.slice(0,cube.dim0[i]), expected[i,:,:], atol=1e-5)
+        assert np.allclose(cube.slice(0, cube.dim0[i]), expected[i, :, :], atol=1e-5)
     for i in range(len(cube.dim1)):
-        assert np.allclose(cube.slice(1,cube.dim1[i]), expected[:,i,:], atol=1e-5)
+        assert np.allclose(cube.slice(1, cube.dim1[i]), expected[:, i, :], atol=1e-5)
     for i in range(len(cube.dim2)):
-        assert np.allclose(cube.slice(2,cube.dim2[i]), expected[:,:,i], atol=1e-5)
+        assert np.allclose(cube.slice(2, cube.dim2[i]), expected[:, :, i], atol=1e-5)
