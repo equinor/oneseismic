@@ -1,13 +1,13 @@
 import os
-import pytest
-import segyio
-import numpy as np
-from upload import upload
-from scan import scan
-
 from urllib.parse import parse_qs, urlparse
-from azure.storage.blob import BlobServiceClient
+
+import numpy as np
+import pytest
 import requests
+import segyio
+from azure.storage.blob import BlobServiceClient
+from scan import scan
+from upload import upload
 
 from oneseismic import client
 
