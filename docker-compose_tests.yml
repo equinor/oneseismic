@@ -31,7 +31,6 @@ services:
       - AUDIENCE=https://storage.azure.com
       - AZURE_STORAGE_URL=https://az:10000/{}
       - AZURE_STORAGE_ACCOUNT=devstoreaccount1
-      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
 
     volumes:
       - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
@@ -50,4 +49,3 @@ services:
       - AUTHSERVER=http://auth:8089/common
       - AZURE_STORAGE_URL=https://az:10000/{}
       - AZURE_STORAGE_ACCOUNT=devstoreaccount1
-      - AZURE_STORAGE_ACCESS_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==

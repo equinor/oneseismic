@@ -44,7 +44,6 @@ services:
       - AUDIENCE
       - AZURE_STORAGE_URL
       - AZURE_STORAGE_ACCOUNT
-      - AZURE_STORAGE_ACCESS_KEY
       - CLIENT_ID
       - CLIENT_SECRET
       - LOG_LEVEL

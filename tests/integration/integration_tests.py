@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import requests
 import segyio
+from azure.core.credentials import AccessToken
 from azure.storage.blob import BlobServiceClient
 from scan import scan
 from upload import upload
@@ -19,14 +20,11 @@ with open("./small.sgy", "rb") as f:
     META = scan.scan(f)
 
 
-def az_storage():
-    protocol = "DefaultEndpointsProtocol=https;"
-    account_name = "AccountName={};".format(os.getenv("AZURE_STORAGE_ACCOUNT"))
-    account_key = "AccountKey={};".format(os.getenv("AZURE_STORAGE_ACCESS_KEY"))
-    uri = os.getenv("AZURE_STORAGE_URL").format(os.getenv("AZURE_STORAGE_ACCOUNT"))
-    blob_endpoint = "BlobEndpoint={};".format(uri)
-
-    return protocol + account_name + account_key + blob_endpoint
+class CustomTokenCredential(object):
+    def get_token(self, *scopes, **kwargs):
+        r = requests.post(AUTHSERVER + "/oauth2/v2.0/token")
+        access_token = r.json()["access_token"]
+        return AccessToken(access_token, 1)
 
 
 def auth_header():
@@ -54,7 +52,11 @@ AUTH_CLIENT = client_auth(auth_header())
 
 @pytest.fixture(scope="session")
 def create_cubes():
-    blob_service_client = BlobServiceClient.from_connection_string(az_storage())
+    credential = CustomTokenCredential()
+    account_url = os.getenv("AZURE_STORAGE_URL").format(
+        os.getenv("AZURE_STORAGE_ACCOUNT")
+    )
+    blob_service_client = BlobServiceClient(account_url, credential)
     for c in blob_service_client.list_containers():
         blob_service_client.delete_container(c)
 
