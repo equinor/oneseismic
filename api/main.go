@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/equinor/oneseismic/api/auth"
@@ -38,11 +36,7 @@ func main() {
 		golog.Error("could not get keyset", err)
 	}
 
-	storageURL := strings.ReplaceAll(os.Getenv("AZURE_STORAGE_URL"), "{}", "%s")
-	account := os.Getenv("AZURE_STORAGE_ACCOUNT")
-
-	storageEndpoint, err := url.Parse(
-		fmt.Sprintf(storageURL, account))
+	storageURL, err := url.Parse(os.Getenv("AZURE_STORAGE_URL"))
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -56,7 +50,7 @@ func main() {
 
 	server.Register(
 		app,
-		*storageEndpoint,
+		*storageURL,
 		os.Getenv("ZMQ_REQ_ADDR"),
 		os.Getenv("ZMQ_REP_ADDR"),
 		os.Getenv("ZMQ_FAILURE_ADDR"),
