@@ -178,7 +178,6 @@ noexcept (false) {
 
 one::batch make_batch(const oneseismic::fetch_request& req) noexcept (false) {
     one::batch batch;
-    batch.root = req.root();
     batch.guid = req.guid();
     batch.storage_endpoint = req.storage_endpoint();
     batch.token = req.token();

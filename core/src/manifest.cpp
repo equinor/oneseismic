@@ -149,14 +149,12 @@ const std::string& fetch_request::serialize() noexcept (false) {
 
 nlohmann::json get_manifest(
         one::transfer& xfer,
-        const std::string& root,
         const std::string& storage_endpoint,
         const std::string& token,
         const std::string& guid)
 noexcept (false) {
 
     one::batch batch;
-    batch.root = root;
     batch.storage_endpoint = storage_endpoint;
     batch.token = token;
     batch.guid = guid;
@@ -171,7 +169,6 @@ void fetch_request::basic(const api_request& req) {
     /* these really shouldn't fail, and should mean immediate debug */
     this->set_requestid(req.requestid());
     this->set_storage_endpoint(req.storage_endpoint());
-    this->set_root(req.root());
     this->set_guid(req.guid());
     this->set_token(req.token());
     *this->mutable_fragment_shape() = req.shape();
@@ -280,7 +277,6 @@ try {
 
     const auto manifest = get_manifest(
             xfer,
-            request.root(),
             request.storage_endpoint(),
             request.token(),
             request.guid()
@@ -346,9 +342,8 @@ try {
     this->p->failure("manifest-not-found").send(failure);
 } catch (const nlohmann::json::parse_error& e) {
     spdlog::error(
-            "{} badly formatted manifest: {}/{}",
+            "{} badly formatted manifest: {}",
             this->p->pid,
-            this->p->request.root(),
             this->p->request.guid()
     );
     spdlog::error(e.what());

@@ -9,7 +9,6 @@ import (
 )
 
 type slicer struct {
-	root string
 	endpoint string
 	sessions *sessions
 }
@@ -26,7 +25,6 @@ func (s *slicer) fetchSlice(
 		Requestid:       requestid,
 		Token:           token,
 		Guid:            guid,
-		Root:            s.root,
 		StorageEndpoint: s.endpoint,
 		Shape: &oneseismic.FragmentShape{
 			Dim0: 64,

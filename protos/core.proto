@@ -28,7 +28,6 @@ message api_slice {
 message api_request {
     string requestid = 1;
     string token = 7;
-    string root = 2;
     string guid = 3;
     string storage_endpoint = 4;
     fragment_shape shape = 5;
@@ -83,7 +82,6 @@ message fetch_response {
 message fetch_request {
     string requestid = 1;
     string token = 9;
-    string root = 2;
     string guid = 3;
     string storage_endpoint = 4;
     fragment_shape fragment_shape = 5;

@@ -18,7 +18,6 @@ TEST_CASE(
         "https://acc.blob.core.windows.net/guid/src/64-64-64/0-1-2.f32";
 
     one::batch batch;
-    batch.root = "acc";
     batch.guid = "guid";
     batch.storage_endpoint = "https://acc.blob.core.windows.net";
     batch.fragment_shape = "src/64-64-64";

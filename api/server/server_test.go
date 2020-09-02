@@ -15,7 +15,6 @@ import (
 
 func TestSlicer(t *testing.T) {
 	storageEndpoint, _ := url.Parse("http://some.url")
-	account := ""
 	zmqReqAddr := "inproc://" + uuid.New().String()
 	zmqRepAddr := "inproc://" + uuid.New().String()
 	zmqFailureAddr := "inproc://" + uuid.New().String()
@@ -23,7 +22,7 @@ func TestSlicer(t *testing.T) {
 	go coreMock(zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 	app := iris.Default()
 	app.Use(mockOboJWT())
-	Register(app, *storageEndpoint, account, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
+	Register(app, *storageEndpoint, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 
 	e := httptest.New(t, app)
 	jsonResponse := e.GET("/some_guid/slice/0/0").
