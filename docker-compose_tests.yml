@@ -27,7 +27,6 @@ services:
       - az
     environment:
       - AUTHSERVER=http://auth:8089/common
-      - ISSUER=https://sts.windows.net/
       - AUDIENCE=https://storage.azure.com
       - AZURE_STORAGE_URL=https://az:10000/devstoreaccount1
 
@@ -42,7 +41,6 @@ services:
       - az
       - auth
     environment:
-      - ISSUER=https://sts.windows.net/
       - AUDIENCE=https://storage.azure.com
       - API_ADDR=http://api:8080
       - AUTHSERVER=http://auth:8089/common
