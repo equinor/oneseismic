@@ -31,14 +31,7 @@ def az_storage():
 
 def auth_header():
     r = requests.get(
-        AUTHSERVER
-        + "/oauth2/v2.0/authorize"
-        + "?redirect_uri=3"
-        + "&client_id="
-        + os.getenv("AUDIENCE")
-        + "&grant_type=t"
-        + "&code=c"
-        + "&client_secret=s",
+        AUTHSERVER + "/oauth2/v2.0/authorize" + "?client_id=" + os.getenv("AUDIENCE"),
         headers={"content-type": "application/json"},
         allow_redirects=False,
     )
