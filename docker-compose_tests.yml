@@ -46,7 +46,7 @@ services:
     environment:
       - ISSUER=https://sts.windows.net/
       - AUDIENCE=https://storage.azure.com
-      - HOST_ADDR=http://api:8080
+      - API_ADDR=http://api:8080
       - AUTHSERVER=http://auth:8089/common
       - AZURE_STORAGE_URL=https://az:10000/{}
       - AZURE_STORAGE_ACCOUNT=devstoreaccount1

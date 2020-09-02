@@ -11,7 +11,7 @@ import requests
 
 from oneseismic import client
 
-HOST_ADDR = os.getenv("HOST_ADDR", "http://localhost:8080")
+API_ADDR = os.getenv("API_ADDR", "http://localhost:8080")
 AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
 
 
@@ -72,51 +72,51 @@ def create_cubes():
 
 
 def test_no_auth():
-    r = requests.get(HOST_ADDR)
+    r = requests.get(API_ADDR)
     assert r.status_code == 401
 
 
 def test_auth():
-    r = requests.get(HOST_ADDR, headers=AUTH_HEADER)
+    r = requests.get(API_ADDR, headers=AUTH_HEADER)
     assert r.status_code == 200
 
 
 def test_list_cubes(create_cubes):
-    r = requests.get(HOST_ADDR, headers=AUTH_HEADER)
+    r = requests.get(API_ADDR, headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == [META["guid"]]
 
 
 def test_services(create_cubes):
-    r = requests.get(HOST_ADDR + "/" + META["guid"], headers=AUTH_HEADER)
+    r = requests.get(API_ADDR + "/" + META["guid"], headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == ["slice"]
 
 
 def test_cube_404(create_cubes):
-    r = requests.get(HOST_ADDR + "/b", headers=AUTH_HEADER)
+    r = requests.get(API_ADDR + "/b", headers=AUTH_HEADER)
     assert r.status_code == 404
 
 
 def test_dimensions(create_cubes):
-    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice", headers=AUTH_HEADER)
+    r = requests.get(API_ADDR + "/" + META["guid"] + "/slice", headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == [0, 1, 2]
 
 
 def test_lines(create_cubes):
-    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice/1", headers=AUTH_HEADER)
+    r = requests.get(API_ADDR + "/" + META["guid"] + "/slice/1", headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == META["dimensions"][1]
 
 
 def test_lines_404(create_cubes):
-    r = requests.get(HOST_ADDR + "/" + META["guid"] + "/slice/3", headers=AUTH_HEADER)
+    r = requests.get(API_ADDR + "/" + META["guid"] + "/slice/3", headers=AUTH_HEADER)
     assert r.status_code == 404
 
 
 def tests_slices(create_cubes):
-    c = client(HOST_ADDR, AUTH_CLIENT)
+    c = client(API_ADDR, AUTH_CLIENT)
     cube_id = c.list_cubes()[0]
     cube = c.cube(cube_id)
 
