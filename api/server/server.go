@@ -10,7 +10,6 @@ import (
 func Register(
 	app *iris.Application,
 	storageEndpoint url.URL,
-	accountName string,
 	zmqReqAddr,
 	zmqRepAddr string,
 	zmqFailureAddr string,
@@ -27,7 +26,6 @@ func Register(
 
 	slice := sliceController {
 		slicer: &slicer {
-			root: accountName,
 			endpoint: storageEndpoint.String(),
 			sessions: sessions,
 		},

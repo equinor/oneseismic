@@ -72,7 +72,6 @@ void sendmsg(zmq::socket_t& sock, const std::string& body) {
 
 std::string make_slice_request() {
     oneseismic::api_request req;
-    req.set_root("root");
     req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
     req.set_storage_endpoint("storage");
 
@@ -130,7 +129,6 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         const auto ok = rep.ParseFromArray(msg.data(), msg.size());
         REQUIRE(ok);
 
-        CHECK(rep.root() == "root");
         CHECK(rep.storage_endpoint() == "storage");
         CHECK(rep.fragment_shape().dim0() == 2);
         CHECK(rep.fragment_shape().dim1() == 2);

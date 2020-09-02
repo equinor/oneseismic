@@ -18,10 +18,9 @@ namespace one {
  * some other structure, and figures out the fragments that needs fetching.
  *
  * With this design comes the fundamental restriction that all fragments in a
- * single batch must belong to the same cube, given by root, guid, and shape.
+ * single batch must belong to the same cube, given by guid and shape.
  */
 struct batch {
-    std::string root; /* storage-account in azure */
     std::string storage_endpoint; /* url including storage-account */
     std::string token;
     std::string guid;

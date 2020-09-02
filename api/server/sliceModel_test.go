@@ -39,7 +39,6 @@ func TestSliceModel(t *testing.T) {
 	}()
 
 	sl := slicer{
-		root: "",
 		endpoint: "",
 		sessions: sessions,
 	}
@@ -70,7 +69,6 @@ func TestModelMissingSlice(t *testing.T) {
 		close(job.io.err)
 	}()
 	sl := slicer{
-		root: "",
 		endpoint: "",
 		sessions: sessions,
 	}

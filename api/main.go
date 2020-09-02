@@ -57,7 +57,6 @@ func main() {
 	server.Register(
 		app,
 		*storageEndpoint,
-		account,
 		os.Getenv("ZMQ_REQ_ADDR"),
 		os.Getenv("ZMQ_REP_ADDR"),
 		os.Getenv("ZMQ_FAILURE_ADDR"),
