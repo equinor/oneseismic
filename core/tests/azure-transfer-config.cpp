@@ -50,23 +50,6 @@ TEST_CASE(
     CHECK(not ss.fail());
 }
 
-TEST_CASE(
-        "sign() generates the expected authorization header",
-        "[azure][az]") {
-
-    const auto expected =
-        "Authorization: SharedKey "
-        "acc:ESDuiGR/eRRaEsaWYBREWo2gSfx8iVwQpbgkEuGTznI=";
-
-    one::az az("key");
-    one::batch batch;
-    batch.root = "acc";
-    batch.guid = "guid";
-    batch.fragment_shape = "src/64-64-64";
-    const auto auth = az.sign("date", "version", batch, "0-1-2");
-    CHECK(auth == expected);
-}
-
 std::vector< std::string > to_vector(curl_slist* slist) {
     auto cur = slist;
     std::vector< std::string > headers;

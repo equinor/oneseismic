@@ -28,18 +28,6 @@ public:
 
     }
 
-    std::string canonicalized_resource(
-            const std::string& root,
-            const std::string& guid,
-            const std::string& fragment_shape,
-            const std::string& fragment_id)
-    const noexcept (false) override {
-        return fmt::format(
-                "/{}/{}/manifest.json",
-                root,
-                guid
-        );
-    }
 };
 
 }
