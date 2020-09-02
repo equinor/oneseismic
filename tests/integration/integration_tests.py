@@ -1,6 +1,5 @@
 import os
 import pytest
-import io
 import segyio
 import numpy as np
 from upload import upload
@@ -8,7 +7,6 @@ from scan import scan
 
 from urllib.parse import parse_qs, urlparse
 from azure.storage.blob import BlobServiceClient
-from azure.core.exceptions import ResourceExistsError
 import requests
 
 from oneseismic import client
