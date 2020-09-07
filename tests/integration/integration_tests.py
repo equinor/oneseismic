@@ -57,8 +57,8 @@ def create_cubes():
         os.getenv("AZURE_STORAGE_ACCOUNT")
     )
     blob_service_client = BlobServiceClient(account_url, credential)
-    for c in blob_service_client.list_containers():
-        blob_service_client.delete_container(c)
+    for c in requests.get(API_ADDR, headers=AUTH_HEADER).json():
+        blob_service_client.get_container_client(c).delete_container()
 
     shape = [64, 64, 64]
     params = {"subcube-dims": shape}
