@@ -13,7 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Build docker images
+      - name: Run integration tests
         run: |
-          export VERSION=`git describe --tags`
-          docker-compose build
+          docker-compose -f docker-compose.yml -f docker-compose_tests.yml up --build --exit-code-from test
