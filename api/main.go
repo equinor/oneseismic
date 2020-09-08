@@ -13,6 +13,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func init() {
@@ -28,19 +30,24 @@ func init() {
 //@name Authorization
 func main() {
 	logLevel := os.Getenv("LOG_LEVEL")
-
-	golog.SetTimeFormat(time.RFC3339)
-	golog.SetLevel(logLevel)
+	level, err := zerolog.ParseLevel(logLevel)
+	if err != nil {
+		panic("unknown LOG_LEVEL: " + logLevel)
+	}
+	zerolog.TimeFieldFormat = time.RFC3339
+	zerolog.SetGlobalLevel(level)
 	oidConf, err := auth.GetOidConfig(os.Getenv("AUTHSERVER") + "/v2.0/.well-known/openid-configuration")
 	if err != nil {
-		golog.Error("could not get keyset", err)
+		log.Error().Err(err).Msg("could not get keyset")
 	}
 
 	storageURL, err := url.Parse(os.Getenv("AZURE_STORAGE_URL"))
 	if err != nil {
-		golog.Fatal(err)
+		log.Fatal().Err(err)
 	}
 
+	golog.SetTimeFormat(time.RFC3339)
+	golog.SetLevel(logLevel)
 	app := iris.Default()
 
 	app.Use(auth.CheckJWT(oidConf.Jwks))
@@ -59,6 +66,6 @@ func main() {
 
 	err = app.Run(iris.Addr(os.Getenv("HOST_ADDR")))
 	if err != nil {
-		golog.Fatal(err)
+		log.Fatal().Err(err)
 	}
 }

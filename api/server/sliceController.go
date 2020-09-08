@@ -5,7 +5,7 @@ import (
 
 	"github.com/equinor/oneseismic/api/oneseismic"
 	"github.com/google/uuid"
-	"github.com/kataras/golog"
+	"github.com/rs/zerolog/log"
 	"github.com/kataras/iris/v12"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -45,7 +45,7 @@ func (f *failure) status() int {
 		return http.StatusUnauthorized
 
 	default:
-		golog.Errorf("unknown failure; key = %s", f.key)
+		log.Error().Msgf("unknown failure; key = %s", f.key)
 		return http.StatusInternalServerError
 	}
 }
@@ -102,7 +102,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 			ctx.StatusCode(e.status())
 
 		default:
-			golog.Error(e)
+			log.Error().Err(e)
 			ctx.StatusCode(http.StatusInternalServerError)
 		}
 		return

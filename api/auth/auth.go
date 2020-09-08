@@ -9,7 +9,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
-	"github.com/kataras/golog"
+	"github.com/rs/zerolog/log"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/context"
 )
@@ -49,23 +49,22 @@ func OboJWT(tokenEndpoint, clientID, clientSecret string) context.Handler {
 
 		if err != nil {
 			ctx.Values().Remove("jwt")
-			golog.Errorf("could not get obo token:  %w", err)
+			log.Error().Err(err).Msg("could not get obo token")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
 		}
 		if oboTokenResponse.StatusCode != 200 {
 			ctx.Values().Remove("jwt")
-			golog.Errorf(
-				"could not get obo token: %v", 
-				oboTokenResponse.Status, 
+			log.Error().Msgf(
+				"could not get obo token: %v",
+				oboTokenResponse.Status,
 			)
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
 		}
 
-		// golog.Infof("obo_token: %v", oboTokenResponse)
 		defer oboTokenResponse.Body.Close()
 		type oboToken struct {
 			AccessToken string `json:"access_token"`
@@ -73,7 +72,7 @@ func OboJWT(tokenEndpoint, clientID, clientSecret string) context.Handler {
 		obo := oboToken{}
 		err = json.NewDecoder(oboTokenResponse.Body).Decode(&obo)
 		if err != nil {
-			golog.Warn(err)
+			log.Warn().Err(err)
 			return
 		}
 		ctx.Values().Set("jwt", obo.AccessToken)
@@ -86,7 +85,7 @@ func Validate(issuer, audience string) context.Handler {
 	return func(ctx context.Context) {
 		userToken := ctx.Values().Get("jwt")
 		if userToken == nil {
-			golog.Error("token missing from context")
+			log.Error().Msg("token missing from context")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
@@ -94,14 +93,14 @@ func Validate(issuer, audience string) context.Handler {
 
 		user, ok := userToken.(*jwt.Token)
 		if !ok {
-			golog.Error("not a jwt.Token")
+			log.Error().Msg("not a jwt.Token")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
 		}
 
 		if user.Claims == nil {
-			golog.Error("missing claims")
+			log.Error().Msg("missing claims")
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
@@ -109,14 +108,14 @@ func Validate(issuer, audience string) context.Handler {
 
 		claims := user.Claims.(jwt.MapClaims)
 		if !claims.VerifyIssuer(issuer, true) {
-			golog.Errorf("invalid issuer: %v != %v", issuer, claims["iss"].(string))
+			log.Error().Msgf("invalid issuer: %v != %v", issuer, claims["iss"].(string))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
 		}
 
 		if !claims.VerifyAudience(audience, true) {
-			golog.Errorf("invalid audience: %v != %v", audience, claims["aud"].(string))
+			log.Error().Msgf("invalid audience: %v != %v", audience, claims["aud"].(string))
 			ctx.StatusCode(iris.StatusUnauthorized)
 			ctx.StopExecution()
 			return
