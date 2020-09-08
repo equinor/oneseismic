@@ -18,13 +18,13 @@ require (
 	github.com/iris-contrib/swagger/v12 v12.0.1
 	github.com/joho/godotenv v1.3.0
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
-	github.com/kataras/golog v0.0.18
 	github.com/kataras/iris/v12 v12.1.8
 	github.com/mailru/easyjson v0.7.1 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.13.0 // indirect
 	github.com/pebbe/zmq4 v1.2.1
+	github.com/rs/zerolog v1.19.0
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/stretchr/testify v1.6.1

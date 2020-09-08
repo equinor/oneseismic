@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
-	"github.com/kataras/golog"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -77,7 +77,7 @@ func (s *slicer) fetchSlice(
 			switch x := fr.Function.(type) {
 			default:
 				msg := "%s Expected FetchResponse.Function = %T; was %T"
-				golog.Errorf(msg, requestid, slice, x)
+				log.Error().Msgf(msg, requestid, slice, x)
 				return nil, fmt.Errorf("internal error")
 			}
 		}
