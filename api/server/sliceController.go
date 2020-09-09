@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/kataras/iris/v12"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type failure struct {
@@ -108,14 +108,13 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
-	js, err := m.Marshal(slice)
+	ctx.Header("Content-Type", "application/x-protobuf")
+	bytes, err := proto.Marshal(slice)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
-	_, err = ctx.Write(js)
+	_, err = ctx.Write(bytes)
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
 		return

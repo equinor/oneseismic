@@ -38,8 +38,8 @@ func TestExistingSlice(t *testing.T) {
 	e := httptest.New(t, app)
 	e.GET("/some_guid/slice/0/0").
 		Expect().
-		Status(httptest.StatusOK).
-		JSON()
+		Status(httptest.StatusOK)
+	// JSON()
 }
 
 func TestMissingSlice(t *testing.T) {

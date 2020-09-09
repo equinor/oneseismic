@@ -21,6 +21,7 @@ setuptools.setup(
         'numpy',
         'requests',
         'ujson',
+        'protobuf',
     ],
 
     setup_requires = [

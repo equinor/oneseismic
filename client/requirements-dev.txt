@@ -5,3 +5,4 @@ numpy
 requests
 requests_mock
 ujson
+protobuf
