@@ -41,13 +41,14 @@ script:
   - pushd core/ingestion/scan
   - pip install -r requirements-dev.txt
   - python setup.py test && popd
-  - pushd core/ingestion/upload 
+  - pushd core/ingestion/upload
   - pip install -r requirements-dev.txt
   - python setup.py test && popd
   - pip install -r core/python/requirements-dev.txt
 
   - pushd client
   - pip install -r requirements-dev.txt
+  - protoc -I=../protos --python_out=oneseismic ../protos/core.proto
   - python setup.py pytest && popd
 
   - mkdir build
