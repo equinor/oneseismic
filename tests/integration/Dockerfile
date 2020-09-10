@@ -13,7 +13,7 @@ RUN pip install ./scan
 
 COPY /client client
 COPY /protos protos
-RUN protoc -I=protos --python_out=client/dist protos/core.proto
+RUN protoc -I=protos --python_out=client/oneseismic protos/core.proto
 RUN pip install ./client
 
 COPY /tests/integration/integration_tests.py .
