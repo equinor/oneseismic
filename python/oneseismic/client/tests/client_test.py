@@ -1,8 +1,9 @@
 import json
 import numpy as np
-import oneseismic
 import requests
 import requests_mock
+
+from ..client import client
 
 session = requests.Session()
 adapter = requests_mock.Adapter()
@@ -94,7 +95,7 @@ class no_auth:
     def token(self):
         return ''
 
-client = oneseismic.client('http://api', auth=no_auth())
+client = client('http://api', auth=no_auth())
 cube = client.cube('test_id')
 
 @requests_mock.Mocker(kw='m')

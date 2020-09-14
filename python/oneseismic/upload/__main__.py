@@ -9,7 +9,7 @@ from .upload import upload
 def main(argv):
     dimhelp = 'fragment size (samples) in {} direction'
     parser = argparse.ArgumentParser(
-        prog = 'oneseismic-upload',
+        prog = 'upload',
         description = 'Upload cubes to oneseismic storage',
         epilog = '%(prog)s relies on azure connection strings, see {}'.format(
             'https://docs.microsoft.com/azure/storage/common/storage-configure-connection-string'

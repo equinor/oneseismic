@@ -6,6 +6,7 @@ from .scan import scan
 
 def main(argv):
     parser = argparse.ArgumentParser(
+        prog = 'scan',
         description = 'Understand seismic cube identity and layout',
     )
     parser.add_argument('input', type = str, help = 'input SEG-Y file')

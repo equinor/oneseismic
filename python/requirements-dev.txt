@@ -1,0 +1,11 @@
+azure-storage-blob
+hypothesis
+msal
+numpy
+pytest
+pytest-runner
+requests
+requests_mock
+segyio
+tqdm
+ujson

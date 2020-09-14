@@ -2,15 +2,9 @@ FROM python:buster
 WORKDIR /code
 COPY /tests/integration/requirements.txt .
 RUN pip install -r requirements.txt
-COPY /core/ingestion/upload/requirements-dev.txt .
-RUN pip install -r requirements-dev.txt
 
-COPY /core/ingestion .
-RUN pip install ./upload
-RUN pip install ./scan
-
-COPY /client client
-RUN pip install ./client
+COPY /python python
+RUN pip install python/
 
 COPY /tests/integration/integration_tests.py .
 COPY /tests/integration/data/small.sgy .
