@@ -38,18 +38,12 @@ install:
   - popd
 
 script:
-  - pushd core/ingestion/scan
+  - pushd python/
   - pip install -r requirements-dev.txt
-  - python setup.py test && popd
-  - pushd core/ingestion/upload 
-  - pip install -r requirements-dev.txt
-  - python setup.py test && popd
+  - python setup.py test
+  - popd
+
   - pip install -r core/python/requirements-dev.txt
-
-  - pushd client
-  - pip install -r requirements-dev.txt
-  - python setup.py pytest && popd
-
   - mkdir build
   - pushd build
   - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_PYTHON=ON

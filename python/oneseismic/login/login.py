@@ -73,17 +73,3 @@ def login(client_id, auth_server, scopes):
 
     store_config(client_id, auth_server, scopes, cache_dir)
     fetch_token(client_id, auth_server, scopes, cache_dir)
-
-
-def main():
-    parser = argparse.ArgumentParser('Log in to oneseismic')
-    parser.add_argument('--client-id', type=str, required=True)
-    parser.add_argument('--auth-server', type=str, required=True)
-    parser.add_argument('--scopes', type=str, nargs='+', required=True)
-
-    args = parser.parse_args()
-
-    login(args.client_id, args.auth_server, args.scopes)
-
-if __name__ == '__main__':
-    main()

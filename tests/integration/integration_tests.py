@@ -7,8 +7,8 @@ import requests
 import segyio
 from azure.core.credentials import AccessToken
 from azure.storage.blob import BlobServiceClient
-from scan import scan
-from upload import upload
+from oneseismic import scan
+from oneseismic import upload
 
 from oneseismic import client
 
@@ -111,7 +111,7 @@ def test_lines_404(create_cubes):
 
 
 def tests_slices(create_cubes):
-    c = client(API_ADDR, AUTH_CLIENT)
+    c = client.client(API_ADDR, AUTH_CLIENT)
     cube_id = c.list_cubes()[0]
     cube = c.cube(cube_id)
 
