@@ -14,11 +14,6 @@ type job struct {
 	io      procIO
 }
 
-type wire interface {
-	loadZMQ(msg [][]byte) error
-	sendZMQ(socket *zmq.Socket) (total int, err error)
-}
-
 /*
  * The process is the message sent from this (the session manager) over ZMQ.
  * The request payload is the protobuf-encoded description description of what
