@@ -135,7 +135,7 @@ type procIO struct {
 	err chan string
 }
 
-func (s *sessions) Schedule(proc *process) procIO {
+func (s *sessions) schedule(proc *process) procIO {
 	io := procIO {
 		out: make(chan partialResult),
 		err: make(chan string),

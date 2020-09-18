@@ -47,7 +47,7 @@ func (s *slicer) fetchSlice(
 	proc := process{pid: requestid, request: req}
 	fr := oneseismic.FetchResponse{}
 
-	io := s.sessions.Schedule(&proc)
+	io := s.sessions.schedule(&proc)
 
 	/*
 	 * Read and parse messages as they come, and consider the process complete
