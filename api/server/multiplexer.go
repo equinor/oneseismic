@@ -44,38 +44,8 @@ type partialResult struct {
 	payload []byte
 }
 
-/*
- * The routedPartialRequest is a more faithful representation of what the
- * worker nodes *actually* send - they need to include a return address to the
- * node that holds the session (this program, really). However, ZMQ at some
- * point strips this address as a part of its routing protocol, and the rest of
- * the application sees the message as partialResult.
- */
-type routedPartialResult struct {
-	address string
-	partial partialResult
-}
-
 func (p *process) sendZMQ(socket *zmq.Socket) (total int, err error) {
 	return socket.SendMessage(p.address, p.pid, p.request)
-}
-
-/*
- * Parse a partition request as it is delivered in a ZMQ multipart message.
- * While this currently has no error checking, or really does anything
- * sophisticated, it's the canonical way to obtain a process from a
- * multipart message, and *the* go reference for what the messages from the
- * fragment/worker looks like.
- */
-func (p *process) loadZMQ(msg [][]byte) error {
-	if len(msg) != 3 {
-		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
-	}
-
-	p.address = string(msg[0])
-	p.pid = string(msg[1])
-	p.request = msg[2]
-	return nil
 }
 
 func (p *partialResult) loadZMQ(msg [][]byte) error {
@@ -93,27 +63,6 @@ func (p *partialResult) loadZMQ(msg [][]byte) error {
 
 func (p *partialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
 	return socket.SendMessage(p.pid, fmt.Sprintf("%d/%d", p.n, p.m), p.payload)
-}
-
-func (p *routedPartialResult) loadZMQ(msg [][]byte) error {
-	if len(msg) != 3 {
-		return fmt.Errorf("len(msg) = %d; want 3", len(msg))
-	}
-	p.address = string(msg[0])
-	err := p.partial.loadZMQ(msg[1:])
-	if err != nil {
-		return fmt.Errorf("routedPartialResult.partial: %s", err.Error())
-	}
-	return nil
-}
-
-func (p *routedPartialResult) sendZMQ(socket *zmq.Socket) (total int, err error) {
-	return socket.SendMessage(
-		p.address,
-		p.partial.pid,
-		fmt.Sprintf("%d/%d", p.partial.n, p.partial.m),
-		p.partial.payload,
-	)
 }
 
 type sessions struct {
