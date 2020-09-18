@@ -67,8 +67,7 @@ func echoAsWorker(tasks int) {
 func verifyCorrectReply(t *testing.T, i int, s *sessions, done chan struct{}) {
 	id := strconv.Itoa(i)
 	msg := []byte("message from " + id)
-	job := process{address: "", pid: id, request: msg}
-	io := s.schedule(&job)
+	io := s.schedule(id, msg)
 
 	for result := range io.out {
 		assert.Equal(t, result.payload, msg)
@@ -134,12 +133,7 @@ func TestFailureCancelsProcess(t *testing.T) {
 
 	io := make([]procIO, 10)
 	for i := 0; i < 10; i++ {
-		job := process {
-			address: "",
-			pid: strconv.Itoa(i),
-			request: []byte("should never arrive"),
-		}
-		io[i] = session.schedule(&job)
+		io[i] = session.schedule(strconv.Itoa(i), []byte("should never arrive"))
 	}
 
 	// emulate failures from the workers
@@ -194,12 +188,7 @@ func TestMessagesToCancelledJobsAreDropped(t *testing.T) {
 
 	io := make([]procIO, 10)
 	for i := 0; i < 10; i++ {
-		job := process {
-			address: "addr",
-			pid: strconv.Itoa(i),
-			request: []byte("late"),
-		}
-		io[i] = session.schedule(&job)
+		io[i] = session.schedule(strconv.Itoa(i), []byte("late"))
 	}
 
 	/* pid 9 does not fail! */

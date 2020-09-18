@@ -135,14 +135,14 @@ type procIO struct {
 	err chan string
 }
 
-func (s *sessions) schedule(proc *process) procIO {
+func (s *sessions) schedule(pid string, request []byte) procIO {
 	io := procIO {
 		out: make(chan partialResult),
 		err: make(chan string),
 	}
 	s.queue <- job{
-		pid: proc.pid,
-		request: proc.request,
+		pid: pid,
+		request: request,
 		io: io,
 	}
 	return io

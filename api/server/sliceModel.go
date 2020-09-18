@@ -44,10 +44,9 @@ func (s *slicer) fetchSlice(
 		return nil, fmt.Errorf("Marshalling oneseisimc.ApiRequest: %w", err)
 	}
 
-	proc := process{pid: requestid, request: req}
 	fr := oneseismic.FetchResponse{}
 
-	io := s.sessions.schedule(&proc)
+	io := s.sessions.schedule(requestid, req)
 
 	/*
 	 * Read and parse messages as they come, and consider the process complete
