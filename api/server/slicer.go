@@ -61,13 +61,13 @@ func newFailure(key string) *failure {
 }
 
 type sliceModel interface {
-	fetchSlice(
+	getProcIO(
 		guid string,
 		dim int32,
 		lineno int32,
 		requestid string,
 		token string,
-) (*oneseismic.SliceResponse, error)
+) (*procIO, error)
 }
 
 type sliceController struct {
@@ -97,22 +97,63 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 	requestid := uuid.New().String()
-	slice, err := sc.slicer.fetchSlice(guid, dim, lineno, requestid, token)
+	io, err := sc.slicer.getProcIO(guid, dim, lineno, requestid, token)
 	if err != nil {
-		switch e := err.(type) {
-		case *failure:
-			ctx.StatusCode(e.status())
-
-		default:
-			log.Error().Err(e)
-			ctx.StatusCode(http.StatusInternalServerError)
-		}
+		log.Error().Err(err)
+		ctx.StatusCode(http.StatusInternalServerError)
 		return
 	}
 
+	for failure := range io.err {
+		e := newFailure(failure)
+		ctx.StatusCode(e.status())
+		ctx.WriteString(failure)
+		return
+	}
+	fr := oneseismic.FetchResponse{}
+	var tiles []*oneseismic.SliceTile
+	count := 0
+	expectedCount := 0
+	for partial := range io.out {
+		expectedCount = partial.m
+
+		err = proto.Unmarshal(partial.payload, &fr)
+		if err != nil {
+			ctx.StatusCode(http.StatusInternalServerError)
+			msg := fmt.Sprintf("could not create FetchResponse: %v", err.Error())
+			log.Error().Err(err).Msg(msg)
+			ctx.WriteString(msg)
+			return
+		}
+
+		slice := fr.GetSlice()
+		if slice == nil {
+			switch x := fr.Function.(type) {
+			default:
+				msg := "%s Expected FetchResponse.Function = %T; was %T"
+				log.Error().Msgf(msg, requestid, slice, x)
+				ctx.StatusCode(http.StatusInternalServerError)
+				ctx.WriteString("internal error")
+				return
+			}
+		}
+
+		tiles = append(tiles, slice.GetTiles()...)
+		count = count + 1
+	}
+	if count != expectedCount {
+		msg := fmt.Sprintf("Expected partialResults: %v, got: %v", expectedCount, count)
+		log.Error().Msg(msg)
+		ctx.StatusCode(http.StatusInternalServerError)
+		ctx.WriteString(msg)
+		return
+	}
+
+	fr.GetSlice().Tiles = tiles
+
 	ctx.Header("Content-Type", "application/json")
 	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
-	js, err := m.Marshal(slice)
+	js, err := m.Marshal(fr.GetSlice())
 	if err != nil {
 		ctx.StatusCode(http.StatusInternalServerError)
 		return
@@ -131,13 +172,13 @@ type slicer struct {
 	sessions *sessions
 }
 
-func (s *slicer) fetchSlice(
+func (s *slicer) getProcIO(
 	guid string,
 	dim int32,
 	lineno int32,
 	requestid string,
 	token string,
-) (*oneseismic.SliceResponse, error) {
+) (*procIO, error) {
 
 	msg := oneseismic.ApiRequest {
 		Requestid:       requestid,
@@ -163,54 +204,7 @@ func (s *slicer) fetchSlice(
 	}
 
 	proc := process{pid: requestid, request: req}
-	fr := oneseismic.FetchResponse{}
 
 	io := s.sessions.Schedule(&proc)
-
-	/*
-	 * Read and parse messages as they come, and consider the process complete
-	 * when the reply-channel closes.
-	 *
-	 * Right now, the result is assembled here and returned in one piece to
-	 * users, so it never looks like a parallelised job. This is so that we can
-	 * experiment with chunk sizes, worker nodes, load etc. without having to
-	 * be bothered with a more complex protocol between API and users, and so
-	 * that previously-written clients still work. In the future, this will
-	 * probably change and partial results will be transmitted.
-	 *
-	 * TODO: This gives weak failure handling, and Session needs a way to
-	 * signal failed processes
-	 */
-	var tiles []*oneseismic.SliceTile
-	for partial := range io.out {
-		err = proto.Unmarshal(partial.payload, &fr)
-
-		if err != nil {
-			return nil, fmt.Errorf("could not create slice response: %w", err)
-		}
-
-		slice := fr.GetSlice()
-		// TODO: cancel job on failure channel
-		if slice == nil {
-			switch x := fr.Function.(type) {
-			default:
-				msg := "%s Expected FetchResponse.Function = %T; was %T"
-				log.Error().Msgf(msg, requestid, slice, x)
-				return nil, fmt.Errorf("internal error")
-			}
-		}
-
-		tiles = append(tiles, slice.GetTiles()...)
-	}
-
-	/*
-	 * On successful runs, there are no messages on this channel, and the loop
-	 * turns into a no-op.
-	 */
-	 for failure := range io.err {
-		return nil, newFailure(failure)
-	}
-
-	fr.GetSlice().Tiles = tiles
-	return fr.GetSlice(), nil
+	return &io, nil
 }

@@ -255,6 +255,13 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 		 * Bit-array of already-received parts for this process
 		 */
 		completed []bool
+		/*
+		* Before out channel can be read from, err channel must be closed.
+		* No built in funcionality to tell is this has been done
+		* from the sender side.
+		* TODO: not elegant
+		*/
+		errOpen bool
 	}
 
 	// TODO: Clean up in case a reply never arrives?
@@ -274,12 +281,29 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 				proc.completed = make([]bool, r.m)
 			}
 
+			/*
+			 * io.err must be closed before io.out can be read
+			 *
+			 * The http status code can only be set once,
+			 * so io.err must be read before setting http status.
+			 * Any errors coming after sending output to client
+			 * will be logged and transfer closed.
+			 *
+			 * If we should also send error messages to the
+			 * client after transfer has begun the reading of both err and out
+			 * is more complicated and less elegant. Should be a TODO?
+			 * For now, sending the number of chunks and checking if all has
+			 * arrived should be good enough, we have logs.
+			 */
+			if proc.errOpen {
+				close(proc.io.err)
+				proc.errOpen = false
+			}
 			proc.io.out <- r
 			proc.completed[r.n] = true
 
 			if all(proc.completed) {
 				close(proc.io.out)
-				close(proc.io.err)
 				delete(processes, r.pid)
 			}
 
@@ -299,20 +323,18 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 				errmsg := "%s failed (%s); removing from process table"
 				log.Error().Msgf(errmsg, pid, msg)
 				/*
-				 * The order of statements creates an interesting race
-				 * condition:
+				 * The order of statements is important
 				 *
-				 * If the io.err <- msg is sent *before* the io.out is closed,
-				 * callers cannot use a range-for to aggregate partial results,
-				 * because the sending on io.err will block until it is read.
+				 * io.err must be closed before reading on io.out can start
 				 *
-				 * It is not strictly necessary to close these channels, but it
-				 * does enable to use of ranged-for, which makes for much more
-				 * elegant assembly.
+				 * These channels should be closed to signal to consumers to stop waiting.
 				 */
+				if proc.errOpen {
+					proc.io.err <- msg
+					close(proc.io.err)
+					proc.errOpen = false
+				}
 				close(proc.io.out)
-				proc.io.err <- msg
-				close(proc.io.err)
 				delete(processes, pid)
 			}
 
@@ -325,6 +347,7 @@ func (s *sessions) Run(reqNdpt string, repNdpt string, failureAddr string) {
 			processes[j.pid] = &procstatus {
 				io: j.io,
 				completed: nil,
+				errOpen: true,
 			}
 			proc.sendZMQ(req)
 		}

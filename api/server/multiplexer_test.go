@@ -156,16 +156,6 @@ func TestFailureCancelsProcess(t *testing.T) {
 
 	for i, proc := range io {
 
-		for m := range proc.out {
-			fmt := "Unexpected message (%s) received - test is likely broken"
-			t.Fatalf(fmt, m)
-		}
-
-		_, open := <-proc.out
-		if open {
-			t.Errorf("proc.out (pid = %d) not closed as it should be", i)
-		}
-
 		msg := <-proc.err
 		expected := strconv.Itoa(i) + " manual-failure"
 		if msg != expected {
@@ -173,10 +163,21 @@ func TestFailureCancelsProcess(t *testing.T) {
 			t.Errorf(fmt, msg, expected)
 		}
 
-		_, open = <-proc.err
+		_, open := <-proc.err
 		if open {
 			t.Errorf("proc.err (pid = %d) not closed as it should be", i)
 		}
+
+		for m := range proc.out {
+			fmt := "Unexpected message (%s) received - test is likely broken"
+			t.Fatalf(fmt, m)
+		}
+
+		_, open = <-proc.out
+		if open {
+			t.Errorf("proc.out (pid = %d) not closed as it should be", i)
+		}
+
 	}
 }
 
@@ -245,7 +246,7 @@ func TestMessagesToCancelledJobsAreDropped(t *testing.T) {
 	 * fleshed out, documented, reproduced, and tested.
 	 */
 	for _, proc := range io {
-		for _ = range proc.out {}
 		for _ = range proc.err {}
+		for _ = range proc.out {}
 	}
 }
