@@ -26,6 +26,7 @@ require (
 	github.com/pebbe/zmq4 v1.2.1
 	github.com/rs/zerolog v1.19.0
 	github.com/sergi/go-diff v1.1.0 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/valyala/fasthttp v1.16.0 // indirect
