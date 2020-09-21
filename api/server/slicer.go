@@ -110,12 +110,22 @@ func (sc *sliceController) get(ctx iris.Context) {
 		ctx.WriteString(failure)
 		return
 	}
-	fr := oneseismic.FetchResponse{}
-	var tiles []*oneseismic.SliceTile
+
+	ctx.Header("Content-Type", "application/json")
+	ctx.Header("Transfer-Encoding", "chunked,gzip")
+	_, err = ctx.WriteString("[")
+
+	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
+
 	count := 0
-	expectedCount := 0
+
 	for partial := range io.out {
-		expectedCount = partial.m
+		expectedCount := partial.m
+		if count != 0 {
+			_, err = ctx.WriteString(",")
+		}
+
+		fr := oneseismic.FetchResponse{}
 
 		err = proto.Unmarshal(partial.payload, &fr)
 		if err != nil {
@@ -138,30 +148,21 @@ func (sc *sliceController) get(ctx iris.Context) {
 			}
 		}
 
-		tiles = append(tiles, slice.GetTiles()...)
-		count = count + 1
-	}
-	if count != expectedCount {
-		msg := fmt.Sprintf("Expected partialResults: %v, got: %v", expectedCount, count)
-		log.Error().Msg(msg)
-		ctx.StatusCode(http.StatusInternalServerError)
-		ctx.WriteString(msg)
-		return
-	}
-
-	fr.GetSlice().Tiles = tiles
-
-	ctx.Header("Content-Type", "application/json")
-	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
-	js, err := m.Marshal(fr.GetSlice())
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		return
-	}
-	_, err = ctx.Write(js)
-	if err != nil {
-		ctx.StatusCode(http.StatusInternalServerError)
-		return
+		js, err := m.Marshal(fr.GetSlice())
+		if err != nil {
+			log.Error().Err(err)
+			return
+		}
+		_, err = ctx.WriteString(string(js))
+		if err != nil {
+			log.Error().Err(err)
+			return
+		}
+		if count == expectedCount -1 {
+			_, err = ctx.WriteString("]")
+		}
+		ctx.ResponseWriter().Flush()
+		count = count +1
 	}
 
 	return

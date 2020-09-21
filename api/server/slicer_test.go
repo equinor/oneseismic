@@ -119,5 +119,7 @@ func Test1MissingSlice(t *testing.T) {
 	e := httptest.New(t, app)
 	e.GET("/some_guid/slice/0/0").
 		Expect().
-		Status(httptest.StatusInternalServerError)
+		Status(httptest.StatusOK)
+	// TODO assert invalid json?
+
 }

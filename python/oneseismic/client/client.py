@@ -9,23 +9,24 @@ import requests
 
 
 def assemble_slice(parts):
-    tiles = parts['tiles']
-    shape0 = parts['slice_shape']['dim0']
-    shape1 = parts['slice_shape']['dim1']
+    if len(parts) > 0:
+        shape0 = parts[0]['slice_shape']['dim0']
+        shape1 = parts[0]['slice_shape']['dim1']
 
-    slice = np.zeros(shape0*shape1)
+        slice = np.zeros(shape0*shape1)
 
-    for tile in tiles:
-        layout = tile['layout']
-        dst = layout['initial_skip']
-        chunk_size = layout['chunk_size']
-        src = 0
-        for _ in range(layout['iterations']):
-            slice[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
-            src += layout['substride']
-            dst += layout['superstride']
+        for p in parts:
+            for tile in p['tiles']:
+                layout = tile['layout']
+                dst = layout['initial_skip']
+                chunk_size = layout['chunk_size']
+                src = 0
+                for _ in range(layout['iterations']):
+                    slice[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
+                    src += layout['substride']
+                    dst += layout['superstride']
 
-    return slice.reshape((shape0, shape1))
+        return slice.reshape((shape0, shape1))
 
 
 class cube:

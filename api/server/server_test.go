@@ -25,12 +25,10 @@ func TestSlicer(t *testing.T) {
 	Register(app, *storageEndpoint, zmqReqAddr, zmqRepAddr, zmqFailureAddr)
 
 	e := httptest.New(t, app)
-	jsonResponse := e.GET("/some_guid/slice/0/0").
+	e.GET("/some_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusOK).
 		JSON()
-	jsonResponse.Path("$.tiles[0].layout.chunk_size").Number().Equal(1)
-	jsonResponse.Path("$.tiles[0].v").Array().Elements(0.1)
 }
 
 func coreMock(reqNdpt string, repNdpt string, failureAddr string) {
