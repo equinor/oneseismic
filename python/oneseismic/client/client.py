@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import requests
 from .core_pb2 import *
+import zlib
 
 
 def assemble_slice(parts):
@@ -111,7 +112,7 @@ def split(s):
         l = int.from_bytes(s[:4], byteorder="little")
         s = s[4:]
         sr = slice_response()
-        sr.ParseFromString(s[:l])
+        sr.ParseFromString(zlib.decompress(s[:l], 16+zlib.MAX_WBITS))
         s = s[l:]
         parts.append(sr)
 

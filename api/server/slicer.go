@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"net/http"
 	"fmt"
+	"compress/gzip"
+	"bytes"
 
 	"github.com/equinor/oneseismic/api/oneseismic"
 	"github.com/google/uuid"
@@ -117,6 +119,7 @@ func (sc *sliceController) get(ctx iris.Context) {
 	bs := make([]byte, 4)
 	count := 0
 	for partial := range io.out {
+		log.Trace().Msgf("Receiving fragment q%v/%v", partial.n, partial.m)
 		expectedCount := partial.m
 		if count == 0 {
 			binary.LittleEndian.PutUint32(bs, uint32(expectedCount))
@@ -144,14 +147,23 @@ func (sc *sliceController) get(ctx iris.Context) {
 			}
 		}
 
-		bytes, err := proto.Marshal(slice)
+		payload, err := proto.Marshal(slice)
 		if err != nil {
 			log.Error().Err(err)
 			return
 		}
-		binary.LittleEndian.PutUint32(bs, uint32(len(bytes)))
+		var buf bytes.Buffer
+		zw := gzip.NewWriter(&buf)
+
+		_, err = zw.Write(payload)
+		if err != nil {
+			log.Fatal().Err(err)
+		}
+		zw.Close()
+
+		binary.LittleEndian.PutUint32(bs, uint32(len(buf.Bytes())))
 		ctx.Write(bs)
-		ctx.Write(bytes)
+		ctx.Write(buf.Bytes())
 		ctx.ResponseWriter().Flush()
 		count = count + 1
 	}
