@@ -4,6 +4,7 @@ import msal
 import os
 from pathlib import Path
 import sys
+from xdg import XDG_CACHE_HOME
 
 def store_config(client_id, auth_server, scopes, cache_dir):
     config_file = os.path.join(
@@ -52,7 +53,7 @@ def login(client_id, auth_server, scopes):
     url to provide credentials. Once this is done, the token can be loaded from
     the cache and refreshed non-interactively.
 
-    For non-interactive workflows run the oneseismic-login exectutale before
+    For non-interactive workflows run the oneseismic-login executable before
     running your script.
 
     Parameters
@@ -68,7 +69,7 @@ def login(client_id, auth_server, scopes):
         <tenant-id> with the Directory (tenant) ID in which the app registration
         was created.
     """
-    cache_dir = os.path.join(Path.home(), ".oneseismic")
+    cache_dir = os.path.join(XDG_CACHE_HOME, "oneseismic")
     Path(cache_dir).mkdir(exist_ok=True)
 
     store_config(client_id, auth_server, scopes, cache_dir)

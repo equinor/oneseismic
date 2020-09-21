@@ -4,8 +4,8 @@ import logging
 import msal
 import numpy as np
 import os
-from pathlib import Path
 import requests
+from xdg import XDG_CACHE_HOME
 
 
 def assemble_slice(parts):
@@ -72,7 +72,7 @@ class cube:
         ----------
 
         dim : int
-            The dimension allong which to slice
+            The dimension along which to slice
         lineno : int
             The line number we would like to fetch. This corresponds to the
             axis labels given in the dim<n> members. In order to fetch the nth
@@ -106,8 +106,8 @@ class azure_auth:
         """
         if not self.app:
             config_path = os.path.join(
-                Path.home(),
-                ".oneseismic",
+                XDG_CACHE_HOME,
+                "oneseismic",
                 "config.json"
             )
             try:
@@ -119,8 +119,8 @@ class azure_auth:
                 )
 
             cache_file = os.path.join(
-                Path.home(),
-                ".oneseismic",
+                XDG_CACHE_HOME,
+                "oneseismic",
                 "accessToken.json"
             )
             cache = msal.SerializableTokenCache()
