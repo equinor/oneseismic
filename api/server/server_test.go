@@ -28,7 +28,7 @@ func TestSlicer(t *testing.T) {
 	e.GET("/some_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusOK).
-		JSON()
+		ContentType("application/x-protobuf")
 }
 
 func coreMock(reqNdpt string, repNdpt string, failureAddr string) {

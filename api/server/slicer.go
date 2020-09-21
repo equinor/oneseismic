@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/binary"
 	"net/http"
 	"fmt"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/kataras/iris/v12"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -111,18 +111,16 @@ func (sc *sliceController) get(ctx iris.Context) {
 		return
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	ctx.Header("Transfer-Encoding", "chunked,gzip")
-	_, err = ctx.WriteString("[")
+	ctx.Header("Content-Type", "application/x-protobuf")
+	ctx.Header("Transfer-Encoding", "chunked")
 
-	m := protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}
-
+	bs := make([]byte, 4)
 	count := 0
-
 	for partial := range io.out {
 		expectedCount := partial.m
-		if count != 0 {
-			_, err = ctx.WriteString(",")
+		if count == 0 {
+			binary.LittleEndian.PutUint32(bs, uint32(expectedCount))
+			ctx.Write(bs)
 		}
 
 		fr := oneseismic.FetchResponse{}
@@ -142,27 +140,20 @@ func (sc *sliceController) get(ctx iris.Context) {
 			default:
 				msg := "%s Expected FetchResponse.Function = %T; was %T"
 				log.Error().Msgf(msg, requestid, slice, x)
-				ctx.StatusCode(http.StatusInternalServerError)
-				ctx.WriteString("internal error")
 				return
 			}
 		}
 
-		js, err := m.Marshal(fr.GetSlice())
+		bytes, err := proto.Marshal(slice)
 		if err != nil {
 			log.Error().Err(err)
 			return
 		}
-		_, err = ctx.WriteString(string(js))
-		if err != nil {
-			log.Error().Err(err)
-			return
-		}
-		if count == expectedCount -1 {
-			_, err = ctx.WriteString("]")
-		}
+		binary.LittleEndian.PutUint32(bs, uint32(len(bytes)))
+		ctx.Write(bs)
+		ctx.Write(bytes)
 		ctx.ResponseWriter().Flush()
-		count = count +1
+		count = count + 1
 	}
 
 	return

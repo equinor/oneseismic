@@ -6,25 +6,25 @@ import numpy as np
 import os
 from pathlib import Path
 import requests
+from .core_pb2 import *
 
 
 def assemble_slice(parts):
     if len(parts) > 0:
-        shape0 = parts[0]['slice_shape']['dim0']
-        shape1 = parts[0]['slice_shape']['dim1']
+        shape0 = parts[0].slice_shape.dim0
+        shape1 = parts[0].slice_shape.dim1
 
         slice = np.zeros(shape0*shape1)
-
-        for p in parts:
-            for tile in p['tiles']:
-                layout = tile['layout']
-                dst = layout['initial_skip']
-                chunk_size = layout['chunk_size']
+        for part in parts:
+            for tile in part.tiles:
+                layout = tile.layout
+                dst = layout.initial_skip
+                chunk_size = layout.chunk_size
                 src = 0
-                for _ in range(layout['iterations']):
-                    slice[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
-                    src += layout['substride']
-                    dst += layout['superstride']
+                for _ in range(layout.iterations):
+                    slice[dst: dst + chunk_size] = tile.v[src: src + chunk_size]
+                    src += layout.substride
+                    dst += layout.superstride
 
         return slice.reshape((shape0, shape1))
 
@@ -85,9 +85,35 @@ class cube:
         slice : numpy.ndarray
         """
         resource = f"{self.id}/slice/{dim}/{lineno}"
-        parts = self.client.get(resource)
 
+        url = f"{self.client.endpoint}/{resource}"
+        r = requests.get(url, headers=self.client.token())
+
+        if not r.status_code == 200:
+            raise RuntimeError(
+                f"Request {url} failed with status code {r.status_code}"
+            )
+
+        n = int.from_bytes(r.content[:4], byteorder="little")
+        parts = split(r.content[4:])
+        if len(parts) != n:
+            raise RuntimeError(
+                f"Only received {parts.len()} of {n} chunks"
+            )
         return assemble_slice(parts)
+
+
+def split(s):
+    parts = []
+    while True:
+        if len(s) == 0:
+            return parts
+        l = int.from_bytes(s[:4], byteorder="little")
+        s = s[4:]
+        sr = slice_response()
+        sr.ParseFromString(s[:l])
+        s = s[l:]
+        parts.append(sr)
 
 
 class azure_auth:

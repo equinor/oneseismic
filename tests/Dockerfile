@@ -1,7 +1,10 @@
 FROM python:buster
+RUN apt-get update && apt-get install -y protobuf-compiler
 
 WORKDIR /python
 COPY /python .
+COPY /protos protos
+RUN protoc -I=protos --python_out=python/oneseismic/client protos/core.proto
 RUN python3 setup.py install
 RUN python3 setup.py test
 

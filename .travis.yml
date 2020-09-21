@@ -38,6 +38,7 @@ install:
   - popd
 
 script:
+  - protoc -I=protos --python_out=python/oneseismic/client protos/core.proto
   - pushd python/
   - pip install -r requirements-dev.txt
   - python setup.py test

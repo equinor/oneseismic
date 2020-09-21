@@ -70,7 +70,7 @@ func Test1Slice(t *testing.T) {
 	e.GET("/some_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusOK).
-		JSON()
+		ContentType("application/x-protobuf")
 }
 
 
@@ -96,7 +96,7 @@ func Test2Slices(t *testing.T) {
 	e.GET("/some_guid/slice/0/0").
 		Expect().
 		Status(httptest.StatusOK).
-		JSON()
+		ContentType("application/x-protobuf")
 }
 
 func Test1MissingSlice(t *testing.T) {
@@ -119,7 +119,8 @@ func Test1MissingSlice(t *testing.T) {
 	e := httptest.New(t, app)
 	e.GET("/some_guid/slice/0/0").
 		Expect().
-		Status(httptest.StatusOK)
-	// TODO assert invalid json?
+		Status(httptest.StatusOK).
+		ContentType("application/x-protobuf")
+	// TODO assert invalid transfer?
 
 }
