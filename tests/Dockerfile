@@ -7,7 +7,7 @@ COPY /python python
 RUN pip install python/
 
 COPY /tests/integration_tests.py .
-COPY /tests/data/small.sgy .
+COPY /tests/data data
 
 COPY /tests/ssl/az.pem  /etc/ssl/certs/
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/az.pem
