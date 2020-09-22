@@ -16,7 +16,7 @@ API_ADDR = os.getenv("API_ADDR", "http://localhost:8080")
 AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
 
 
-with open("./small.sgy", "rb") as f:
+with open("data/small.sgy", "rb") as f:
     META = scan.scan(f)
 
 
@@ -62,7 +62,7 @@ def create_cubes():
 
     shape = [64, 64, 64]
     params = {"subcube-dims": shape}
-    with open("small.sgy", "rb") as f:
+    with open("data/small.sgy", "rb") as f:
         upload.upload(params, META, f, blob_service_client)
 
 
@@ -115,7 +115,7 @@ def tests_slices(create_cubes):
     cube_id = c.list_cubes()[0]
     cube = c.cube(cube_id)
 
-    with segyio.open("small.sgy", "r") as f:
+    with segyio.open("data/small.sgy", "r") as f:
         expected = segyio.cube(f)
 
     for i in range(len(cube.dim0)):
