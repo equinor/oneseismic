@@ -1,5 +1,0 @@
-pytest-runner
-hypothesis
-segyio
-azure-storage-blob
-tqdm

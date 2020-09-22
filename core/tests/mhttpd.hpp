@@ -70,9 +70,11 @@ private:
 struct loopback_cfg : public one::storage_configuration {
     explicit loopback_cfg(int port) : port(port) {}
 
-    std::string url(
-            const one::batch&,
-            const std::string&) const override {
+    std::string url(const one::batch&, const std::string&) const override {
+        return this->url("");
+    }
+
+    std::string url(const std::string& path) const override {
         return "http://127.0.0.1:" + std::to_string(this->port);
     }
 
@@ -85,9 +87,13 @@ struct loopback_cfg : public one::storage_configuration {
         return action::done;
     }
 
+    action onstatus(long http_code) override {
+        CHECK(http_code == 201);
+        return action::done;
+    }
+
 private:
     int port = 10000;
 };
-
 
 #endif //ONESEISMIC_TEST_HTTPD_HPP

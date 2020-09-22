@@ -18,18 +18,11 @@ find_package(fmt REQUIRED)
 find_package(GnuTLS REQUIRED)
 find_package(CURL REQUIRED)
 find_package(Threads REQUIRED)
-find_package(Protobuf REQUIRED)
 find_package(spdlog REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(microhttpd IMPORTED_TARGET libmicrohttpd)
 pkg_check_modules(zmq IMPORTED_TARGET REQUIRED libzmq)
-
-protobuf_generate_cpp(
-    PROTO_SRCS
-    PROTO_HDRS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../protos/core.proto
-)
 
 if (NOT MSVC)
     # assuming gcc-style options
@@ -57,8 +50,7 @@ add_library(oneseismic
     src/azure.cpp
     src/worker.cpp
     src/manifest.cpp
-    ${PROTO_SRCS}
-    ${PROTO_HDRS}
+    src/messages.cpp
 )
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
@@ -69,7 +61,6 @@ target_include_directories(oneseismic
     PRIVATE
         include
         ${GNUTLS_INCLUDE_DIR}
-        ${CMAKE_CURRENT_BINARY_DIR}
         external/nlohmann
 )
 target_compile_options(oneseismic
@@ -82,7 +73,6 @@ target_link_libraries(oneseismic
         ${GNUTLS_LIBRARIES}
         ${CURL_LIBRARIES}
         PkgConfig::zmq
-        protobuf::libprotobuf
 )
 
 add_executable(oneseismic-manifest
@@ -148,6 +138,7 @@ add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
     tests/azure-transfer-config.cpp
+    tests/messages.cpp
 )
 target_link_libraries(tests
     PRIVATE
@@ -155,10 +146,7 @@ target_link_libraries(tests
         oneseismic::oneseismic
         fmt::fmt
         Threads::Threads
-)
-target_include_directories(tests
-    PRIVATE
-        ${CMAKE_CURRENT_BINARY_DIR}
+        json
 )
 
 if (TARGET PkgConfig::microhttpd)

@@ -2,31 +2,62 @@
 #include <string>
 
 #include <catch/catch.hpp>
-#include <microhttpd.h>
 #include <fmt/format.h>
-#include <zmq.hpp>
+#include <microhttpd.h>
+#include <nlohmann/json.hpp>
 #include <zmq_addon.hpp>
+#include <zmq.hpp>
 
-#include <oneseismic/transfer.hpp>
+#include <oneseismic/messages.hpp>
 #include <oneseismic/tasks.hpp>
+#include <oneseismic/transfer.hpp>
 
 #include "mhttpd.hpp"
 #include "utility.hpp"
-#include "core.pb.h"
 
 using namespace Catch::Matchers;
 
 namespace {
 
 int simple_manifest(
-        void*,
+        void* cls,
         struct MHD_Connection* connection,
         const char*,
+        const char* method,
         const char*,
-        const char*,
-        const char*,
-        size_t*,
+        const char* upload_data,
+        size_t* upload_size,
         void**) {
+
+    if (method == std::string("PUT")) {
+        REQUIRE(cls);
+        int* done = (int*)cls;
+
+        if (*done) {
+            char empty[] = "";
+            auto response = MHD_create_response_from_buffer(
+                    0,
+                    empty,
+                    MHD_RESPMEM_MUST_COPY
+            );
+            auto ret = MHD_queue_response(
+                    connection,
+                    MHD_HTTP_CREATED,
+                    response
+            );
+            MHD_destroy_response(response);
+            return ret;
+
+        }
+
+        if (*upload_size > 0) {
+            *upload_size = 0;
+            *done = 1;
+            return MHD_YES;
+        }
+
+        return MHD_YES;
+    }
 
     std::string manifest = R"(
     {
@@ -62,7 +93,6 @@ void sendmsg(zmq::socket_t& sock, const std::string& body) {
      * All in all it should make tests leaner, and easier to maintain.
      */
     zmq::multipart_t msg;
-    msg.addstr("addr");
     msg.addstr("pid");
     msg.addstr(body);
     msg.send(sock);
@@ -71,22 +101,13 @@ void sendmsg(zmq::socket_t& sock, const std::string& body) {
 }
 
 std::string make_slice_request() {
-    oneseismic::api_request req;
-    req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
-    req.set_storage_endpoint("storage");
-
-    auto* fragment_shape = req.mutable_shape();
-    fragment_shape->set_dim0(2);
-    fragment_shape->set_dim1(2);
-    fragment_shape->set_dim2(2);
-
-    auto* slice = req.mutable_slice();
-    slice->set_dim(1);
-    slice->set_lineno(4);
-
-    std::string msg;
-    req.SerializeToString(&msg);
-    return msg;
+    one::slice_task task;
+    task.guid = "0d235a7138104e00c421e63f5e3261bf2dc3254b";
+    task.storage_endpoint = "storage";
+    task.shape  = { 2, 2, 2 };
+    task.dim    = 1;
+    task.lineno = 4;
+    return task.pack();
 }
 
 TEST_CASE("Manifest messages are pushed to the right queue") {
@@ -107,7 +128,8 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
     worker_rep.connect( "inproc://rep");
     worker_fail.connect("inproc://fail");
 
-    mhttpd httpd(simple_manifest);
+    int done = 0;
+    mhttpd httpd(simple_manifest, &done);
     const auto reqmsg = make_slice_request();
 
     SECTION("Successful calls are pushed to destination") {
@@ -119,24 +141,21 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t response(caller_rep);
-        REQUIRE(response.size() == 4);
-        CHECK(response[0].to_string() == "addr");
-        CHECK(response[1].to_string() == "pid");
-        CHECK(response[2].to_string() == "0/1");
-        const auto& msg = response[3];
+        REQUIRE(response.size() == 3);
+        CHECK(response[0].to_string() == "pid");
+        CHECK(response[1].to_string() == "0/1");
+        const auto& msg = response[2];
 
-        oneseismic::fetch_request rep;
-        const auto ok = rep.ParseFromArray(msg.data(), msg.size());
-        REQUIRE(ok);
+        one::slice_fetch task;
+        task.unpack(
+                static_cast< const char* >(msg.data()),
+                static_cast< const char* >(msg.data()) + msg.size()
+        );
 
-        CHECK(rep.storage_endpoint() == "storage");
-        CHECK(rep.fragment_shape().dim0() == 2);
-        CHECK(rep.fragment_shape().dim1() == 2);
-        CHECK(rep.fragment_shape().dim2() == 2);
-
-        REQUIRE(rep.has_slice());
-        CHECK(rep.slice().dim() == 1);
-        CHECK(rep.slice().idx() == 1);
+        CHECK(task.storage_endpoint == "storage");
+        CHECK(task.dim    == 1);
+        CHECK(task.lineno == 1);
+        CHECK_THAT(task.shape, Equals(std::vector< int >{ 2, 2, 2 }));
     }
 
     SECTION("not-found messages are pushed on failure") {
@@ -245,23 +264,46 @@ TEST_CASE("Manifest messages are pushed to the right queue") {
             }
 
             zmq::multipart_t response(caller_rep);
-            const auto& msg = response[3];
+            const auto& msg = response[2];
 
-            oneseismic::fetch_request rep;
-            const auto ok = rep.ParseFromString(msg.to_string());
-            REQUIRE(ok);
+            one::slice_fetch task;
+            task.unpack(
+                static_cast< const char* >(msg.data()),
+                static_cast< const char* >(msg.data()) + msg.size()
+            );
 
-            for (const auto& id : rep.ids()) {
-                received.push_back(fmt::format(
-                    "{}-{}-{}",
-                    id.dim0(),
-                    id.dim1(),
-                    id.dim2()
-                ));
+            for (const auto& id : task.ids) {
+                received.push_back(fmt::format("{}", fmt::join(id, "-")));
             }
         }
 
         std::sort(received.begin(), received.end());
         CHECK_THAT(received, Equals(expected));
+    }
+
+    SECTION("No tasks are queued when header put fails") {
+        struct put_fails : public loopback_cfg {
+            using loopback_cfg::loopback_cfg;
+
+            action onstatus(long) override {
+                throw one::unauthorized("no reason");
+            }
+        } storage_cfg(httpd.port());
+
+        sendmsg(caller_req, reqmsg);
+        one::transfer xfer(1, storage_cfg);
+        one::manifest_task mt;
+        mt.run(xfer, worker_req, worker_rep, worker_fail);
+
+        zmq::multipart_t fail;
+        const auto received = fail.recv(
+                caller_fail,
+                static_cast< int >(zmq::recv_flags::dontwait)
+        );
+        REQUIRE(received);
+        REQUIRE(fail.size() == 2);
+        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[1].to_string() == "header-put-not-authorized");
+        CHECK(not received_message(caller_rep));
     }
 }

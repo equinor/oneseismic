@@ -15,12 +15,7 @@ inline constexpr const char* x_ms_version() noexcept (true) {
 
 class az : public one::storage_configuration {
 public:
-    az(std::string k);
-
-    curl_slist* http_headers(
-            const one::batch&,
-            const std::string&)
-        const override;
+    curl_slist* http_headers(const std::string& auth) const override;
 
     std::string url(
             const one::batch&,
@@ -39,8 +34,12 @@ public:
             long status_code)
         override;
 
-private:
-    std::string key;
+    /*
+     * A reasonable default azure configuration - anything but 201/Created gives a
+     * runtime error and aborts the transfer. Retrying and other fancy stuff
+     * can come later.
+     */
+    action onstatus(long status_code) override;
 };
 
 }

@@ -8,6 +8,7 @@
 #include <curl/curl.h>
 #include <fmt/format.h>
 #include <fmt/chrono.h>
+#include <spdlog/spdlog.h>
 
 #include <oneseismic/transfer.hpp>
 
@@ -185,6 +186,37 @@ long response_code(CURL* e) noexcept (false) {
 
 }
 
+curl_headers::curl_headers(curl_slist* l) : headers(l) {}
+
+void curl_headers::append(const std::string& header) noexcept (false) {
+    this->append(header.c_str());
+}
+
+void curl_headers::curl_headers::append(const char* header) noexcept (false) {
+    auto* next = curl_slist_append(this->headers.get(), header);
+    if (!next) {
+        const auto msg = std::string("Unable to add header ");
+        throw std::runtime_error(msg + header);
+    }
+
+    this->headers.release();
+
+    assert(!this->headers.get());
+    this->headers.reset(next);
+}
+
+const curl_slist* curl_headers::get() const noexcept (true) {
+    return this->headers.get();
+}
+
+void curl_headers::set(curl_slist* l) noexcept (true) {
+    this->headers.reset(l);
+}
+
+curl_slist* curl_headers::release() noexcept (true) {
+    return this->headers.release();
+}
+
 transfer::transfer(int max_connections, storage_configuration& xc) :
     multi(curl_multi_init()),
     config(xc) {
@@ -345,9 +377,9 @@ void transfer::schedule(const batch& batch, std::string fragment_id) {
     const auto url = this->config.url(batch, fragment_id);
     curl_easy_setopt(e, CURLOPT_URL, url.c_str());
 
-    auto* headers = this->config.http_headers(batch, fragment_id);
+    auto* headers = this->config.http_headers(batch.auth);
     if (headers) {
-        t->headers.reset(headers);
+        t->headers.set(headers);
         const auto rc = curl_easy_setopt(e, CURLOPT_HTTPHEADER, headers);
 
         if (rc != CURLE_OK) {
@@ -358,6 +390,79 @@ void transfer::schedule(const batch& batch, std::string fragment_id) {
 
     check_multi_error(curl_multi_add_handle(this->multi, e));
     this->idle.pop_back();
+}
+
+namespace {
+
+struct bufview {
+    const char* data;
+    std::size_t size;
+    std::size_t offset;
+};
+
+}
+
+std::size_t putfn(
+        void* dst,
+        std::size_t size,
+        std::size_t nmemb,
+        bufview* src) {
+    assert(src->size >= src->offset);
+    const auto to_read = std::min(src->size - src->offset, size * nmemb);
+    std::memcpy(dst, src->data + src->offset, to_read);
+    src->offset += to_read;
+    return to_read;
+}
+
+void transfer::put(
+        const std::string& path,
+        const char* data,
+        std::size_t size,
+        const std::string& auth,
+        const std::string& type) {
+    bufview b;
+    b.data   = data;
+    b.size   = size;
+    b.offset = 0;
+
+    struct deleter {
+        void operator () (CURL* e) const noexcept (true) {
+            curl_easy_cleanup(e);
+        }
+    };
+    std::unique_ptr< CURL, deleter > handle(curl_easy_init());
+    if (!handle)
+        throw std::runtime_error("unable to init curl handle");
+
+    curl_headers headers(this->config.http_headers(auth));
+    headers.append("x-ms-blob-type: BlockBlob");
+    if (not type.empty()) {
+        headers.append(fmt::format("Content-Type: {}", type));
+    }
+
+    auto* c = handle.get();
+    const auto url = this->config.url(path);
+    curl_easy_setopt(c, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(c, CURLOPT_HTTPHEADER, headers.get());
+    curl_easy_setopt(c, CURLOPT_UPLOAD, long(1));
+    curl_easy_setopt(c, CURLOPT_READDATA, &b);
+    curl_easy_setopt(c, CURLOPT_READFUNCTION, putfn);
+    curl_easy_setopt(c, CURLOPT_INFILESIZE, curl_off_t(size));
+
+    const auto r = curl_easy_perform(c);
+    if (r != CURLE_OK) {
+        const auto msg = "Unable to perform PUT: {}";
+        throw std::runtime_error(fmt::format(msg, curl_easy_strerror(r)));
+    }
+
+    long http_code;
+    const auto rc = curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &http_code);
+    if (rc != CURLE_OK) {
+        const auto msg = "Unable to read HTTP status code: {}";
+        throw std::runtime_error(fmt::format(msg, curl_easy_strerror(r)));
+    }
+
+    this->config.onstatus(http_code);
 }
 
 }

@@ -6,27 +6,30 @@ import numpy as np
 import os
 import requests
 from xdg import XDG_CACHE_HOME
+import msgpack
+import time
 
 
-def assemble_slice(parts):
-    tiles = parts['tiles']
-    shape0 = parts['slice_shape']['dim0']
-    shape1 = parts['slice_shape']['dim1']
+def assemble_slice(msg):
+    parts = msgpack.unpackb(msg)
 
-    slice = np.zeros(shape0*shape1)
+    # assume that all tiles have the same shape (which holds, at least for
+    # now), so look up the shape from the first tile
+    shape0, shape1 = parts[0]['shape']
+    result = np.zeros(shape0 * shape1)
 
-    for tile in tiles:
-        layout = tile['layout']
-        dst = layout['initial_skip']
-        chunk_size = layout['chunk_size']
-        src = 0
-        for _ in range(layout['iterations']):
-            slice[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
-            src += layout['substride']
-            dst += layout['superstride']
+    for part in parts:
+        for tile in part['tiles']:
+            layout = tile
+            dst = layout['initial-skip']
+            chunk_size = layout['chunk-size']
+            src = 0
+            for _ in range(layout['iterations']):
+                result[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
+                src += layout['substride']
+                dst += layout['superstride']
 
-    return slice.reshape((shape0, shape1))
-
+    return result.reshape((shape0, shape1))
 
 class cube:
     """ Cube handle
@@ -40,30 +43,6 @@ class cube:
         self._dim0 = None
         self._dim1 = None
         self._dim2 = None
-
-    @property
-    def dim0(self):
-        if not self._dim0:
-            resource = f"{self.id}/slice/0"
-            self._dim0 = self.client.get(resource)
-
-        return self._dim0
-
-    @property
-    def dim1(self):
-        if not self._dim1:
-            resource = f"{self.id}/slice/1"
-            self._dim1 = self.client.get(resource)
-
-        return self._dim1
-
-    @property
-    def dim2(self):
-        if not self._dim2:
-            resource = f"{self.id}/slice/2"
-            self._dim2 = self.client.get(resource)
-
-        return self._dim2
 
     def slice(self, dim, lineno):
         """ Fetch a slice
@@ -83,11 +62,32 @@ class cube:
 
         slice : numpy.ndarray
         """
-        resource = f"{self.id}/slice/{dim}/{lineno}"
-        parts = self.client.get(resource)
+        resource = f"query/{self.id}/slice/{dim}/{lineno}"
+        r = self.client.get(resource)
+        if r.status_code != 200:
+            raise RuntimeError(f'Error fetching {resource}; {r.status_code}')
+        header = json.loads(r.content)
 
-        return assemble_slice(parts)
+        result = header['result']
+        resource = f'{result}'
+        # Super hacky retries - the result is probably not ready right away,
+        # so give it a few tries before actually giving up. Currently the
+        # server returns 500 also when it cannot find partial results, so
+        # repeat the query up-to 15 times before giving up
+        #
+        # This blocking could possibly be built into the server, or maybe even
+        # more elegantly in python as a future, but should serve well enough for now
+        for _ in range(15):
+            r = self.client.get(resource)
 
+            if r.status_code == 200:
+                return assemble_slice(r.content)
+
+            if r.status_code == 500:
+                time.sleep(10)
+                continue
+
+        raise RuntimeError('Request timed out; unable to fetch result')
 
 class azure_auth:
     def __init__(self, cache_dir=None):
@@ -165,14 +165,7 @@ class client:
 
     def get(self, resource):
         url = f"{self.endpoint}/{resource}"
-        r = requests.get(url, headers=self.token())
-
-        if not r.status_code == 200:
-            raise RuntimeError(
-                f"Request {url} failed with status code {r.status_code}"
-            )
-
-        return json.loads(r.content)
+        return requests.get(url, headers=self.token())
 
     def list_cubes(self):
         """ Return a list of cube ids

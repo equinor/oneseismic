@@ -1,6 +1,7 @@
 #define CATCH_CONFIG_RUNNER
 #include <catch/catch.hpp>
 
+#include <curl/curl.h>
 #include <spdlog/spdlog.h>
 
 /*
@@ -12,6 +13,6 @@
  */
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::off);
-    int result = Catch::Session().run( argc, argv );
-    return result;
+    curl_global_init(CURL_GLOBAL_ALL);
+    return Catch::Session().run( argc, argv );
 }

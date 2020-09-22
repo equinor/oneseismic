@@ -7,12 +7,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential \
     cmake \
     libgnutls28-dev libcurl4-gnutls-dev \
-    protobuf-compiler-grpc libprotobuf-dev \
     pkg-config \
     wget \
     unzip \
     libzmq3-dev \
     libspdlog-dev \
+    libmsgpack-dev \
     ca-certificates
 RUN apt-get autoremove -y \
     && apt-get clean -y \
@@ -46,7 +46,6 @@ RUN rm -rf /src
 FROM dependencies AS source
 WORKDIR /src
 COPY core/ core
-COPY protos/ protos
 
 FROM source AS build
 WORKDIR /src/build

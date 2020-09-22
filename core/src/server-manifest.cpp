@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az_manifest az("");
+    one::az_manifest az;
     one::transfer xfer(ntransfers, az);
     one::manifest_task task;
     try {

@@ -4,6 +4,7 @@
 
 #include <clara/clara.hpp>
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 #include <zmq.hpp>
 
 #include <oneseismic/azure.hpp>
@@ -51,8 +52,7 @@ int main(int argc, char** argv) {
 
     zmq::context_t ctx;
     zmq::socket_t source(ctx, ZMQ_PULL);
-    zmq::socket_t sink(ctx, ZMQ_ROUTER);
-    sink.setsockopt(ZMQ_ROUTER_MANDATORY, 1);
+    zmq::socket_t sink(ctx, ZMQ_PUSH);
     zmq::socket_t control(ctx, ZMQ_SUB);
     zmq::socket_t fail(ctx, ZMQ_PUSH);
     control.setsockopt(ZMQ_SUBSCRIBE, "ctrl:kill", 0);
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az az("");
+    one::az az;
     one::transfer xfer(ntransfers, az);
     one::fragment_task task;
 
