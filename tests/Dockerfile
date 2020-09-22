@@ -3,6 +3,7 @@ FROM python:buster
 WORKDIR /python
 COPY /python .
 RUN python3 setup.py install
+RUN python3 setup.py test
 
 WORKDIR /tests
 COPY /tests/integration_tests.py .
