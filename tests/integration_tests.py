@@ -5,11 +5,11 @@ import numpy as np
 import pytest
 import requests
 import segyio
+import tempfile
 from azure.core.credentials import AccessToken
 from azure.storage.blob import BlobServiceClient
 from oneseismic import scan
 from oneseismic import upload
-
 from oneseismic import client
 
 API_ADDR = os.getenv("API_ADDR", "http://localhost:8080")
@@ -49,6 +49,24 @@ class client_auth:
 
 AUTH_HEADER = auth_header()
 AUTH_CLIENT = client_auth(auth_header())
+
+
+def upload_cubes(data):
+    fname = tempfile.mktemp("segy")
+    segyio.tools.from_array(fname, data)
+
+    with open(fname, "rb") as f:
+        meta = scan.scan(f)
+
+    credential = CustomTokenCredential()
+    blob_service_client = BlobServiceClient(STORAGE_URL, credential)
+    for c in requests.get(API_ADDR, headers=AUTH_HEADER).json():
+        blob_service_client.get_container_client(c).delete_container()
+
+    shape = [64, 64, 64]
+    params = {"subcube-dims": shape}
+    with open(fname, "rb") as f:
+        upload.upload(params, meta, f, blob_service_client)
 
 
 @pytest.fixture(scope="session")
@@ -108,17 +126,23 @@ def test_lines_404(create_cubes):
     assert r.status_code == 404
 
 
-def tests_slices(create_cubes):
+def test_slices():
+    w, h, d = 3, 5, 7
+    data = np.ndarray(shape=(w, h, d), dtype=np.float32)
+    for i in range(w):
+        for j in range(h):
+            for k in range(d):
+                data[i, j, k] = i * j * k
+
+    upload_cubes(data)
+
     c = client.client(API_ADDR, AUTH_CLIENT)
     cube_id = c.list_cubes()[0]
     cube = c.cube(cube_id)
 
-    with segyio.open("data/small.sgy", "r") as f:
-        expected = segyio.cube(f)
-
-    for i in range(len(cube.dim0)):
-        assert np.allclose(cube.slice(0, cube.dim0[i]), expected[i, :, :], atol=1e-5)
-    for i in range(len(cube.dim1)):
-        assert np.allclose(cube.slice(1, cube.dim1[i]), expected[:, i, :], atol=1e-5)
-    for i in range(len(cube.dim2)):
-        assert np.allclose(cube.slice(2, cube.dim2[i]), expected[:, :, i], atol=1e-5)
+    for i in range(w):
+        assert np.allclose(cube.slice(0, cube.dim0[i]), data[i, :, :], atol=1e-5)
+    for i in range(h):
+        assert np.allclose(cube.slice(1, cube.dim1[i]), data[:, i, :], atol=1e-5)
+    for i in range(d):
+        assert np.allclose(cube.slice(2, cube.dim2[i]), data[:, :, i], atol=1e-5)
