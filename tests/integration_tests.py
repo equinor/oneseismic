@@ -1,6 +1,7 @@
 import os
 from urllib.parse import parse_qs, urlparse
 
+from hypothesis import given, settings, strategies as st
 import numpy as np
 import pytest
 import requests
@@ -112,8 +113,13 @@ def test_dimensions(cube):
     assert c.cube(cube).dim2 == [0, 4000]
 
 
-def test_slices():
-    w, h, d = 2, 2, 2
+@settings(deadline=None, max_examples=6)
+@given(
+    w=st.integers(min_value=2, max_value=5),
+    h=st.integers(min_value=2, max_value=10),
+    d=st.integers(min_value=2, max_value=20),
+)
+def test_slices(w, h, d):
     data = np.ndarray(shape=(w, h, d), dtype=np.float32)
     for i in range(w):
         for j in range(h):
