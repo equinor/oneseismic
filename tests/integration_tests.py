@@ -14,7 +14,8 @@ from oneseismic import client
 
 API_ADDR = os.getenv("API_ADDR", "http://localhost:8080")
 AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
-
+AUDIENCE = os.getenv("AUDIENCE")
+STORAGE_URL = os.getenv("AZURE_STORAGE_URL")
 
 with open("data/small.sgy", "rb") as f:
     META = scan.scan(f)
@@ -29,7 +30,7 @@ class CustomTokenCredential(object):
 
 def auth_header():
     r = requests.get(
-        AUTHSERVER + "/oauth2/v2.0/authorize" + "?client_id=" + os.getenv("AUDIENCE"),
+        AUTHSERVER + "/oauth2/v2.0/authorize" + "?client_id=" + AUDIENCE,
         headers={"content-type": "application/json"},
         allow_redirects=False,
     )
@@ -53,10 +54,7 @@ AUTH_CLIENT = client_auth(auth_header())
 @pytest.fixture(scope="session")
 def create_cubes():
     credential = CustomTokenCredential()
-    account_url = os.getenv("AZURE_STORAGE_URL").format(
-        os.getenv("AZURE_STORAGE_ACCOUNT")
-    )
-    blob_service_client = BlobServiceClient(account_url, credential)
+    blob_service_client = BlobServiceClient(STORAGE_URL, credential)
     for c in requests.get(API_ADDR, headers=AUTH_HEADER).json():
         blob_service_client.get_container_client(c).delete_container()
 
