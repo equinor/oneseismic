@@ -17,9 +17,6 @@ AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
 AUDIENCE = os.getenv("AUDIENCE")
 STORAGE_URL = os.getenv("AZURE_STORAGE_URL")
 
-with open("data/small.sgy", "rb") as f:
-    META = scan.scan(f)
-
 
 class CustomTokenCredential(object):
     def get_token(self, *scopes, **kwargs):
@@ -51,7 +48,11 @@ AUTH_HEADER = auth_header()
 AUTH_CLIENT = client_auth(auth_header())
 
 
-def upload_cubes(data):
+def upload_cube(data):
+    """ create segy of data and upload to azure blob
+
+    return: guid of cube
+    """
     fname = tempfile.mktemp("segy")
     segyio.tools.from_array(fname, data)
 
@@ -68,18 +69,18 @@ def upload_cubes(data):
     with open(fname, "rb") as f:
         upload.upload(params, meta, f, blob_service_client)
 
+    return meta["guid"]
+
 
 @pytest.fixture(scope="session")
-def create_cubes():
-    credential = CustomTokenCredential()
-    blob_service_client = BlobServiceClient(STORAGE_URL, credential)
-    for c in requests.get(API_ADDR, headers=AUTH_HEADER).json():
-        blob_service_client.get_container_client(c).delete_container()
+def cube():
+    """ Generate and upload simplest cube, no specific data needed
 
-    shape = [64, 64, 64]
-    params = {"subcube-dims": shape}
-    with open("data/small.sgy", "rb") as f:
-        upload.upload(params, META, f, blob_service_client)
+    return: guid of cube
+    """
+    data = np.ndarray(shape=(2, 2, 2), dtype=np.float32)
+
+    return upload_cube(data)
 
 
 def test_no_auth():
@@ -92,53 +93,51 @@ def test_auth():
     assert r.status_code == 200
 
 
-def test_list_cubes(create_cubes):
+def test_list_cubes(cube):
     r = requests.get(API_ADDR, headers=AUTH_HEADER)
     assert r.status_code == 200
-    assert r.json() == [META["guid"]]
+    assert r.json() == [cube]
 
 
-def test_services(create_cubes):
-    r = requests.get(API_ADDR + "/" + META["guid"], headers=AUTH_HEADER)
+def test_services(cube):
+    r = requests.get(API_ADDR + "/" + cube, headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == ["slice"]
 
 
-def test_cube_404(create_cubes):
+def test_cube_404(cube):
     r = requests.get(API_ADDR + "/b", headers=AUTH_HEADER)
     assert r.status_code == 404
 
 
-def test_dimensions(create_cubes):
-    r = requests.get(API_ADDR + "/" + META["guid"] + "/slice", headers=AUTH_HEADER)
+def test_dimensions(cube):
+    r = requests.get(API_ADDR + "/" + cube + "/slice", headers=AUTH_HEADER)
     assert r.status_code == 200
     assert r.json() == [0, 1, 2]
 
 
-def test_lines(create_cubes):
-    r = requests.get(API_ADDR + "/" + META["guid"] + "/slice/1", headers=AUTH_HEADER)
+def test_lines(cube):
+    r = requests.get(API_ADDR + "/" + cube + "/slice/1", headers=AUTH_HEADER)
     assert r.status_code == 200
-    assert r.json() == META["dimensions"][1]
 
 
-def test_lines_404(create_cubes):
-    r = requests.get(API_ADDR + "/" + META["guid"] + "/slice/3", headers=AUTH_HEADER)
+def test_lines_404(cube):
+    r = requests.get(API_ADDR + "/" + cube + "/slice/3", headers=AUTH_HEADER)
     assert r.status_code == 404
 
 
 def test_slices():
-    w, h, d = 3, 5, 7
+    w, h, d = 2, 2, 2
     data = np.ndarray(shape=(w, h, d), dtype=np.float32)
     for i in range(w):
         for j in range(h):
             for k in range(d):
                 data[i, j, k] = i * j * k
 
-    upload_cubes(data)
+    guid = upload_cube(data)
 
     c = client.client(API_ADDR, AUTH_CLIENT)
-    cube_id = c.list_cubes()[0]
-    cube = c.cube(cube_id)
+    cube = c.cube(guid)
 
     for i in range(w):
         assert np.allclose(cube.slice(0, cube.dim0[i]), data[i, :, :], atol=1e-5)

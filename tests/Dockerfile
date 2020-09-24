@@ -7,7 +7,6 @@ RUN python3 setup.py test
 
 WORKDIR /tests
 COPY /tests/integration_tests.py .
-COPY /tests/data data
 COPY /tests/requirements.txt .
 RUN pip install -r requirements.txt
 
