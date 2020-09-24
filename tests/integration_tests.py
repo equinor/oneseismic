@@ -94,36 +94,22 @@ def test_auth():
 
 
 def test_list_cubes(cube):
-    r = requests.get(API_ADDR, headers=AUTH_HEADER)
-    assert r.status_code == 200
-    assert r.json() == [cube]
-
-
-def test_services(cube):
-    r = requests.get(API_ADDR + "/" + cube, headers=AUTH_HEADER)
-    assert r.status_code == 200
-    assert r.json() == ["slice"]
+    c = client.client(API_ADDR, AUTH_CLIENT)
+    assert cube in c.list_cubes()
 
 
 def test_cube_404(cube):
-    r = requests.get(API_ADDR + "/b", headers=AUTH_HEADER)
-    assert r.status_code == 404
+    c = client.client(API_ADDR, AUTH_CLIENT)
+    with pytest.raises(RuntimeError) as e:
+        c.cube("not_found").dim0
+    assert "404" in str(e.value)
 
 
 def test_dimensions(cube):
-    r = requests.get(API_ADDR + "/" + cube + "/slice", headers=AUTH_HEADER)
-    assert r.status_code == 200
-    assert r.json() == [0, 1, 2]
-
-
-def test_lines(cube):
-    r = requests.get(API_ADDR + "/" + cube + "/slice/1", headers=AUTH_HEADER)
-    assert r.status_code == 200
-
-
-def test_lines_404(cube):
-    r = requests.get(API_ADDR + "/" + cube + "/slice/3", headers=AUTH_HEADER)
-    assert r.status_code == 404
+    c = client.client(API_ADDR, AUTH_CLIENT)
+    assert c.cube(cube).dim0 == [1, 2]
+    assert c.cube(cube).dim1 == [1, 2]
+    assert c.cube(cube).dim2 == [0, 4000]
 
 
 def test_slices():
