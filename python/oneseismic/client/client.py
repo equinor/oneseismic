@@ -90,9 +90,10 @@ class cube:
 
 
 class azure_auth:
-    def __init__(self):
+    def __init__(self, cache_dir=None):
         self.app = None
         self.scopes = None
+        self.cache_dir = cache_dir
 
     def token(self):
         """ Loads a token from cache
@@ -106,7 +107,7 @@ class azure_auth:
         """
         if not self.app:
             config_path = os.path.join(
-                XDG_CACHE_HOME,
+                self.cache_dir or XDG_CACHE_HOME,
                 "oneseismic",
                 "config.json"
             )
@@ -119,7 +120,7 @@ class azure_auth:
                 )
 
             cache_file = os.path.join(
-                XDG_CACHE_HOME,
+                self.cache_dir or XDG_CACHE_HOME,
                 "oneseismic",
                 "accessToken.json"
             )
@@ -155,9 +156,9 @@ class azure_auth:
 
 
 class client:
-    def __init__(self, endpoint, auth=azure_auth()):
+    def __init__(self, endpoint, auth=None, cache_dir=None):
         self.endpoint = endpoint
-        self.auth = auth
+        self.auth = auth or azure_auth(cache_dir)
 
     def token(self):
         return self.auth.token()

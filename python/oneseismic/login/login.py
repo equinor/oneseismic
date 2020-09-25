@@ -46,7 +46,7 @@ def fetch_token(client_id, auth_server, scopes, cache_dir):
     open(cache_file, "w").write(cache.serialize())
 
 
-def login(client_id, auth_server, scopes):
+def login(client_id, auth_server, scopes, cache_dir=None):
     """ Log in to one seismic
 
     Fetches token and caches it on disk. This function will prompt user to open
@@ -69,7 +69,7 @@ def login(client_id, auth_server, scopes):
         <tenant-id> with the Directory (tenant) ID in which the app registration
         was created.
     """
-    cache_dir = os.path.join(XDG_CACHE_HOME, "oneseismic")
+    cache_dir = cache_dir or os.path.join(XDG_CACHE_HOME, "oneseismic")
     Path(cache_dir).mkdir(exist_ok=True)
 
     store_config(client_id, auth_server, scopes, cache_dir)
