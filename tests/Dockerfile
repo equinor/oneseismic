@@ -2,6 +2,7 @@ FROM python:buster
 
 WORKDIR /python
 COPY /python .
+RUN pip install -r requirements-dev.txt
 RUN python3 setup.py install
 RUN python3 setup.py test
 
