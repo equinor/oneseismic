@@ -14,7 +14,7 @@ services:
       - TOKEN_ENDPOINT_SUBJECT=https://storage.azure.com
 
   az:
-    image: mcr.microsoft.com/azure-storage/azurite:3.8.0
+    image: mcr.microsoft.com/azure-storage/azurite:latest
     command: azurite-blob --blobHost 0.0.0.0 --oauth basic --loose --cert /tests/ssl/az.pem --key /tests/ssl/key.pem
     volumes:
       - ./tests/ssl:/tests/ssl
