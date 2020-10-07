@@ -1,4 +1,4 @@
-FROM python:buster
+FROM python:3.8-buster
 
 WORKDIR /python
 COPY /python .
