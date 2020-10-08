@@ -115,9 +115,9 @@ def test_dimensions(cube):
 
 @settings(deadline=None, max_examples=6)
 @given(
-    w=st.integers(min_value=2, max_value=5),
-    h=st.integers(min_value=2, max_value=10),
-    d=st.integers(min_value=2, max_value=20),
+    w=st.integers(min_value=2, max_value=200),
+    h=st.integers(min_value=2, max_value=200),
+    d=st.integers(min_value=2, max_value=200),
 )
 def test_slices(w, h, d):
     data = np.ndarray(shape=(w, h, d), dtype=np.float32)
