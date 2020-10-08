@@ -131,9 +131,11 @@ def test_slices(w, h, d):
     c = client.client(API_ADDR, AUTH_CLIENT)
     cube = c.cube(guid)
 
+    tolerance = 1e-1
+
     for i in range(w):
-        assert np.allclose(cube.slice(0, cube.dim0[i]), data[i, :, :], atol=1e-5)
+        assert np.allclose(cube.slice(0, cube.dim0[i]), data[i, :, :], atol=tolerance)
     for i in range(h):
-        assert np.allclose(cube.slice(1, cube.dim1[i]), data[:, i, :], atol=1e-5)
+        assert np.allclose(cube.slice(1, cube.dim1[i]), data[:, i, :], atol=tolerance)
     for i in range(d):
-        assert np.allclose(cube.slice(2, cube.dim2[i]), data[:, :, i], atol=1e-5)
+        assert np.allclose(cube.slice(2, cube.dim2[i]), data[:, :, i], atol=tolerance)
