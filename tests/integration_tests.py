@@ -124,7 +124,7 @@ def test_slices(w, h, d):
     for i in range(w):
         for j in range(h):
             for k in range(d):
-                data[i, j, k] = i * j * k
+                data[i, j, k] = (i * 1) + (j * 1000) + (k * 1000000)
 
     guid = upload_cube(data)
 
