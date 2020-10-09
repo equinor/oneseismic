@@ -115,25 +115,27 @@ def test_dimensions(cube):
 
 @settings(deadline=None, max_examples=6)
 @given(
-    w=st.integers(min_value=2, max_value=5),
-    h=st.integers(min_value=2, max_value=10),
-    d=st.integers(min_value=2, max_value=20),
+    w=st.integers(min_value=2, max_value=200),
+    h=st.integers(min_value=2, max_value=200),
+    d=st.integers(min_value=2, max_value=200),
 )
 def test_slices(w, h, d):
     data = np.ndarray(shape=(w, h, d), dtype=np.float32)
     for i in range(w):
         for j in range(h):
             for k in range(d):
-                data[i, j, k] = i * j * k
+                data[i, j, k] = (i * 1) + (j * 1000) + (k * 1000000)
 
     guid = upload_cube(data)
 
     c = client.client(API_ADDR, AUTH_CLIENT)
     cube = c.cube(guid)
 
+    tolerance = 1e-1
+
     for i in range(w):
-        assert np.allclose(cube.slice(0, cube.dim0[i]), data[i, :, :], atol=1e-5)
+        assert np.allclose(cube.slice(0, cube.dim0[i]), data[i, :, :], atol=tolerance)
     for i in range(h):
-        assert np.allclose(cube.slice(1, cube.dim1[i]), data[:, i, :], atol=1e-5)
+        assert np.allclose(cube.slice(1, cube.dim1[i]), data[:, i, :], atol=tolerance)
     for i in range(d):
-        assert np.allclose(cube.slice(2, cube.dim2[i]), data[:, :, i], atol=1e-5)
+        assert np.allclose(cube.slice(2, cube.dim2[i]), data[:, :, i], atol=tolerance)

@@ -160,7 +160,7 @@ def upload_segment(params, meta, segment, blob, f):
     dims = meta['dimensions']
     format = meta['format']
     fragment_dims = params['subcube-dims']
-    f.seek(meta['byteoffset-first-trace'], io.SEEK_CUR)
+    f.seek(meta['byteoffset-first-trace'])
 
     cube_dims = (len(dims[0]), len(dims[1]), len(dims[2]))
 
