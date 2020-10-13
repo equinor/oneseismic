@@ -3,6 +3,18 @@ oneseismic
 This is the root and namespace package for various modules under the oneseismic
 umbrella. It includes both libraries and programs.
 
+oneseismic.client
+=================
+Example
+
+::
+
+   from oneseismic import client
+
+   c = client.client("endpoint")
+   cube = c.cube("cube_id")
+   slice = cube.slice(dim=0, lineno=1)
+
 oneseismic.login
 ================
 Login to oneseismic, fetch token and cache on disk.
