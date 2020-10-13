@@ -47,7 +47,7 @@ def fetch_token(client_id, auth_server, scopes, cache_dir):
 
 
 def login(client_id, auth_server, scopes, cache_dir=None):
-    """ Log in to one seismic
+    """ Log in to oneseismic
 
     Fetches token and caches it on disk. This function will prompt user to open
     url to provide credentials. Once this is done, the token can be loaded from
@@ -68,6 +68,12 @@ def login(client_id, auth_server, scopes, cache_dir=None):
         cloud environment (e.g., "https://login.microsoft.com"), also replacing
         <tenant-id> with the Directory (tenant) ID in which the app registration
         was created.
+
+    scopes : list[str]
+        Scopes requested to access a protected API (resource).
+
+    cache_dir : str
+        Cache directory for storing token.
     """
     cache_dir = cache_dir or os.path.join(XDG_CACHE_HOME, "oneseismic")
     Path(cache_dir).mkdir(exist_ok=True)
