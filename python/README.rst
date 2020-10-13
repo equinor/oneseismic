@@ -3,6 +3,17 @@ oneseismic
 This is the root and namespace package for various modules under the oneseismic
 umbrella. It includes both libraries and programs.
 
+oneseismic.login
+================
+Login to oneseismic, fetch token and cache on disk.
+
+::
+
+   python3 -m oneseismic login
+
+This function will prompt user to open url to provide credentials. Once this is
+done, the token can be loaded from the cache and refreshed non-interactively.
+
 oneseismic.scan
 ===============
 Understand seismic cube identity and layout.
