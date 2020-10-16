@@ -21,7 +21,7 @@ TEST_CASE(
     batch.guid = "guid";
     batch.storage_endpoint = "https://acc.blob.core.windows.net";
     batch.fragment_shape = "src/64-64-64";
-    one::az az("");
+    one::az az;
     const auto url = az.url(batch, "0-1-2");
     CHECK(url == expected);
 }
@@ -63,10 +63,9 @@ std::vector< std::string > to_vector(curl_slist* slist) {
 TEST_CASE(
         "Bearer authorization is added as a http header",
         "[azure][az][http]") {
-    one::az az("key");
-    one::batch batch;
-    batch.token = "$token";
-    const auto headers = to_vector(az.http_headers(batch, "pid"));
+    one::az az;
+    const auto auth = "Bearer $token";
+    const auto headers = to_vector(az.http_headers(auth));
     const auto expected = std::string("Authorization: Bearer $token");
     CHECK_THAT(headers, VectorContains(expected));
 }

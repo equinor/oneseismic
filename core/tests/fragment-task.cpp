@@ -6,12 +6,12 @@
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 
-#include <oneseismic/transfer.hpp>
+#include <oneseismic/messages.hpp>
 #include <oneseismic/tasks.hpp>
+#include <oneseismic/transfer.hpp>
 
 #include "mhttpd.hpp"
 #include "utility.hpp"
-#include "core.pb.h"
 
 using namespace Catch::Matchers;
 
@@ -55,7 +55,7 @@ int fragment_response(
 
 void sendmsg(zmq::socket_t& sock, const std::string& body) {
     /*
-     * One-off message with placeholer values for address and pid.
+     * One-off message with placeholer value for pid.
      *
      * Having this is a test helper achieves two things:
      * 1. Removes some always-repeated noise from the tests
@@ -67,7 +67,6 @@ void sendmsg(zmq::socket_t& sock, const std::string& body) {
      * as such, or use a different sendmulti() function.
      */
     zmq::multipart_t msg;
-    msg.addstr("addr");
     msg.addstr("pid");
     msg.addstr("0/1");
     msg.addstr(body);
@@ -77,31 +76,16 @@ void sendmsg(zmq::socket_t& sock, const std::string& body) {
 }
 
 std::string make_slice_request(int dim, int idx, int k = 0) {
-    oneseismic::fetch_request req;
-    req.set_guid("0d235a7138104e00c421e63f5e3261bf2dc3254b");
-
-    auto* fragment_shape = req.mutable_fragment_shape();
-    fragment_shape->set_dim0(2);
-    fragment_shape->set_dim1(2);
-    fragment_shape->set_dim2(2);
-
-    auto* cube_shape = req.mutable_cube_shape();
-    cube_shape->set_dim0(8);
-    cube_shape->set_dim1(8);
-    cube_shape->set_dim2(8);
-
-    auto* slice = req.mutable_slice();
-    slice->set_dim(dim);
-    slice->set_idx(idx);
-
-    auto* id = req.add_ids();
-    id->set_dim0(0);
-    id->set_dim1(0);
-    id->set_dim2(k);
-
-    std::string msg;
-    req.SerializeToString(&msg);
-    return msg;
+    one::slice_fetch req;
+    req.guid = "0d235a7138104e00c421e63f5e3261bf2dc3254b";
+    req.shape = { 2, 2, 2 };
+    req.cube_shape = { 8, 8, 8 };
+    req.dim = dim;
+    req.lineno = idx;
+    req.ids = {
+        { 0, 0, k },
+    };
+    return req.pack();
 }
 
 TEST_CASE(
@@ -136,34 +120,27 @@ TEST_CASE(
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t response(caller_rep);
-        REQUIRE(response.size() == 4);
-        CHECK(response[0].to_string() == "addr");
-        CHECK(response[1].to_string() == "pid");
-        CHECK(response[2].to_string() == "0/1");
+        CHECK(response[0].to_string() == "pid");
+        CHECK(response[1].to_string() == "0/1");
         const auto& msg = response[3];
 
-        oneseismic::fetch_response res;
-        const auto ok = res.ParseFromArray(msg.data(), msg.size());
-        REQUIRE(ok);
+        one::slice_tiles tiles;
+        tiles.unpack(
+            static_cast< const char* >(msg.data()),
+            static_cast< const char* >(msg.data()) + msg.size()
+        );
 
         std::vector< float > expected(4);
         std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
 
-        const auto& tiles = res.slice().tiles();
-        CHECK(tiles.size() == 1);
-
-        CHECK(tiles.Get(0).layout().iterations()   == 2);
-        CHECK(tiles.Get(0).layout().chunk_size()   == 2);
-        CHECK(tiles.Get(0).layout().initial_skip() == 0);
-        CHECK(tiles.Get(0).layout().superstride()  == 8);
-        CHECK(tiles.Get(0).layout().substride()    == 2);
-
-        CHECK(tiles.Get(0).v().size() == 4);
-        auto v = std::vector< float >(
-                tiles.Get(0).v().begin(),
-                tiles.Get(0).v().end()
-                );
-        CHECK_THAT(v, Equals(expected));
+        REQUIRE(tiles.tiles.size() == 1);
+        const auto& tile = tiles.tiles.front();
+        CHECK(tile.iterations    == 2);
+        CHECK(tile.chunk_size    == 2);
+        CHECK(tile.initial_skip  == 0);
+        CHECK(tile.superstride   == 8);
+        CHECK(tile.substride     == 2);
+        CHECK_THAT(tile.v, Equals(expected));
     }
 
     SECTION("Multi-part job triggers multiple fetches") {
@@ -188,7 +165,6 @@ TEST_CASE(
 
         for (std::size_t i = 0; i < requests.size(); ++i) {
             zmq::multipart_t request;
-            request.addstr("addr");
             request.addstr("pid");
             request.addstr(fmt::format("{}/{}", i, requests.size()));
             request.addstr(make_slice_request(0, 0, i));
@@ -279,33 +255,27 @@ TEST_CASE(
 
             zmq::multipart_t response(caller_rep);
             REQUIRE(response.size() == 4);
-            CHECK(response[0].to_string() == "addr");
-            CHECK(response[1].to_string() == "pid");
-            CHECK(response[2].to_string() == "0/1");
+            CHECK(response[0].to_string() == "pid");
+            CHECK(response[1].to_string() == "0/1");
             const auto& msg = response[3];
 
-            oneseismic::fetch_response res;
-            const auto ok = res.ParseFromArray(msg.data(), msg.size());
-            REQUIRE(ok);
+            one::slice_tiles tiles;
+            tiles.unpack(
+                static_cast< const char* >(msg.data()),
+                static_cast< const char* >(msg.data()) + msg.size()
+            );
 
             std::vector< float > expected(4);
             std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
 
-            const auto& tiles = res.slice().tiles();
-            CHECK(tiles.size() == 1);
-
-            CHECK(tiles.Get(0).layout().iterations()   == 2);
-            CHECK(tiles.Get(0).layout().chunk_size()   == 2);
-            CHECK(tiles.Get(0).layout().initial_skip() == 0);
-            CHECK(tiles.Get(0).layout().superstride()  == 8);
-            CHECK(tiles.Get(0).layout().substride()    == 2);
-
-            CHECK(tiles.Get(0).v().size() == 4);
-            auto v = std::vector< float >(
-                    tiles.Get(0).v().begin(),
-                    tiles.Get(0).v().end()
-                    );
-            CHECK_THAT(v, Equals(expected));
+            REQUIRE(tiles.tiles.size() == 1);
+            const auto& tile = tiles.tiles.front();
+            CHECK(tile.iterations    == 2);
+            CHECK(tile.chunk_size    == 2);
+            CHECK(tile.initial_skip  == 0);
+            CHECK(tile.superstride   == 8);
+            CHECK(tile.substride     == 2);
+            CHECK_THAT(tile.v, Equals(expected));
         }
     }
 }

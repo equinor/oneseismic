@@ -22,13 +22,14 @@ services:
     command: [
         "oneseismic-fragment",
         "--source",  "tcp://manifest:6142",
-        "--sink",    "tcp://api:6144",
+        "--sink",    "tcp://relay:6144",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://api:6140",
     ]
     depends_on:
       - api
       - manifest
+      - relay
 
   api:
     image: oneseismic.azurecr.io/api:${VERSION:-latest}
@@ -37,14 +38,27 @@ services:
       dockerfile: api/Dockerfile
     ports:
       - '8080:8080'
+    command: [
+        "oneseismic-query",
+    ]
     environment:
       - HOST_ADDR=0.0.0.0:8080
       - AUTHSERVER
       - AUDIENCE
-      - AZURE_STORAGE_URL
+      - STORAGE_URL
       - CLIENT_ID
       - CLIENT_SECRET
       - LOG_LEVEL
-      - ZMQ_REP_ADDR=tcp://*:6144
-      - ZMQ_REQ_ADDR=tcp://*:6143
-      - ZMQ_FAILURE_ADDR=tcp://*:6140
+      - BIND=tcp://*:6143
+
+  relay:
+    image: oneseismic.azurecr.io/api:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command: [
+        "oneseismic-relay",
+    ]
+    environment:
+      - STORAGE_URL
+      - BIND=tcp://*:6144

@@ -22,7 +22,11 @@ namespace one {
  */
 struct batch {
     std::string storage_endpoint; /* url including storage-account */
-    std::string token;
+    /*
+     * Authorization. For HTTP, this is typically 'Bearer $token', i.e. without
+     * the Authorization: key, but with authorization type
+     */
+    std::string auth;
     std::string guid;
     std::string fragment_shape; /* src/64-64-64 */
 
@@ -77,9 +81,7 @@ public:
      *
      * [1] https://curl.haxx.se/libcurl/c/CURLOPT_HTTPHEADER.html
      */
-    virtual curl_slist* http_headers(
-            const batch&,
-            const std::string& fragment_id) const {
+    virtual curl_slist* http_headers(const std::string& authorization) const {
         return nullptr;
     }
 
@@ -89,6 +91,19 @@ public:
     virtual std::string url(
             const batch&,
             const std::string& fragment_id) const = 0;
+
+    /*
+     * Create a url for an object at path. This give storage configurations the
+     * opportunity to intercept, decorate or otherwise play modify the URL
+     * before an actual request is made.
+     *
+     * URL hijacking is particularly useful for logging and testing, so all
+     * URLs should preferably go through this function, even if it is the
+     * identity
+     */
+    virtual std::string url(const std::string& path) const {
+        return path;
+    }
 
     /*
      * Check the status code and decide what to do for the in-progress
@@ -111,6 +126,10 @@ public:
             const std::string& fragment_id,
             long status_code) = 0;
 
+    /*
+     * onstatus for PUT/writes
+     */
+    virtual action onstatus(long status_code) = 0;
 
     virtual ~storage_configuration() = default;
 };
@@ -129,6 +148,32 @@ public:
     }
 
     virtual ~transfer_configuration() = default;
+};
+
+/*
+ * Thin RAII layer on top of the curl_slist
+ */
+class curl_headers {
+public:
+    curl_headers() = default;
+    explicit curl_headers(curl_slist* l);
+
+    void append(const std::string& header) noexcept (false);
+    void append(const char* header) noexcept (false);
+
+    const curl_slist* get() const noexcept (true);
+    void set(curl_slist* l) noexcept (true);
+
+    curl_slist* release() noexcept (true);
+
+private:
+    struct slist_deleter {
+        void operator () (curl_slist* l) noexcept (true) {
+            curl_slist_free_all(l);
+        }
+    };
+
+    std::unique_ptr< curl_slist, slist_deleter > headers;
 };
 
 /*
@@ -163,17 +208,19 @@ public:
      */
     void perform(batch, transfer_configuration&);
 
-private:
-    struct slist_free {
-        void operator () (curl_slist* list) {
-            curl_slist_free_all(list);
-        }
-    };
+    void put(
+            const std::string& path,
+            const char* data,
+            std::size_t size,
+            const std::string& auth,
+            const std::string& type = "application/json"
+    );
 
+private:
     struct task {
         buffer storage;
         std::string fragment_id;
-        std::unique_ptr< curl_slist, slist_free > headers;
+        curl_headers headers;
     };
 
     CURLM* multi;

@@ -6,55 +6,26 @@
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
-#include <zmq.hpp>
 #include <zmq_addon.hpp>
+#include <zmq.hpp>
 
 #include <oneseismic/azure.hpp>
 #include <oneseismic/geometry.hpp>
-#include <oneseismic/transfer.hpp>
+#include <oneseismic/messages.hpp>
 #include <oneseismic/tasks.hpp>
-
-#include "core.pb.h"
+#include <oneseismic/transfer.hpp>
 
 namespace {
 
-/*
- * Every request type (slice, trace, fragment) must know how to transform
- * itself into the correct message for the wire
- */
-class wire {
+class slice : public one::transfer_configuration, public one::slice_tiles {
 public:
-    virtual ~wire() = default;
-    virtual void serialize(oneseismic::fetch_response&) const = 0;
-    virtual void prepare(const oneseismic::fetch_request&) = 0;
-};
-
-/*
- * Union of transfer configuration and the response message serializer.
- */
-class action : public one::transfer_configuration, public wire {
-public:
-    /*
-     * Should be called after each request to allow cleaning up internal state.
-     */
-    virtual void clear() = 0;
-};
-
-class slice : public action {
-public:
-    struct tile {
-        one::FID< 3 > id;
-        std::vector< float > data;
-    };
+    void prepare(const one::slice_fetch&) noexcept (false);
 
     void oncomplete(
         const one::buffer& b,
         const one::batch& batch,
         const std::string& id) override;
-
-    void serialize(oneseismic::fetch_response&) const override;
-    void prepare(const oneseismic::fetch_request& req) override;
-    void clear() override;
+    void clear();
 
 private:
     /*
@@ -63,166 +34,92 @@ private:
      */
     one::dimension< 3 > dim = one::dimension< 3 >(0);
     int idx;
-    one::slice_layout lay;
+    one::slice_layout layout;
     one::gvt< 2 > gvt;
-    std::vector< tile > tiles;
 };
+
+one::FID< 3 > id3_from_string(const std::string& id) {
+    int i, j, k;
+    const auto matched = std::sscanf(id.c_str(), "%d-%d-%d", &i, &j, &k);
+    if (matched != 3) {
+        const auto msg = "expected FID<3> in format, %d-%d-%d, was {}";
+        throw std::invalid_argument(fmt::format(msg, id));
+    }
+    return { std::size_t(i), std::size_t(j), std::size_t(k) };
+}
 
 void slice::oncomplete(
         const one::buffer& b,
         const one::batch& batch,
         const std::string& id) {
 
-    auto t = tile();
-    t.data.resize(this->lay.iterations * this->lay.chunk_size);
-    auto* dst = reinterpret_cast< std::uint8_t* >(t.data.data());
-    auto* src = b.data() + this->lay.initial_skip * this->idx * sizeof(float);
+    one::tile t;
+    const auto squeezed_id = id3_from_string(id).squeeze(this->dim);
+    const auto tile_layout = this->gvt.injection_stride(squeezed_id);
+    t.iterations   = tile_layout.iterations;
+    t.chunk_size   = tile_layout.chunk_size;
+    t.initial_skip = tile_layout.initial_skip;
+    t.superstride  = tile_layout.superstride;
+    t.substride    = tile_layout.substride;
 
-    for (auto i = 0; i < this->lay.iterations; ++i) {
-        std::memcpy(dst, src, this->lay.chunk_size * sizeof(float));
-        dst += this->lay.substride * sizeof(float);
-        src += this->lay.superstride * sizeof(float);
+    t.v.resize(this->layout.iterations * this->layout.chunk_size);
+    auto* dst = reinterpret_cast< std::uint8_t* >(t.v.data());
+    auto* src = b.data() + this->layout.initial_skip * this->idx * sizeof(float);
+    for (auto i = 0; i < this->layout.iterations; ++i) {
+        std::memcpy(dst, src, this->layout.chunk_size * sizeof(float));
+        dst += this->layout.substride * sizeof(float);
+        src += this->layout.superstride * sizeof(float);
     }
 
-    std::sscanf(id.c_str(),
-            "%d-%d-%d",
-            &t.id[0],
-            &t.id[1],
-            &t.id[2]);
     this->tiles.push_back(t);
 }
 
-void slice::serialize(oneseismic::fetch_response& res) const {
-    auto* inner = res.mutable_slice();
-
-    auto* ss = inner->mutable_slice_shape();
-    ss->set_dim0(this->gvt.cube_shape()[0]);
-    ss->set_dim1(this->gvt.cube_shape()[1]);
-
-    oneseismic::fragment_id id;
-    inner->clear_tiles();
-    for (const auto& outcome : this->tiles) {
-        auto* tile = inner->add_tiles();
-
-        auto squeezed_id = outcome.id.squeeze(this->dim);
-        const auto layout = this->gvt.injection_stride(squeezed_id);
-
-        auto* l = tile->mutable_layout();
-
-        l->set_iterations(layout.iterations);
-        l->set_chunk_size(layout.chunk_size);
-        l->set_initial_skip(layout.initial_skip);
-        l->set_superstride(layout.superstride);
-        l->set_substride(layout.substride);
-
-        *tile->mutable_v() = { outcome.data.begin(), outcome.data.end() };
-    }
-}
-
-void slice::prepare(const oneseismic::fetch_request& req) {
-    assert(req.has_slice());
-    assert(req.fragment_shape().dim0() > 0);
-    assert(req.fragment_shape().dim1() > 0);
-    assert(req.fragment_shape().dim2() > 0);
+void slice::prepare(const one::slice_fetch& req) {
+    assert(req.shape[0] > 0);
+    assert(req.shape[1] > 0);
+    assert(req.shape[2] > 0);
 
     one::FS< 3 > fragment_shape {
-        std::size_t(req.fragment_shape().dim0()),
-        std::size_t(req.fragment_shape().dim1()),
-        std::size_t(req.fragment_shape().dim2()),
+        std::size_t(req.shape[0]),
+        std::size_t(req.shape[1]),
+        std::size_t(req.shape[2]),
     };
 
     one::CS< 3 > cube_shape {
-        std::size_t(req.cube_shape().dim0()),
-        std::size_t(req.cube_shape().dim1()),
-        std::size_t(req.cube_shape().dim2()),
+        std::size_t(req.cube_shape[0]),
+        std::size_t(req.cube_shape[1]),
+        std::size_t(req.cube_shape[2]),
     };
 
-    this->dim = one::dimension< 3 >(req.slice().dim());
-    this->idx = req.slice().idx();
-    this->lay = fragment_shape.slice_stride(this->dim);
+    this->dim = one::dimension< 3 >(req.dim);
+    this->idx = req.lineno;
+    this->layout = fragment_shape.slice_stride(this->dim);
     this->gvt = one::gvt< 2 >(
         cube_shape.squeeze(this->dim),
         fragment_shape.squeeze(this->dim)
     );
+
+    const auto& cs = this->gvt.cube_shape();
+    this->shape.assign(cs.begin(), cs.end());
 }
 
 void slice::clear() {
-    this->tiles.clear();
+  this->tiles.clear();
 }
 
-class all_actions {
-public:
-    action& select(const oneseismic::fetch_request&) noexcept (false);
-
-private:
-    slice s;
-};
-
-action& all_actions::select(const oneseismic::fetch_request& req)
-noexcept (false) {
-    using msg = oneseismic::fetch_request;
-
-    switch (req.function_case()) {
-        case msg::kSlice:
-            this->s.prepare(req);
-            return this->s;
-
-        default:
-            spdlog::debug(
-                "{} - malformed input, bad request variant (oneof)",
-                req.requestid()
-            );
-            throw std::runtime_error("bad oneof");
-    }
-}
-
-one::batch make_batch(const oneseismic::fetch_request& req) noexcept (false) {
+one::batch make_batch(const one::slice_fetch& req) noexcept (false) {
     one::batch batch;
-    batch.guid = req.guid();
-    batch.storage_endpoint = req.storage_endpoint();
-    batch.token = req.token();
-    batch.fragment_shape = fmt::format(
-        "src/{}-{}-{}",
-        req.fragment_shape().dim0(),
-        req.fragment_shape().dim1(),
-        req.fragment_shape().dim2()
-    );
+    batch.guid = req.guid;
+    batch.storage_endpoint = req.storage_endpoint;
+    batch.auth = fmt::format("Bearer {}", req.token);
+    batch.fragment_shape = fmt::format("src/{}", fmt::join(req.shape, "-"));
 
-    for (const auto& id : req.ids()) {
-        batch.fragment_ids.push_back(fmt::format(
-            "{}-{}-{}",
-            id.dim0(),
-            id.dim1(),
-            id.dim2()
-        ));
+    for (const auto& id : req.ids) {
+        const auto s = fmt::format("{}", fmt::join(id, "-"));
+        batch.fragment_ids.push_back(s);
     }
 
     return batch;
-}
-
-struct bad_message : std::exception {};
-
-class fetch_request : public oneseismic::fetch_request {
-public:
-    void parse(const zmq::message_t&) noexcept (false);
-};
-
-void fetch_request::parse(const zmq::message_t& msg) noexcept (false) {
-    const auto ok = this->ParseFromArray(msg.data(), msg.size());
-    if (!ok) throw bad_message();
-}
-
-class fetch_response : public oneseismic::fetch_response {
-public:
-    const std::string& serialize() noexcept (false);
-
-private:
-    std::string serialized;
-};
-
-const std::string& fetch_response::serialize() noexcept (false) {
-    this->SerializeToString(&this->serialized);
-    return this->serialized;
 }
 
 }
@@ -238,25 +135,23 @@ public:
 
     zmq::multipart_t failure(const std::string& key) noexcept (false);
 
-    std::string address;
     std::string pid;
     std::string part;
-    fetch_request query;
-    fetch_response result;
-    all_actions actions;
+    slice_fetch query;
+    slice       result;
 };
 
 void fragment_task::impl::parse(const zmq::multipart_t& task) {
-    assert(task.size() == 4);
-    const auto& addr = task[0];
-    const auto& pid  = task[1];
-    const auto& part = task[2];
-    const auto& body = task[3];
+    assert(task.size() == 3);
+    const auto& pid  = task[0];
+    const auto& part = task[1];
+    const auto& body = task[2];
 
-    this->address.assign(static_cast< const char* >(addr.data()), addr.size());
-    this->pid.assign(    static_cast< const char* >(pid.data()),  pid.size());
-    this->part.assign(   static_cast< const char* >(part.data()), part.size());
-    this->query.parse(body);
+    this->pid.assign( static_cast< const char* >(pid.data()),  pid.size());
+    this->part.assign(static_cast< const char* >(part.data()), part.size());
+    const auto* fst = static_cast< const char* >(body.data());
+    const auto* lst = fst + body.size();
+    this->query.unpack(fst, lst);
 }
 
 zmq::multipart_t fragment_task::impl::failure(const std::string& key)
@@ -277,19 +172,16 @@ void fragment_task::run(
     this->p->parse(process);
 
     const auto& query = this->p->query;
-    auto& action = this->p->actions.select(query);
+    auto& action = this->p->result;
+    action.prepare(query);
     auto batch = make_batch(query);
     xfer.perform(batch, action);
 
-    auto& result = this->p->result;
-    result.set_requestid(query.requestid());
-    action.serialize(result);
-
     zmq::multipart_t msg;
-    msg.addstr(this->p->address);
     msg.addstr(this->p->pid);
     msg.addstr(this->p->part);
-    msg.addstr(result.serialize());
+    msg.addstr(query.token);
+    msg.addstr(action.pack());
     msg.send(output);
 
     action.clear();

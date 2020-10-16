@@ -31,6 +31,12 @@ TEST_CASE(
             FAIL(fmt::format(msg, http_code, id));
             throw std::logic_error("FAIL() not invoked as it should");
         }
+
+        action onstatus(long http_code) override {
+            const auto msg = "HTTP request with status {}";
+            FAIL(fmt::format(msg, http_code));
+            throw std::logic_error("FAIL() not invoked as it should");
+        }
     } cfg;
 
     CHECK_THROWS_AS(one::transfer( 0, cfg), std::invalid_argument);
@@ -322,9 +328,7 @@ TEST_CASE(
     mhttpd httpd(header_accumulate_response);
     struct loopback_with_headers : loopback_cfg {
         using loopback_cfg::loopback_cfg;
-        curl_slist* http_headers(
-                const one::batch&,
-                const std::string& pid) const override {
+        curl_slist* http_headers(const std::string&) const override {
             return curl_slist_append(nullptr, "Custom: Expected");
         }
     } config(httpd.port());

@@ -48,27 +48,18 @@ std::string x_ms_date() noexcept (false) {
     return fmt::format(fmtstr, *gmt);
 }
 
-az::az(std::string key) :
-    key(base64_decode(key))
-{}
-
-
-curl_slist* az::http_headers(
-        const one::batch& batch,
-        const std::string& job) const {
-    const auto date = one::x_ms_date();
+curl_slist* az::http_headers(const std::string& authorization) const {
+    const auto date    = one::x_ms_date();
     const auto version = one::x_ms_version();
 
-    // TODO: address leak and flag errors here
-    curl_slist* headers = nullptr;
-    headers = curl_slist_append(headers, date.c_str());
-    headers = curl_slist_append(headers, version);
-    if (not batch.token.empty()) {
-        const auto format = "Authorization: Bearer {}"; // azure blob store uses Bearer token
-        const auto auth = fmt::format(format, batch.token);
-        headers = curl_slist_append(headers, auth.c_str());
+    curl_headers headers;
+    headers.append(date);
+    headers.append(version);
+    if (not authorization.empty()) {
+        const auto auth = fmt::format("Authorization: {}", authorization);
+        headers.append(auth);
     }
-    return headers;
+    return headers.release();
 }
 
 std::string az::url(const one::batch& batch, const std::string& id) const {
@@ -108,6 +99,26 @@ storage_configuration::action az::onstatus(
         default: {
             const auto msg = "unhandled status code {}: {}";
             throw aborted(fmt::format(msg, status_code, response));
+        }
+    }
+}
+
+storage_configuration::action az::onstatus(long status_code) {
+    if (status_code == 201)
+        return action::done;
+
+    switch (status_code) {
+        case 403:
+            throw unauthorized("");
+
+        case 500:
+            /*
+             * TODO: 500 means a problem with the blob store, and should be
+             * reported as such
+             */
+        default: {
+            const auto msg = "unhandled status code {}";
+            throw aborted(fmt::format(msg, status_code));
         }
     }
 }
