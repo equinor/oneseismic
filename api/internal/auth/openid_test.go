@@ -118,10 +118,8 @@ func TestOpenIDConfigMissingField(t *testing.T) {
 
 func TestJWKMissingField(t *testing.T) {
 	docs := []string {
-		"{                   \"kid\": \"id\", \"n\": \"N\", \"e\": \"E\" }",
-		"{ \"kty\": \"key\",                  \"n\": \"N\", \"e\": \"E\" }",
-		"{ \"kty\": \"key\", \"kid\": \"id\",               \"e\": \"E\" }",
-		"{ \"kty\": \"key\", \"kid\": \"id\", \"n\": \"N\"               }",
+		"{                   \"kid\": \"id\" }",
+		"{ \"kty\": \"key\",                 }",
 	}
 
 	for _, doc := range docs {
@@ -168,7 +166,15 @@ func (c *openIDHttpClient) Get(url string) (*http.Response, error) {
 
 	if url == "jwk.uri" {
 		response := "{ \"keys\": [" +
-			"{ \"kty\": \"EC\", \"kid\": \"id\", \"e\": \"10\", \"n\": \"2\" }" +
+			"{ \"kty\": \"non-RSA\",  \"kid\": \"id\", \"e\": \"10\", \"n\": \"2\" }," +
+			"{ \"kty\": \"non-RSA\",  \"kid\": \"id\"                              }," +
+			"{ \"kty\": \"RSA\",      \"kid\": \"id\", \"e\": \"10\", \"n\": \"2\" }," +
+			"{ \"kty\": \"RSA\",      \"kid\": \"id\", \"e\": \"10\"               }"  +
+			/* Keys that should be skipped but not fail (has 'kty' and 'kid'):
+			 * non-RSA, other fields than 'kty' and 'kid' are irrelevant
+			 * RSA with invalid 'e' or 'n'
+			 * RSA with missing field 'e' or 'n'
+			 */
 		"] }"
 		return &http.Response {
 			StatusCode: http.StatusOK,
