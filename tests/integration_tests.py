@@ -8,6 +8,7 @@ import requests
 import segyio
 import tempfile
 from azure.core.credentials import AccessToken
+from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from oneseismic import scan
 from oneseismic import upload
@@ -42,7 +43,7 @@ class client_auth:
         self.auth = auth
 
     def token(self):
-        return self.auth
+        return dict(self.auth)
 
 
 AUTH_HEADER = auth_header()
@@ -62,8 +63,17 @@ def upload_cube(data):
 
     credential = CustomTokenCredential()
     blob_service_client = BlobServiceClient(STORAGE_URL, credential)
-    for c in requests.get(API_ADDR, headers=AUTH_HEADER).json():
-        blob_service_client.get_container_client(c).delete_container()
+
+    try:
+        blob_service_client.delete_container("results")
+    except ResourceNotFoundError as error:
+        pass
+    try:
+        blob_service_client.delete_container(meta["guid"])
+    except ResourceNotFoundError as error:
+        pass
+
+    blob_service_client.create_container("results")
 
     shape = [64, 64, 64]
     params = {"subcube-dims": shape}
@@ -87,8 +97,8 @@ def cube():
 def test_cube_404(cube):
     c = client.client(API_ADDR, AUTH_CLIENT)
     with pytest.raises(RuntimeError) as e:
-        c.cube("not_found").dim0
-    assert "404" in str(e.value)
+        c.cube("not_found").slice(0, 1)
+    assert "Request timed out" in str(e.value)
 
 
 @settings(deadline=None, max_examples=6)
@@ -109,11 +119,24 @@ def test_slices(w, h, d):
     c = client.client(API_ADDR, AUTH_CLIENT)
     cube = c.cube(guid)
 
-    tolerance = 1e-1
+    # test end slices
+    np.testing.assert_almost_equal(cube.slice(0, 1), data[0, :, :])
+    np.testing.assert_almost_equal(cube.slice(1, 1), data[:, 0, :])
+    np.testing.assert_almost_equal(cube.slice(2, 0), data[:, :, 0])
+    np.testing.assert_almost_equal(cube.slice(0, w), data[w - 1, :, :])
+    np.testing.assert_almost_equal(cube.slice(1, h), data[:, h - 1, :])
+    np.testing.assert_almost_equal(
+        cube.slice(2, (d - 1) * 4000),
+        data[:, :, d - 1]
+    )
 
-    for i in range(w):
-        assert np.allclose(cube.slice(0, cube.dim0[i]), data[i, :, :], atol=tolerance)
-    for i in range(h):
-        assert np.allclose(cube.slice(1, cube.dim1[i]), data[:, i, :], atol=tolerance)
-    for i in range(d):
-        assert np.allclose(cube.slice(2, cube.dim2[i]), data[:, :, i], atol=tolerance)
+    # test end slices between the two first segments
+    if w > 64:
+        np.testing.assert_almost_equal(cube.slice(0, 64), data[63, :, :])
+        np.testing.assert_almost_equal(cube.slice(0, 65), data[64, :, :])
+    if h > 64:
+        np.testing.assert_almost_equal(cube.slice(1, 64), data[:, 63, :])
+        np.testing.assert_almost_equal(cube.slice(1, 65), data[:, 64, :])
+    if d > 64:
+        np.testing.assert_almost_equal(cube.slice(2, 63 * 4000), data[:, :, 63])
+        np.testing.assert_almost_equal(cube.slice(2, 64 * 4000), data[:, :, 64])
