@@ -24,6 +24,8 @@ func (c *containerFailure) download(
 	return nil, downloaderror(500, id)
 }
 
+func noop() {}
+
 func TestSuccessWritesToChannel(t *testing.T) {
 	/*
 	 * Since downloadToChannel() writes to a channel it must either be
@@ -33,7 +35,9 @@ func TestSuccessWritesToChannel(t *testing.T) {
 	failure  := make(chan *dlerror, 1)
 	storage  := &containerSuccess{}
 	identity := "blob-id"
-	downloadToChannel(storage, identity, success, failure)
+	ctx := context.Background()
+	// TODO: test with dummy cancelfunc that it is properly called
+	downloadToChannel(ctx, noop, storage, identity, success, failure)
 
 	select {
 		case f := <-failure:
@@ -57,7 +61,8 @@ func TestFailureWritesToChannel(t *testing.T) {
 	failure  := make(chan *dlerror, 1)
 	storage  := &containerFailure{}
 	identity := "blob-id"
-	downloadToChannel(storage, identity, success, failure)
+	ctx := context.Background()
+	downloadToChannel(ctx, noop, storage, identity, success, failure)
 
 	select {
 		case s := <-success:
@@ -73,6 +78,24 @@ func TestFailureWritesToChannel(t *testing.T) {
 			}
 		default:
 			t.Errorf("Did not receive failure failure")
+	}
+}
+
+func TestDownloadFailureRunsCancelSignal(t *testing.T) {
+	success  := make(chan []byte, 1)
+	failure  := make(chan *dlerror, 1)
+	storage  := &containerFailure{}
+	identity := "blob-id"
+	ctx := context.Background()
+
+	cancelCalled := false
+	cancel := func () {
+		cancelCalled = true
+	}
+
+	downloadToChannel(ctx, cancel, storage, identity, success, failure)
+	if !cancelCalled {
+		t.Errorf("expected cancel() to be called, but it wasn't")
 	}
 }
 
