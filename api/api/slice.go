@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pebbe/zmq4"
 	"github.com/equinor/oneseismic/api/internal/util"
+	"github.com/equinor/oneseismic/api/internal/message"
 )
 
 type process struct {
@@ -37,21 +37,6 @@ type sliceParams struct {
 	guid      string
 	dimension int
 	lineno    int
-}
-
-type Task struct {
-	Pid             string  `json:"pid"`
-	Token           string  `json:"token"`
-	Guid            string  `json:"guid"`
-	StorageEndpoint string  `json:"storage_endpoint"`
-	Shape           []int32 `json:"shape"`
-	Function        string  `json:"function"`
-	Params          interface {} `json:"params"`
-}
-
-type SliceParams struct {
-	Dim    int `json:"dim"`
-	Lineno int `json:"lineno"`
 }
 
 /*
@@ -117,9 +102,9 @@ func (s *Slice) Get(ctx *gin.Context) {
 		},
 	}
 
-	req, err := json.Marshal(msg)
+	req, err := msg.Pack()
 	if err != nil {
-		log.Printf("%s marshalling error: %v", pid, err)
+		log.Printf("%s pack error: %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
