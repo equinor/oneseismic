@@ -63,13 +63,20 @@ type azstorage struct {
  * scaffolding needed to run it concurrently with the other download jobs.
  */
 func downloadToChannel(
+	ctx       context.Context,
+	cancel    context.CancelFunc,
 	container storage,
 	url       string,
 	results   chan []byte,
 	failures  chan *dlerror,
 ) {
-	body, err := container.download(context.Background(), url)
+	body, err := container.download(ctx, url)
 	if err != nil {
+		/*
+		 * send the cancel signal *before* posting on the failure channel, in
+		 * case the failure channel is blocked or not scheduled fast enough
+		 */
+		cancel()
 		failures <- err
 	} else {
 		results <- body
@@ -225,12 +232,14 @@ func (r *Result) Get(ctx *gin.Context) {
 	 * there's an opportunity here for parallel fetch of results, which could
 	 * improve fetch time (maybe even significantly) in some situations.
 	 */
+	dlctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for i := 0; i < meta.Parts; i++ {
 		url := fmt.Sprintf("%s-%d-%d", pid, i, meta.Parts)
 		// TODO: should downloads share context? So that sister jobs can be
 		// cancelled when one fails. Also allows setting timeout for the full
 		// job
-		go downloadToChannel(&container, url, results, failures)
+		go downloadToChannel(dlctx, cancel, &container, url, results, failures)
 	}
 
 	result, err := collect(meta.Parts, results, failures, r.Timeout)
