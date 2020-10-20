@@ -68,6 +68,30 @@ func parseSliceParams(ctx *gin.Context) (*sliceParams, error) {
 	}, nil
 }
 
+/*
+ * Make the process prototype for the slice. This is really just a stupid
+ * copy-parameter-into-struct function, but is a hook for sanity checks,
+ * hard-coded values etc (such as the function parameter).
+ */
+func (s *Slice) makeTask(
+	pid string,
+	token string,
+	params *sliceParams,
+) message.Task {
+	return message.Task {
+		Pid:   pid,
+		Token: token,
+		Guid:  params.guid,
+		StorageEndpoint: s.endpoint,
+		Shape: []int32 { 64, 64, 64, },
+		Function: "slice",
+		Params: &message.SliceParams {
+			Dim:    params.dimension,
+			Lineno: params.lineno,
+		},
+	}
+}
+
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := util.MakePID()
 
@@ -89,19 +113,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	msg := Task {
-		Pid:   pid,
-		Token: token,
-		Guid:  params.guid,
-		StorageEndpoint: s.endpoint,
-		Shape: []int32 { 64, 64, 64, },
-		Function: "slice",
-		Params: &SliceParams {
-			Dim:    params.dimension,
-			Lineno: params.lineno,
-		},
-	}
-
+	msg := s.makeTask(pid, token, params)
 	req, err := msg.Pack()
 	if err != nil {
 		log.Printf("%s pack error: %v", pid, err)
