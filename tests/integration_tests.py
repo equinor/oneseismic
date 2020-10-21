@@ -84,33 +84,11 @@ def cube():
     return upload_cube(data)
 
 
-def test_no_auth():
-    r = requests.get(API_ADDR)
-    assert r.status_code == 401
-
-
-def test_auth():
-    r = requests.get(API_ADDR, headers=AUTH_HEADER)
-    assert r.status_code == 200
-
-
-def test_list_cubes(cube):
-    c = client.client(API_ADDR, AUTH_CLIENT)
-    assert cube in c.list_cubes()
-
-
 def test_cube_404(cube):
     c = client.client(API_ADDR, AUTH_CLIENT)
     with pytest.raises(RuntimeError) as e:
         c.cube("not_found").dim0
     assert "404" in str(e.value)
-
-
-def test_dimensions(cube):
-    c = client.client(API_ADDR, AUTH_CLIENT)
-    assert c.cube(cube).dim0 == [1, 2]
-    assert c.cube(cube).dim1 == [1, 2]
-    assert c.cube(cube).dim2 == [0, 4000]
 
 
 @settings(deadline=None, max_examples=6)
