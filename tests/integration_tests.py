@@ -16,7 +16,7 @@ from oneseismic import client
 API_ADDR = os.getenv("API_ADDR", "http://localhost:8080")
 AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
 AUDIENCE = os.getenv("AUDIENCE")
-STORAGE_URL = os.getenv("AZURE_STORAGE_URL")
+STORAGE_URL = os.getenv("STORAGE_URL")
 
 
 class CustomTokenCredential(object):
