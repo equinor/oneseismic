@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pebbe/zmq4"
+	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/equinor/oneseismic/api/internal/message"
 )
@@ -24,12 +25,18 @@ func (proc *process) sendZMQ(socket *zmq4.Socket) (total int, err error) {
 type Slice struct {
 	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
 	queue    *zmq4.Socket
+	keyring  *auth.Keyring
 }
 
-func MakeSlice(endpoint string, queue *zmq4.Socket) Slice {
+func MakeSlice(
+	keyring *auth.Keyring,
+	endpoint string,
+	queue *zmq4.Socket,
+) Slice {
 	return Slice {
 		endpoint: endpoint,
 		queue: queue,
+		keyring: keyring,
 	}
 }
 
@@ -121,6 +128,13 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
+	key, err := s.keyring.Sign(pid)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
 	proc := process {
 		pid: pid,
 		request: req,
@@ -129,5 +143,6 @@ func (s *Slice) Get(ctx *gin.Context) {
 	proc.sendZMQ(s.queue)
 	ctx.JSON(http.StatusOK, gin.H {
 		"result": fmt.Sprintf("result/%s", pid),
+		"authorization": key,
 	})
 }

@@ -50,6 +50,7 @@ services:
       - CLIENT_SECRET
       - LOG_LEVEL
       - BIND=tcp://*:6143
+      - SIGN_KEY
 
   relay:
     image: oneseismic.azurecr.io/api:${VERSION:-latest}

@@ -20,6 +20,7 @@ type opts struct {
 	clientSecret string
 	storageURL   string
 	bind         string
+	signkey      string
 }
 
 func parseopts() (opts, error) {
@@ -60,6 +61,11 @@ func parseopts() (opts, error) {
 			param: &opts.bind,
 			flag: "bind",
 			help: "Bind URL e.g. tcp://*:port",
+		},
+		option {
+			param: &opts.signkey,
+			flag:  "sign-key",
+			help:  "Signing key used for response authorization tokens",
 		},
 	}
 
@@ -103,7 +109,8 @@ func main() {
 	}
 	defer out.Close()
 
-	slice := api.MakeSlice(opts.storageURL, out)
+	keyring := auth.MakeKeyring([]byte(opts.signkey))
+	slice := api.MakeSlice(&keyring, opts.storageURL, out)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
