@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pebbe/zmq4"
 	"github.com/equinor/oneseismic/api/internal/util"
+	"github.com/equinor/oneseismic/api/internal/message"
 )
 
 type process struct {
@@ -37,21 +37,6 @@ type sliceParams struct {
 	guid      string
 	dimension int
 	lineno    int
-}
-
-type Task struct {
-	Pid             string  `json:"pid"`
-	Token           string  `json:"token"`
-	Guid            string  `json:"guid"`
-	StorageEndpoint string  `json:"storage_endpoint"`
-	Shape           []int32 `json:"shape"`
-	Function        string  `json:"function"`
-	Params          interface {} `json:"params"`
-}
-
-type SliceParams struct {
-	Dim    int `json:"dim"`
-	Lineno int `json:"lineno"`
 }
 
 /*
@@ -83,6 +68,30 @@ func parseSliceParams(ctx *gin.Context) (*sliceParams, error) {
 	}, nil
 }
 
+/*
+ * Make the process prototype for the slice. This is really just a stupid
+ * copy-parameter-into-struct function, but is a hook for sanity checks,
+ * hard-coded values etc (such as the function parameter).
+ */
+func (s *Slice) makeTask(
+	pid string,
+	token string,
+	params *sliceParams,
+) message.Task {
+	return message.Task {
+		Pid:   pid,
+		Token: token,
+		Guid:  params.guid,
+		StorageEndpoint: s.endpoint,
+		Shape: []int32 { 64, 64, 64, },
+		Function: "slice",
+		Params: &message.SliceParams {
+			Dim:    params.dimension,
+			Lineno: params.lineno,
+		},
+	}
+}
+
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := util.MakePID()
 
@@ -104,22 +113,10 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	msg := Task {
-		Pid:   pid,
-		Token: token,
-		Guid:  params.guid,
-		StorageEndpoint: s.endpoint,
-		Shape: []int32 { 64, 64, 64, },
-		Function: "slice",
-		Params: &SliceParams {
-			Dim:    params.dimension,
-			Lineno: params.lineno,
-		},
-	}
-
-	req, err := json.Marshal(msg)
+	msg := s.makeTask(pid, token, params)
+	req, err := msg.Pack()
 	if err != nil {
-		log.Printf("%s marshalling error: %v", pid, err)
+		log.Printf("%s pack error: %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
