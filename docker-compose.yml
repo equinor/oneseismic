@@ -63,3 +63,6 @@ services:
     environment:
       - STORAGE_URL
       - BIND=tcp://*:6144
+
+  storage:
+    image: redis
