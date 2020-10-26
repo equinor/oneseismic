@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -100,5 +101,79 @@ func TestOBOTokenMissingFields(t *testing.T) {
 	err := json.Unmarshal([]byte(doc), &obo)
 	if err == nil {
 		t.Errorf("expected missing-field error, got nil; in %s", doc)
+	}
+}
+
+func TestTokenSignRoundTrip(t *testing.T) {
+	key := []byte("pre-shared-key")
+	keyring := MakeKeyring(key)
+
+	pid := "pid"
+	token, err := keyring.Sign(pid)
+	if err != nil {
+		t.Fatalf("Error creating token; %v", err)
+	}
+
+	err = keyring.Validate(token, pid)
+	if err != nil {
+		keyfunc := func (tok *jwt.Token) (interface {}, error) {
+			return key, nil
+		}
+		token, _ := jwt.Parse(token, keyfunc)
+		msg := "Expected valid token (error = %v); token was %v"
+		t.Errorf(msg, err, token.Claims)
+	}
+}
+
+func TestExpiredTokenIsInvalid(t *testing.T) {
+	key := []byte("pre-shared-key")
+	keyring := MakeKeyring(key)
+
+	pid := "pid"
+	exp := time.Now().Add(-5 * time.Minute)
+	token, err := keyring.SignWithTimeout(pid, exp)
+	if err != nil {
+		t.Fatalf("Error creating token; %v", err)
+	}
+
+	err = keyring.Validate(token, pid)
+	if err == nil {
+		t.Errorf("Expected expired token to be invalid, but Validate succeded")
+	}
+}
+
+func TestTokenInvalidPid(t *testing.T) {
+	key := []byte("pre-shared-key")
+	keyring := MakeKeyring(key)
+
+	pid := "pid"
+	token, err := keyring.Sign(pid)
+	if err != nil {
+		t.Fatalf("Error creating token; %v", err)
+	}
+
+	err = keyring.Validate(token, "different-pid")
+	if err == nil {
+		t.Errorf("Expected expired token to be invalid, but Validate succeded")
+	}
+}
+
+func TestValidTokenInvalidSignature(t *testing.T) {
+	pid := "pid"
+	/*
+	 * The signature generation could maybe be done by writing the token
+	 * generation by hand, to protect against bugs in the keyring
+	 * implementation
+	 */
+	keyringA := MakeKeyring([]byte("pre-shared-key"))
+	token, err := keyringA.Sign(pid)
+	if err != nil {
+		t.Fatalf("Error creating token; %v", err)
+	}
+
+	keyringB := MakeKeyring([]byte("pre-shared-diff-key"))
+	err = keyringB.Validate(token, pid)
+	if err == nil {
+		t.Errorf("Expected expired token to be invalid, but Validate succeded")
 	}
 }
