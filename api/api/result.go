@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,7 @@ import (
 type Result struct {
 	Timeout    time.Duration
 	StorageURL string
+	Keyring    *auth.Keyring
 }
 
 /*
@@ -173,6 +175,27 @@ func (r *Result) Get(ctx *gin.Context) {
 	if len(pid) == 0 {
 		log.Printf("pid empty")
 		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	authHeader := ctx.GetHeader("x-oneseismic-authorization")
+	if authHeader == "" {
+		log.Printf("%s x-oneseismic-authorization header not set", pid)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	tok := ""
+	_, scanerr := fmt.Sscanf(authHeader, "Bearer %s", &tok)
+	if scanerr != nil {
+		log.Printf("%s malformed Authorization; was %s", pid, authHeader)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	if verr := r.Keyring.Validate(tok, pid); verr != nil {
+		log.Printf("%s %v", pid, verr)
+		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 

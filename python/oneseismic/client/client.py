@@ -77,8 +77,12 @@ class cube:
         #
         # This blocking could possibly be built into the server, or maybe even
         # more elegantly in python as a future, but should serve well enough for now
+
+        auth = 'Bearer {}'.format(header['authorization'])
+        extra_headers = { 'x-oneseismic-authorization': auth }
+
         for _ in range(15):
-            r = self.client.get(resource)
+            r = self.client.get(resource, extra_headers = extra_headers)
 
             if r.status_code == 200:
                 return assemble_slice(r.content)
@@ -163,9 +167,12 @@ class client:
     def token(self):
         return self.auth.token()
 
-    def get(self, resource):
+    def get(self, resource, extra_headers = None):
         url = f"{self.endpoint}/{resource}"
-        return requests.get(url, headers=self.token())
+        headers = self.token()
+        if extra_headers is not None:
+            headers.update(extra_headers)
+        return requests.get(url, headers = headers)
 
     def list_cubes(self):
         """ Return a list of cube ids

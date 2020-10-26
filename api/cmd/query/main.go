@@ -114,6 +114,7 @@ func main() {
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
+		Keyring: &keyring,
 	}
 
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
