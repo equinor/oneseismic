@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
+	"github.com/go-redis/redis"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 )
@@ -19,6 +20,7 @@ import (
 type Result struct {
 	Timeout    time.Duration
 	StorageURL string
+	Storage    redis.Cmdable
 	Keyring    *auth.Keyring
 }
 
@@ -170,6 +172,49 @@ func (az *azstorage) download(
 	return bytes, nil
 }
 
+/*
+ * Check if a set of tiles are ready.
+ *
+ * This is a hack that
+ * 1. hides some redis implementation detail from the Result.Get function and
+ * 2. implements a wonky retry scheme to try to reduce latency
+ *
+ * Under ideal circumstances results are ready or almost-ready when fetched, in
+ * which case sleep-and-wait will save a round trip, authentitication and a
+ * bunch of other overhead. The ready() function will still time out after a
+ * little more than a second, however, and is not infinitely blocking.
+ *
+ * A result is ready when all identifiers have been written to storage, so this
+ * effectively boils down to asking if a set of keys exists, and count the ones
+ * that do.
+ */
+func ready(storage redis.Cmdable, identifiers []string) (bool, error) {
+	waits := []time.Duration {
+		200,
+		100,
+		100,
+		200,
+		500,
+		0,
+	}
+
+	items := int64(len(identifiers))
+
+	for _, wait := range waits {
+		count, err := storage.Exists(identifiers...).Result()
+		if err != nil {
+			return false, err
+		}
+
+		if count == items {
+			return true, nil
+		}
+		time.Sleep(wait * time.Millisecond)
+	}
+
+	return false, nil
+}
+
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
 	if len(pid) == 0 {
@@ -242,34 +287,59 @@ func (r *Result) Get(ctx *gin.Context) {
 		return
 	}
 
-	results  := make(chan []byte)
-	failures := make(chan *dlerror)
-
-	/*
-	 * TODO: schedule properly? 
-	 * Concurrently download all partial results, and pass them to the results
-	 * channel. The order of the objects is not guaranteed, and it's up to the
-	 * client to assemble these parts in order.
-	 *
-	 * Currently the response is serialized and the complete result, but
-	 * there's an opportunity here for parallel fetch of results, which could
-	 * improve fetch time (maybe even significantly) in some situations.
-	 */
-	dlctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	identifiers := make([]string, 0)
 	for i := 0; i < meta.Parts; i++ {
-		url := fmt.Sprintf("%s-%d-%d", pid, i, meta.Parts)
-		// TODO: should downloads share context? So that sister jobs can be
-		// cancelled when one fails. Also allows setting timeout for the full
-		// job
-		go downloadToChannel(dlctx, cancel, &container, url, results, failures)
+		id := fmt.Sprintf("%s-%d-%d", pid, i, meta.Parts)
+		identifiers = append(identifiers, id)
 	}
 
-	result, err := collect(meta.Parts, results, failures, r.Timeout)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(err.status)
-	} else {
-		ctx.Data(http.StatusOK, "application/octet-stream", result)
+	ready, pollerr := ready(r.Storage, identifiers)
+	if pollerr != nil {
+		log.Printf("%s %v", pid, pollerr)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
+
+	if !ready {
+		log.Printf("%s tiles timed out; result not ready yet", pid)
+		// TODO: return NotReady, or is that only for a /status method?
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	tiles, rerr := r.Storage.MGet(identifiers...).Result()
+	if rerr != nil {
+		log.Printf("%s failed to get result from storage; %v", pid, rerr)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	result := make([]byte, 5)
+	/* msgpack array type */
+	result[0] = 0xDD
+	/* msgpack array length, a 4-byte big-endian integer */
+	binary.BigEndian.PutUint32(result[1:], uint32(meta.Parts))
+
+	for _, tile := range tiles {
+		/*
+		 * A chunk of bytes is represented as a string in redis, and mapped
+		 * back to a string in go.
+		 *
+		 * The type cast is necessary [1] to copy the value, and doubles as a
+		 * sanity check. Should an object for some reason be missing, or of an
+		 * unexpected type, it probably means a programmer error at some other
+		 * place in the system.
+		 *
+		 * [1] is it really?
+		 */
+		chunk, ok := tile.(string)
+		if !ok {
+			log.Printf("%s tile.type = %T; expected string", pid, tile)
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		result = append(result, chunk...)
+	}
+
+	ctx.Data(http.StatusOK, "application/octet-stream", result)
 }
