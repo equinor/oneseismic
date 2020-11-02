@@ -222,9 +222,9 @@ func (r *Result) Get(ctx *gin.Context) {
 		return
 	}
 
-	authHeader := ctx.GetHeader("x-oneseismic-authorization")
+	authHeader := ctx.GetHeader("Authorization")
 	if authHeader == "" {
-		log.Printf("%s x-oneseismic-authorization header not set", pid)
+		log.Printf("%s Authorization header not set", pid)
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}

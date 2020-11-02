@@ -79,7 +79,7 @@ class cube:
         # more elegantly in python as a future, but should serve well enough for now
 
         auth = 'Bearer {}'.format(header['authorization'])
-        extra_headers = { 'x-oneseismic-authorization': auth }
+        extra_headers = { 'Authorization': auth }
 
         for _ in range(15):
             r = self.client.get(resource, extra_headers = extra_headers)
