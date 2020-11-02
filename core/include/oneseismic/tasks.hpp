@@ -18,6 +18,8 @@ public:
             zmq::socket_t& fail)
         noexcept (false);
 
+    void connect_working_storage(const std::string&);
+
     int  max_task_size() const noexcept (true);
     void max_task_size(int)    noexcept (false);
 

@@ -135,7 +135,12 @@ public:
     std::string pid;
     slice_task request;
     int task_size = 10;
+    working_storage storage;
 };
+
+void manifest_task::connect_working_storage(const std::string& addr) {
+    this->p->storage.connect(addr);
+}
 
 void manifest_task::impl::parse(const zmq::multipart_t& task) {
     assert(task.size() == 2);
@@ -237,34 +242,13 @@ try {
     auto first = ids.begin();
     auto end = ids.end();
 
+    /*
+     * TODO: object name generation should have tests on both sides to ensure
+     * consistency
+     */
     const auto header = make_result_header(chunks);
-    const auto put_url = fmt::format(
-            "{}/results/{}-header.json",
-            request.storage_endpoint,
-            pid
-    );
-    const auto auth = fmt::format("Bearer {}", request.token);
-    const auto type = "application/json";
-
-    try {
-        /* Do a blocking write of the header for the result. This is a measure
-         * against denials where the caller somehow have gotten a token that
-         * the front accepts, but without sufficient permissions to write (and
-         * probably read) to the storage.
-         *
-         * The fetch-tasks *could* have been optimistically scheduled, but
-         * would then have to be aborted before they actually leaked any data,
-         * and would regardless be an attack surface by increasing load and
-         * traffic.
-         *
-         * If the header cannot be written, abort the request and continue.
-         */
-        xfer.put(put_url, header.data(), header.size(), auth, type);
-    } catch (const unauthorized& e) {
-        spdlog::info("{} {} not authorized: {}", pid, put_url, e.what());
-        this->p->failure("header-put-not-authorized").send(failure);
-        return;
-    }
+    const auto header_id = fmt::format("{}:header.json", pid);
+    this->p->storage.put(header_id, header);
 
     for (std::size_t i = 0; i < chunks; ++i) {
         if (first == end)
@@ -314,6 +298,9 @@ try {
 } catch (const line_not_found& e) {
     spdlog::info("{} {}", this->p->pid, e.what());
     this->p->failure("line-not-found").send(failure);
+} catch (const storage_error& e) {
+    spdlog::warn("{} storage error: {}", this->p->pid, e.what());
+    this->p->failure("storage-error").send(failure);
 }
 
 int manifest_task::max_task_size() const noexcept (true) {
