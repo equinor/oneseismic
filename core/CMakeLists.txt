@@ -21,6 +21,7 @@ find_package(Threads    REQUIRED)
 find_package(spdlog     REQUIRED)
 
 find_package(PkgConfig REQUIRED)
+pkg_check_modules(hiredis    IMPORTED_TARGET REQUIRED hiredis)
 pkg_check_modules(microhttpd IMPORTED_TARGET          libmicrohttpd)
 pkg_check_modules(zmq        IMPORTED_TARGET REQUIRED libzmq)
 
@@ -72,6 +73,7 @@ target_link_libraries(oneseismic
         fmt::fmt
         ${GNUTLS_LIBRARIES}
         ${CURL_LIBRARIES}
+        PkgConfig::hiredis
         PkgConfig::zmq
 )
 

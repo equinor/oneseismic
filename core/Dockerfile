@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     unzip \
     libzmq3-dev \
     libspdlog-dev \
+    libhiredis-dev \
     libmsgpack-dev \
     ca-certificates
 RUN apt-get autoremove -y \
