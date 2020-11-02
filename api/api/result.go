@@ -271,7 +271,7 @@ func (r *Result) Get(ctx *gin.Context) {
 
 	identifiers := make([]string, 0)
 	for i := 0; i < meta.Parts; i++ {
-		id := fmt.Sprintf("%s-%d-%d", pid, i, meta.Parts)
+		id := fmt.Sprintf("%s:%d/%d", pid, i, meta.Parts)
 		identifiers = append(identifiers, id)
 	}
 

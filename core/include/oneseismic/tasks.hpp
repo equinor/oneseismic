@@ -44,6 +44,8 @@ public:
             zmq::socket_t& fail)
         noexcept (false);
 
+    void connect_working_storage(const std::string&);
+
     fragment_task();
     ~fragment_task();
 
