@@ -275,9 +275,9 @@ func (r *Result) Get(ctx *gin.Context) {
 		identifiers = append(identifiers, id)
 	}
 
-	ready, pollerr := ready(r.Storage, identifiers)
-	if pollerr != nil {
-		log.Printf("%s %v", pid, pollerr)
+	ready, err := ready(r.Storage, identifiers)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
