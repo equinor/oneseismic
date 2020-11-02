@@ -30,6 +30,7 @@ services:
       - api
       - manifest
       - relay
+      - storage
 
   api:
     image: oneseismic.azurecr.io/api:${VERSION:-latest}
@@ -49,7 +50,9 @@ services:
       - CLIENT_ID
       - CLIENT_SECRET
       - LOG_LEVEL
+      - REDIS_URL=storage:6379
       - BIND=tcp://*:6143
+      - SIGN_KEY
 
   relay:
     image: oneseismic.azurecr.io/api:${VERSION:-latest}
@@ -60,5 +63,8 @@ services:
         "oneseismic-relay",
     ]
     environment:
-      - STORAGE_URL
+      - STORAGE_URL=storage:6379
       - BIND=tcp://*:6144
+
+  storage:
+    image: redis

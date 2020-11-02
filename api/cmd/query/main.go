@@ -9,6 +9,7 @@ import (
 	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	"github.com/namsral/flag"
 	"github.com/pebbe/zmq4"
 )
@@ -19,7 +20,9 @@ type opts struct {
 	clientID     string
 	clientSecret string
 	storageURL   string
+	redisURL     string
 	bind         string
+	signkey      string
 }
 
 func parseopts() (opts, error) {
@@ -57,9 +60,19 @@ func parseopts() (opts, error) {
 			help: "Storage URL",
 		},
 		option {
+			param: &opts.redisURL,
+			flag: "redis-url",
+			help: "Redis URL",
+		},
+		option {
 			param: &opts.bind,
 			flag: "bind",
 			help: "Bind URL e.g. tcp://*:port",
+		},
+		option {
+			param: &opts.signkey,
+			flag:  "sign-key",
+			help:  "Signing key used for response authorization tokens",
 		},
 	}
 
@@ -103,10 +116,16 @@ func main() {
 	}
 	defer out.Close()
 
-	slice := api.MakeSlice(opts.storageURL, out)
+	keyring := auth.MakeKeyring([]byte(opts.signkey))
+	slice := api.MakeSlice(&keyring, opts.storageURL, out)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
+		Storage: redis.NewClient(&redis.Options {
+			Addr: opts.redisURL,
+			DB: 0,
+		}),
+		Keyring: &keyring,
 	}
 
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)

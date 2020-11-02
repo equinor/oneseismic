@@ -3,8 +3,14 @@ package api
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/equinor/oneseismic/api/internal/auth"
+	"github.com/gin-gonic/gin"
 )
 
 type containerSuccess struct {}
@@ -148,5 +154,57 @@ func TestTimeoutCancelsCollect(t *testing.T) {
 	_, err := collect(1, success, failure, timeout)
 	if err == nil {
 		t.Errorf("collect() did not time out like it should")
+	}
+}
+
+func TestNoAuthorizationHeaderBadRequest(t *testing.T) {
+	result := Result {
+		StorageURL: "storage-url",
+	}
+
+	w := httptest.NewRecorder()
+	ctx, r := gin.CreateTestContext(w)
+
+	r.GET("/result/:pid", result.Get)
+	ctx.Request, _ = http.NewRequest(http.MethodGet, "/result/pid", nil)
+	r.ServeHTTP(w, ctx.Request)
+
+	bad := http.StatusBadRequest
+	if w.Result().StatusCode != bad {
+		msg := "Got %v; want %d %s"
+		t.Errorf(msg, w.Result().Status, bad, http.StatusText(bad))
+	}
+}
+
+func TestBadAuthorizationTokens(t *testing.T) {
+	keyring := auth.MakeKeyring([]byte("psk"))
+	result := Result {
+		Keyring: &keyring,
+	}
+
+	good, err := keyring.Sign("pid")
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	tokens := []string {
+		"sans-token-type",
+		fmt.Sprintf("Bad %s", good),
+	}
+
+	for _, token := range tokens {
+		w := httptest.NewRecorder()
+		ctx, r := gin.CreateTestContext(w)
+
+		r.GET("/result/:pid", result.Get)
+		ctx.Request, _ = http.NewRequest(http.MethodGet, "/result/pid", nil)
+		ctx.Request.Header.Add("x-oneseismic-authorization", token)
+
+		r.ServeHTTP(w, ctx.Request)
+		bad := http.StatusBadRequest
+		if w.Result().StatusCode != bad {
+			msg := "Got %v; want %d %s"
+			t.Errorf(msg, w.Result().Status, bad, http.StatusText(bad))
+		}
 	}
 }

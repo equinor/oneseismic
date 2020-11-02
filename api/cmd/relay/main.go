@@ -1,13 +1,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
+	"time"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/go-redis/redis"
 	"github.com/namsral/flag"
 	"github.com/pebbe/zmq4"
 )
@@ -29,7 +28,7 @@ func parseopts() (opts, error) {
 		option {
 			param: &opts.storageURL,
 			flag: "storage-url",
-			help: "Storage URL",
+			help: "Storage URL (redis)",
 		},
 		option {
 			param: &opts.bind,
@@ -114,39 +113,21 @@ func listen(queue *zmq4.Socket) (chan Msg, error) {
 }
 
 func run(storageurl string, msgs chan Msg) {
-	ctx := context.Background()
-	URL, _ := url.Parse(fmt.Sprintf("%s/results", storageurl))
+	client := redis.NewClient(&redis.Options {
+		Addr: storageurl,
+		DB: 0,
+	})
 
 	for {
 		msg := <-msgs
-
-		credentials := azblob.NewTokenCredential(msg.token, nil)
-		pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-		container   := azblob.NewContainerURL(*URL, pipeline)
 
 		/*
 		 * Upload in a goroutine to be ready to listen for more messages
 		 */
 		go func() {
-			// TODO: container should already exist, but for now just create it
-			// every time
-			_, _ = container.Create(
-				ctx,
-				azblob.Metadata{},
-				azblob.PublicAccessNone,
-			)
-
-			blobURL := container.NewBlockBlobURL(
-				fmt.Sprintf("%s-%d-%d", msg.pid, msg.n, msg.m),
-			)
-			log.Printf("Uploading %s to azure", blobURL.String())
-			_, err := azblob.UploadBufferToBlockBlob(
-				ctx,
-				msg.payload,
-				blobURL,
-				azblob.UploadToBlockBlobOptions{},
-			)
-
+			key := fmt.Sprintf("%s-%d-%d", msg.pid, msg.n, msg.m)
+			log.Printf("Writing %s to storage", key)
+			err := client.Set(key, msg.payload, 10 * time.Minute).Err()
 			if err != nil {
 				log.Printf("%s upload failed: %v", msg.pid, err)
 			}

@@ -14,15 +14,15 @@ target_include_directories(json INTERFACE external/nlohmann)
 add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
-find_package(fmt REQUIRED)
-find_package(GnuTLS REQUIRED)
-find_package(CURL REQUIRED)
-find_package(Threads REQUIRED)
-find_package(spdlog REQUIRED)
+find_package(fmt        REQUIRED)
+find_package(GnuTLS     REQUIRED)
+find_package(CURL       REQUIRED)
+find_package(Threads    REQUIRED)
+find_package(spdlog     REQUIRED)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(microhttpd IMPORTED_TARGET libmicrohttpd)
-pkg_check_modules(zmq IMPORTED_TARGET REQUIRED libzmq)
+pkg_check_modules(microhttpd IMPORTED_TARGET          libmicrohttpd)
+pkg_check_modules(zmq        IMPORTED_TARGET REQUIRED libzmq)
 
 if (NOT MSVC)
     # assuming gcc-style options
