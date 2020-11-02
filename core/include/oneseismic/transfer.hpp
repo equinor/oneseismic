@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <curl/curl.h>
+#include <hiredis/hiredis.h>
 
 namespace one {
 
@@ -52,6 +53,12 @@ class unauthorized : public std::runtime_error {
 public:
     unauthorized(const std::string& reason) : std::runtime_error(reason) {}
     unauthorized(const char*        reason) : std::runtime_error(reason) {}
+};
+
+class storage_error : public std::runtime_error {
+public:
+    storage_error(const std::string& reason) : std::runtime_error(reason) {}
+    storage_error(const char*        reason) : std::runtime_error(reason) {}
 };
 
 /*
@@ -230,6 +237,44 @@ private:
     storage_configuration& config;
 
     void schedule(const batch&, std::string);
+};
+
+class working_storage {
+public:
+    /*
+     * Connect to the storage. This must be called before put().
+     */
+    void connect(const std::string& addr)           noexcept (false);
+    void connect(const std::string& host, int port) noexcept (false);
+
+    /*
+     * Put { key: binary-string } in storage
+     */
+    void put(const std::string& key, const std::string&) noexcept (false);
+    void put(const char*        key, const std::string&) noexcept (false);
+
+    /*
+     * Set expiration for all objects. It sets the (minimum) time a result is
+     * available after it was requested. A reasonably short expiration is
+     * needed to ensure that permissions changes are detected, to reduce memory
+     * pressure on the storage, and to reduce the chance for data leaks.
+     */
+    static constexpr std::chrono::seconds
+    default_expiration = std::chrono::minutes(10);
+
+    void expiration(std::chrono::seconds) noexcept (false);
+
+private:
+    struct deleter {
+        void operator () (redisContext* p) {
+            if (p) redisFree(p);
+        }
+    };
+
+    std::unique_ptr< redisContext, deleter > ctx;
+    std::chrono::seconds exp = default_expiration;
+    std::string host;
+    int port;
 };
 
 }
