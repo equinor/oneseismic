@@ -139,7 +139,12 @@ public:
     std::string part;
     slice_fetch query;
     slice       result;
+    working_storage storage;
 };
+
+void fragment_task::connect_working_storage(const std::string& addr) {
+    this->p->storage.connect(addr);
+}
 
 void fragment_task::impl::parse(const zmq::multipart_t& task) {
     assert(task.size() == 3);
@@ -177,13 +182,9 @@ void fragment_task::run(
     auto batch = make_batch(query);
     xfer.perform(batch, action);
 
-    zmq::multipart_t msg;
-    msg.addstr(this->p->pid);
-    msg.addstr(this->p->part);
-    msg.addstr(query.token);
-    msg.addstr(action.pack());
-    msg.send(output);
-
+    const auto id = fmt::format("{}:{}", this->p->pid, this->p->part);
+    const auto packed = action.pack();
+    this->p->storage.put(id, packed);
     action.clear();
     /*
      * TODO: catch other network related errors that should not bring down the
@@ -211,6 +212,9 @@ void fragment_task::run(
      */
     spdlog::info("{} not authorized", this->p->pid);
     this->p->failure("fragment-not-authorized").send(failure);
+} catch (const storage_error& e) {
+    spdlog::warn("{} storage error: {}", this->p->pid, e.what());
+    this->p->failure("storage-error").send(failure);
 }
 
 fragment_task::fragment_task() : p(new impl()) {}

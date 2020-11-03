@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
@@ -223,9 +222,9 @@ func (r *Result) Get(ctx *gin.Context) {
 		return
 	}
 
-	authHeader := ctx.GetHeader("x-oneseismic-authorization")
+	authHeader := ctx.GetHeader("Authorization")
 	if authHeader == "" {
-		log.Printf("%s x-oneseismic-authorization header not set", pid)
+		log.Printf("%s Authorization header not set", pid)
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -244,26 +243,9 @@ func (r *Result) Get(ctx *gin.Context) {
 		return
 	}
 
-	token := ctx.GetString("OBOJWT")
-	if len(token) == 0 {
-		log.Printf("%s OBOJWT was not set on request as it should be", pid)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	URL, _ := url.Parse(fmt.Sprintf("%s/results", r.StorageURL))
-	credentials := azblob.NewTokenCredential(token, nil)
-	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	container   := azstorage {
-		container: azblob.NewContainerURL(*URL, pipeline),
-	}
-
-	body, err := container.download(
-		context.Background(),
-		fmt.Sprintf("%s-header.json", pid),
-	)
+	body, err := r.Storage.Get(fmt.Sprintf("%s:header.json", pid)).Bytes()
 	if err != nil {
-		log.Printf("Unable to download result/meta: %v", err)
+		log.Printf("Unable to get result/meta: %v", err)
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -289,13 +271,13 @@ func (r *Result) Get(ctx *gin.Context) {
 
 	identifiers := make([]string, 0)
 	for i := 0; i < meta.Parts; i++ {
-		id := fmt.Sprintf("%s-%d-%d", pid, i, meta.Parts)
+		id := fmt.Sprintf("%s:%d/%d", pid, i, meta.Parts)
 		identifiers = append(identifiers, id)
 	}
 
-	ready, pollerr := ready(r.Storage, identifiers)
-	if pollerr != nil {
-		log.Printf("%s %v", pid, pollerr)
+	ready, err := ready(r.Storage, identifiers)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}

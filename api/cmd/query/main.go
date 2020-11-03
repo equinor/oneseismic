@@ -131,9 +131,12 @@ func main() {
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
 	onbehalf := auth.OnBehalfOf(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
 	app := gin.Default()
-	app.Use(validate)
-	app.Use(onbehalf)
-	app.GET("/query/:guid/slice/:dimension/:lineno", slice.Get)
+	app.GET(
+		"/query/:guid/slice/:dimension/:lineno",
+		validate,
+		onbehalf,
+		slice.Get,
+	)
 	app.GET("/result/:pid", result.Get)
 	app.Run(":8080")
 }

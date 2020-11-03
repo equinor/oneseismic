@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
     std::string sink_address;
     std::string control_address;
     std::string fail_address;
+    std::string redis_address;
     bool help = false;
     int ntransfers = 4;
 
@@ -33,6 +34,9 @@ int main(int argc, char** argv) {
         | clara::Opt(fail_address, "fail")
             ["--fail"]
             (fmt::format("failure address, currently unused"))
+        | clara::Opt(redis_address, "redis")
+            ["--redis"]
+            (fmt::format("working storage (redis) address"))
         | clara::Opt(ntransfers, "transfers")
             ["-j"]["--transfers"]
             (fmt::format("Concurrent blob connections, default = {}", ntransfers))
@@ -79,6 +83,7 @@ int main(int argc, char** argv) {
     one::az az;
     one::transfer xfer(ntransfers, az);
     one::fragment_task task;
+    task.connect_working_storage(redis_address);
 
     zmq::pollitem_t items[] = {
         { static_cast< void* >(source),  0, ZMQ_POLLIN, 0 },

@@ -11,6 +11,7 @@ find_package(fmt REQUIRED)
 find_package(Protobuf REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(zmq IMPORTED_TARGET REQUIRED libzmq)
+pkg_check_modules(hiredis IMPORTED_TARGET REQUIRED hiredis)
 
 add_library(geometry MODULE geometry.cpp)
 target_include_directories(geometry

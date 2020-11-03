@@ -11,6 +11,7 @@ services:
         "--sink",    "tcp://*:6142",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://api:6140",
+        "--redis",   "storage:6379",
     ]
     depends_on:
       - api
@@ -22,14 +23,14 @@ services:
     command: [
         "oneseismic-fragment",
         "--source",  "tcp://manifest:6142",
-        "--sink",    "tcp://relay:6144",
+        "--sink",    "tcp://0.0.0.0:6144",
         "--control", "tcp://0.0.0.0:6141",
         "--fail",    "tcp://api:6140",
+        "--redis",   "storage",
     ]
     depends_on:
       - api
       - manifest
-      - relay
       - storage
 
   api:
@@ -53,18 +54,6 @@ services:
       - REDIS_URL=storage:6379
       - BIND=tcp://*:6143
       - SIGN_KEY
-
-  relay:
-    image: oneseismic.azurecr.io/api:${VERSION:-latest}
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-    command: [
-        "oneseismic-relay",
-    ]
-    environment:
-      - STORAGE_URL=storage:6379
-      - BIND=tcp://*:6144
 
   storage:
     image: redis

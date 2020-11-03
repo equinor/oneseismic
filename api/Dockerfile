@@ -12,11 +12,8 @@ WORKDIR /src/api
 RUN go test -race ./...
 WORKDIR /src/api/cmd/query
 RUN go build -v
-WORKDIR /src/api/cmd/relay
-RUN go build -v
 
 FROM debian:buster-slim as deployer
 RUN apt-get update && apt-get install -y libzmq5
 COPY --from=builder /src/api/cmd/query/query /bin/oneseismic-query
-COPY --from=builder /src/api/cmd/relay/relay /bin/oneseismic-relay
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
