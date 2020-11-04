@@ -10,11 +10,36 @@ def main(argv):
         prog = 'login',
         description = 'Log in to oneseismic',
     )
-    parser.add_argument('--client-id', type=str,)
-    parser.add_argument('--auth-server', type=str)
-    parser.add_argument('--scopes', type=str, nargs='+')
-    parser.add_argument('--cache-dir', type=str, required=False)
-    parser.add_argument('url', type = str, nargs = '?')
+    parser.add_argument('--client-id',
+        type = str,
+        help = 'The client/application ID that will '
+               'perform requests on your behalf',
+    )
+    parser.add_argument('--auth-server',
+            type = str,
+            help = 'The authority or login server, '
+                   'e.g. https://login.microsoftonline.com/<tenant-id>',
+            )
+    parser.add_argument('--scopes',
+            type  = str,
+            nargs = '+',
+            help  = 'Scopes/actions to allow oneseismic to perform',
+    )
+    parser.add_argument( '--cache-dir',
+            type = str,
+            help = 'Directory to store oneseismic config and token cache. '
+                   'Providing a fresh will effectively cause new login, '
+                   'and managing multiple caches will enable multiple '
+                   'oneseismic instances',
+    )
+    parser.add_argument('url',
+            type  = str,
+            nargs = '?',
+            help  = 'Base URL to get oneseismic config from. '
+                    'Any flag passed on the command line will override '
+                    'the server provided configuration, but generally '
+                    'only this option should be needed',
+    )
     args = parser.parse_args(argv)
 
     config = {}
