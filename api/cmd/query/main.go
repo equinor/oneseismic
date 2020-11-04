@@ -89,6 +89,67 @@ func parseopts() (opts, error) {
 	return opts, nil
 }
 
+/*
+ * Configuration for this instance of oneseismic for user-controlled clients
+ *
+ * Oneseismic does not really have a good concept of logged in users, sessions
+ * etc. Rather, oneseismic gets tokens (in the Authorization header) which it
+ * uses to obtain on-behalf-of tokens that in turn are used to query blob
+ * storage. Users can use the python libraries to "log in", i.e. obtain a token
+ * for their AD-registered user, constructed in a way that gives oneseismic the
+ * permission to perform (blob) requests on their behalf [1].
+ *
+ * In order to construct a token that allows oneseismic to make requests, the
+ * app-id of oneseismic must be available somehow. This app-id, sometimes
+ * called client-id, is public information and for web apps often coded into
+ * the javascript and ultimately delivered from server-side. Conceptually, this
+ * should be no different. Oneseismic is largely designed to support multiple
+ * deployments, so hard-coding an app id is probably not a good idea. Forcing
+ * users to store or memorize the app-id and auth-server for use with the
+ * python3 oneiseismic.login module is also not a good solution.
+ *
+ * The microsoft authentication library (MSAL) [2] is pretty clear on wanting a
+ * client-id for obtaining a token. When the oneseismic python library is used,
+ * it is an extension of the instance it's trying to reach, so getting the
+ * app-id and authorization server [3] from a specific setup seems pretty
+ * reasonable.
+ *
+ * The clientconfig struct and the /config endpoint are meant for sharing
+ * oneseismic instance and company specific configurations with clients. While
+ * only auth stuff is included now, it's a natural place to add more client
+ * configuration parameters later e.g. performance hints, max/min latency.
+ *
+ * [1] https://docs.microsoft.com/en-us/graph/auth-v2-user
+ * [2] https://msal-python.readthedocs.io/en/latest/#msal.PublicClientApplication
+ * [3] usually https://login.microsoftonline.com/<tenant-id>
+ *
+ * https://docs.microsoft.com/en-us/azure/storage/common/storage-auth-aad-app
+ */
+type clientconfig struct {
+	appid      string
+	authority  string
+	scopes     []string
+}
+
+func (c *clientconfig) Get(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, gin.H {
+		/*
+		 * oneseismic's app-id
+		 */
+		"client_id": c.appid,
+		/*
+		 * URL for the token authority. Usually
+		 * https://login.microsoftonline.com/<tenant>
+		 */
+		"authority": c.authserver,
+		/*
+		 * The scopes (permissions) that oneseismic requests in order to
+		 * function
+		 */
+		"scopes": c.scopes,
+	})
+}
+
 func main() {
 	opts, err := parseopts()
 	if err != nil {
@@ -128,6 +189,14 @@ func main() {
 		Keyring: &keyring,
 	}
 
+	cfg := clientconfig {
+		appid: opts.clientID,
+		authserver: opts.authserver,
+		scopes: []string{
+			fmt.Sprintf("api://%s/One.Read", opts.clientID),
+		},
+	}
+
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
 	onbehalf := auth.OnBehalfOf(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
 	app := gin.Default()
@@ -138,5 +207,6 @@ func main() {
 		slice.Get,
 	)
 	app.GET("/result/:pid", result.Get)
+	app.GET("/config", cfg.Get)
 	app.Run(":8080")
 }
