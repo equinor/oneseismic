@@ -2,8 +2,46 @@ import argparse
 import json
 import requests
 import sys
+import urllib
 
 from .login import login
+
+def assumehttps(url):
+    """
+    Getting this right is surprisingly difficult.
+
+    The urllib.parse library only recognises <url>/<path> as netloc = <url>
+    whenever <url> has // (usually looks like it's a part of <scheme>), but
+    <scheme>:// is often omitted in practice.
+
+    oneseismic.domain.com =>
+        scheme = ''
+        netloc = ''
+        path = oneseismic.domain.com
+
+    This is consistent with how oneseismic.domain.com looks like a relative
+    path - it's only from context we know to assume a http(s) and a network
+    request [1] if the protocol is unspecified, in which case a relative path
+    does not make sense.
+
+    So if both the protocol is unset *and* the netloc is unset, assume this
+    means a https request, which it will for any non-test use.
+
+    [1] It doesn't even have to be - it could for all intents & purposes be a
+    file:// get with a properly-formatted on-disk file.
+    """
+    parts = urllib.parse.urlsplit(url)
+
+    if parts.scheme == '' and parts.netloc == '':
+        parts = urllib.parse.urlsplit(f'//{url}', scheme = 'https')
+
+    return urllib.parse.urlunsplit((
+            parts.scheme,
+            parts.netloc,
+            parts.path + '/config',
+            parts.query,
+            parts.fragment,
+    ))
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -44,10 +82,10 @@ def main(argv):
 
     config = {}
     if args.url is not None:
-        authurl = f'{args.url}/config'
-        r = requests.get(authurl)
+        url = assumehttps(args.url)
+        r = requests.get(url)
         if r.status_code != 200:
-            msg = f'GET {authurl} status {r.status_code}: {r.content}'
+            msg = f'GET {url} status {r.status_code}: {r.content}'
             raise RuntimeError(msg)
         config.update(json.loads(r.content))
 
