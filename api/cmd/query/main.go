@@ -141,7 +141,7 @@ func (c *clientconfig) Get(ctx *gin.Context) {
 		 * URL for the token authority. Usually
 		 * https://login.microsoftonline.com/<tenant>
 		 */
-		"authority": c.authserver,
+		"authority": c.authority,
 		/*
 		 * The scopes (permissions) that oneseismic requests in order to
 		 * function
@@ -191,7 +191,7 @@ func main() {
 
 	cfg := clientconfig {
 		appid: opts.clientID,
-		authserver: opts.authserver,
+		authority: opts.authserver,
 		scopes: []string{
 			fmt.Sprintf("api://%s/One.Read", opts.clientID),
 		},
