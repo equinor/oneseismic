@@ -242,7 +242,11 @@ private:
 class working_storage {
 public:
     /*
-     * Connect to the storage. This must be called before put().
+     * Connect to the storage. This function should be called before any read
+     * or write operations.
+     *
+     * The connect(addr) function will parse the string as host[:port],
+     * defaulting the port to redis' default 6379 if omitted.
      */
     void connect(const std::string& addr)           noexcept (false);
     void connect(const std::string& host, int port) noexcept (false);
