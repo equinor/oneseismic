@@ -81,15 +81,14 @@ class cube:
         auth = 'Bearer {}'.format(header['authorization'])
         extra_headers = { 'Authorization': auth }
 
-        for _ in range(15):
+        time.sleep(0.2)
+        for _ in range(5):
             r = self.client.get(resource, extra_headers = extra_headers)
 
             if r.status_code == 200:
                 return assemble_slice(r.content)
 
-            if r.status_code == 500:
-                time.sleep(10)
-                continue
+            time.sleep(2)
 
         raise RuntimeError('Request timed out; unable to fetch result')
 
