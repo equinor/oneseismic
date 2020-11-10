@@ -196,20 +196,6 @@ noexcept (false) {
  * failure source embedded.
  */
 
-
-std::size_t readfn(
-        char* ptr,
-        size_t size,
-        size_t nmemb,
-        std::string* str) {
-    spdlog::info("In read-callback");
-    const auto max = std::min(size * nmemb, str->size());
-    spdlog::info("Writing {} bytes to request", max);
-    std::memcpy(ptr, str->data(), max);
-    str->erase(0, max);
-    return max;
-}
-
 std::string make_result_header(int chunks) {
     nlohmann::json header;
     header["parts"] = chunks;
