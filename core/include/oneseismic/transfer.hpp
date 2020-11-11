@@ -257,6 +257,9 @@ public:
     void put(const std::string& key, const std::string&) noexcept (false);
     void put(const char*        key, const std::string&) noexcept (false);
 
+    std::string get(const std::string& key) noexcept (false);
+    std::string get(const char*        key) noexcept (false);
+
     /*
      * Set expiration for all objects. It sets the (minimum) time a result is
      * available after it was requested. A reasonably short expiration is
