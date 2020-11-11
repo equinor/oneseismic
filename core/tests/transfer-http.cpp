@@ -15,7 +15,7 @@ using namespace Catch::Matchers;
 
 TEST_CASE(
     "transfer rejects nonsensical max-connections",
-    "[transfer]") {
+    "[.][transfer][integration]") {
 
     struct config : one::storage_configuration {
         std::string url(const one::batch&, const std::string&) const override {
@@ -89,7 +89,7 @@ struct always_fail : public one::transfer_configuration {
 
 TEST_CASE(
     "Transfer calls oncomplete on HTTP 200/OK",
-    "[transfer][http]") {
+    "[.][transfer][http][integration]") {
 
     struct count_complete : public always_fail {
         int called = 0;
@@ -116,7 +116,7 @@ TEST_CASE(
 
 TEST_CASE(
     "Transfer does not call oncomplete on HTTP error",
-    "[transfer][http]") {
+    "[.][transfer][http][integration]") {
 
     constexpr unsigned int statuscodes[] = {
         MHD_HTTP_BAD_REQUEST,
@@ -193,7 +193,7 @@ TEST_CASE(
 
 TEST_CASE(
     "Transfer accepts and completes more jobs than max-connections",
-    "[transfer][http]") {
+    "[.][transfer][http][integration]") {
     struct count_complete : public always_fail {
         int called = 0;
 
@@ -275,7 +275,7 @@ TEST_CASE(
 
 TEST_CASE(
     "Custom headers are added to the fetch request",
-    "[transfer][http]") {
+    "[.][transfer][http][integration]") {
 
     const auto header_accumulate_response = [] (
         void*,

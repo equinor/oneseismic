@@ -91,8 +91,7 @@ std::string make_slice_request(int dim, int idx, int k = 0) {
 
 TEST_CASE(
         "Fragment is sliced and pushed through to the right queue",
-        "[slice]")
-{
+        "[.][slice][integration]") {
     zmq::context_t ctx;
     zmq::socket_t caller_req( ctx, ZMQ_PUSH);
     zmq::socket_t caller_rep( ctx, ZMQ_PULL);

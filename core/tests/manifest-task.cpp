@@ -111,7 +111,9 @@ std::string make_slice_request() {
     return task.pack();
 }
 
-TEST_CASE("Manifest messages are pushed to the right queue") {
+TEST_CASE(
+        "Manifest messages are pushed to the right queue",
+        "[.][integration]") {
     zmq::context_t ctx;
 
     zmq::socket_t caller_req( ctx, ZMQ_PUSH);
