@@ -139,6 +139,7 @@ TEST_CASE(
         loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
         one::manifest_task mt;
+        mt.connect_working_storage(redisaddr());
 
         sendmsg(caller_req, reqmsg);
         mt.run(xfer, worker_req, worker_rep, worker_fail);
@@ -179,6 +180,7 @@ TEST_CASE(
 
         one::transfer xfer(1, storage_cfg);
         one::manifest_task mt;
+        mt.connect_working_storage(redisaddr());
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;
@@ -211,6 +213,7 @@ TEST_CASE(
         sendmsg(caller_req, reqmsg);
         one::transfer xfer(1, storage_cfg);
         one::manifest_task mt;
+        mt.connect_working_storage(redisaddr());
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;
@@ -231,6 +234,7 @@ TEST_CASE(
         one::transfer xfer(1, storage);
 
         one::manifest_task mt;
+        mt.connect_working_storage(redisaddr());
         int size, tasks;
         /*
          * The total result is 10 fragments. This table encodes the task size
@@ -283,19 +287,49 @@ TEST_CASE(
         std::sort(received.begin(), received.end());
         CHECK_THAT(received, Equals(expected));
     }
+}
+
+TEST_CASE(
+        "No tasks are queued when header put fails",
+        "[.][integration][!shouldfail]") {
+    /*
+     * This test is marked as shouldfail, as it is not possible to test
+     * currently. This tests if redis SET fails, which is not possible [1]
+     * to emulate right now. If this is fixed then the test should be
+     * updated to change tag.
+     *
+     * When this test passes again, it can become a section in the "Manifest
+     * messages are pushed to the right queue" test case again.
+     *
+     * [1] maybe possible, but certainly not feasible, to emulate
+     */
+    zmq::context_t ctx;
+
+    zmq::socket_t caller_req( ctx, ZMQ_PUSH);
+    zmq::socket_t caller_rep( ctx, ZMQ_PULL);
+    zmq::socket_t caller_fail(ctx, ZMQ_PULL);
+
+    zmq::socket_t worker_req( ctx, ZMQ_PULL);
+    zmq::socket_t worker_rep( ctx, ZMQ_PUSH);
+    zmq::socket_t worker_fail(ctx, ZMQ_PUSH);
+
+    caller_req.bind( "inproc://req");
+    caller_rep.bind( "inproc://rep");
+    caller_fail.bind("inproc://fail");
+    worker_req.connect( "inproc://req");
+    worker_rep.connect( "inproc://rep");
+    worker_fail.connect("inproc://fail");
+
+    int done = 0;
+    mhttpd httpd(simple_manifest, &done);
+    const auto reqmsg = make_slice_request();
 
     SECTION("No tasks are queued when header put fails") {
-        struct put_fails : public loopback_cfg {
-            using loopback_cfg::loopback_cfg;
-
-            action onstatus(long) override {
-                throw one::unauthorized("no reason");
-            }
-        } storage_cfg(httpd.port());
-
+        loopback_cfg storage(httpd.port());
         sendmsg(caller_req, reqmsg);
-        one::transfer xfer(1, storage_cfg);
+        one::transfer xfer(1, storage);
         one::manifest_task mt;
+        mt.connect_working_storage(redisaddr());
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;

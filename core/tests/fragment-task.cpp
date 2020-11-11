@@ -109,6 +109,10 @@ TEST_CASE(
     worker_fail.connect("inproc://fail");
 
     mhttpd httpd(fragment_response);
+
+    auto redis = one::working_storage();
+    redis.connect(redisaddr());
+
     const auto apireq = make_slice_request(0, 0);
 
     SECTION("Successful calls are pushed to destination") {
@@ -117,18 +121,12 @@ TEST_CASE(
 
         sendmsg(caller_req, apireq);
         one::fragment_task ft;
+        ft.connect_working_storage(redisaddr());
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
-        zmq::multipart_t response(caller_rep);
-        CHECK(response[0].to_string() == "pid");
-        CHECK(response[1].to_string() == "0/1");
-        const auto& msg = response[3];
-
+        const auto body = redis.get("pid:0/1");
         one::slice_tiles tiles;
-        tiles.unpack(
-            static_cast< const char* >(msg.data()),
-            static_cast< const char* >(msg.data()) + msg.size()
-        );
+        tiles.unpack(body.data(), body.data() + body.size());
 
         std::vector< float > expected(4);
         std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
@@ -173,6 +171,7 @@ TEST_CASE(
 
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
+        ft.connect_working_storage(redisaddr());
         for (const auto& x : requests) {
             ft.run(xfer, worker_req, worker_rep, worker_fail);
         }
@@ -198,6 +197,7 @@ TEST_CASE(
         sendmsg(caller_req, apireq);
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
+        ft.connect_working_storage(redisaddr());
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;
@@ -229,6 +229,7 @@ TEST_CASE(
         sendmsg(caller_req, apireq);
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
+        ft.connect_working_storage(redisaddr());
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;
@@ -248,22 +249,15 @@ TEST_CASE(
         loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
         one::fragment_task ft;
+        ft.connect_working_storage(redisaddr());
 
         for (int i = 0; i < 3; ++i) {
             sendmsg(caller_req, apireq);
             ft.run(xfer, worker_req, worker_rep, worker_fail);
 
-            zmq::multipart_t response(caller_rep);
-            REQUIRE(response.size() == 4);
-            CHECK(response[0].to_string() == "pid");
-            CHECK(response[1].to_string() == "0/1");
-            const auto& msg = response[3];
-
+            const auto body = redis.get("pid:0/1");
             one::slice_tiles tiles;
-            tiles.unpack(
-                static_cast< const char* >(msg.data()),
-                static_cast< const char* >(msg.data()) + msg.size()
-            );
+            tiles.unpack(body.data(), body.data() + body.size());
 
             std::vector< float > expected(4);
             std::memcpy(expected.data(), index_2x2x2.data(), 4 * sizeof(float));
