@@ -10,6 +10,7 @@
 #include <oneseismic/tasks.hpp>
 #include <oneseismic/transfer.hpp>
 
+#include "config.hpp"
 #include "mhttpd.hpp"
 #include "utility.hpp"
 
