@@ -82,7 +82,7 @@ int simple_manifest(
     return ret;
 }
 
-void sendmsg(zmq::socket_t& sock, const std::string& body) {
+void sendmsg(zmq::socket_t& sock, const std::string& body, const std::string& pid) {
     /*
      * One-off message with placeholer values for address and pid.
      *
@@ -94,7 +94,7 @@ void sendmsg(zmq::socket_t& sock, const std::string& body) {
      * All in all it should make tests leaner, and easier to maintain.
      */
     zmq::multipart_t msg;
-    msg.addstr("pid");
+    msg.addstr(pid);
     msg.addstr(body);
     msg.send(sock);
 }
@@ -141,12 +141,13 @@ TEST_CASE(
         one::manifest_task mt;
         mt.connect_working_storage(redisaddr());
 
-        sendmsg(caller_req, reqmsg);
+        const auto pid = makepid();
+        sendmsg(caller_req, reqmsg, pid);
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t response(caller_rep);
         REQUIRE(response.size() == 3);
-        CHECK(response[0].to_string() == "pid");
+        CHECK(response[0].to_string() == pid);
         CHECK(response[1].to_string() == "0/1");
         const auto& msg = response[2];
 
@@ -176,7 +177,8 @@ TEST_CASE(
             }
         } storage_cfg(httpd.port());
 
-        sendmsg(caller_req, reqmsg);
+        const auto pid = makepid();
+        sendmsg(caller_req, reqmsg, pid);
 
         one::transfer xfer(1, storage_cfg);
         one::manifest_task mt;
@@ -190,7 +192,7 @@ TEST_CASE(
         );
         CHECK(received);
         CHECK(fail.size() == 2);
-        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[0].to_string() == pid);
         CHECK(fail[1].to_string() == "manifest-not-found");
 
         CHECK(not received_message(caller_rep));
@@ -210,7 +212,8 @@ TEST_CASE(
             }
         } storage_cfg(httpd.port());
 
-        sendmsg(caller_req, reqmsg);
+        const auto pid = makepid();
+        sendmsg(caller_req, reqmsg, pid);
         one::transfer xfer(1, storage_cfg);
         one::manifest_task mt;
         mt.connect_working_storage(redisaddr());
@@ -223,7 +226,7 @@ TEST_CASE(
         );
         CHECK(received);
         CHECK(fail.size() == 2);
-        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[0].to_string() == pid);
         CHECK(fail[1].to_string() == "manifest-not-authorized");
 
         CHECK(not received_message(caller_rep));
@@ -248,7 +251,7 @@ TEST_CASE(
         }));
         mt.max_task_size(size);
 
-        sendmsg(caller_req, reqmsg);
+        sendmsg(caller_req, reqmsg, makepid());
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         const auto expected = std::vector< std::string > {
@@ -326,7 +329,8 @@ TEST_CASE(
 
     SECTION("No tasks are queued when header put fails") {
         loopback_cfg storage(httpd.port());
-        sendmsg(caller_req, reqmsg);
+        const auto pid = makepid();
+        sendmsg(caller_req, reqmsg, pid);
         one::transfer xfer(1, storage);
         one::manifest_task mt;
         mt.connect_working_storage(redisaddr());
@@ -339,7 +343,7 @@ TEST_CASE(
         );
         REQUIRE(received);
         REQUIRE(fail.size() == 2);
-        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[0].to_string() == pid);
         CHECK(fail[1].to_string() == "header-put-not-authorized");
         CHECK(not received_message(caller_rep));
     }

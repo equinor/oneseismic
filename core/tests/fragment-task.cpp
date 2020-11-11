@@ -54,7 +54,7 @@ int fragment_response(
     return ret;
 }
 
-void sendmsg(zmq::socket_t& sock, const std::string& body) {
+void sendmsg(zmq::socket_t& sock, const std::string& body, const std::string& pid) {
     /*
      * One-off message with placeholer value for pid.
      *
@@ -68,7 +68,7 @@ void sendmsg(zmq::socket_t& sock, const std::string& body) {
      * as such, or use a different sendmulti() function.
      */
     zmq::multipart_t msg;
-    msg.addstr("pid");
+    msg.addstr(pid);
     msg.addstr("0/1");
     msg.addstr(body);
     msg.send(sock);
@@ -119,12 +119,13 @@ TEST_CASE(
         loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
 
-        sendmsg(caller_req, apireq);
+        const auto pid = makepid();
+        sendmsg(caller_req, apireq, pid);
         one::fragment_task ft;
         ft.connect_working_storage(redisaddr());
         ft.run(xfer, worker_req, worker_rep, worker_fail);
 
-        const auto body = redis.get("pid:0/1");
+        const auto body = redis.get(pid + ":0/1");
         one::slice_tiles tiles;
         tiles.unpack(body.data(), body.data() + body.size());
 
@@ -194,7 +195,8 @@ TEST_CASE(
             }
         } storage_cfg(httpd.port());
 
-        sendmsg(caller_req, apireq);
+        const auto pid = makepid();
+        sendmsg(caller_req, apireq, pid);
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
         ft.connect_working_storage(redisaddr());
@@ -207,7 +209,7 @@ TEST_CASE(
         );
         CHECK(received);
         CHECK(fail.size() == 2);
-        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[0].to_string() == pid);
         CHECK(fail[1].to_string() == "fragment-not-found");
 
         CHECK(not received_message(caller_rep));
@@ -226,7 +228,8 @@ TEST_CASE(
             }
         } storage_cfg(httpd.port());
 
-        sendmsg(caller_req, apireq);
+        const auto pid = makepid();
+        sendmsg(caller_req, apireq, pid);
         one::transfer xfer(1, storage_cfg);
         one::fragment_task ft;
         ft.connect_working_storage(redisaddr());
@@ -239,7 +242,7 @@ TEST_CASE(
         );
         CHECK(received);
         CHECK(fail.size() == 2);
-        CHECK(fail[0].to_string() == "pid");
+        CHECK(fail[0].to_string() == pid);
         CHECK(fail[1].to_string() == "fragment-not-authorized");
 
         CHECK(not received_message(caller_rep));
@@ -252,10 +255,11 @@ TEST_CASE(
         ft.connect_working_storage(redisaddr());
 
         for (int i = 0; i < 3; ++i) {
-            sendmsg(caller_req, apireq);
+            const auto pid = fmt::format("{}.{}", makepid(), i);
+            sendmsg(caller_req, apireq, pid);
             ft.run(xfer, worker_req, worker_rep, worker_fail);
 
-            const auto body = redis.get("pid:0/1");
+            const auto body = redis.get(pid + ":0/1");
             one::slice_tiles tiles;
             tiles.unpack(body.data(), body.data() + body.size());
 
