@@ -45,6 +45,6 @@ script:
   - pip install -r core/python/requirements-dev.txt
   - mkdir build
   - pushd build
-  - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_PYTHON=ON
+  - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_PYTHON=OFF
   - make
-  - ctest --output-on-failure;
+  - ctest --output-on-failure
