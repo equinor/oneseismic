@@ -20,7 +20,9 @@ option(PRIVATE_REDIS "Use private and test-specific redis" ON)
 #
 # Defaults to localhost:<random-port>, but either part or the full address can
 # be specified.
-string(RANDOM LENGTH 5 ALPHABET 123456789 random-port)
+string(RANDOM LENGTH 1 ALPHABET 12345     head-random-port)
+string(RANDOM LENGTH 4 ALPHABET 012345689 tail-random-port)
+string(CONCAT random-port ${head-random-port} ${tail-random-port})
 set(REDIS_PORT ${random-port}                CACHE STRING "Redis port")
 set(REDIS_HOST "localhost"                   CACHE STRING "Redis host")
 set(REDIS_ADDR "${REDIS_HOST}:${REDIS_PORT}" CACHE STRING "Redis address")
