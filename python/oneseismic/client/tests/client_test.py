@@ -9,10 +9,6 @@ session = requests.Session()
 adapter = requests_mock.Adapter()
 session.mount('mock://', adapter)
 
-dim0 = '[10, 11, 12, 13]'
-dim1 = '[20, 21, 22]'
-dim2 = '[30, 31]'
-
 slice_0_12 = json.dumps({
     "slice_shape": {
         "dim0": 3,
@@ -97,16 +93,6 @@ class no_auth:
 
 client = client('http://api', auth=no_auth())
 cube = client.cube('test_id')
-
-@requests_mock.Mocker(kw='m')
-def test_dims(**kwargs):
-    kwargs['m'].get('http://api/test_id/slice/0', text=dim0)
-    kwargs['m'].get('http://api/test_id/slice/1', text=dim1)
-    kwargs['m'].get('http://api/test_id/slice/2', text=dim2)
-    assert cube.dim0 == [10, 11, 12, 13]
-    assert cube.dim1 == [20, 21, 22]
-    assert cube.dim2 == [30, 31]
-
 
 @requests_mock.Mocker(kw='m')
 def test_slice(**kwargs):
