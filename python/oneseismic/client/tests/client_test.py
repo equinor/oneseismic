@@ -93,7 +93,7 @@ slice_2_30 = json.dumps({
 
 class no_auth:
     def token(self):
-        return ''
+        return {}
 
 client = client('http://api', auth=no_auth())
 cube = client.cube('test_id')
