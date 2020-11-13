@@ -100,12 +100,6 @@ func (j *jwk) UnmarshalJSON(b []byte) error {
 	if aux.Kid == "" {
 		return fmt.Errorf("missing field 'kid'")
 	}
-	if aux.N == "" {
-		return fmt.Errorf("missing field 'n'")
-	}
-	if aux.E == "" {
-		return fmt.Errorf("missing field 'e'")
-	}
 	j.Kty = aux.Kty
 	j.Kid = aux.Kid
 	j.N = aux.N
@@ -221,11 +215,19 @@ func GetOpenIDConfig(c HttpClient, authserver string) (*OpenIDConfig, error) {
 	keys := make(map[string]rsa.PublicKey)
 	for _, key := range keyset {
 		if key.Kty == "RSA" {
-			e, err := fromB64(key.E)
-			/* 
-			 * Decoding errors means the key is probably broken, so skip it and
-			 * look for other viable keys
+			/*
+			 * Missing fields or decoding errors means the key is probably broken,
+			 * so skip it and look for other viable keys.
 			 */
+	                if key.E == "" {
+				log.Printf("missing field 'e'")
+				continue
+	                }
+	                if key.N == "" {
+				log.Printf("missing field 'n'")
+				continue
+	                }
+			e, err := fromB64(key.E)
 			if err != nil {
 				log.Printf("Key.E (id = %s): %v", key.Kid, err)
 				continue

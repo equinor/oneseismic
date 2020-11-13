@@ -27,11 +27,17 @@ services:
       - az
     environment:
       - AUTHSERVER=http://auth:8089/common
-      - AUDIENCE="MY_AUDIENCE"
-      - AZURE_STORAGE_URL=https://az:10000/devstoreaccount1
-
+      - AUDIENCE=MY_AUDIENCE
+      - CLIENT_ID=MY_ID
+      - CLIENT_SECRET=MY_SECRET
+      - SIGN_KEY=NmYzNzhmY2ZiOTA3YmFkZmFkNDBiZjM1
+      - STORAGE_URL=https://az:10000/devstoreaccount1
     volumes:
       - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
+
+  storage:
+    image: redis
+
   test:
     build:
       context: .
@@ -41,7 +47,7 @@ services:
       - az
       - auth
     environment:
-      - AUDIENCE="MY_AUDIENCE"
+      - AUDIENCE=MY_AUDIENCE
       - API_ADDR=http://api:8080
       - AUTHSERVER=http://auth:8089/common
-      - AZURE_STORAGE_URL=https://az:10000/devstoreaccount1
+      - STORAGE_URL=https://az:10000/devstoreaccount1
