@@ -2,6 +2,7 @@ import os
 from urllib.parse import parse_qs, urlparse
 
 from hypothesis import given, settings, strategies as st
+import json
 import numpy as np
 import pytest
 import requests
@@ -99,6 +100,21 @@ def test_cube_404(cube):
     with pytest.raises(RuntimeError) as e:
         c.cube("not_found").slice(0, 1)
     assert "Request timed out" in str(e.value)
+
+
+def test_invalid_token_should_fail(cube):
+    with open('invalid_tokens.json') as f:
+        tokens = json.load(f)
+
+    for t in tokens:
+        token = {"Authorization": f"Bearer {t['jwt']}"}
+        auth = client_auth(token)
+        c = client.client(API_ADDR, auth)
+
+        with pytest.raises(RuntimeError) as e:
+            c.cube(cube).slice(0, 1)
+
+        assert "401" in str(e.value) or "500" in str(e.value)
 
 
 @settings(deadline=None, max_examples=6)

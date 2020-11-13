@@ -14,6 +14,7 @@ RUN python3 setup.py test
 WORKDIR /tests
 COPY /tests/integration_tests.py .
 COPY /tests/requirements.txt .
+COPY /tests/invalid_tokens.json .
 RUN pip install -r requirements.txt
 
 COPY /tests/ssl/az.pem  /etc/ssl/certs/
