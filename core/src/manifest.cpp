@@ -62,8 +62,8 @@ noexcept (false) {
     const auto index = manifest_dimensions[task.dim].get< std::vector< int > >();
     const auto itr = std::find(index.begin(), index.end(), task.lineno);
     if (itr == index.end()) {
-        const auto msg = fmt::format("line (= {}) not found in index");
-        throw line_not_found(msg);
+        const auto msg = "line (= {}) not found in index";
+        throw line_not_found(fmt::format(msg, task.lineno));
     }
 
     const auto pin = std::distance(index.begin(), itr);
