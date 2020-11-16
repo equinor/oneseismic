@@ -194,13 +194,13 @@ void fragment_task::run(
     /* TODO: log the actual bytes received too */
     /* TODO: log sender */
     spdlog::error(
-            "{} badly formatted protobuf message",
+            "pid={}, badly formatted protobuf message",
             this->p->pid
     );
     this->p->failure("bad-message").send(failure);
 } catch (const notfound& e) {
     spdlog::warn(
-            "{} fragment not found: '{}'",
+            "pid={}, fragment not found: '{}'",
             this->p->pid,
             e.what()
     );
@@ -210,10 +210,10 @@ void fragment_task::run(
      * TODO: log the headers?
      * TODO: log manifest url?
      */
-    spdlog::info("{} not authorized", this->p->pid);
+    spdlog::info("pid={}, not authorized", this->p->pid);
     this->p->failure("fragment-not-authorized").send(failure);
 } catch (const storage_error& e) {
-    spdlog::warn("{} storage error: {}", this->p->pid, e.what());
+    spdlog::warn("pid={}, storage error: {}", this->p->pid, e.what());
     this->p->failure("storage-error").send(failure);
 }
 

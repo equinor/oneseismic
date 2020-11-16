@@ -252,7 +252,7 @@ func (r *Result) Get(ctx *gin.Context) {
 
 	meta, err := parseProcessHeader(body)
 	if err != nil {
-		log.Printf("%s %v", pid, err)
+		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -265,13 +265,13 @@ func (r *Result) Get(ctx *gin.Context) {
 
 	ready, err := ready(r.Storage, identifiers)
 	if err != nil {
-		log.Printf("%s %v", pid, err)
+		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
 	if !ready {
-		log.Printf("%s tiles timed out; result not ready yet", pid)
+		log.Printf("pid=%s, tiles timed out; result not ready yet", pid)
 		// TODO: return NotReady, or is that only for a /status method?
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -279,7 +279,7 @@ func (r *Result) Get(ctx *gin.Context) {
 
 	tiles, rerr := r.Storage.MGet(identifiers...).Result()
 	if rerr != nil {
-		log.Printf("%s failed to get result from storage; %v", pid, rerr)
+		log.Printf("pid=%s, failed to get result from storage; %v", pid, rerr)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -304,7 +304,7 @@ func (r *Result) Get(ctx *gin.Context) {
 		 */
 		chunk, ok := tile.(string)
 		if !ok {
-			log.Printf("%s tile.type = %T; expected string", pid, tile)
+			log.Printf("pid=%s, tile.type = %T; expected string", pid, tile)
 			ctx.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}

@@ -214,11 +214,11 @@ try {
         msg.addstr(fmt::format("{}/{}", i, chunks));
         msg.addstr(fetch.pack());
         msg.send(output);
-        spdlog::info("{} {}/{} queued for fragment retrieval", pid, i, chunks);
+        spdlog::info("pid={}, part={}/{} queued for fragment retrieval", pid, i, chunks);
     }
 } catch (const bad_message&) {
     spdlog::error(
-            "{} badly formatted protobuf message",
+            "pid={}, badly formatted protobuf message",
             this->p->pid
     );
     this->p->failure("bad-message").send(failure);
@@ -227,11 +227,11 @@ try {
      * TODO: log the headers?
      * TODO: log manifest url?
      */
-    spdlog::info("{} not authorized", this->p->pid);
+    spdlog::info("pid={}, not authorized", this->p->pid);
     this->p->failure("manifest-not-authorized").send(failure);
 } catch (const notfound& e) {
     spdlog::info(
-            "{} {} manifest not found: '{}'",
+            "pid={}, {} manifest not found: '{}'",
             this->p->pid,
             this->p->request.guid,
             e.what()
@@ -239,17 +239,17 @@ try {
     this->p->failure("manifest-not-found").send(failure);
 } catch (const nlohmann::json::parse_error& e) {
     spdlog::error(
-            "{} badly formatted manifest: {}",
+            "pid={}, badly formatted manifest: {}",
             this->p->pid,
             this->p->request.guid
     );
     spdlog::error(e.what());
     this->p->failure("json-parse-error").send(failure);
 } catch (const line_not_found& e) {
-    spdlog::info("{} {}", this->p->pid, e.what());
+    spdlog::info("pid={}, {}", this->p->pid, e.what());
     this->p->failure("line-not-found").send(failure);
 } catch (const storage_error& e) {
-    spdlog::warn("{} storage error: {}", this->p->pid, e.what());
+    spdlog::warn("pid={}, storage error: {}", this->p->pid, e.what());
     this->p->failure("storage-error").send(failure);
 }
 
