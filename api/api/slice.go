@@ -1,11 +1,15 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 
+	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 	"github.com/pebbe/zmq4"
 	"github.com/equinor/oneseismic/api/internal/auth"
@@ -101,6 +105,42 @@ func (s *Slice) makeTask(
 	}
 }
 
+/*
+ * Get the manifest for the cube from the blob store.
+ *
+ * It's important that this is a blocking read, since this is the first
+ * authorization mechanism in oneseismic. If the user (through the
+ * on-behalf-token) does not have permissions to read the manifest, it
+ * shouldn't be able to read the cube either. If so, no more processing should
+ * be done, and the request discarded.
+ */
+func getManifest(
+	ctx context.Context,
+	token string,
+	containerURL *url.URL,
+) (string, error) {
+	credentials := azblob.NewTokenCredential(token, nil)
+	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
+	container   := azblob.NewContainerURL(*containerURL, pipeline)
+	blob        := container.NewBlobURL("manifest.json")
+
+	dl, err := blob.Download(
+		ctx,
+		0, /* offset */
+		azblob.CountToEnd,
+		azblob.BlobAccessConditions {},
+		false, /* content-get-md5 */
+	)
+	if err != nil {
+		return "", err
+	}
+
+	body := dl.Body(azblob.RetryReaderOptions{})
+	defer body.Close()
+	s, err := ioutil.ReadAll(body)
+	return string(s), err
+}
+
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := util.MakePID()
 
@@ -122,7 +162,67 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	msg := s.makeTask(pid, token, "{}", params)
+	container, err := url.Parse(fmt.Sprintf("%s/%s", s.endpoint, params.guid))
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	manifest, err := getManifest(ctx, token, container)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		/*
+		 * Right now the error paths are trivial, so the error handling is
+		 * inlined. It doesn't take much for this to become unwieldy however,
+		 * at which point the error handling should probably be extracted into
+		 * a helper to avoid polluting this function too much. The
+		 * getManifest() and error handling is actually independent of the
+		 * operation (/slice) and the second more endpoints are introduced,
+		 * this should be pulled out and shared between them.
+		 *
+		 * The use of the azblob package makes it somewhat awkward to test as
+		 * there's no obvious [1] place to inject a custom http client.
+		 *
+		 * [1] to my (limited) knowledge
+		 */
+		switch e := err.(type) {
+			case azblob.StorageError:
+				/*
+				 * request successful, but the service returned some error e.g.
+				 * a non-existing cube, unauthorized request.
+				 *
+				 * For now, just write the status-text into the body, which
+				 * should be slightly more accurate than just the status code.
+				 * Once the interface matures, this should probably be a more
+				 * structured error message.
+				 */
+				sc := e.Response()
+				ctx.String(sc.StatusCode, sc.Status)
+				ctx.Abort()
+			default:
+				/*
+				 * We don't care if the error occured is a networking error,
+				 * faulty logic or something else - from the user side this is
+				 * an InternalServerError regardless. At some point in the
+				 * future, we might want to deal with particular errors here.
+				 */
+				ctx.AbortWithStatus(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	/*
+	 * Embedding a json doc as a string works (surprisingly) well, since the
+	 * Pack()/encoding escapes all nested quotes. It might be reasonable at
+	 * some point to change the underlying representation to messagepack, or
+	 * even send the messages gzipped, but so for now strings and embedded
+	 * documents should do fine.
+	 *
+	 * This opens an opportunity for the manifest forwaded not being quite
+	 * faithful to what's stored in blob, i.e. information can be stripped out
+	 * or added.
+	 */
+	msg := s.makeTask(pid, token, manifest, params)
 	req, err := msg.Pack()
 	if err != nil {
 		log.Printf("%s pack error: %v", pid, err)

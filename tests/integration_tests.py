@@ -99,7 +99,7 @@ def test_cube_404(cube):
     c = client.client(API_ADDR, AUTH_CLIENT)
     with pytest.raises(RuntimeError) as e:
         c.cube("not_found").slice(0, 1)
-    assert "Request timed out" in str(e.value)
+    assert "404" in str(e.value)
 
 
 def test_invalid_token_should_fail(cube):

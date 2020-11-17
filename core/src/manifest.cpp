@@ -85,23 +85,6 @@ noexcept (false) {
     return out;
 }
 
-nlohmann::json get_manifest(
-        one::transfer& xfer,
-        const std::string& storage_endpoint,
-        const std::string& token,
-        const std::string& guid)
-noexcept (false) {
-
-    one::batch batch;
-    batch.storage_endpoint = storage_endpoint;
-    batch.auth = fmt::format("Bearer {}", token);
-    batch.guid = guid;
-    batch.fragment_ids.resize(1);
-    manifest_cfg cfg;
-    xfer.perform(batch, cfg); // TODO: get(object) -> bytes
-    return nlohmann::json::parse(cfg.doc);
-}
-
 std::size_t chunk_count(std::size_t jobs, std::size_t chunk_size) {
     /*
      * Return the number of chunk-size'd chunks needed to process all jobs
@@ -213,13 +196,7 @@ try {
 
     const auto& pid = this->p->pid;
     const auto& request = this->p->request;
-
-    const auto manifest = get_manifest(
-            xfer,
-            request.storage_endpoint,
-            request.token,
-            request.guid
-    );
+    const auto manifest = nlohmann::json::parse(request.manifest);
 
     auto fetch = build_slice_fetch(request, manifest);
     const auto ids = fetch.ids;

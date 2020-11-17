@@ -20,68 +20,6 @@ using namespace Catch::Matchers;
 
 namespace {
 
-int simple_manifest(
-        void* cls,
-        struct MHD_Connection* connection,
-        const char*,
-        const char* method,
-        const char*,
-        const char* upload_data,
-        size_t* upload_size,
-        void**) {
-
-    if (method == std::string("PUT")) {
-        REQUIRE(cls);
-        int* done = (int*)cls;
-
-        if (*done) {
-            char empty[] = "";
-            auto response = MHD_create_response_from_buffer(
-                    0,
-                    empty,
-                    MHD_RESPMEM_MUST_COPY
-            );
-            auto ret = MHD_queue_response(
-                    connection,
-                    MHD_HTTP_CREATED,
-                    response
-            );
-            MHD_destroy_response(response);
-            return ret;
-
-        }
-
-        if (*upload_size > 0) {
-            *upload_size = 0;
-            *done = 1;
-            return MHD_YES;
-        }
-
-        return MHD_YES;
-    }
-
-    std::string manifest = R"(
-    {
-        "guid": "0d235a7138104e00c421e63f5e3261bf2dc3254b",
-        "dimensions": [
-            [1, 2, 3],
-            [2, 4, 6],
-            [0, 4, 8, 12, 16, 20, 24, 28, 32, 36]
-        ]
-    }
-    )";
-
-    auto* response = MHD_create_response_from_buffer(
-            manifest.size(),
-            (void*)manifest.data(),
-            MHD_RESPMEM_MUST_COPY
-    );
-
-    auto ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-    MHD_destroy_response(response);
-    return ret;
-}
-
 void sendmsg(zmq::socket_t& sock, const std::string& body, const std::string& pid) {
     /*
      * One-off message with placeholer values for address and pid.
@@ -99,16 +37,64 @@ void sendmsg(zmq::socket_t& sock, const std::string& body, const std::string& pi
     msg.send(sock);
 }
 
-}
+/*
+ * The module should not ring out any http calls at all, so make all methods
+ * fail. This until the manifest_task has been refactored to no longer take
+ * storage
+ */
+struct disallow_storage_calls : public one::storage_configuration {
 
-std::string make_slice_request() {
+    std::string url(const one::batch&, const std::string&) const override {
+        FAIL("manifest_task should not make calls to storage");
+        throw std::logic_error("not allowed");
+    }
+
+    std::string url(const std::string& path) const override {
+        FAIL("manifest_task should not make calls to storage");
+        throw std::logic_error("not allowed");
+    }
+
+    action onstatus(
+            const one::buffer&,
+            const one::batch&,
+            const std::string&,
+            long) override {
+        FAIL("manifest_task should not make calls to storage");
+        throw std::logic_error("not allowed");
+    }
+
+    action onstatus(long http_code) override {
+        FAIL("manifest_task should not make calls to storage");
+        throw std::logic_error("not allowed");
+    }
+};
+
+std::string make_slice_request(const std::string& manifest) {
     one::slice_task task;
     task.guid = "0d235a7138104e00c421e63f5e3261bf2dc3254b";
+    task.manifest = manifest;
     task.storage_endpoint = "storage";
     task.shape  = { 2, 2, 2 };
     task.dim    = 1;
     task.lineno = 4;
     return task.pack();
+}
+
+std::string make_slice_request() {
+    const std::string manifest = R"(
+    {
+        "guid": "0d235a7138104e00c421e63f5e3261bf2dc3254b",
+        "dimensions": [
+            [1, 2, 3],
+            [2, 4, 6],
+            [0, 4, 8, 12, 16, 20, 24, 28, 32, 36]
+        ]
+    }
+    )";
+
+    return make_slice_request(manifest);
+}
+
 }
 
 TEST_CASE(
@@ -131,12 +117,10 @@ TEST_CASE(
     worker_rep.connect( "inproc://rep");
     worker_fail.connect("inproc://fail");
 
-    int done = 0;
-    mhttpd httpd(simple_manifest, &done);
+    disallow_storage_calls storage;
     const auto reqmsg = make_slice_request();
 
     SECTION("Successful calls are pushed to destination") {
-        loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
         one::manifest_task mt;
         mt.connect_working_storage(redisaddr());
@@ -163,26 +147,28 @@ TEST_CASE(
         CHECK_THAT(task.shape, Equals(std::vector< int >{ 2, 2, 2 }));
     }
 
-    SECTION("not-found messages are pushed on failure") {
-
-        struct storage_sans_manifest : public loopback_cfg {
-            using loopback_cfg::loopback_cfg;
-
-            action onstatus(
-                    const one::buffer&,
-                    const one::batch&,
-                    const std::string&,
-                    long) override {
-                throw one::notfound("no reason");
-            }
-        } storage_cfg(httpd.port());
-
+    SECTION("badly-formatted manifest pushes failure") {
         const auto pid = makepid();
+        /*
+         *  TODO
+         *  There are all kinds of bad manifests that should be covered. This
+         *  document misses the closing }, as parsing now only catches json
+         *  parse errors, not missing fields or bad values.
+         */
+        const auto bad_manifest = R"(
+        {
+            "guid": "0d235a7138104e00c421e63f5e3261bf2dc3254b",
+            "dimensions": [
+                [1, 2, 3],
+                [2, 4, 6],
+                [0, 4, 8, 12, 16, 20, 24, 28, 32, 36]
+            ]
+        )";
+        auto reqmsg = make_slice_request(bad_manifest);
         sendmsg(caller_req, reqmsg, pid);
 
-        one::transfer xfer(1, storage_cfg);
+        one::transfer xfer(1, storage);
         one::manifest_task mt;
-        mt.connect_working_storage(redisaddr());
         mt.run(xfer, worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;
@@ -193,47 +179,11 @@ TEST_CASE(
         CHECK(received);
         CHECK(fail.size() == 2);
         CHECK(fail[0].to_string() == pid);
-        CHECK(fail[1].to_string() == "manifest-not-found");
-
-        CHECK(not received_message(caller_rep));
-    }
-
-    SECTION("not-authorized messages are pushed on failure") {
-
-        struct storage_403 : public loopback_cfg {
-            using loopback_cfg::loopback_cfg;
-
-            action onstatus(
-                    const one::buffer&,
-                    const one::batch&,
-                    const std::string&,
-                    long) override {
-                throw one::unauthorized("no reason");
-            }
-        } storage_cfg(httpd.port());
-
-        const auto pid = makepid();
-        sendmsg(caller_req, reqmsg, pid);
-        one::transfer xfer(1, storage_cfg);
-        one::manifest_task mt;
-        mt.connect_working_storage(redisaddr());
-        mt.run(xfer, worker_req, worker_rep, worker_fail);
-
-        zmq::multipart_t fail;
-        const auto received = fail.recv(
-                caller_fail,
-                static_cast< int >(zmq::recv_flags::dontwait)
-        );
-        CHECK(received);
-        CHECK(fail.size() == 2);
-        CHECK(fail[0].to_string() == pid);
-        CHECK(fail[1].to_string() == "manifest-not-authorized");
-
+        CHECK(fail[1].to_string() == "json-parse-error");
         CHECK(not received_message(caller_rep));
     }
 
     SECTION("Setting task size changes # of IDs") {
-        loopback_cfg storage(httpd.port());
         one::transfer xfer(1, storage);
 
         one::manifest_task mt;
@@ -323,12 +273,10 @@ TEST_CASE(
     worker_rep.connect( "inproc://rep");
     worker_fail.connect("inproc://fail");
 
-    int done = 0;
-    mhttpd httpd(simple_manifest, &done);
+    disallow_storage_calls storage;
     const auto reqmsg = make_slice_request();
 
     SECTION("No tasks are queued when header put fails") {
-        loopback_cfg storage(httpd.port());
         const auto pid = makepid();
         sendmsg(caller_req, reqmsg, pid);
         one::transfer xfer(1, storage);
