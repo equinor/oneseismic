@@ -6,31 +6,8 @@
 #include <fmt/format.h>
 #include <zmq.hpp>
 
-#include <oneseismic/azure.hpp>
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/tasks.hpp>
-
-namespace one {
-
-class az_manifest : public az {
-public:
-    using az::az;
-
-    std::string url(
-            const one::batch& batch,
-            const std::string&) const override {
-
-        return fmt::format(
-            "{}/{}/manifest.json",
-            batch.storage_endpoint,
-            batch.guid
-        );
-
-    }
-
-};
-
-}
 
 int main(int argc, char** argv) {
     std::string source_address;
@@ -105,8 +82,6 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
 
-    one::az_manifest az;
-    one::transfer xfer(ntransfers, az);
     one::manifest_task task;
     task.connect_working_storage(redis_address);
     try {
@@ -125,7 +100,7 @@ int main(int argc, char** argv) {
         zmq::poll(items, 2, -1);
 
         if (items[0].revents & ZMQ_POLLIN) {
-            task.run(xfer, source, sink, fail);
+            task.run(source, sink, fail);
         }
 
         if (items[1].revents & ZMQ_POLLIN) {

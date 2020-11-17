@@ -10,7 +10,6 @@
 
 #include <oneseismic/messages.hpp>
 #include <oneseismic/tasks.hpp>
-#include <oneseismic/transfer.hpp>
 
 #include "config.hpp"
 #include "mhttpd.hpp"
@@ -36,38 +35,6 @@ void sendmsg(zmq::socket_t& sock, const std::string& body, const std::string& pi
     msg.addstr(body);
     msg.send(sock);
 }
-
-/*
- * The module should not ring out any http calls at all, so make all methods
- * fail. This until the manifest_task has been refactored to no longer take
- * storage
- */
-struct disallow_storage_calls : public one::storage_configuration {
-
-    std::string url(const one::batch&, const std::string&) const override {
-        FAIL("manifest_task should not make calls to storage");
-        throw std::logic_error("not allowed");
-    }
-
-    std::string url(const std::string& path) const override {
-        FAIL("manifest_task should not make calls to storage");
-        throw std::logic_error("not allowed");
-    }
-
-    action onstatus(
-            const one::buffer&,
-            const one::batch&,
-            const std::string&,
-            long) override {
-        FAIL("manifest_task should not make calls to storage");
-        throw std::logic_error("not allowed");
-    }
-
-    action onstatus(long http_code) override {
-        FAIL("manifest_task should not make calls to storage");
-        throw std::logic_error("not allowed");
-    }
-};
 
 std::string make_slice_request(const std::string& manifest) {
     one::slice_task task;
@@ -117,17 +84,15 @@ TEST_CASE(
     worker_rep.connect( "inproc://rep");
     worker_fail.connect("inproc://fail");
 
-    disallow_storage_calls storage;
     const auto reqmsg = make_slice_request();
 
     SECTION("Successful calls are pushed to destination") {
-        one::transfer xfer(1, storage);
         one::manifest_task mt;
         mt.connect_working_storage(redisaddr());
 
         const auto pid = makepid();
         sendmsg(caller_req, reqmsg, pid);
-        mt.run(xfer, worker_req, worker_rep, worker_fail);
+        mt.run(worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t response(caller_rep);
         REQUIRE(response.size() == 3);
@@ -167,9 +132,8 @@ TEST_CASE(
         auto reqmsg = make_slice_request(bad_manifest);
         sendmsg(caller_req, reqmsg, pid);
 
-        one::transfer xfer(1, storage);
         one::manifest_task mt;
-        mt.run(xfer, worker_req, worker_rep, worker_fail);
+        mt.run(worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;
         const auto received = fail.recv(
@@ -184,8 +148,6 @@ TEST_CASE(
     }
 
     SECTION("Setting task size changes # of IDs") {
-        one::transfer xfer(1, storage);
-
         one::manifest_task mt;
         mt.connect_working_storage(redisaddr());
         int size, tasks;
@@ -202,7 +164,7 @@ TEST_CASE(
         mt.max_task_size(size);
 
         sendmsg(caller_req, reqmsg, makepid());
-        mt.run(xfer, worker_req, worker_rep, worker_fail);
+        mt.run(worker_req, worker_rep, worker_fail);
 
         const auto expected = std::vector< std::string > {
             "0-0-0",
@@ -273,16 +235,14 @@ TEST_CASE(
     worker_rep.connect( "inproc://rep");
     worker_fail.connect("inproc://fail");
 
-    disallow_storage_calls storage;
     const auto reqmsg = make_slice_request();
 
     SECTION("No tasks are queued when header put fails") {
         const auto pid = makepid();
         sendmsg(caller_req, reqmsg, pid);
-        one::transfer xfer(1, storage);
         one::manifest_task mt;
         mt.connect_working_storage(redisaddr());
-        mt.run(xfer, worker_req, worker_rep, worker_fail);
+        mt.run(worker_req, worker_rep, worker_fail);
 
         zmq::multipart_t fail;
         const auto received = fail.recv(

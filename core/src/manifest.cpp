@@ -35,18 +35,6 @@ one::gvt< 3 > geometry(
     };
 }
 
-struct manifest_cfg : public one::transfer_configuration {
-    void oncomplete(
-            const one::buffer& buffer,
-            const one::batch&,
-            const std::string&) override {
-        /* TODO: in debug, store the string too? */
-        this->doc = buffer;
-    }
-
-    one::buffer doc;
-};
-
 slice_fetch build_slice_fetch(
         const slice_task& task,
         const nlohmann::json& manifest)
@@ -186,7 +174,6 @@ std::string make_result_header(int chunks) {
 }
 
 void manifest_task::run(
-        transfer& xfer,
         zmq::socket_t& input,
         zmq::socket_t& output,
         zmq::socket_t& failure)
