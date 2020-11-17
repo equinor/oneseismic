@@ -10,6 +10,7 @@ namespace one {
 void to_json(nlohmann::json& doc, const common_task& task) noexcept (false) {
     doc["token"]            = task.token;
     doc["guid"]             = task.guid;
+    doc["manifest"]         = task.manifest;
     doc["storage_endpoint"] = task.storage_endpoint;
     doc["shape"]            = task.shape;
     doc["function"]         = task.function;
@@ -18,6 +19,7 @@ void to_json(nlohmann::json& doc, const common_task& task) noexcept (false) {
 void from_json(const nlohmann::json& doc, common_task& task) noexcept (false) {
     doc.at("token")           .get_to(task.token);
     doc.at("guid")            .get_to(task.guid);
+    doc.at("manifest")        .get_to(task.manifest);
     doc.at("storage_endpoint").get_to(task.storage_endpoint);
     doc.at("shape")           .get_to(task.shape);
     doc.at("function")        .get_to(task.function);

@@ -33,6 +33,7 @@ TEST_CASE("well-formed slice-task is unpacked correctly") {
         "token": "on-behalf-of-token",
         "guid": "object-id",
         "storage_endpoint": "https://storage.com",
+        "manifest": "{}",
         "shape": [64, 64, 64],
         "function": "slice",
         "params": {
@@ -45,6 +46,7 @@ TEST_CASE("well-formed slice-task is unpacked correctly") {
     task.unpack(doc, doc + std::strlen(doc));
     CHECK(task.token == "on-behalf-of-token");
     CHECK(task.guid  == "object-id");
+    CHECK(task.manifest == "{}");
     CHECK(task.storage_endpoint == "https://storage.com");
     CHECK_THAT(task.shape, Equals(std::vector< int >{64, 64, 64}));
     CHECK(task.dim == 0);
@@ -55,6 +57,7 @@ TEST_CASE("unpacking task with missing field fails") {
     const auto entries = std::vector< std::string > {
         R"("token": "on-behalf-of-token")",
         R"("guid": "object-id")",
+        R"("manifest": "{}")",
         R"("storage_endpoint": "http://storage.com")",
         R"("shape": [64, 64, 64])",
         R"("function": "slice")",
@@ -79,6 +82,7 @@ TEST_CASE("unpacking message with wrong function tag fails") {
     const auto doc = R"({
         "token": "on-behalf-of-token",
         "guid": "object-id",
+        "manifest": "{}",
         "storage_endpoint": "https://storage.com",
         "shape": [64, 64, 64],
         "function": "broken",
@@ -96,6 +100,7 @@ TEST_CASE("slice-task can round trip packing") {
     one::slice_task task;
     task.token = "token";
     task.guid = "guid";
+    task.manifest = "{}";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
     task.function = "slice";
@@ -113,6 +118,7 @@ TEST_CASE("slice-task sets function to 'slice'") {
     one::slice_task task;
     task.token = "token";
     task.guid = "guid";
+    task.manifest = "{}";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
     task.function = "garbage";
@@ -129,6 +135,7 @@ TEST_CASE("slice-fetch can round trip packing") {
     one::slice_fetch task;
     task.token = "token";
     task.guid = "guid";
+    task.manifest = "{}";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
     task.function = "slice";

@@ -83,6 +83,7 @@ func parseSliceParams(ctx *gin.Context) (*sliceParams, error) {
 func (s *Slice) makeTask(
 	pid string,
 	token string,
+	manifest string,
 	params *sliceParams,
 ) message.Task {
 	return message.Task {
@@ -90,6 +91,7 @@ func (s *Slice) makeTask(
 		Token: token,
 		Guid:  params.guid,
 		StorageEndpoint: s.endpoint,
+		Manifest: manifest,
 		Shape: []int32 { 64, 64, 64, },
 		Function: "slice",
 		Params: &message.SliceParams {
@@ -120,7 +122,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	msg := s.makeTask(pid, token, params)
+	msg := s.makeTask(pid, token, "{}", params)
 	req, err := msg.Pack()
 	if err != nil {
 		log.Printf("%s pack error: %v", pid, err)
