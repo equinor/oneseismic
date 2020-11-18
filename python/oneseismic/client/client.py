@@ -9,6 +9,8 @@ from xdg import XDG_CACHE_HOME
 import msgpack
 import time
 
+class ClientError(RuntimeError):
+    pass
 
 def assemble_slice(msg):
     parts = msgpack.unpackb(msg)
