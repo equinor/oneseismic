@@ -313,3 +313,74 @@ func (r *Result) Get(ctx *gin.Context) {
 
 	ctx.Data(http.StatusOK, "application/octet-stream", result)
 }
+
+func (r *Result) Status(ctx *gin.Context) {
+	pid := ctx.Param("pid")
+	/*
+	 * There's an interesting timing issue here - if /result is called before
+	 * the job is scheduled and the header written, it is considered pending.
+	 *
+	 * The fact that the token checks out means that it is essentially pending
+	 * - it's enqueued, but no processing has started [1]. Also, partial
+	 * results have a fairly short expiration set, and requests to /result
+	 * after expiration would still carry a valid auth token.
+	 *
+	 * The fix here is probably to include created-at and expiration in the
+	 * token as well - if the token checks out, but the header does not exist,
+	 * the status is pending.
+	 *
+	 * [1] the header-write step not completed, to be precise
+	 */
+	body, err := r.Storage.Get(headerkey(pid)).Bytes()
+	if err == redis.Nil {
+		/* request sucessful, but key does not exist */
+		ctx.JSON(http.StatusAccepted, gin.H {
+			"location": fmt.Sprintf("result/%s/status", pid),
+			"status": "pending",
+		})
+		return
+	}
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	proc, err := parseProcessHeader(body)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	identifiers := make([]string, proc.Parts)
+	for i := 0; i < proc.Parts; i++ {
+		identifiers[i] = fmt.Sprintf("%s:%d/%d", pid, i, proc.Parts)
+	}
+
+	count, err := r.Storage.Exists(identifiers...).Result()
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	items := int64(len(identifiers))
+	done := count == items
+	completed := fmt.Sprintf("%d/%d", count, items)
+
+	// TODO: add (and detect) failed status
+	if done {
+		ctx.JSON(http.StatusOK, gin.H {
+			"location": fmt.Sprintf("result/%s", pid),
+			"status": "finished",
+			"progress": completed,
+		})
+	} else {
+		ctx.JSON(http.StatusAccepted, gin.H {
+			"location": fmt.Sprintf("result/%s/status", pid),
+			"status": "working",
+			"progress": completed,
+		})
+	}
+}

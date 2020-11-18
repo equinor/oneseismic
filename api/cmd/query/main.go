@@ -206,7 +206,10 @@ func main() {
 		onbehalf,
 		slice.Get,
 	)
-	app.GET("/result/:pid", auth.ResultAuth(&keyring), result.Get)
+
+	authresult := auth.ResultAuth(&keyring)
+	app.GET("/result/:pid",        authresult, result.Get)
+	app.GET("/result/:pid/status", authresult, result.Status)
 	app.GET("/config", cfg.Get)
 	app.Run(":8080")
 }
