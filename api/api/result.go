@@ -223,30 +223,36 @@ func headerkey(pid string) string {
 	return fmt.Sprintf("%s:header.json", pid)
 }
 
+type processheader struct {
+	Parts int `:json:"parts"`
+}
+
+func parseProcessHeader(doc []byte) (processheader, error) {
+	ph := processheader {}
+	if err := json.Unmarshal(doc, &ph); err != nil {
+		log.Printf("bad process header: %s", string(doc))
+		return ph, fmt.Errorf("unable to parse process header: %w", err)
+	}
+
+	if ph.Parts <= 0 {
+		log.Printf("bad process header: %s", string(doc))
+		return ph, fmt.Errorf("processheader.parts = %d; want >= 1", ph.Parts)
+	}
+	return ph, nil
+}
+
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
 	body, err := r.Storage.Get(headerkey(pid)).Bytes()
 	if err != nil {
-		log.Printf("Unable to get result/meta: %v", err)
+		log.Printf("Unable to get process header: %v", err)
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	type Meta struct {
-		Parts int `:json:"parts"`
-	}
-
-	meta := Meta {}
-	if err := json.Unmarshal(body, &meta); err != nil {
-		log.Printf("%s unable to parse meta: %v", pid, err)
-		log.Printf("%s header: %s", pid, string(body))
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	if meta.Parts <= 0 {
-		log.Printf("%s got header with invalid parts; was %d", pid, meta.Parts)
-		log.Printf("%s header: %s", pid, string(body))
+	meta, err := parseProcessHeader(body)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
