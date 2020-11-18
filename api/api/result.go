@@ -216,33 +216,6 @@ func ready(storage redis.Cmdable, identifiers []string) (bool, error) {
 
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
-	if len(pid) == 0 {
-		log.Printf("pid empty")
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
-		log.Printf("%s Authorization header not set", pid)
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	tok := ""
-	_, scanerr := fmt.Sscanf(authHeader, "Bearer %s", &tok)
-	if scanerr != nil {
-		log.Printf("%s malformed Authorization; was %s", pid, authHeader)
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	if verr := r.Keyring.Validate(tok, pid); verr != nil {
-		log.Printf("%s %v", pid, verr)
-		ctx.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
 	body, err := r.Storage.Get(fmt.Sprintf("%s:header.json", pid)).Bytes()
 	if err != nil {
 		log.Printf("Unable to get result/meta: %v", err)
