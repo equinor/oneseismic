@@ -214,9 +214,18 @@ func ready(storage redis.Cmdable, identifiers []string) (bool, error) {
 	return false, nil
 }
 
+/*
+ * Silly helper to centralise the name/key of the header object. It's not
+ * likely to change too much, but it beats hardcoding the key with formatting
+ * all over the place.
+ */
+func headerkey(pid string) string {
+	return fmt.Sprintf("%s:header.json", pid)
+}
+
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
-	body, err := r.Storage.Get(fmt.Sprintf("%s:header.json", pid)).Bytes()
+	body, err := r.Storage.Get(headerkey(pid)).Bytes()
 	if err != nil {
 		log.Printf("Unable to get result/meta: %v", err)
 		ctx.AbortWithStatus(http.StatusNotFound)
