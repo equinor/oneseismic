@@ -141,6 +141,20 @@ func getManifest(
 	return string(s), err
 }
 
+func parseManifest(doc string) (*message.Manifest, error) {
+	m := message.Manifest{}
+	return m.Unpack([]byte(doc))
+}
+
+func contains(haystack []int, needle int) bool {
+	for _, x := range haystack {
+		if x == needle {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := util.MakePID()
 
@@ -208,6 +222,31 @@ func (s *Slice) Get(ctx *gin.Context) {
 				 */
 				ctx.AbortWithStatus(http.StatusInternalServerError)
 		}
+		return
+	}
+
+	m, err := parseManifest(manifest)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	if !(params.dimension < len(m.Dimensions)) {
+		msg := fmt.Sprintf(
+			"param.dimension (= %d) not in [0, %d)",
+			params.dimension,
+			len(m.Dimensions),
+		)
+		log.Printf("%s %s in cube %s", pid, msg, params.guid)
+		ctx.String(http.StatusNotFound, msg)
+		ctx.Abort()
+		return
+	}
+	if !contains(m.Dimensions[params.dimension], params.lineno) {
+		msg := fmt.Sprintf("param.lineno (= %d) not in cube", params.lineno)
+		log.Printf("%s %s %s", pid, msg, params.guid)
+		ctx.String(http.StatusNotFound, msg)
+		ctx.Abort()
 		return
 	}
 

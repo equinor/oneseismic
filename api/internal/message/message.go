@@ -28,6 +28,15 @@ func (msg *Task) Pack() ([]byte, error) {
 	return json.Marshal(msg)
 }
 
+type Manifest struct {
+	Dimensions [][]int `json:"dimensions"`
+}
+
+func (m *Manifest) Unpack(doc []byte) (*Manifest, error) {
+	return m, json.Unmarshal(doc, m)
+}
+
+
 type SliceParams struct {
 	Dim    int `json:"dim"`
 	Lineno int `json:"lineno"`
