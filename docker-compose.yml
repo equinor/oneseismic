@@ -15,6 +15,7 @@ services:
     ]
     depends_on:
       - api
+      - storage
   fragment:
     image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
@@ -43,6 +44,8 @@ services:
     command: [
         "oneseismic-query",
     ]
+    depends_on:
+      - storage
     environment:
       - HOST_ADDR=0.0.0.0:8080
       - AUTHSERVER
