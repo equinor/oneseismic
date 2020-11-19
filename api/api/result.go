@@ -214,57 +214,45 @@ func ready(storage redis.Cmdable, identifiers []string) (bool, error) {
 	return false, nil
 }
 
+/*
+ * Silly helper to centralise the name/key of the header object. It's not
+ * likely to change too much, but it beats hardcoding the key with formatting
+ * all over the place.
+ */
+func headerkey(pid string) string {
+	return fmt.Sprintf("%s:header.json", pid)
+}
+
+type processheader struct {
+	Parts int `:json:"parts"`
+}
+
+func parseProcessHeader(doc []byte) (processheader, error) {
+	ph := processheader {}
+	if err := json.Unmarshal(doc, &ph); err != nil {
+		log.Printf("bad process header: %s", string(doc))
+		return ph, fmt.Errorf("unable to parse process header: %w", err)
+	}
+
+	if ph.Parts <= 0 {
+		log.Printf("bad process header: %s", string(doc))
+		return ph, fmt.Errorf("processheader.parts = %d; want >= 1", ph.Parts)
+	}
+	return ph, nil
+}
+
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
-	if len(pid) == 0 {
-		log.Printf("pid empty")
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
-		log.Printf("%s Authorization header not set", pid)
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	tok := ""
-	_, scanerr := fmt.Sscanf(authHeader, "Bearer %s", &tok)
-	if scanerr != nil {
-		log.Printf("%s malformed Authorization; was %s", pid, authHeader)
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	if verr := r.Keyring.Validate(tok, pid); verr != nil {
-		log.Printf("%s %v", pid, verr)
-		ctx.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	body, err := r.Storage.Get(fmt.Sprintf("%s:header.json", pid)).Bytes()
+	body, err := r.Storage.Get(headerkey(pid)).Bytes()
 	if err != nil {
-		log.Printf("Unable to get result/meta: %v", err)
+		log.Printf("Unable to get process header: %v", err)
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	type Meta struct {
-		Parts int `:json:"parts"`
-	}
-
-	meta := Meta {}
-	if err := json.Unmarshal(body, &meta); err != nil {
-		log.Printf("%s unable to parse meta: %v", pid, err)
-		log.Printf("%s header: %s", pid, string(body))
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	if meta.Parts <= 0 {
-		log.Printf("%s got header with invalid parts; was %d", pid, meta.Parts)
-		log.Printf("%s header: %s", pid, string(body))
+	meta, err := parseProcessHeader(body)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -324,4 +312,75 @@ func (r *Result) Get(ctx *gin.Context) {
 	}
 
 	ctx.Data(http.StatusOK, "application/octet-stream", result)
+}
+
+func (r *Result) Status(ctx *gin.Context) {
+	pid := ctx.Param("pid")
+	/*
+	 * There's an interesting timing issue here - if /result is called before
+	 * the job is scheduled and the header written, it is considered pending.
+	 *
+	 * The fact that the token checks out means that it is essentially pending
+	 * - it's enqueued, but no processing has started [1]. Also, partial
+	 * results have a fairly short expiration set, and requests to /result
+	 * after expiration would still carry a valid auth token.
+	 *
+	 * The fix here is probably to include created-at and expiration in the
+	 * token as well - if the token checks out, but the header does not exist,
+	 * the status is pending.
+	 *
+	 * [1] the header-write step not completed, to be precise
+	 */
+	body, err := r.Storage.Get(headerkey(pid)).Bytes()
+	if err == redis.Nil {
+		/* request sucessful, but key does not exist */
+		ctx.JSON(http.StatusAccepted, gin.H {
+			"location": fmt.Sprintf("result/%s/status", pid),
+			"status": "pending",
+		})
+		return
+	}
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	proc, err := parseProcessHeader(body)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	identifiers := make([]string, proc.Parts)
+	for i := 0; i < proc.Parts; i++ {
+		identifiers[i] = fmt.Sprintf("%s:%d/%d", pid, i, proc.Parts)
+	}
+
+	count, err := r.Storage.Exists(identifiers...).Result()
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	items := int64(len(identifiers))
+	done := count == items
+	completed := fmt.Sprintf("%d/%d", count, items)
+
+	// TODO: add (and detect) failed status
+	if done {
+		ctx.JSON(http.StatusOK, gin.H {
+			"location": fmt.Sprintf("result/%s", pid),
+			"status": "finished",
+			"progress": completed,
+		})
+	} else {
+		ctx.JSON(http.StatusAccepted, gin.H {
+			"location": fmt.Sprintf("result/%s/status", pid),
+			"status": "working",
+			"progress": completed,
+		})
+	}
 }

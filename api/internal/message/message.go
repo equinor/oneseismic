@@ -17,6 +17,7 @@ type Task struct {
 	Pid             string       `json:"pid"`
 	Token           string       `json:"token"`
 	Guid            string       `json:"guid"`
+	Manifest        string       `json:"manifest"`
 	StorageEndpoint string       `json:"storage_endpoint"`
 	Shape           []int32      `json:"shape"`
 	Function        string       `json:"function"`
@@ -26,6 +27,15 @@ type Task struct {
 func (msg *Task) Pack() ([]byte, error) {
 	return json.Marshal(msg)
 }
+
+type Manifest struct {
+	Dimensions [][]int `json:"dimensions"`
+}
+
+func (m *Manifest) Unpack(doc []byte) (*Manifest, error) {
+	return m, json.Unmarshal(doc, m)
+}
+
 
 type SliceParams struct {
 	Dim    int `json:"dim"`

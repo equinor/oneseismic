@@ -35,18 +35,6 @@ one::gvt< 3 > geometry(
     };
 }
 
-struct manifest_cfg : public one::transfer_configuration {
-    void oncomplete(
-            const one::buffer& buffer,
-            const one::batch&,
-            const std::string&) override {
-        /* TODO: in debug, store the string too? */
-        this->doc = buffer;
-    }
-
-    one::buffer doc;
-};
-
 slice_fetch build_slice_fetch(
         const slice_task& task,
         const nlohmann::json& manifest)
@@ -62,8 +50,8 @@ noexcept (false) {
     const auto index = manifest_dimensions[task.dim].get< std::vector< int > >();
     const auto itr = std::find(index.begin(), index.end(), task.lineno);
     if (itr == index.end()) {
-        const auto msg = fmt::format("line (= {}) not found in index");
-        throw line_not_found(msg);
+        const auto msg = "line (= {}) not found in index";
+        throw line_not_found(fmt::format(msg, task.lineno));
     }
 
     const auto pin = std::distance(index.begin(), itr);
@@ -83,23 +71,6 @@ noexcept (false) {
     for (const auto& id : ids)
         out.ids.push_back(to_vec(id));
     return out;
-}
-
-nlohmann::json get_manifest(
-        one::transfer& xfer,
-        const std::string& storage_endpoint,
-        const std::string& token,
-        const std::string& guid)
-noexcept (false) {
-
-    one::batch batch;
-    batch.storage_endpoint = storage_endpoint;
-    batch.auth = fmt::format("Bearer {}", token);
-    batch.guid = guid;
-    batch.fragment_ids.resize(1);
-    manifest_cfg cfg;
-    xfer.perform(batch, cfg); // TODO: get(object) -> bytes
-    return nlohmann::json::parse(cfg.doc);
 }
 
 std::size_t chunk_count(std::size_t jobs, std::size_t chunk_size) {
@@ -203,7 +174,6 @@ std::string make_result_header(int chunks) {
 }
 
 void manifest_task::run(
-        transfer& xfer,
         zmq::socket_t& input,
         zmq::socket_t& output,
         zmq::socket_t& failure)
@@ -213,13 +183,7 @@ try {
 
     const auto& pid = this->p->pid;
     const auto& request = this->p->request;
-
-    const auto manifest = get_manifest(
-            xfer,
-            request.storage_endpoint,
-            request.token,
-            request.guid
-    );
+    const auto manifest = nlohmann::json::parse(request.manifest);
 
     auto fetch = build_slice_fetch(request, manifest);
     const auto ids = fetch.ids;

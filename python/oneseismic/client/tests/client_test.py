@@ -96,6 +96,13 @@ def test_slice(**kwargs):
     kwargs['m'].get('http://api/query/test_id/slice/1/22', text = pid_1_22)
     kwargs['m'].get('http://api/query/test_id/slice/2/30', text = pid_2_30)
 
+    status_0_12 = '{ "location": "result/pid-0-12" }'
+    status_1_22 = '{ "location": "result/pid-1-22" }'
+    status_2_30 = '{ "location": "result/pid-2-30" }'
+    kwargs['m'].get('http://api/result/pid-0-12/status', text = status_0_12)
+    kwargs['m'].get('http://api/result/pid-1-22/status', text = status_1_22)
+    kwargs['m'].get('http://api/result/pid-2-30/status', text = status_2_30)
+
     kwargs['m'].get('http://api/result/pid-0-12', content = slice_0_12)
     kwargs['m'].get('http://api/result/pid-1-22', content = slice_1_22)
     kwargs['m'].get('http://api/result/pid-2-30', content = slice_2_30)

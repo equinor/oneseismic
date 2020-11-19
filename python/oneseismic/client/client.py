@@ -9,6 +9,8 @@ from xdg import XDG_CACHE_HOME
 import msgpack
 import time
 
+class ClientError(RuntimeError):
+    pass
 
 def assemble_slice(msg):
     parts = msgpack.unpackb(msg)
@@ -65,32 +67,42 @@ class cube:
         resource = f"query/{self.id}/slice/{dim}/{lineno}"
         r = self.client.get(resource)
         if r.status_code != 200:
-            raise RuntimeError(f'Error fetching {resource}; {r.status_code}')
-        header = json.loads(r.content)
+            if r.status_code == 404:
+                if 'param.lineno' in r.text:
+                    raise ClientError(r.text)
+                if 'param.dimension' in r.text:
+                    raise ClientError(r.text)
+            raise ClientError(f'HTTP error {r.status_code}: {r.text}')
 
-        result = header['result']
-        resource = f'{result}'
-        # Super hacky retries - the result is probably not ready right away,
-        # so give it a few tries before actually giving up. Currently the
-        # server returns 500 also when it cannot find partial results, so
-        # repeat the query up-to 15 times before giving up
-        #
-        # This blocking could possibly be built into the server, or maybe even
-        # more elegantly in python as a future, but should serve well enough for now
+        header = r.json()
+        status = header['result'] + '/status'
 
         auth = 'Bearer {}'.format(header['authorization'])
         extra_headers = { 'Authorization': auth }
 
-        time.sleep(0.2)
-        for _ in range(5):
-            r = self.client.get(resource, extra_headers = extra_headers)
+        while True:
+            r = self.client.get(status, extra_headers = extra_headers)
+            response = r.json()
+
+            # a poor man's progress bar
+            print(response)
 
             if r.status_code == 200:
-                return assemble_slice(r.content)
+                result = response['location']
+                r = self.client.get(result, extra_headers = extra_headers)
+                if r.status_code == 200:
+                    return assemble_slice(r.content)
+                else:
+                    raise RuntimeError(f'Error getting slice; {r.status_code} {r.text}')
 
-            time.sleep(2)
+            elif r.status_code == 202:
+                status = response['location']
+                # This sleep needs to go - polling should be optional and
+                # controllable by the caller.
+                time.sleep(1)
 
-        raise RuntimeError('Request timed out; unable to fetch result')
+            else:
+                raise RuntimeError(f'Unknown error; {r.status_code} {r.text}')
 
 class azure_auth:
     def __init__(self, cache_dir=None):

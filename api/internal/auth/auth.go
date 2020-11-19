@@ -329,3 +329,62 @@ func (r *Keyring) Validate(tokenstr string, pid string) error {
 
 	return fmt.Errorf("Keyring.Validate fell through; This is a logic error")
 }
+
+/*
+ * Middleware to auth the token returned by /query, which must be included with
+ * requests to get access to /result. Any request in the /result family must
+ * check the token and it should be independent of the operation, so it makes a
+ * perfect fit for the middleware. This also makes it reasonably easy to test.
+ *
+ * The procedure boils down to:
+ * - Get Authorization header
+ * - Decode it and check signature
+ * - Check that the pid in the token matches the pid for the request
+ *
+ * That way, only the one who made the request can query the status or get the
+ * result.
+ */
+func ResultAuth(keyring *Keyring) gin.HandlerFunc {
+	return func (ctx *gin.Context) {
+		pid := ctx.Param("pid")
+		authorization := ctx.GetHeader("Authorization")
+		if authorization == "" {
+			log.Printf("%s No Authorization header", pid)
+			/*
+			 * MDN docs
+			 * --------
+			 * Although the HTTP standard specifies "unauthorized",
+			 * semantically this response means "unauthenticated". That is, the
+			 * client must authenticate itself to get the requested response.
+			 *
+			 * https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+			 */
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		token := ""
+		_, err := fmt.Sscanf(authorization, "Bearer %s", &token)
+		if err != nil {
+			log.Printf(
+				"%s malformed header Authorization; was %s",
+				pid,
+				authorization,
+			)
+			/*
+			 * Malformed authorization header - not quite sure if this is
+			 * Unauthorized, BadRequest or some other status code. Unauthorized
+			 * seems the most appropriate based on a few quick searches, so use
+			 * that until a good authorative source can be provided.
+			 */
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		err = keyring.Validate(token, pid)
+		if err != nil {
+			log.Printf("%s %v", pid, err)
+			ctx.AbortWithStatus(http.StatusForbidden)
+		}
+	}
+}

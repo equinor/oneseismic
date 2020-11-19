@@ -32,6 +32,7 @@ struct common_task {
     std::string        pid;
     std::string        token;
     std::string        guid;
+    std::string        manifest;
     std::string        storage_endpoint;
     std::vector< int > shape;
     std::string        function;
