@@ -155,6 +155,71 @@ func contains(haystack []int, needle int) bool {
 	return false
 }
 
+func (s *Slice) Entry(ctx *gin.Context) {
+	pid := util.MakePID()
+
+	token := ctx.GetString("OBOJWT")
+	if token == "" {
+		/*
+		 * The OBOJWT should be set in the middleware pipeline, so it's a
+		 * programming error if it's not set
+		 */
+		log.Printf("OBOJWT was not set on request as it should be")
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	guid := ctx.Param("guid")
+	if guid == "" {
+		log.Printf("%s guid empty", pid)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	container, err := url.Parse(fmt.Sprintf("%s/%s", s.endpoint, guid))
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	manifest, err := getManifest(ctx, token, container)
+	if err != nil {
+		/* a copy of the error handling in slice.Get */
+		log.Printf("%s %v", pid, err)
+		switch e := err.(type) {
+			case azblob.StorageError:
+				sc := e.Response()
+				ctx.String(sc.StatusCode, sc.Status)
+				ctx.Abort()
+			default:
+				ctx.AbortWithStatus(http.StatusInternalServerError)
+		}
+		return
+	}
+	m, err := parseManifest(manifest)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	dims := make([]map[string]int, len(m.Dimensions))
+	for i := 0; i < len(m.Dimensions); i++ {
+		dims[i] = map[string]int {
+			"size":      len(m.Dimensions[i]),
+			"dimension": i,
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H {
+		"functions": gin.H {
+			"slice": fmt.Sprintf("query/%s/slice", guid),
+		},
+		"dimensions": dims,
+		"pid": pid,
+	})
+}
+
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := util.MakePID()
 

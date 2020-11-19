@@ -87,6 +87,20 @@ client = client('http://api', auth=no_auth())
 cube = client.cube('test_id')
 
 @requests_mock.Mocker(kw='m')
+def test_shape(**kwargs):
+    response = '''{
+        "dimensions":[
+            {"dimension":0,"location":"query/test_id/slice/0","size":4},
+            {"dimension":1,"location":"query/test_id/slice/1","size":3},
+            {"dimension":2,"location":"query/test_id/slice/2","size":2}
+        ],
+        "pid":"pid-test-shape"
+    }'''
+
+    kwargs['m'].get('http://api/query/test_id', text = response)
+    assert cube.shape == (4, 3, 2)
+
+@requests_mock.Mocker(kw='m')
 def test_slice(**kwargs):
     pid_0_12 = '{ "result": "result/pid-0-12", "authorization": "" }'
     pid_1_22 = '{ "result": "result/pid-1-22", "authorization": "" }'

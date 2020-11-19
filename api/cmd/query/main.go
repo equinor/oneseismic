@@ -201,6 +201,12 @@ func main() {
 	onbehalf := auth.OnBehalfOf(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
 	app := gin.Default()
 	app.GET(
+		"/query/:guid",
+		validate,
+		onbehalf,
+		slice.Entry,
+	)
+	app.GET(
 		"/query/:guid/slice/:dimension/:lineno",
 		validate,
 		onbehalf,
