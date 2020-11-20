@@ -42,9 +42,26 @@ class cube:
     def __init__(self, id, client):
         self.client = client
         self.id = id
-        self._dim0 = None
-        self._dim1 = None
-        self._dim2 = None
+        self._shape = None
+
+    @property
+    def shape(self):
+        """ Shape of the cube
+
+        N-element int-tuple.
+
+        Notes
+        -----
+        The shape is immutable and the result may be cached.
+        """
+        if self._shape is not None:
+            return self._shape
+
+        resource = f"query/{self.id}"
+        r = self.client.get(resource)
+        r.raise_for_status()
+        self._shape = tuple(int(dim['size']) for dim in r.json()['dimensions'])
+        return self._shape
 
     def slice(self, dim, lineno):
         """ Fetch a slice
