@@ -87,7 +87,7 @@ func parseSliceParams(ctx *gin.Context) (*sliceParams, error) {
 func (s *Slice) makeTask(
 	pid string,
 	token string,
-	manifest string,
+	manifest []byte,
 	params *sliceParams,
 ) message.Task {
 	return message.Task {
@@ -95,7 +95,7 @@ func (s *Slice) makeTask(
 		Token: token,
 		Guid:  params.guid,
 		StorageEndpoint: s.endpoint,
-		Manifest: manifest,
+		Manifest: string(manifest),
 		Shape: []int32 { 64, 64, 64, },
 		Function: "slice",
 		Params: &message.SliceParams {
@@ -118,7 +118,7 @@ func getManifest(
 	ctx context.Context,
 	token string,
 	containerURL *url.URL,
-) (string, error) {
+) ([]byte, error) {
 	credentials := azblob.NewTokenCredential(token, nil)
 	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
 	container   := azblob.NewContainerURL(*containerURL, pipeline)
@@ -132,13 +132,12 @@ func getManifest(
 		false, /* content-get-md5 */
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	body := dl.Body(azblob.RetryReaderOptions{})
 	defer body.Close()
-	s, err := ioutil.ReadAll(body)
-	return string(s), err
+	return ioutil.ReadAll(body)
 }
 
 /*
@@ -183,9 +182,9 @@ func abortOnManifestError(ctx *gin.Context, err error) {
 	}
 }
 
-func parseManifest(doc string) (*message.Manifest, error) {
+func parseManifest(doc []byte) (*message.Manifest, error) {
 	m := message.Manifest{}
-	return m.Unpack([]byte(doc))
+	return m.Unpack(doc)
 }
 
 func contains(haystack []int, needle int) bool {
