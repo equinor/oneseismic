@@ -141,6 +141,48 @@ func getManifest(
 	return string(s), err
 }
 
+/*
+ * Centralize the understanding of error conditions of azblob.download.
+ *
+ * There are two classes of errors:
+ * 1. A hard failure, i.e. the request itself failed, such as network
+ *    conditions.
+ * 2. A soft failure, i.e. the request itself suceeded, but was without
+ *    sufficient permissions, wrong syntax or similar. azblob probably handles
+ *    this by parsing the status code and maybe the response body.
+ *
+ * Most calls to getManifest() should probably immediately call this function
+ * on error and exit, but it's moved into its own function so that error paths
+ * can be emulated and tested independently. An added benefit is that should a
+ * function, for some reason, need getManifest() but want custom error+abort
+ * handling, it is sufficient to implement bespoke error handling and simply
+ * not call this.
+ */
+func abortOnManifestError(ctx *gin.Context, err error) {
+	switch e := err.(type) {
+	case azblob.StorageError:
+		/*
+		 * Request successful, but the service returned some error e.g. a
+		 * non-existing cube, unauthorized request.
+		 *
+		 * For now, just write the status-text into the body, which should be
+		 * slightly more accurate than just the status code. Once the interface
+		 * matures, this should probably be a more structured error message.
+		 */
+		sc := e.Response()
+		ctx.String(sc.StatusCode, sc.Status)
+		ctx.Abort()
+	default:
+		/*
+		 * We don't care if the error occured is a networking error, faulty
+		 * logic or something else - from the user side this is an
+		 * InternalServerError regardless. At some point in the future, we might
+		 * want to deal with particular errors here.
+		 */
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+	}
+}
+
 func parseManifest(doc string) (*message.Manifest, error) {
 	m := message.Manifest{}
 	return m.Unpack([]byte(doc))
@@ -184,16 +226,8 @@ func (s *Slice) Entry(ctx *gin.Context) {
 	}
 	manifest, err := getManifest(ctx, token, container)
 	if err != nil {
-		/* a copy of the error handling in slice.Get */
 		log.Printf("%s %v", pid, err)
-		switch e := err.(type) {
-			case azblob.StorageError:
-				sc := e.Response()
-				ctx.String(sc.StatusCode, sc.Status)
-				ctx.Abort()
-			default:
-				ctx.AbortWithStatus(http.StatusInternalServerError)
-		}
+		abortOnManifestError(ctx, err)
 		return
 	}
 	m, err := parseManifest(manifest)
@@ -250,43 +284,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 	manifest, err := getManifest(ctx, token, container)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
-		/*
-		 * Right now the error paths are trivial, so the error handling is
-		 * inlined. It doesn't take much for this to become unwieldy however,
-		 * at which point the error handling should probably be extracted into
-		 * a helper to avoid polluting this function too much. The
-		 * getManifest() and error handling is actually independent of the
-		 * operation (/slice) and the second more endpoints are introduced,
-		 * this should be pulled out and shared between them.
-		 *
-		 * The use of the azblob package makes it somewhat awkward to test as
-		 * there's no obvious [1] place to inject a custom http client.
-		 *
-		 * [1] to my (limited) knowledge
-		 */
-		switch e := err.(type) {
-			case azblob.StorageError:
-				/*
-				 * request successful, but the service returned some error e.g.
-				 * a non-existing cube, unauthorized request.
-				 *
-				 * For now, just write the status-text into the body, which
-				 * should be slightly more accurate than just the status code.
-				 * Once the interface matures, this should probably be a more
-				 * structured error message.
-				 */
-				sc := e.Response()
-				ctx.String(sc.StatusCode, sc.Status)
-				ctx.Abort()
-			default:
-				/*
-				 * We don't care if the error occured is a networking error,
-				 * faulty logic or something else - from the user side this is
-				 * an InternalServerError regardless. At some point in the
-				 * future, we might want to deal with particular errors here.
-				 */
-				ctx.AbortWithStatus(http.StatusInternalServerError)
-		}
+		abortOnManifestError(ctx, err)
 		return
 	}
 
