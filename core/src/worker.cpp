@@ -176,15 +176,25 @@ void fragment_task::run(
     zmq::multipart_t process(input);
     this->p->parse(process);
 
+    spdlog::info("pid={}, part={} being processed", this->p->pid, this->p->part);
+
     const auto& query = this->p->query;
     auto& action = this->p->result;
     action.prepare(query);
     auto batch = make_batch(query);
     xfer.perform(batch, action);
 
+    spdlog::info(
+        "pid={}, fragments_downloaded={}, part={} ready",
+        this->p->pid,
+        batch.fragment_ids.size(),
+        this->p->part
+    );
+
     const auto id = fmt::format("{}:{}", this->p->pid, this->p->part);
     const auto packed = action.pack();
     this->p->storage.put(id, packed);
+    spdlog::info("pid={}, part={} committed to storage", this->p->pid, this->p->part);
     action.clear();
     /*
      * TODO: catch other network related errors that should not bring down the
