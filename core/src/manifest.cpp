@@ -185,6 +185,8 @@ try {
     const auto& request = this->p->request;
     const auto manifest = nlohmann::json::parse(request.manifest);
 
+    spdlog::info( "pid={}, max_task_size={}", pid, this->max_task_size());
+
     auto fetch = build_slice_fetch(request, manifest);
     const auto ids = fetch.ids;
     const auto chunk_size = this->p->task_size;
