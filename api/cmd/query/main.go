@@ -8,6 +8,7 @@ import (
 
 	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/auth"
+	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/namsral/flag"
@@ -204,6 +205,7 @@ func main() {
 	queries := app.Group("/query")
 	queries.Use(validate)
 	queries.Use(onbehalf)
+	queries.Use(util.GeneratePID)
 	queries.GET("/:guid", slice.Entry)
 	queries.GET("/:guid/slice/:dimension/:lineno", slice.Get)
 

@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pebbe/zmq4"
 	"github.com/equinor/oneseismic/api/internal/auth"
-	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/equinor/oneseismic/api/internal/message"
 )
 
@@ -197,7 +196,7 @@ func contains(haystack []int, needle int) bool {
 }
 
 func (s *Slice) Entry(ctx *gin.Context) {
-	pid := util.MakePID()
+	pid := ctx.GetString("pid")
 
 	token := ctx.GetString("OBOJWT")
 	if token == "" {
@@ -254,7 +253,7 @@ func (s *Slice) Entry(ctx *gin.Context) {
 }
 
 func (s *Slice) Get(ctx *gin.Context) {
-	pid := util.MakePID()
+	pid := ctx.GetString("pid")
 
 	token := ctx.GetString("OBOJWT")
 	if token == "" {
