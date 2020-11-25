@@ -197,28 +197,20 @@ func main() {
 		},
 	}
 
-	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
-	onbehalf := auth.OnBehalfOf(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
 	app := gin.Default()
 	
+	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
+	onbehalf := auth.OnBehalfOf(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
 	queries := app.Group("/query")
-	queries.GET(
-		"/:guid",
-		validate,
-		onbehalf,
-		slice.Entry,
-	)
-	queries.GET(
-		"/:guid/slice/:dimension/:lineno",
-		validate,
-		onbehalf,
-		slice.Get,
-	)
+	queries.Use(validate)
+	queries.Use(onbehalf)
+	queries.GET("/:guid", slice.Entry)
+	queries.GET("/:guid/slice/:dimension/:lineno", slice.Get)
 
 	results := app.Group("/result")
-	authresult := auth.ResultAuth(&keyring)
-	results.GET("/:pid",        authresult, result.Get)
-	results.GET("/:pid/status", authresult, result.Status)
+	results.Use(auth.ResultAuth(&keyring))
+	results.GET("/:pid",        result.Get)
+	results.GET("/:pid/status", result.Status)
 
 	app.GET("/config", cfg.Get)
 	app.Run(":8080")
