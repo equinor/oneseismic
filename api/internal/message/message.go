@@ -32,6 +32,10 @@ type Manifest struct {
 	Dimensions [][]int `json:"dimensions"`
 }
 
+func (m *Manifest) Pack() ([]byte, error) {
+	return json.Marshal(m)
+}
+
 func (m *Manifest) Unpack(doc []byte) (*Manifest, error) {
 	return m, json.Unmarshal(doc, m)
 }

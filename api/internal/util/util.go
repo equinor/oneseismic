@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -100,4 +101,55 @@ func AbortOnManifestError(ctx *gin.Context, err error) {
 func ParseManifest(doc []byte) (*message.Manifest, error) {
 	m := message.Manifest{}
 	return m.Unpack(doc)
+}
+
+/*
+ * GetManifest is the gin-aware combination of fetch, parse, and abort-on-error
+ * for manifests. Outside of test purposes it should be sufficient to call
+ * this.
+ *
+ * Notes
+ * -----
+ * This is as close as you get to middleware, without actually being
+ * implemented as such. It's a plain function because it relies on the endpoint
+ * & guid parameter. The endpoint can certainly be embedded as it is (for now)
+ * static per invocation, but the guid needs to be parsed from the parameters.
+ * This too can be moved into middleware, but at the cost of doing a lot of
+ * hiding control flow a little bit more. It's not a too reasonable refactoring
+ * however.
+ */
+func GetManifest(
+	ctx      *gin.Context,
+	endpoint string,
+	guid     string,
+) (*message.Manifest, error) {
+	token := ctx.GetString("OBOJWT")
+	if token == "" {
+		/*
+		 * The OBOJWT should be set in the middleware pipeline, so it's a
+		 * programming error if it's not set
+		 */
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return nil, fmt.Errorf("OBOJWT was not set on gin.Context")
+	}
+
+	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return nil, err
+	}
+
+	manifest, err := FetchManifest(ctx, token, container)
+	if err != nil {
+		AbortOnManifestError(ctx, err)
+		return nil, err
+	}
+
+	m, err := ParseManifest(manifest)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return nil, err
+	}
+
+	return m, nil
 }

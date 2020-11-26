@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -114,17 +113,6 @@ func contains(haystack []int, needle int) bool {
 func (s *Slice) Entry(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
 
-	token := ctx.GetString("OBOJWT")
-	if token == "" {
-		/*
-		 * The OBOJWT should be set in the middleware pipeline, so it's a
-		 * programming error if it's not set
-		 */
-		log.Printf("OBOJWT was not set on request as it should be")
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
 	guid := ctx.Param("guid")
 	if guid == "" {
 		log.Printf("%s guid empty", pid)
@@ -132,22 +120,9 @@ func (s *Slice) Entry(ctx *gin.Context) {
 		return
 	}
 
-	container, err := url.Parse(fmt.Sprintf("%s/%s", s.endpoint, guid))
+	m, err := util.GetManifest(ctx, s.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	manifest, err := util.FetchManifest(ctx, token, container)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		util.AbortOnManifestError(ctx, err)
-		return
-	}
-	m, err := util.ParseManifest(manifest)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
@@ -171,17 +146,6 @@ func (s *Slice) Entry(ctx *gin.Context) {
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
 
-	token := ctx.GetString("OBOJWT")
-	if token == "" {
-		/*
-		 * The OBOJWT should be set in the middleware pipeline, so it's a
-		 * programming error if it's not set
-		 */
-		log.Printf("%s OBOJWT was not set on request as it should be", pid)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
 	params, err := parseSliceParams(ctx)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
@@ -189,25 +153,12 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	container, err := url.Parse(fmt.Sprintf("%s/%s", s.endpoint, params.guid))
+	m, err := util.GetManifest(ctx, s.endpoint, params.guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	manifest, err := util.FetchManifest(ctx, token, container)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		util.AbortOnManifestError(ctx, err)
 		return
 	}
 
-	m, err := util.ParseManifest(manifest)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
 	if !(params.dimension < len(m.Dimensions)) {
 		msg := fmt.Sprintf(
 			"param.dimension (= %d) not in [0, %d)",
@@ -227,6 +178,13 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
+	manifest, err := m.Pack()
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
 	/*
 	 * Embedding a json doc as a string works (surprisingly) well, since the
 	 * Pack()/encoding escapes all nested quotes. It might be reasonable at
@@ -238,6 +196,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 	 * faithful to what's stored in blob, i.e. information can be stripped out
 	 * or added.
 	 */
+	token := ctx.GetString("OBOJWT")
 	msg := s.makeTask(pid, token, manifest, params)
 	req, err := msg.Pack()
 	if err != nil {
