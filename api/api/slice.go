@@ -138,7 +138,7 @@ func (s *Slice) Entry(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	manifest, err := util.GetManifest(ctx, token, container)
+	manifest, err := util.FetchManifest(ctx, token, container)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		util.AbortOnManifestError(ctx, err)
@@ -195,7 +195,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	manifest, err := util.GetManifest(ctx, token, container)
+	manifest, err := util.FetchManifest(ctx, token, container)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		util.AbortOnManifestError(ctx, err)

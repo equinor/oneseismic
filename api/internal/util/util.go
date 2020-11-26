@@ -29,7 +29,7 @@ func GeneratePID(ctx *gin.Context) {
  * shouldn't be able to read the cube either. If so, no more processing should
  * be done, and the request discarded.
  */
-func GetManifest(
+func FetchManifest(
 	ctx context.Context,
 	token string,
 	containerURL *url.URL,
@@ -65,10 +65,10 @@ func GetManifest(
  *    sufficient permissions, wrong syntax or similar. azblob probably handles
  *    this by parsing the status code and maybe the response body.
  *
- * Most calls to GetManifest() should probably immediately call this function
+ * Most calls to FetchManifest() should probably immediately call this function
  * on error and exit, but it's moved into its own function so that error paths
  * can be emulated and tested independently. An added benefit is that should a
- * function, for some reason, need GetManifest() but want custom error+abort
+ * function, for some reason, need FetchManifest() but want custom error+abort
  * handling, it is sufficient to implement bespoke error handling and simply
  * not call this.
  */
