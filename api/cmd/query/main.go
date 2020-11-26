@@ -8,6 +8,7 @@ import (
 
 	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/auth"
+	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/namsral/flag"
@@ -197,25 +198,22 @@ func main() {
 		},
 	}
 
+	app := gin.Default()
+	
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
 	onbehalf := auth.OnBehalfOf(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
-	app := gin.Default()
-	app.GET(
-		"/query/:guid",
-		validate,
-		onbehalf,
-		slice.Entry,
-	)
-	app.GET(
-		"/query/:guid/slice/:dimension/:lineno",
-		validate,
-		onbehalf,
-		slice.Get,
-	)
+	queries := app.Group("/query")
+	queries.Use(validate)
+	queries.Use(onbehalf)
+	queries.Use(util.GeneratePID)
+	queries.GET("/:guid", slice.Entry)
+	queries.GET("/:guid/slice/:dimension/:lineno", slice.Get)
 
-	authresult := auth.ResultAuth(&keyring)
-	app.GET("/result/:pid",        authresult, result.Get)
-	app.GET("/result/:pid/status", authresult, result.Status)
+	results := app.Group("/result")
+	results.Use(auth.ResultAuth(&keyring))
+	results.GET("/:pid",        result.Get)
+	results.GET("/:pid/status", result.Status)
+
 	app.GET("/config", cfg.Get)
 	app.Run(":8080")
 }
