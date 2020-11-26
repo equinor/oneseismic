@@ -234,7 +234,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 	 * even send the messages gzipped, but so for now strings and embedded
 	 * documents should do fine.
 	 *
-	 * This opens an opportunity for the manifest forwaded not being quite
+	 * This opens an opportunity for the manifest forwarded not being quite
 	 * faithful to what's stored in blob, i.e. information can be stripped out
 	 * or added.
 	 */
