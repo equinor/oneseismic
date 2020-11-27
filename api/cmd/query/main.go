@@ -206,6 +206,7 @@ func main() {
 	queries.Use(validate)
 	queries.Use(onbehalf)
 	queries.Use(util.GeneratePID)
+	queries.Use(util.QueryLogger)
 	queries.GET("/:guid", slice.Entry)
 	queries.GET("/:guid/slice/:dimension/:lineno", slice.Get)
 
