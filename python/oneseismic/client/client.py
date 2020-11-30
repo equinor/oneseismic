@@ -95,10 +95,10 @@ class cube:
         status = header['result'] + '/status'
 
         auth = 'Bearer {}'.format(header['authorization'])
-        extra_headers = { 'Authorization': auth }
+        headers = { 'Authorization': auth }
 
         while True:
-            r = self.client.get(status, extra_headers = extra_headers)
+            r = self.client.get(status, headers = headers)
             response = r.json()
 
             # a poor man's progress bar
@@ -106,7 +106,7 @@ class cube:
 
             if r.status_code == 200:
                 result = response['location']
-                r = self.client.get(result, extra_headers = extra_headers)
+                r = self.client.get(result, headers = headers)
                 if r.status_code == 200:
                     return assemble_slice(r.content)
                 else:
@@ -195,9 +195,9 @@ class client:
         self.session = requests.Session()
         self.session.headers.update(auth.token())
 
-    def get(self, resource, extra_headers = None):
+    def get(self, resource, headers = None):
         url = f"{self.endpoint}/{resource}"
-        return self.session.get(url, headers = extra_headers)
+        return self.session.get(url, headers = headers)
 
     def list_cubes(self):
         """ Return a list of cube ids
