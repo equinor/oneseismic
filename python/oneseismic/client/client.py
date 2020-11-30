@@ -59,7 +59,6 @@ class cube:
 
         resource = f"query/{self.id}"
         r = self.client.get(resource)
-        r.raise_for_status()
         self._shape = tuple(int(dim['size']) for dim in r.json()['dimensions'])
         return self._shape
 
@@ -82,14 +81,18 @@ class cube:
         slice : numpy.ndarray
         """
         resource = f"query/{self.id}/slice/{dim}/{lineno}"
-        r = self.client.get(resource)
-        if r.status_code != 200:
-            if r.status_code == 404:
-                if 'param.lineno' in r.text:
-                    raise ClientError(r.text)
-                if 'param.dimension' in r.text:
-                    raise ClientError(r.text)
-            raise ClientError(f'HTTP error {r.status_code}: {r.text}')
+        try:
+            r = self.client.get(resource)
+        except requests.HTTPError as e:
+            response = e.response
+            if response.status_code != requests.codes.not_found:
+                raise
+            # TODO: invalid argument?
+            if 'param.lineno' in response.text:
+                raise ClientError(response.text)
+            if 'param.dimension' in response.text:
+                raise ClientError(response.text)
+            raise
 
         header = r.json()
         status = header['result'] + '/status'
@@ -197,7 +200,9 @@ class client:
 
     def get(self, resource, headers = None):
         url = f"{self.endpoint}/{resource}"
-        return self.session.get(url, headers = headers)
+        r = self.session.get(url, headers = headers)
+        r.raise_for_status()
+        return r
 
     def list_cubes(self):
         """ Return a list of cube ids

@@ -97,9 +97,9 @@ def cube():
 
 def test_cube_404(cube):
     c = client.client(API_ADDR, AUTH_CLIENT)
-    with pytest.raises(RuntimeError) as e:
+    with pytest.raises(requests.HTTPError) as e:
         c.cube("not_found").slice(0, 1)
-    assert "404" in str(e.value)
+        assert e.response.status_code == 404
 
 
 def test_invalid_token_should_fail(cube):
@@ -111,10 +111,10 @@ def test_invalid_token_should_fail(cube):
         auth = client_auth(token)
         c = client.client(API_ADDR, auth)
 
-        with pytest.raises(RuntimeError) as e:
+        with pytest.raises(requests.HTTPError) as e:
             c.cube(cube).slice(0, 1)
 
-        assert "401" in str(e.value) or "500" in str(e.value)
+            assert e.response.status_code == 401
 
 
 @settings(deadline=None, max_examples=6)
