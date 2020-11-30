@@ -190,17 +190,14 @@ class azure_auth:
 class client:
     def __init__(self, endpoint, auth=None, cache_dir=None):
         self.endpoint = endpoint
-        self.auth = auth or azure_auth(cache_dir)
-
-    def token(self):
-        return self.auth.token()
+        if auth is None:
+            auth = azure_auth(cache_dir)
+        self.session = requests.Session()
+        self.session.headers.update(auth.token())
 
     def get(self, resource, extra_headers = None):
         url = f"{self.endpoint}/{resource}"
-        headers = self.token()
-        if extra_headers is not None:
-            headers.update(extra_headers)
-        return requests.get(url, headers = headers)
+        return self.session.get(url, headers = extra_headers)
 
     def list_cubes(self):
         """ Return a list of cube ids
