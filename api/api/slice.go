@@ -219,7 +219,8 @@ func (s *Slice) Get(ctx *gin.Context) {
 	log.Printf("Scheduling %s", pid)
 	proc.sendZMQ(s.queue)
 	ctx.JSON(http.StatusOK, gin.H {
-		"result": fmt.Sprintf("result/%s", pid),
+		"location": fmt.Sprintf("result/%s", pid),
+		"status":   fmt.Sprintf("result/%s/status", pid),
 		"authorization": key,
 	})
 }

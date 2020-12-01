@@ -95,7 +95,7 @@ class cube:
             raise
 
         header = r.json()
-        status = header['result'] + '/status'
+        status = header['status']
 
         auth = 'Bearer {}'.format(header['authorization'])
         headers = { 'Authorization': auth }
