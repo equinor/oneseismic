@@ -81,48 +81,12 @@ class cube:
         slice : numpy.ndarray
         """
         resource = f"query/{self.id}/slice/{dim}/{lineno}"
-        try:
-            r = self.client.get(resource)
-        except requests.HTTPError as e:
-            response = e.response
-            if response.status_code != requests.codes.not_found:
-                raise
-            # TODO: invalid argument?
-            if 'param.lineno' in response.text:
-                raise ClientError(response.text)
-            if 'param.dimension' in response.text:
-                raise ClientError(response.text)
-            raise
+        proc = schedule(
+            client = self.client,
+            resource = resource,
+        )
 
-        header = r.json()
-        status = header['status']
-
-        auth = 'Bearer {}'.format(header['authorization'])
-        headers = { 'Authorization': auth }
-
-        while True:
-            r = self.client.get(status, headers = headers)
-            response = r.json()
-
-            # a poor man's progress bar
-            print(response)
-
-            if r.status_code == 200:
-                result = response['location']
-                r = self.client.get(result, headers = headers)
-                if r.status_code == 200:
-                    return assemble_slice(r.content)
-                else:
-                    raise RuntimeError(f'Error getting slice; {r.status_code} {r.text}')
-
-            elif r.status_code == 202:
-                status = response['location']
-                # This sleep needs to go - polling should be optional and
-                # controllable by the caller.
-                time.sleep(1)
-
-            else:
-                raise RuntimeError(f'Unknown error; {r.status_code} {r.text}')
+        return assemble_slice(proc.raw_result())
 
 class azure_auth:
     def __init__(self, cache_dir=None):
@@ -189,6 +153,122 @@ class azure_auth:
 
         return {"Authorization": "Bearer " + result["access_token"]}
 
+class process:
+    """
+
+    Maps conceptually to an observer of a process server-side. Comes with
+    methods for querying status, completedness, and the final result.
+
+    Parameters
+    ----------
+    host : str
+        Hostname.
+    session : request.Session
+        A requests.Session-like with a get() method. Authorization headers
+        should be set.
+    status_url : str
+        Relative path to the status endpoint.
+    result_url : str
+        Relative path to the result endpoint.
+
+    Notes
+    -----
+    Constructing a process manually is reserved for the implementation.
+
+    See also
+    --------
+    schedule
+    """
+    def __init__(self, host, session, status_url, result_url):
+        self.session = session
+        self.status_url = f'{host}/{status_url}'
+        self.result_url = f'{host}/{result_url}'
+        self.done = False
+
+    def status(self):
+        """ Processs status
+
+        Retuns
+        ------
+        status : str
+            Returns one of { 'working', 'finished' }
+
+        Notes
+        -----
+        This function simply returns what the server responds with, so code
+        inspecting the status should always have a fall-through case, in case
+        the server is updated and returns something new.
+        """
+        r = self.session.get(self.status_url)
+        response = r.json()
+
+        if r.status_code == 200:
+            self.done = True
+            return response['status']
+
+        if r.status_code == 202:
+            return response['status']
+
+        raise AssertionError(f'Unhandled status code f{r.status_code}')
+
+    def raw_result(self):
+        """
+        The response body for result. This method should rarely be called
+        directly, but can be useful for debugging, inspecting, or custom
+        parsing.
+
+        The function will block until the result is ready.
+        """
+        # TODO: optionally do a blocking read server-side
+        # TODO: async/await support
+        while not self.done:
+            _ = self.status()
+            if not self.done:
+                time.sleep(1)
+
+        # TODO: cache?
+        r = self.session.get(self.result_url)
+        return r.content
+
+    def result(self):
+        return self.assemble(self.raw_result())
+
+    def assemble(self, body):
+        """
+        Assemble the response body into a suitable object. To be implemented by
+        derived classes.
+        """
+        raise NotImplementedError
+
+def schedule(client, resource):
+    """Start a server-side process.
+
+    This function centralises setting up a HTTP session and building the
+    process object, whereas end-users should use methods on the outermost cube
+    class.
+
+    Returns
+    -------
+    proc : process
+        Process handle for monitoring status and getting the result
+
+    Notes
+    -----
+    Scheduling a process manually is reserved for the implementation.
+    """
+    r = client.get(resource)
+
+    body = r.json()
+    auth = 'Bearer {}'.format(body['authorization'])
+    session = requests.Session()
+    session.headers.update({'Authorization': auth})
+
+    return process(
+        host = client.endpoint,
+        session = session,
+        status_url = body['status'],
+        result_url = body['location'],
+    )
 
 class client:
     def __init__(self, endpoint, auth=None, cache_dir=None):
