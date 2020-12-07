@@ -58,7 +58,7 @@ class cube:
             return self._shape
 
         resource = f"query/{self.id}"
-        r = self.client.get(resource)
+        r = self.client.session.get(resource)
         self._shape = tuple(int(dim['size']) for dim in r.json()['dimensions'])
         return self._shape
 
@@ -82,7 +82,7 @@ class cube:
         """
         resource = f"query/{self.id}/slice/{dim}/{lineno}"
         proc = schedule(
-            client = self.client,
+            session = self.client.session,
             resource = resource,
         )
 
@@ -179,10 +179,10 @@ class process:
     --------
     schedule
     """
-    def __init__(self, host, session, status_url, result_url):
+    def __init__(self, session, status_url, result_url):
         self.session = session
-        self.status_url = f'{host}/{status_url}'
-        self.result_url = f'{host}/{result_url}'
+        self.status_url = status_url
+        self.result_url = result_url
         self.done = False
 
     def status(self):
@@ -240,12 +240,19 @@ class process:
         """
         raise NotImplementedError
 
-def schedule(client, resource):
+def schedule(session, resource):
     """Start a server-side process.
 
     This function centralises setting up a HTTP session and building the
     process object, whereas end-users should use methods on the outermost cube
     class.
+
+    Parameters
+    ----------
+    session : requests.Session
+        Session object with a get() for making http requests
+    resource : str
+        Resource to schedule, e.g. 'query/<id>/slice'
 
     Returns
     -------
@@ -256,33 +263,67 @@ def schedule(client, resource):
     -----
     Scheduling a process manually is reserved for the implementation.
     """
-    r = client.get(resource)
+    r = session.get(resource)
 
     body = r.json()
     auth = 'Bearer {}'.format(body['authorization'])
-    session = requests.Session()
-    session.headers.update({'Authorization': auth})
+    s = http_session(session.base_url)
+    s.headers.update({'Authorization': auth})
 
     return process(
-        host = client.endpoint,
-        session = session,
+        session = s,
         status_url = body['status'],
         result_url = body['location'],
     )
+
+class http_session(requests.Session):
+    """
+    http_session provides some automation on top of the requests.Session type,
+    to simplify http requests in more seismic-specific interfaces and logic.
+    Methods also raise non-200 http status codes as exceptions.
+
+    The http_session methods do not take absolute URLs, but relative URLs e.g.
+    req.get(url = 'result/<pid>/status').
+
+    Parameters
+    ----------
+    base_url : str
+        The base url, schema + host, for the oneseismic service
+
+    Notes
+    -----
+    This class is meant for internal use, to provide a clean boundary for
+    low-level network-oriented code.
+    """
+    def __init__(self, base_url, *args, **kwargs):
+        self.base_url = base_url
+        super().__init__(*args, **kwargs)
+
+    def get(self, url, *args, **kwargs):
+        """
+        requests.Session.get, but raises exception for non-200 HTTP status
+        codes.
+
+        Parameters
+        ----------
+        url : str
+            Relative url to the resource, e.g. 'result/<pid>/status'
+
+        See also
+        --------
+        requests.get
+        """
+        r = super().get(f'{self.base_url}/{url}', *args, **kwargs)
+        r.raise_for_status()
+        return r
 
 class client:
     def __init__(self, endpoint, auth=None, cache_dir=None):
         self.endpoint = endpoint
         if auth is None:
             auth = azure_auth(cache_dir)
-        self.session = requests.Session()
+        self.session = http_session(self.endpoint)
         self.session.headers.update(auth.token())
-
-    def get(self, resource, headers = None):
-        url = f"{self.endpoint}/{resource}"
-        r = self.session.get(url, headers = headers)
-        r.raise_for_status()
-        return r
 
     def list_cubes(self):
         """ Return a list of cube ids
