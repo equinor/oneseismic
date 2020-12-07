@@ -126,11 +126,12 @@ func (s *Slice) Entry(ctx *gin.Context) {
 		return
 	}
 
-	dims := make([]map[string]int, len(m.Dimensions))
+	dims := make([]message.DimensionDescription, len(m.Dimensions))
 	for i := 0; i < len(m.Dimensions); i++ {
-		dims[i] = map[string]int {
-			"size":      len(m.Dimensions[i]),
-			"dimension": i,
+		dims[i] = message.DimensionDescription {
+			Dimension: i,
+			Size: len(m.Dimensions[i]),
+			Keys: m.Dimensions[i],
 		}
 	}
 

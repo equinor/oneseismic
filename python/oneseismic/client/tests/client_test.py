@@ -90,9 +90,24 @@ cube = client.cube('test_id')
 def test_shape(**kwargs):
     response = '''{
         "dimensions":[
-            {"dimension":0,"location":"query/test_id/slice/0","size":4},
-            {"dimension":1,"location":"query/test_id/slice/1","size":3},
-            {"dimension":2,"location":"query/test_id/slice/2","size":2}
+            {
+                "dimension": 0,
+                "location": "query/test_id/slice/0",
+                "size": 4,
+                "keys": [0,1,2,3]
+            },
+            {
+                "dimension": 1,
+                "location": "query/test_id/slice/1",
+                "size": 3,
+                "keys": [0,2,4]
+            },
+            {
+                "dimension": 2,
+                "location": "query/test_id/slice/2",
+                "size":2,
+                "keys": [8, 16]
+            }
         ],
         "pid":"pid-test-shape"
     }'''

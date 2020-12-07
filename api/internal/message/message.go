@@ -45,3 +45,13 @@ type SliceParams struct {
 	Dim    int `json:"dim"`
 	Lineno int `json:"lineno"`
 }
+
+type DimensionDescription struct {
+	Dimension int   `json:"dimension"`
+	Size      int   `json:"size"`
+	Keys      []int `json:"keys"`
+}
+
+func (m *DimensionDescription) Pack() ([]byte, error) {
+	return json.Marshal(m)
+}

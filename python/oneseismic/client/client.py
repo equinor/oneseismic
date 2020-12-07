@@ -43,6 +43,7 @@ class cube:
         self.client = client
         self.id = id
         self._shape = None
+        self._ijk = None
 
     @property
     def shape(self):
@@ -57,10 +58,27 @@ class cube:
         if self._shape is not None:
             return self._shape
 
-        resource = f"query/{self.id}"
-        r = self.client.session.get(resource)
-        self._shape = tuple(int(dim['size']) for dim in r.json()['dimensions'])
+        self._shape = tuple(len(dim) for dim in self.ijk)
         return self._shape
+
+    @property
+    def ijk(self):
+        """
+        Notes
+        -----
+        The ijk is immutable and the result may be cached.
+
+        The ijk name is temporary and will change without notice
+        """
+        if self._ijk is not None:
+            return self._ijk
+
+        resource = f'query/{self.id}'
+        r = self.client.session.get(resource)
+        self._ijk = [
+            [x for x in dim['keys']] for dim in r.json()['dimensions']
+        ]
+        return self._ijk
 
     def slice(self, dim, lineno):
         """ Fetch a slice
