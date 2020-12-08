@@ -90,9 +90,24 @@ cube = client.cube('test_id')
 def test_shape(**kwargs):
     response = '''{
         "dimensions":[
-            {"dimension":0,"location":"query/test_id/slice/0","size":4},
-            {"dimension":1,"location":"query/test_id/slice/1","size":3},
-            {"dimension":2,"location":"query/test_id/slice/2","size":2}
+            {
+                "dimension": 0,
+                "location": "query/test_id/slice/0",
+                "size": 4,
+                "keys": [0,1,2,3]
+            },
+            {
+                "dimension": 1,
+                "location": "query/test_id/slice/1",
+                "size": 3,
+                "keys": [0,2,4]
+            },
+            {
+                "dimension": 2,
+                "location": "query/test_id/slice/2",
+                "size":2,
+                "keys": [8, 16]
+            }
         ],
         "pid":"pid-test-shape"
     }'''
@@ -102,17 +117,17 @@ def test_shape(**kwargs):
 
 @requests_mock.Mocker(kw='m')
 def test_slice(**kwargs):
-    pid_0_12 = '{ "result": "result/pid-0-12", "authorization": "" }'
-    pid_1_22 = '{ "result": "result/pid-1-22", "authorization": "" }'
-    pid_2_30 = '{ "result": "result/pid-2-30", "authorization": "" }'
+    pid_0_12 = '{ "location": "result/pid-0-12", "status": "result/pid-0-12/status", "authorization": "" }'
+    pid_1_22 = '{ "location": "result/pid-1-22", "status": "result/pid-1-22/status", "authorization": "" }'
+    pid_2_30 = '{ "location": "result/pid-2-30", "status": "result/pid-2-30/status", "authorization": "" }'
 
     kwargs['m'].get('http://api/query/test_id/slice/0/12', text = pid_0_12)
     kwargs['m'].get('http://api/query/test_id/slice/1/22', text = pid_1_22)
     kwargs['m'].get('http://api/query/test_id/slice/2/30', text = pid_2_30)
 
-    status_0_12 = '{ "location": "result/pid-0-12" }'
-    status_1_22 = '{ "location": "result/pid-1-22" }'
-    status_2_30 = '{ "location": "result/pid-2-30" }'
+    status_0_12 = '{ "location": "result/pid-0-12", "status": "result/pid-0-12/status" }'
+    status_1_22 = '{ "location": "result/pid-1-22", "status": "result/pid-1-22/status" }'
+    status_2_30 = '{ "location": "result/pid-2-30", "status": "result/pid-2-30/status" }'
     kwargs['m'].get('http://api/result/pid-0-12/status', text = status_0_12)
     kwargs['m'].get('http://api/result/pid-1-22/status', text = status_1_22)
     kwargs['m'].get('http://api/result/pid-2-30/status', text = status_2_30)

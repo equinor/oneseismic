@@ -43,6 +43,7 @@ class cube:
         self.client = client
         self.id = id
         self._shape = None
+        self._ijk = None
 
     @property
     def shape(self):
@@ -57,11 +58,27 @@ class cube:
         if self._shape is not None:
             return self._shape
 
-        resource = f"query/{self.id}"
-        r = self.client.get(resource)
-        r.raise_for_status()
-        self._shape = tuple(int(dim['size']) for dim in r.json()['dimensions'])
+        self._shape = tuple(len(dim) for dim in self.ijk)
         return self._shape
+
+    @property
+    def ijk(self):
+        """
+        Notes
+        -----
+        The ijk is immutable and the result may be cached.
+
+        The ijk name is temporary and will change without notice
+        """
+        if self._ijk is not None:
+            return self._ijk
+
+        resource = f'query/{self.id}'
+        r = self.client.session.get(resource)
+        self._ijk = [
+            [x for x in dim['keys']] for dim in r.json()['dimensions']
+        ]
+        return self._ijk
 
     def slice(self, dim, lineno):
         """ Fetch a slice
@@ -82,44 +99,12 @@ class cube:
         slice : numpy.ndarray
         """
         resource = f"query/{self.id}/slice/{dim}/{lineno}"
-        r = self.client.get(resource)
-        if r.status_code != 200:
-            if r.status_code == 404:
-                if 'param.lineno' in r.text:
-                    raise ClientError(r.text)
-                if 'param.dimension' in r.text:
-                    raise ClientError(r.text)
-            raise ClientError(f'HTTP error {r.status_code}: {r.text}')
+        proc = schedule(
+            session = self.client.session,
+            resource = resource,
+        )
 
-        header = r.json()
-        status = header['result'] + '/status'
-
-        auth = 'Bearer {}'.format(header['authorization'])
-        extra_headers = { 'Authorization': auth }
-
-        while True:
-            r = self.client.get(status, extra_headers = extra_headers)
-            response = r.json()
-
-            # a poor man's progress bar
-            print(response)
-
-            if r.status_code == 200:
-                result = response['location']
-                r = self.client.get(result, extra_headers = extra_headers)
-                if r.status_code == 200:
-                    return assemble_slice(r.content)
-                else:
-                    raise RuntimeError(f'Error getting slice; {r.status_code} {r.text}')
-
-            elif r.status_code == 202:
-                status = response['location']
-                # This sleep needs to go - polling should be optional and
-                # controllable by the caller.
-                time.sleep(1)
-
-            else:
-                raise RuntimeError(f'Unknown error; {r.status_code} {r.text}')
+        return assemble_slice(proc.raw_result())
 
 class azure_auth:
     def __init__(self, cache_dir=None):
@@ -186,21 +171,177 @@ class azure_auth:
 
         return {"Authorization": "Bearer " + result["access_token"]}
 
+class process:
+    """
+
+    Maps conceptually to an observer of a process server-side. Comes with
+    methods for querying status, completedness, and the final result.
+
+    Parameters
+    ----------
+    host : str
+        Hostname.
+    session : request.Session
+        A requests.Session-like with a get() method. Authorization headers
+        should be set.
+    status_url : str
+        Relative path to the status endpoint.
+    result_url : str
+        Relative path to the result endpoint.
+
+    Notes
+    -----
+    Constructing a process manually is reserved for the implementation.
+
+    See also
+    --------
+    schedule
+    """
+    def __init__(self, session, status_url, result_url):
+        self.session = session
+        self.status_url = status_url
+        self.result_url = result_url
+        self.done = False
+
+    def status(self):
+        """ Processs status
+
+        Retuns
+        ------
+        status : str
+            Returns one of { 'working', 'finished' }
+
+        Notes
+        -----
+        This function simply returns what the server responds with, so code
+        inspecting the status should always have a fall-through case, in case
+        the server is updated and returns something new.
+        """
+        r = self.session.get(self.status_url)
+        response = r.json()
+
+        if r.status_code == 200:
+            self.done = True
+            return response['status']
+
+        if r.status_code == 202:
+            return response['status']
+
+        raise AssertionError(f'Unhandled status code f{r.status_code}')
+
+    def raw_result(self):
+        """
+        The response body for result. This method should rarely be called
+        directly, but can be useful for debugging, inspecting, or custom
+        parsing.
+
+        The function will block until the result is ready.
+        """
+        # TODO: optionally do a blocking read server-side
+        # TODO: async/await support
+        while not self.done:
+            _ = self.status()
+            if not self.done:
+                time.sleep(1)
+
+        # TODO: cache?
+        r = self.session.get(self.result_url)
+        return r.content
+
+    def result(self):
+        return self.assemble(self.raw_result())
+
+    def assemble(self, body):
+        """
+        Assemble the response body into a suitable object. To be implemented by
+        derived classes.
+        """
+        raise NotImplementedError
+
+def schedule(session, resource):
+    """Start a server-side process.
+
+    This function centralises setting up a HTTP session and building the
+    process object, whereas end-users should use methods on the outermost cube
+    class.
+
+    Parameters
+    ----------
+    session : requests.Session
+        Session object with a get() for making http requests
+    resource : str
+        Resource to schedule, e.g. 'query/<id>/slice'
+
+    Returns
+    -------
+    proc : process
+        Process handle for monitoring status and getting the result
+
+    Notes
+    -----
+    Scheduling a process manually is reserved for the implementation.
+    """
+    r = session.get(resource)
+
+    body = r.json()
+    auth = 'Bearer {}'.format(body['authorization'])
+    s = http_session(session.base_url)
+    s.headers.update({'Authorization': auth})
+
+    return process(
+        session = s,
+        status_url = body['status'],
+        result_url = body['location'],
+    )
+
+class http_session(requests.Session):
+    """
+    http_session provides some automation on top of the requests.Session type,
+    to simplify http requests in more seismic-specific interfaces and logic.
+    Methods also raise non-200 http status codes as exceptions.
+
+    The http_session methods do not take absolute URLs, but relative URLs e.g.
+    req.get(url = 'result/<pid>/status').
+
+    Parameters
+    ----------
+    base_url : str
+        The base url, schema + host, for the oneseismic service
+
+    Notes
+    -----
+    This class is meant for internal use, to provide a clean boundary for
+    low-level network-oriented code.
+    """
+    def __init__(self, base_url, *args, **kwargs):
+        self.base_url = base_url
+        super().__init__(*args, **kwargs)
+
+    def get(self, url, *args, **kwargs):
+        """
+        requests.Session.get, but raises exception for non-200 HTTP status
+        codes.
+
+        Parameters
+        ----------
+        url : str
+            Relative url to the resource, e.g. 'result/<pid>/status'
+
+        See also
+        --------
+        requests.get
+        """
+        r = super().get(f'{self.base_url}/{url}', *args, **kwargs)
+        r.raise_for_status()
+        return r
 
 class client:
     def __init__(self, endpoint, auth=None, cache_dir=None):
         self.endpoint = endpoint
-        self.auth = auth or azure_auth(cache_dir)
-
-    def token(self):
-        return self.auth.token()
-
-    def get(self, resource, extra_headers = None):
-        url = f"{self.endpoint}/{resource}"
-        headers = self.token()
-        if extra_headers is not None:
-            headers.update(extra_headers)
-        return requests.get(url, headers = headers)
+        if auth is None:
+            auth = azure_auth(cache_dir)
+        self.session = http_session(self.endpoint)
+        self.session.headers.update(auth.token())
 
     def list_cubes(self):
         """ Return a list of cube ids
