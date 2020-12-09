@@ -115,7 +115,7 @@ func (s *Slice) Entry(ctx *gin.Context) {
 
 	guid := ctx.Param("guid")
 	if guid == "" {
-		log.Printf("%s guid empty", pid)
+		log.Printf("pid=%s, guid empty", pid)
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -149,7 +149,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 
 	params, err := parseSliceParams(ctx)
 	if err != nil {
-		log.Printf("%s %v", pid, err)
+		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -201,14 +201,14 @@ func (s *Slice) Get(ctx *gin.Context) {
 	msg := s.makeTask(pid, token, manifest, params)
 	req, err := msg.Pack()
 	if err != nil {
-		log.Printf("%s pack error: %v", pid, err)
+		log.Printf("pid=%s, pack error: %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
 	key, err := s.keyring.Sign(pid)
 	if err != nil {
-		log.Printf("%s %v", pid, err)
+		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -217,7 +217,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 		pid: pid,
 		request: req,
 	}
-	log.Printf("Scheduling %s", pid)
+	log.Printf("pid=%s, Scheduling process", pid)
 	proc.sendZMQ(s.queue)
 	ctx.JSON(http.StatusOK, gin.H {
 		"location": fmt.Sprintf("result/%s", pid),

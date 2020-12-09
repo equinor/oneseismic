@@ -176,15 +176,25 @@ void fragment_task::run(
     zmq::multipart_t process(input);
     this->p->parse(process);
 
+    spdlog::info("pid={}, part={} being processed", this->p->pid, this->p->part);
+
     const auto& query = this->p->query;
     auto& action = this->p->result;
     action.prepare(query);
     auto batch = make_batch(query);
     xfer.perform(batch, action);
 
+    spdlog::info(
+        "pid={}, fragments_downloaded={}, part={} ready",
+        this->p->pid,
+        batch.fragment_ids.size(),
+        this->p->part
+    );
+
     const auto id = fmt::format("{}:{}", this->p->pid, this->p->part);
     const auto packed = action.pack();
     this->p->storage.put(id, packed);
+    spdlog::info("pid={}, part={} committed to storage", this->p->pid, this->p->part);
     action.clear();
     /*
      * TODO: catch other network related errors that should not bring down the
@@ -194,13 +204,13 @@ void fragment_task::run(
     /* TODO: log the actual bytes received too */
     /* TODO: log sender */
     spdlog::error(
-            "{} badly formatted protobuf message",
+            "pid={}, badly formatted protobuf message",
             this->p->pid
     );
     this->p->failure("bad-message").send(failure);
 } catch (const notfound& e) {
     spdlog::warn(
-            "{} fragment not found: '{}'",
+            "pid={}, fragment not found: '{}'",
             this->p->pid,
             e.what()
     );
@@ -210,10 +220,10 @@ void fragment_task::run(
      * TODO: log the headers?
      * TODO: log manifest url?
      */
-    spdlog::info("{} not authorized", this->p->pid);
+    spdlog::info("pid={}, not authorized", this->p->pid);
     this->p->failure("fragment-not-authorized").send(failure);
 } catch (const storage_error& e) {
-    spdlog::warn("{} storage error: {}", this->p->pid, e.what());
+    spdlog::warn("pid={}, storage error: {}", this->p->pid, e.what());
     this->p->failure("storage-error").send(failure);
 }
 
