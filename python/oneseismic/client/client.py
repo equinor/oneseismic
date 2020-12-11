@@ -111,8 +111,13 @@ class cube:
 
 def readconfig(cache_dir):
     path = os.path.join(cache_dir, 'oneseismic', 'config.json')
-    with open(path) as cfg:
-        return json.load(cfg)
+    try:
+        with open(path) as cfg:
+            return json.load(cfg)
+    except FileNotFoundError:
+        raise ConfigError(f'No config not in {cache_dir}')
+    except Exception as e:
+        raise ConfigError('Bad config') from e
 
 @contextlib.contextmanager
 def tokencache(cache_dir):
@@ -141,13 +146,7 @@ class azure_auth:
         interaction.
         """
         if not self.app:
-            try:
-                config = readconfig(self.cache_dir)
-            except FileNotFoundError:
-                raise ConfigError(f'No config not in {self.cache_dir}')
-            except Exception as e:
-                raise ConfigError('Bad config') from e
-
+            config = readconfig(self.cache_dir)
             with tokencache(self.cache_dir) as token_cache:
                 self.app = msal.PublicClientApplication(
                     config['client_id'],
