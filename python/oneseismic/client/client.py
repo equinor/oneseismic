@@ -1,4 +1,4 @@
-import atexit
+import contextlib
 import ujson as json
 import logging
 import msal
@@ -114,8 +114,15 @@ def readconfig(cache_dir):
     with open(path) as cfg:
         return json.load(cfg)
 
-def tokenpath(cache_dir):
-    return os.path.join(cache_dir, 'oneseismic', 'accessToken.json')
+@contextlib.contextmanager
+def tokencache(cache_dir):
+    path = os.path.join(cache_dir, 'oneseismic', 'accessToken.json')
+    cache = msal.SerializableTokenCache()
+    with open(path) as f:
+        cache.deserialize(f.read())
+    yield cache
+    with open(path, 'w') as f:
+        f.write(cache.serialize())
 
 class azure_auth:
     def __init__(self, cache_dir=None):
@@ -141,20 +148,12 @@ class azure_auth:
             except Exception as e:
                 raise ConfigError('Bad config') from e
 
-            tokpath = tokenpath(self.cache_dir)
-            cache = msal.SerializableTokenCache()
-
-            with open(tokpath) as tokenfile:
-                cache.deserialize(tokenfile.read())
-            atexit.register(
-                lambda: open(tokpath, "w").write(cache.serialize())
-            )
-
-            self.app = msal.PublicClientApplication(
-                config['client_id'],
-                authority=config['auth_server'],
-                token_cache=cache,
-            )
+            with tokencache(self.cache_dir) as token_cache:
+                self.app = msal.PublicClientApplication(
+                    config['client_id'],
+                    authority=config['auth_server'],
+                    token_cache=token_cache,
+                )
 
             self.scopes = config['scopes']
 
