@@ -12,6 +12,9 @@ import time
 class ClientError(RuntimeError):
     pass
 
+class ConfigError(RuntimeError):
+    pass
+
 def assemble_slice(msg):
     parts = msgpack.unpackb(msg)
 
@@ -106,6 +109,14 @@ class cube:
 
         return assemble_slice(proc.raw_result())
 
+def readconfig(cache_dir):
+    path = os.path.join(cache_dir, 'oneseismic', 'config.json')
+    with open(path) as cfg:
+        return json.load(cfg)
+
+def tokenpath(cache_dir):
+    return os.path.join(cache_dir, 'oneseismic', 'accessToken.json')
+
 class azure_auth:
     def __init__(self, cache_dir=None):
         self.app = None
@@ -123,29 +134,20 @@ class azure_auth:
         interaction.
         """
         if not self.app:
-            config_path = os.path.join(
-                self.cache_dir,
-                "oneseismic",
-                "config.json"
-            )
             try:
-                config = json.load(open(config_path))
+                config = readconfig(self.cache_dir)
             except FileNotFoundError:
-                raise RuntimeError(
-                    "No credentials found in cache. Log in "
-                    "using oneseismic-login or login()"
-                )
+                raise ConfigError(f'No config not in {self.cache_dir}')
+            except Exception as e:
+                raise ConfigError('Bad config') from e
 
-            cache_file = os.path.join(
-                self.cache_dir,
-                "oneseismic",
-                "accessToken.json"
-            )
+            tokpath = tokenpath(self.cache_dir)
             cache = msal.SerializableTokenCache()
 
-            cache.deserialize(open(cache_file, "r").read())
+            with open(tokpath) as tokenfile:
+                cache.deserialize(tokenfile.read())
             atexit.register(
-                lambda: open(cache_file, "w").write(cache.serialize())
+                lambda: open(tokpath, "w").write(cache.serialize())
             )
 
             self.app = msal.PublicClientApplication(
