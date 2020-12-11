@@ -130,10 +130,10 @@ def tokencache(cache_dir):
         f.write(cache.serialize())
 
 class azure_auth:
-    def __init__(self, cache_dir=None):
+    def __init__(self, cache_dir):
         self.app = None
         self.scopes = None
-        self.cache_dir = cache_dir or XDG_CACHE_HOME
+        self.cache_dir = cache_dir
 
     def token(self, config = None):
         """ Loads a token from cache
@@ -342,12 +342,18 @@ class http_session(requests.Session):
         return r
 
 class client:
-    def __init__(self, endpoint, auth=None, cache_dir=None):
-        self.endpoint = endpoint
+    def __init__(self, endpoint=None, auth=None, cache_dir=None):
+        cache_dir = cache_dir or XDG_CACHE_HOME
+        config = readconfig(cache_dir)
+        if endpoint is not None:
+            self.endpoint = endpoint
+        else:
+            self.endpoint = config['url']
+
         if auth is None:
             auth = azure_auth(cache_dir)
         self.session = http_session(self.endpoint)
-        self.session.headers.update(auth.token())
+        self.session.headers.update(auth.token(config))
 
     def ls(self):
         """List available cubes
