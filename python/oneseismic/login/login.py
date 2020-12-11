@@ -6,13 +6,14 @@ from pathlib import Path
 import sys
 from xdg import XDG_CACHE_HOME
 
-def store_config(client_id, auth_server, scopes, cache_dir):
+def store_config(url, client_id, auth_server, scopes, cache_dir):
     config_file = os.path.join(
         cache_dir,
         "config.json"
     )
 
     config = {
+        "url": url,
         "client_id": client_id,
         "auth_server": auth_server,
         "scopes": scopes
@@ -46,7 +47,7 @@ def fetch_token(client_id, auth_server, scopes, cache_dir):
     open(cache_file, "w").write(cache.serialize())
 
 
-def login(client_id, auth_server, scopes, cache_dir=None):
+def login(url, client_id, auth_server, scopes, cache_dir=None):
     """ Log in to one seismic
 
     Fetches token and caches it on disk. This function will prompt user to open
@@ -56,8 +57,15 @@ def login(client_id, auth_server, scopes, cache_dir=None):
     For non-interactive workflows run the oneseismic-login executable before
     running your script.
 
+    The url parameter can be None, in which case all programs that depend on it
+    must be explicitly passed the URL to the oneseismic service. This can
+    happen when login is run with explicit client-id, authority, and scopes
+    parameters, but is not recommended.
+
     Parameters
     ----------
+    url: str
+        URL to oneseismic
 
     client_id : str
         The Application (client) ID of the Azure AD app registration.
@@ -72,5 +80,5 @@ def login(client_id, auth_server, scopes, cache_dir=None):
     cache_dir = cache_dir or os.path.join(XDG_CACHE_HOME, "oneseismic")
     Path(cache_dir).mkdir(exist_ok=True)
 
-    store_config(client_id, auth_server, scopes, cache_dir)
+    store_config(url, client_id, auth_server, scopes, cache_dir)
     fetch_token(client_id, auth_server, scopes, cache_dir)

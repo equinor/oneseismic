@@ -81,6 +81,7 @@ def main(argv):
     args = parser.parse_args(argv)
 
     config = {}
+    base_url = None
     if args.url is not None:
         url = assumehttps(args.url)
         r = requests.get(url)
@@ -88,6 +89,10 @@ def main(argv):
             msg = f'GET {url} status {r.status_code}: {r.content}'
             raise RuntimeError(msg)
         config.update(json.loads(r.content))
+
+        # Store only the base URL, i.e. remove path and query components
+        u = urllib.parse.urlparse(url)
+        base_url = urllib.parse.urlunsplit((u.scheme, u.netloc, '', '', ''))
 
     if args.client_id is not None:
         config['client_id'] = args.client_id
@@ -97,6 +102,7 @@ def main(argv):
         config['scopes'] = args.scopes
 
     login(
+        url = base_url,
         client_id = config['client_id'],
         auth_server = config['authority'],
         scopes = config['scopes'],
