@@ -80,7 +80,7 @@ slice_2_30 = msgpack.packb([
 ])
 
 class no_auth:
-    def token(self):
+    def token(self, *args, **kwargs):
         return {}
 
 client = client('http://api', auth=no_auth())

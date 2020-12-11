@@ -135,7 +135,7 @@ class azure_auth:
         self.scopes = None
         self.cache_dir = cache_dir or XDG_CACHE_HOME
 
-    def token(self):
+    def token(self, config = None):
         """ Loads a token from cache
 
         Loads a token that has previously been cached by login() or the
@@ -144,9 +144,15 @@ class azure_auth:
         This function is designed to be executed non-interactively and will fail
         if the token can not be loaded from cache and refreshed without user
         interaction.
+
+        Parameters
+        ----------
+        config : dict
+            The contents of an already parsed <cache-dir>/config.json
         """
         if not self.app:
-            config = readconfig(self.cache_dir)
+            if config is None:
+                config = readconfig(self.cache_dir)
             with tokencache(self.cache_dir) as token_cache:
                 self.app = msal.PublicClientApplication(
                     config['client_id'],
