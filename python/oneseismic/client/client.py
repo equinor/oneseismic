@@ -343,15 +343,18 @@ class client:
         self.session = http_session(self.endpoint)
         self.session.headers.update(auth.token())
 
-    def list_cubes(self):
-        """ Return a list of cube ids
+    def ls(self):
+        """List available cubes
+
+        List the cubes stored in oneseismic. The ids returned should all be
+        valid parameters for the cube() method.
 
         Returns
         -------
-
-        cube_ids : list of strings
+        ids : iterable of str
+            Cube IDs
         """
-        return self.get('')
+        return self.session.get('query').json()['links'].keys()
 
     def cube(self, id):
         """ Get a cube handle

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -144,6 +145,33 @@ func (s *Slice) Entry(ctx *gin.Context) {
 	})
 }
 
+func (s *Slice) About(ctx *gin.Context) {
+	pid := ctx.GetString("pid")
+	guid := ctx.Param("guid")
+	if guid == "" {
+		log.Printf("%s guid empty", pid)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	m, err := util.GetManifest(ctx, s.endpoint, guid)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		return
+	}
+	
+	links := make(map[string]string)
+	for i := 0; i < len(m.Dimensions); i++ {
+		key := fmt.Sprintf("%d", i)
+		links[key] = fmt.Sprintf("query/%s/slice/%d", guid, i)
+	}
+
+	ctx.JSON(http.StatusOK, gin.H {
+		"links": links,
+		"pid": pid,
+	})
+}
+
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
 
@@ -223,5 +251,32 @@ func (s *Slice) Get(ctx *gin.Context) {
 		"location": fmt.Sprintf("result/%s", pid),
 		"status":   fmt.Sprintf("result/%s/status", pid),
 		"authorization": key,
+	})
+}
+
+func (s *Slice) List(ctx *gin.Context) {
+	pid := ctx.GetString("pid")
+	token := ctx.GetString("OBOJWT")
+
+	endpoint, err := url.Parse(s.endpoint)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	cubes, err := util.ListCubes(ctx, endpoint, token)
+	if err != nil {
+		log.Printf("%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	links := make(map[string]string)
+	for _, cube := range cubes {
+		links[cube] = fmt.Sprintf("query/%s", cube)
+	}
+
+	ctx.JSON(http.StatusOK, gin.H {
+		"links": links,
 	})
 }

@@ -165,3 +165,18 @@ def test_slice(**kwargs):
     npt.assert_array_equal(cube.slice(0, 12), expected_0_12)
     npt.assert_array_equal(cube.slice(1, 22), expected_1_22)
     npt.assert_array_equal(cube.slice(2, 30), expected_2_30)
+
+@requests_mock.Mocker(kw='m')
+def test_ls(**kwargs):
+    ls = '''
+    {
+        "links": {
+            "key1": "query/key1",
+            "key2": "query/key2",
+            "key3": "query/key3"
+        }
+    }
+    '''
+    kwargs['m'].get('http://api/query', text = ls)
+    keys = client.ls()
+    assert list(keys) == ['key1', 'key2', 'key3']
