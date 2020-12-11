@@ -110,7 +110,7 @@ class azure_auth:
     def __init__(self, cache_dir=None):
         self.app = None
         self.scopes = None
-        self.cache_dir = cache_dir
+        self.cache_dir = cache_dir or XDG_CACHE_HOME
 
     def token(self):
         """ Loads a token from cache
@@ -124,7 +124,7 @@ class azure_auth:
         """
         if not self.app:
             config_path = os.path.join(
-                self.cache_dir or XDG_CACHE_HOME,
+                self.cache_dir,
                 "oneseismic",
                 "config.json"
             )
@@ -137,7 +137,7 @@ class azure_auth:
                 )
 
             cache_file = os.path.join(
-                self.cache_dir or XDG_CACHE_HOME,
+                self.cache_dir,
                 "oneseismic",
                 "accessToken.json"
             )
