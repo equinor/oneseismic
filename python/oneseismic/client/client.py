@@ -42,9 +42,9 @@ class cube:
     Constructing a cube object does not trigger any http calls as all properties
     are fetched lazily.
     """
-    def __init__(self, id, session):
+    def __init__(self, guid, session):
         self.session = session
-        self.id = id
+        self.guid = guid
         self._shape = None
         self._ijk = None
 
@@ -76,7 +76,7 @@ class cube:
         if self._ijk is not None:
             return self._ijk
 
-        resource = f'query/{self.id}'
+        resource = f'query/{self.guid}'
         r = self.session.get(resource)
         self._ijk = [
             [x for x in dim['keys']] for dim in r.json()['dimensions']
@@ -101,7 +101,7 @@ class cube:
 
         slice : numpy.ndarray
         """
-        resource = f"query/{self.id}/slice/{dim}/{lineno}"
+        resource = f"query/{self.guid}/slice/{dim}/{lineno}"
         proc = schedule(
             session = self.session,
             resource = resource,

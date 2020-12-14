@@ -4,8 +4,8 @@ from . import client
 def ls(session):
     """List available cubes
 
-    List the cubes stored in oneseismic. The ids returned should all be
-    valid parameters for the cube() method.
+    List the cubes stored in oneseismic. The ids returned should all be valid
+    arguments for the oneseismic.client.cube class.
 
     Parameters
     ----------
@@ -14,8 +14,12 @@ def ls(session):
 
     Returns
     -------
-    ids : iterable of str
-        Cube IDs
+    guids : iterable of str
+        Cube GUIDs
+
+    See also
+    --------
+    oneseismic.client.cube
     """
     return session.get('query').json()['links'].keys()
 
