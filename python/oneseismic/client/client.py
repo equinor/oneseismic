@@ -42,8 +42,8 @@ class cube:
     Constructing a cube object does not trigger any http calls as all properties
     are fetched lazily.
     """
-    def __init__(self, id, client):
-        self.client = client
+    def __init__(self, id, session):
+        self.session = session
         self.id = id
         self._shape = None
         self._ijk = None
@@ -77,7 +77,7 @@ class cube:
             return self._ijk
 
         resource = f'query/{self.id}'
-        r = self.client.session.get(resource)
+        r = self.session.get(resource)
         self._ijk = [
             [x for x in dim['keys']] for dim in r.json()['dimensions']
         ]
@@ -103,7 +103,7 @@ class cube:
         """
         resource = f"query/{self.id}/slice/{dim}/{lineno}"
         proc = schedule(
-            session = self.client.session,
+            session = self.session,
             resource = resource,
         )
 
@@ -354,19 +354,3 @@ class client:
             auth = azure_auth(cache_dir)
         self.session = http_session(self.endpoint)
         self.session.headers.update(auth.token(config))
-
-    def cube(self, id):
-        """ Get a cube handle
-
-        Parameters
-        ----------
-
-        id : str
-            The guid of the cube.
-
-        Returns
-        -------
-
-        c : cube
-        """
-        return cube(id, self)

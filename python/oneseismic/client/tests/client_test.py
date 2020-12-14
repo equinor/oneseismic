@@ -6,6 +6,7 @@ import requests_mock
 
 from .. import client
 from ..client import http_session
+from ..client import cube
 
 session = requests.Session()
 adapter = requests_mock.Adapter()
@@ -85,8 +86,8 @@ class no_auth:
         return {}
 
 cli = client('http://api', auth=no_auth())
-cube = cli.cube('test_id')
 session = http_session(base_url = 'http://api')
+cube = cube('test_id', session)
 
 @requests_mock.Mocker(kw='m')
 def test_shape(**kwargs):

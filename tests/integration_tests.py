@@ -13,7 +13,6 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from oneseismic import scan
 from oneseismic import upload
-from oneseismic import client
 
 API_ADDR = os.getenv("API_ADDR", "http://localhost:8080")
 AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
@@ -28,28 +27,18 @@ class CustomTokenCredential(object):
         return AccessToken(access_token, 1)
 
 
-def auth_header():
-    r = requests.get(
-        AUTHSERVER + "/oauth2/v2.0/authorize" + "?client_id=" + AUDIENCE,
-        headers={"content-type": "application/json"},
-        allow_redirects=False,
-    )
-    token = parse_qs(urlparse(r.headers["location"]).fragment)["access_token"]
+class tokens:
+    def headers(self):
+        r = requests.get(
+            AUTHSERVER + "/oauth2/v2.0/authorize" + "?client_id=" + AUDIENCE,
+            headers={"content-type": "application/json"},
+            allow_redirects=False,
+        )
+        token = parse_qs(urlparse(r.headers["location"]).fragment)["access_token"]
 
-    return {"Authorization": f"Bearer {token[0]}"}
+        return {"Authorization": f"Bearer {token[0]}"}
 
-
-class client_auth:
-    def __init__(self, auth):
-        self.auth = auth
-
-    def token(self):
-        return dict(self.auth)
-
-
-AUTH_HEADER = auth_header()
-AUTH_CLIENT = client_auth(auth_header())
-
+AUTH_CLIENT = tokens()
 
 def upload_cube(data):
     """ create segy of data and upload to azure blob
@@ -96,9 +85,14 @@ def cube():
 
 
 def test_cube_404(cube):
-    c = client.client(API_ADDR, AUTH_CLIENT)
+    import oneseismic
+    from oneseismic.client.client import http_session
+    session = http_session(
+        base_url = API_ADDR,
+        tokens = AUTH_CLIENT,
+    )
     with pytest.raises(requests.HTTPError) as e:
-        c.cube("not_found").slice(0, 1)
+        oneseismic.client.client.cube("not_found", session).slice(0, 1)
         assert e.response.status_code == 404
 
 
@@ -107,12 +101,20 @@ def test_invalid_token_should_fail(cube):
         tokens = json.load(f)
 
     for t in tokens:
-        token = {"Authorization": f"Bearer {t['jwt']}"}
-        auth = client_auth(token)
-        c = client.client(API_ADDR, auth)
+        class badauth:
+            def headers(self):
+                return {"Authorization": f"Bearer {t['jwt']}"}
 
+        import oneseismic
+        from oneseismic.client.client import http_session
+        session = http_session(
+            base_url = API_ADDR,
+            tokens = badauth(),
+        )
+
+        c = oneseismic.client.client.cube(cube, session)
         with pytest.raises(requests.HTTPError) as e:
-            c.cube(cube).slice(0, 1)
+            c.slice(0, 1)
 
             assert e.response.status_code == 401
 
@@ -132,8 +134,14 @@ def test_slices(w, h, d):
 
     guid = upload_cube(data)
 
-    c = client.client(API_ADDR, AUTH_CLIENT)
-    cube = c.cube(guid)
+    # TODO: use exported interface
+    import oneseismic
+    from oneseismic.client.client import http_session
+    session = http_session(
+        base_url = API_ADDR,
+        tokens = AUTH_CLIENT,
+    )
+    cube = oneseismic.client.client.cube(guid, session)
 
     # test end slices
     np.testing.assert_almost_equal(cube.slice(0, 1), data[0, :, :])
