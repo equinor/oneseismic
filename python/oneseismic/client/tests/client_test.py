@@ -4,7 +4,8 @@ import numpy.testing as npt
 import requests
 import requests_mock
 
-from ..client import client
+from .. import client
+from ..client import http_session
 
 session = requests.Session()
 adapter = requests_mock.Adapter()
@@ -83,8 +84,9 @@ class no_auth:
     def token(self, *args, **kwargs):
         return {}
 
-client = client('http://api', auth=no_auth())
-cube = client.cube('test_id')
+cli = client('http://api', auth=no_auth())
+cube = cli.cube('test_id')
+session = http_session(base_url = 'http://api')
 
 @requests_mock.Mocker(kw='m')
 def test_shape(**kwargs):
@@ -168,7 +170,8 @@ def test_slice(**kwargs):
 
 @requests_mock.Mocker(kw='m')
 def test_ls(**kwargs):
-    ls = '''
+    from ..ls import ls
+    response = '''
     {
         "links": {
             "key1": "query/key1",
@@ -177,6 +180,6 @@ def test_ls(**kwargs):
         }
     }
     '''
-    kwargs['m'].get('http://api/query', text = ls)
-    keys = client.ls()
+    kwargs['m'].get('http://api/query', text = response)
+    keys = ls(session)
     assert list(keys) == ['key1', 'key2', 'key3']
