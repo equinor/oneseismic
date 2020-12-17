@@ -17,4 +17,6 @@ if __name__ == "__main__":
     cmd = importlib.import_module('oneseismic.{}'.format(programs[args.cmd]))
     # forward everything after prog. by convention, there should be a main()
     # function in the file
-    cmd.main(sys.argv[2:])
+    r = cmd.main(sys.argv[2:])
+    if r is not None:
+        print(r)
