@@ -1,5 +1,6 @@
 import argparse
-from . import client
+
+from .client import http_session
 
 def ls(session):
     """List available cubes
@@ -36,6 +37,8 @@ def main(argv):
     )
 
     args = parser.parse_args(argv)
-    c = client(args.url)
-    for cube in ls(c.session):
+    session = http_session.fromconfig()
+    if args.url is not None:
+        session.base_url = args.url
+    for cube in ls(session):
         print(cube)

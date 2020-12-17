@@ -4,7 +4,6 @@ import numpy.testing as npt
 import requests
 import requests_mock
 
-from .. import client
 from ..client import http_session
 from ..client import cube
 
@@ -81,11 +80,6 @@ slice_2_30 = msgpack.packb([
     },
 ])
 
-class no_auth:
-    def token(self, *args, **kwargs):
-        return {}
-
-cli = client('http://api', auth=no_auth())
 session = http_session(base_url = 'http://api')
 cube = cube('test_id', session)
 
