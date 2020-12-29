@@ -4,7 +4,8 @@ import numpy.testing as npt
 import requests
 import requests_mock
 
-from ..client import client
+from ..client import http_session
+from ..client import cube
 
 session = requests.Session()
 adapter = requests_mock.Adapter()
@@ -79,12 +80,8 @@ slice_2_30 = msgpack.packb([
     },
 ])
 
-class no_auth:
-    def token(self):
-        return {}
-
-client = client('http://api', auth=no_auth())
-cube = client.cube('test_id')
+session = http_session(base_url = 'http://api')
+cube = cube('test_id', session)
 
 @requests_mock.Mocker(kw='m')
 def test_shape(**kwargs):
@@ -165,3 +162,19 @@ def test_slice(**kwargs):
     npt.assert_array_equal(cube.slice(0, 12), expected_0_12)
     npt.assert_array_equal(cube.slice(1, 22), expected_1_22)
     npt.assert_array_equal(cube.slice(2, 30), expected_2_30)
+
+@requests_mock.Mocker(kw='m')
+def test_ls(**kwargs):
+    from ..ls import ls
+    response = '''
+    {
+        "links": {
+            "key1": "query/key1",
+            "key2": "query/key2",
+            "key3": "query/key3"
+        }
+    }
+    '''
+    kwargs['m'].get('http://api/query', text = response)
+    keys = ls(session)
+    assert list(keys) == ['key1', 'key2', 'key3']

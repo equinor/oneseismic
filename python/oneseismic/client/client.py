@@ -1,16 +1,7 @@
-import atexit
-import ujson as json
-import logging
-import msal
 import numpy as np
-import os
 import requests
-from xdg import XDG_CACHE_HOME
 import msgpack
 import time
-
-class ClientError(RuntimeError):
-    pass
 
 def assemble_slice(msg):
     parts = msgpack.unpackb(msg)
@@ -39,9 +30,9 @@ class cube:
     Constructing a cube object does not trigger any http calls as all properties
     are fetched lazily.
     """
-    def __init__(self, id, client):
-        self.client = client
-        self.id = id
+    def __init__(self, guid, session):
+        self.session = session
+        self.guid = guid
         self._shape = None
         self._ijk = None
 
@@ -73,8 +64,8 @@ class cube:
         if self._ijk is not None:
             return self._ijk
 
-        resource = f'query/{self.id}'
-        r = self.client.session.get(resource)
+        resource = f'query/{self.guid}'
+        r = self.session.get(resource)
         self._ijk = [
             [x for x in dim['keys']] for dim in r.json()['dimensions']
         ]
@@ -98,78 +89,13 @@ class cube:
 
         slice : numpy.ndarray
         """
-        resource = f"query/{self.id}/slice/{dim}/{lineno}"
+        resource = f"query/{self.guid}/slice/{dim}/{lineno}"
         proc = schedule(
-            session = self.client.session,
+            session = self.session,
             resource = resource,
         )
 
         return assemble_slice(proc.raw_result())
-
-class azure_auth:
-    def __init__(self, cache_dir=None):
-        self.app = None
-        self.scopes = None
-        self.cache_dir = cache_dir
-
-    def token(self):
-        """ Loads a token from cache
-
-        Loads a token that has previously been cached by login() or the
-        oneseismic-login command.
-
-        This function is designed to be executed non-interactively and will fail
-        if the token can not be loaded from cache and refreshed without user
-        interaction.
-        """
-        if not self.app:
-            config_path = os.path.join(
-                self.cache_dir or XDG_CACHE_HOME,
-                "oneseismic",
-                "config.json"
-            )
-            try:
-                config = json.load(open(config_path))
-            except FileNotFoundError:
-                raise RuntimeError(
-                    "No credentials found in cache. Log in "
-                    "using oneseismic-login or login()"
-                )
-
-            cache_file = os.path.join(
-                self.cache_dir or XDG_CACHE_HOME,
-                "oneseismic",
-                "accessToken.json"
-            )
-            cache = msal.SerializableTokenCache()
-
-            cache.deserialize(open(cache_file, "r").read())
-            atexit.register(
-                lambda: open(cache_file, "w").write(cache.serialize())
-            )
-
-            self.app = msal.PublicClientApplication(
-                config['client_id'],
-                authority=config['auth_server'],
-                token_cache=cache,
-            )
-
-            self.scopes = config['scopes']
-
-        account = self.app.get_accounts()[0]
-        result = self.app.acquire_token_silent(
-            self.scopes,
-            account=account
-        )
-
-        if "access_token" not in result:
-            raise RuntimeError(
-                "A token was found in cache, but it does not appear to "
-                "be valid. Try logging in again using oneseismic-login "
-                "or login()"
-            )
-
-        return {"Authorization": "Bearer " + result["access_token"]}
 
 class process:
     """
@@ -307,64 +233,100 @@ class http_session(requests.Session):
     ----------
     base_url : str
         The base url, schema + host, for the oneseismic service
+    auth :
+        Object to request up-to-date authorization headers from
 
     Notes
     -----
     This class is meant for internal use, to provide a clean boundary for
     low-level network-oriented code.
     """
-    def __init__(self, base_url, *args, **kwargs):
+    def __init__(self, base_url, tokens = None, *args, **kwargs):
         self.base_url = base_url
+        self.tokens = tokens
         super().__init__(*args, **kwargs)
 
+    def merge_auth_headers(self, kwargs):
+        if self.tokens is None:
+            return kwargs
+
+        headers = self.tokens.headers()
+        if 'headers' in kwargs:
+            # unpack-and-set rather than just assigning the dictionary, in case
+            # headers() starts returning more than just the Authorization
+            # headers. This puts the power of definition where it belongs, and
+            # keeps http_session oblivious to oneseismic specific header
+            # expectations.
+            #
+            # If users at call-time explicitly set any of these headers,
+            # respect them
+            for k, v in headers.items():
+                kwargs['headers'].setdefault(k, v)
+        else:
+            kwargs['headers'] = headers
+
+        return kwargs
+
     def get(self, url, *args, **kwargs):
-        """
+        """HTTP GET
+
         requests.Session.get, but raises exception for non-200 HTTP status
-        codes.
+        codes. Authorization headers will be added to the request if
+        http_session.tokens is available.
+
+        This function will respect call-level custom headers, and only use
+        http_session.tokens.headers() if not specified, similar to the requests
+        API [1]_.
 
         Parameters
         ----------
         url : str
             Relative url to the resource, e.g. 'result/<pid>/status'
 
+        Returns
+        -------
+        r : request.Response
+
         See also
         --------
         requests.get
+
+        References
+        ----------
+        .. [1] https://requests.readthedocs.io/en/master/user/advanced/#session-objects
+
+        Examples
+        --------
+        Defaulted and custom authorization:
+        >>> session = http_session(url, tokens = tokens)
+        >>> session.get('/needs-auth')
+        >>> session.get('/needs-auth', headers = { 'Accept': 'text/html' })
+        >>> session.get('/no-auth', headers = { 'Authorization': None })
         """
+        kwargs = self.merge_auth_headers(kwargs)
         r = super().get(f'{self.base_url}/{url}', *args, **kwargs)
         r.raise_for_status()
         return r
 
-class client:
-    def __init__(self, endpoint, auth=None, cache_dir=None):
-        self.endpoint = endpoint
-        if auth is None:
-            auth = azure_auth(cache_dir)
-        self.session = http_session(self.endpoint)
-        self.session.headers.update(auth.token())
+    @staticmethod
+    def fromconfig(cache_dir = None):
+        """Create a new session from on-disk config
 
-    def list_cubes(self):
-        """ Return a list of cube ids
-
-        Returns
-        -------
-
-        cube_ids : list of strings
-        """
-        return self.get('')
-
-    def cube(self, id):
-        """ Get a cube handle
+        Create a new http_sesssion with parameters and auth read from disk.
+        This is a convenient constructor for most programs and uses outside of
+        testing.
 
         Parameters
         ----------
-
-        id : str
-            The guid of the cube.
+        cache_dir : path or str, optional
+            Configuration cache directory
 
         Returns
         -------
-
-        c : cube
+        session : http_session
+            A ready-to-use http_session with authorization headers set
         """
-        return cube(id, self)
+        from ..login.login import config, tokens
+        cfg = config(cache_dir = cache_dir).load()
+        auth = tokens(cache_dir = cache_dir).load(cfg)
+        return http_session(base_url = cfg['url'], tokens = auth)
