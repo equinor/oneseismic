@@ -1,11 +1,13 @@
 import msgpack
 import numpy as np
 import numpy.testing as npt
+import pytest
 import requests
 import requests_mock
 
 from ..client import http_session
 from ..client import cube
+from ..client import cubes
 
 session = requests.Session()
 adapter = requests_mock.Adapter()
@@ -178,3 +180,33 @@ def test_ls(**kwargs):
     kwargs['m'].get('http://api/query', text = response)
     keys = ls(session)
     assert list(keys) == ['key1', 'key2', 'key3']
+
+@requests_mock.Mocker(kw='m')
+def test_cubes_dictlike(**kwargs):
+    response = '''
+    {
+        "links": {
+            "key1": "query/key1",
+            "key2": "query/key2",
+            "key3": "query/key3"
+        }
+    }
+    '''
+    kwargs['m'].get('http://api/query', text = response)
+
+    expected = ['key1', 'key2', 'key3']
+
+    c = cubes(session)
+    assert [guid for guid in c] == expected
+    assert len(c) == len(expected)
+
+    for guid in expected:
+        cube = c[guid]
+        assert cube.guid == guid
+
+    _ = c.items()
+    _ = c.keys()
+    _ = c.items()
+
+    with pytest.raises(KeyError):
+        _ = c['no-such-key']
