@@ -1,7 +1,0 @@
-pytest
-pytest-runner
-msal
-numpy
-requests
-requests_mock
-ujson
