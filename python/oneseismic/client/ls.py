@@ -1,28 +1,7 @@
 import argparse
 
 from .client import http_session
-
-def ls(session):
-    """List available cubes
-
-    List the cubes stored in oneseismic. The ids returned should all be valid
-    arguments for the oneseismic.client.cube class.
-
-    Parameters
-    ----------
-    session : oneseismic.http_session
-        Session with authorization headers set
-
-    Returns
-    -------
-    guids : iterable of str
-        Cube GUIDs
-
-    See also
-    --------
-    oneseismic.client.cube
-    """
-    return session.get('query').json()['links'].keys()
+from .client import ls
 
 def main(argv):
     parser = argparse.ArgumentParser(
