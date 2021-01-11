@@ -48,8 +48,7 @@ def upload_cube(data):
     fname = tempfile.mktemp("segy")
     segyio.tools.from_array(fname, data)
 
-    with open(fname, "rb") as f:
-        meta = scan.scan(f)
+    meta = scan.main(fname)
 
     credential = CustomTokenCredential()
     blob_service_client = BlobServiceClient(STORAGE_URL, credential)

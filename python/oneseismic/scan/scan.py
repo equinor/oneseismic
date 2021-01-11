@@ -98,7 +98,7 @@ class hashio:
         return self.sha1.hexdigest()
 
 
-def scan(stream, action = None):
+def scan(stream, action):
     """Scan a file and build an index from action
 
     Scan a stream, and produce an index for building a job schedule in further
