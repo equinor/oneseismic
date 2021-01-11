@@ -48,11 +48,14 @@ def upload_cube(data):
     fname = tempfile.mktemp("segy")
     segyio.tools.from_array(fname, data)
 
-    with open(fname, "rb") as f:
-        meta = scan.scan(f)
+    from oneseismic.scan.__main__   import main as scan_main
+    from oneseismic.internal import blobfs
+    from oneseismic.internal import localfs
+    meta = json.loads(scan_main([fname]))
 
     credential = CustomTokenCredential()
     blob_service_client = BlobServiceClient(STORAGE_URL, credential)
+    outputfs = blobfs(blob_service_client)
 
     try:
         blob_service_client.delete_container("results")
@@ -63,12 +66,13 @@ def upload_cube(data):
     except ResourceNotFoundError as error:
         pass
 
-    blob_service_client.create_container("results")
-
     shape = [64, 64, 64]
     params = {"subcube-dims": shape}
-    with open(fname, "rb") as f:
-        upload.upload(params, meta, f, blob_service_client)
+    inputfs = localfs('.')
+
+    import oneseismic.upload
+    with inputfs.open(fname, 'rb') as f:
+        oneseismic.upload.upload(meta, shape, f, outputfs)
 
     return meta["guid"]
 
