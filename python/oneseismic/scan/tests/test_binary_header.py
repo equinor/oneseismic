@@ -9,8 +9,7 @@ from hypothesis.strategies import integers
 
 from ..segmenter import scanner
 
-@pytest.fixture
-def textbin():
+def emptytext():
     return io.BytesIO(bytearray(3600))
 
 unsupported_formats = [
@@ -29,7 +28,8 @@ unsupported_formats = [
 ]
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @pytest.mark.parametrize('fmt', unsupported_formats)
-def test_unsupported_format_raises(textbin, endian, fmt):
+def test_unsupported_format_raises(endian, fmt):
+    textbin = emptytext()
     if endian == 'big':
         packed = struct.pack('>h', fmt[1])
     else:
@@ -50,7 +50,8 @@ supported_formats = [
 ]
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @pytest.mark.parametrize('fmt', supported_formats)
-def test_supported_formats(textbin, endian, fmt):
+def test_supported_formats(endian, fmt):
+    textbin = emptytext()
     if endian == 'big':
         packed = struct.pack('>h', fmt[1])
     else:
@@ -68,7 +69,8 @@ def test_supported_formats(textbin, endian, fmt):
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @given(integers(min_value = 0, max_value = math.pow(2, 15) - 1))
-def test_get_sample_count(textbin, endian, val):
+def test_get_sample_count(endian, val):
+    textbin = emptytext()
     if endian == 'big':
         packfmt = '>h'
     else:
@@ -92,7 +94,8 @@ def test_get_sample_count(textbin, endian, val):
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @given(integers(min_value = 0, max_value = math.pow(2, 15) - 1))
-def test_get_sample_interval(textbin, endian, val):
+def test_get_sample_interval(endian, val):
+    textbin = emptytext()
     if endian == 'big':
         packfmt = '>h'
     else:
