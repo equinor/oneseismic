@@ -48,7 +48,8 @@ def upload_cube(data):
     fname = tempfile.mktemp("segy")
     segyio.tools.from_array(fname, data)
 
-    meta = scan.__main__.main(fname)
+    from oneseismic.scan.__main__ import main
+    meta = main(fname)
 
     credential = CustomTokenCredential()
     blob_service_client = BlobServiceClient(STORAGE_URL, credential)
