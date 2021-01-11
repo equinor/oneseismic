@@ -117,14 +117,14 @@ def scan(stream, action = None):
     -------
     d : dict
     """
-    stream.seek(textheader_size, whence = io.SEEK_CUR)
+    stream.seek(textheader_size, io.SEEK_CUR)
     action.scan_binary(stream)
 
     chunk = stream.read(header_size)
     header = segyio.field.Field(buf = chunk, kind = 'trace')
     action.add(header)
     tracelen = action.tracelen()
-    stream.seek(tracelen, whence = io.SEEK_CUR)
+    stream.seek(tracelen, io.SEEK_CUR)
 
     trace_count = 1
     while True:
@@ -138,7 +138,7 @@ def scan(stream, action = None):
 
         header = segyio.field.Field(buf = chunk, kind = 'trace')
         action.add(header)
-        stream.seek(tracelen, whence = io.SEEK_CUR)
+        stream.seek(tracelen, io.SEEK_CUR)
         trace_count += 1
 
     return action.report()
