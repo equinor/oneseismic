@@ -23,6 +23,8 @@ def test_regular_intervals(inlines, crosslines):
             int(segyio.su.xline): big_endian(x),
             int(segyio.su.cdpx): 0,
             int(segyio.su.cdpy): 0,
+            int(segyio.su.ns): 0,
+            int(segyio.su.dt): 0,
         }
         for i in range(1, inlines + 1)
         for x in range(1, crosslines + 1)

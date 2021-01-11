@@ -42,87 +42,6 @@ class parseint:
         chunk = i.to_bytes(length = length, byteorder = 'big', signed = signed)
         return int.from_bytes(chunk, byteorder = self.endian, signed = signed)
 
-def scan_binary(stream, endian):
-    """ Read info from the binary header
-
-    Read the necessary information from the binary header, and, if necessary,
-    seek past the extended textual headers.
-
-    Parameters
-    ----------
-    stream : stream_like
-        an open io.IOBase like stream
-    endian : { 'big', 'little' }
-
-    Returns
-    -------
-    out : dict
-        dict of the keys format, samples, sampleinterval and
-        byteoffset-first-trace
-
-    Notes
-    -----
-    If this function succeeds, stream will have read past the binary header and
-    the extended text headers.
-
-    If an exception is raised in this function, the stream is left at an
-    unspecified position, and must be seeked or reset to behave well defined.
-    """
-    chunk = stream.read(binary_size)
-    binary = segyio.field.Field(buf = chunk, kind = 'binary')
-
-    intp = parseint(endian = endian, default_length = 2)
-    # skip extra textual headers
-    exth = intp.parse(binary[segyio.su.exth])
-    for _ in range(exth):
-        stream.seek(textheader_size, whence = io.SEEK_CUR)
-
-    fmt = intp.parse(binary[segyio.su.format])
-    if fmt not in [1, 5]:
-        msg = 'only IBM float and 4-byte IEEE float supported, was {}'
-        raise NotImplementedError(msg.format(fmt))
-
-    return {
-        'format': fmt,
-        'samples': intp.parse(binary[segyio.su.hns], signed=False),
-        'sampleinterval': intp.parse(binary[segyio.su.hdt]),
-        'byteoffset-first-trace': 3600 + exth * 3200,
-    }
-
-def updated_count_interval(header, d, endian):
-    """ Return a dict to updated sample/interval from trace header
-
-    Get a dict of the missing sample-count and sample-interval, suitable as
-    a parameter to dict.update.
-
-    Use the output of this function to set the values missing from the binary
-    header.
-
-    Parameters
-    ----------
-    header : segyio.header or dict_like
-        dict_like trace header
-    d : dict
-        OpenVDS metadata from the run and binary header
-    endian : { 'little', 'big' }
-
-    Returns
-    -------
-    updated : dict
-        A dict of the sample-count and sample-interval not already present in
-        the d parameter
-    """
-    updated = {}
-
-    intp = parseint(endian = endian, default_length = 2)
-    if d.get('samples', 0) == 0:
-        updated['samples'] = intp.parse(header[segyio.su.ns])
-
-    if d.get('sampleinterval', 0) == 0:
-        updated['sampleinterval'] = intp.parse(header[segyio.su.dt])
-
-    return updated
-
 format_size = {
     1:  4,
     2:  4,
@@ -179,52 +98,35 @@ class hashio:
         return self.sha1.hexdigest()
 
 
-def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_endian=None):
-    """Scan a file and create an index
+def scan(stream, action = None):
+    """Scan a file and build an index from action
 
     Scan a stream, and produce an index for building a job schedule in further
-    ingestion.
+    ingestion. The actual indexing is handled by the action interface, as it
+    turns out a lot of useful tasks boil down to scanning the headers of a
+    SEG-Y file.
 
     Parameters
     ----------
-    args
-        for expected members, see main in __main__.py
-    stream :
+    stream
         io.IOBase compatible interface
+    action : scanner
+        An object with a scanner compatible interface
 
     Returns
     -------
     d : dict
     """
-    from .segmenter import segmenter
-
-    endian = resolve_endianness(big_endian, little_endian)
-    out = {
-        'byteorder': endian,
-    }
-
-    stream = hashio(stream)
     stream.seek(textheader_size, whence = io.SEEK_CUR)
-
-    out.update(scan_binary(stream, endian))
+    action.scan_binary(stream)
 
     chunk = stream.read(header_size)
     header = segyio.field.Field(buf = chunk, kind = 'trace')
-
-    out.update(updated_count_interval(header, out, endian))
-
-    tracelen = out['samples'] * format_size[out['format']]
-
-    seg = segmenter(
-        primary = primary_word,
-        secondary = secondary_word,
-        endian = endian,
-    )
-
-    seg.add(header)
+    action.add(header)
+    tracelen = action.tracelen()
     stream.seek(tracelen, whence = io.SEEK_CUR)
 
-    trace_count = 0
+    trace_count = 1
     while True:
         chunk = stream.read(header_size)
         if len(chunk) == 0:
@@ -235,16 +137,8 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
             raise RuntimeError(msg)
 
         header = segyio.field.Field(buf = chunk, kind = 'trace')
-        seg.add(header)
+        action.add(header)
         stream.seek(tracelen, whence = io.SEEK_CUR)
         trace_count += 1
 
-    out['guid'] = stream.hexdigest()
-    interval = out['sampleinterval']
-    samples = map(int, np.arange(0, out['samples'] * interval, interval))
-    out['dimensions'] = [
-        seg.primaries,
-        seg.secondaries,
-        list(samples),
-    ]
-    return out
+    return action.report()

@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given
 from hypothesis.strategies import integers
 
-from ..scan import scan_binary
+from ..segmenter import scanner
 
 @pytest.fixture
 def textbin():
@@ -41,7 +41,8 @@ def test_unsupported_format_raises(textbin, endian, fmt):
 
     textbin.seek(3200)
     with pytest.raises(NotImplementedError):
-        _ = scan_binary(textbin, endian = endian)
+        scan = scanner(endian = endian)
+        _ = scan.scan_binary(textbin)
 
 supported_formats = [
     ('ibm', 1),
@@ -60,7 +61,9 @@ def test_supported_formats(textbin, endian, fmt):
     textbin.getbuffer()[fst:lst] = packed
     textbin.seek(3200)
 
-    out = scan_binary(textbin, endian = endian)
+    scan = scanner(endian = endian)
+    scan.scan_binary(textbin)
+    out = scan.report()
     assert out['format'] == fmt[1]
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
@@ -82,7 +85,9 @@ def test_get_sample_count(textbin, endian, val):
     textbin.getbuffer()[fst:lst] = struct.pack(packfmt, 1)
     textbin.seek(3200)
 
-    out = scan_binary(textbin, endian = endian)
+    scan = scanner(endian = endian)
+    scan.scan_binary(textbin)
+    out = scan.report()
     assert out['samples'] == val
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
@@ -104,5 +109,7 @@ def test_get_sample_interval(textbin, endian, val):
     textbin.getbuffer()[fst:lst] = struct.pack(packfmt, 1)
     textbin.seek(3200)
 
-    out = scan_binary(textbin, endian = endian)
+    scan = scanner(endian = endian)
+    scan.scan_binary(textbin)
+    out = scan.report()
     assert out['sampleinterval'] == val

@@ -1,14 +1,148 @@
-from .scan import parseint
+import numpy as np
+import segyio
 
-class segmenter:
+from .scan import parseint
+from .scan import format_size
+from .scan import binary_size
+
+class scanner:
+    """Base class and interface for scanner
+
+    A scanner can be plugged into the scan.__main__ logic and scan.scan
+    function as an action, which implements the indexing and reporting logic
+    for a type of scan. All scans involve parsing the trace headers, and write
+    some report.
+    """
+    def __init__(self, endian):
+        self.endian = endian
+        self.intp = parseint(endian = endian, default_length = 4)
+        self.observed = {}
+
+    def scan_binary(self, stream):
+        """Read info from the binary header
+
+        Read the necessary information from the binary header, and, if necessary,
+        seek past the extended textual headers.
+
+        Parameters
+        ----------
+        stream : stream_like
+            an open io.IOBase like stream
+
+        Notes
+        -----
+        If this function succeeds, stream will have read past the binary header and
+        the extended text headers.
+
+        If an exception is raised in this function, the stream is left at an
+        unspecified position, and must be seeked or reset to behave well defined.
+        """
+        chunk = stream.read(binary_size)
+        binary = segyio.field.Field(buf = chunk, kind = 'binary')
+
+        # skip extra textual headers
+        exth = self.intp.parse(binary[segyio.su.exth], length = 2)
+        for _ in range(exth):
+            stream.seek(textheader_size, whence = io.SEEK_CUR)
+
+        fmt = self.intp.parse(binary[segyio.su.format], length = 2)
+        if fmt not in [1, 5]:
+            msg = 'only IBM float and 4-byte IEEE float supported, was {}'
+            raise NotImplementedError(msg.format(fmt))
+
+        samples = self.intp.parse(
+                binary[segyio.su.hns],
+                length = 2,
+                signed = False,
+        )
+        interval = self.intp.parse(binary[segyio.su.hdt], length = 2)
+        self.observed.update({
+            'byteorder': self.endian,
+            'format': fmt,
+            'samples': samples,
+            'sampleinterval': interval,
+            'byteoffset-first-trace': 3600 + exth * 3200,
+        })
+
+    def scan_first_header(self, header):
+        """Update metadata with (first) header information
+
+        Some metadata is not necessarily well-defined or set in the binary
+        header, but instead inferred from parsing the first trace header.
+
+        Generally, scanners themselves should call this function, not users.
+
+        Parameters
+        ----------
+        header : segyio.header or dict_like
+            dict_like trace header
+        """
+        intp = parseint(endian = self.endian, default_length = 2)
+        if self.observed.get('samples', 0) == 0:
+            self.observed['samples'] = intp.parse(header[segyio.su.ns])
+
+        if self.observed.get('sampleinterval', 0) == 0:
+            self.observed['sampleinterval'] = intp.parse(header[segyio.su.dt])
+
+    def tracelen(self):
+        return self.observed['samples'] * format_size[self.observed['format']]
+
+    def report(self):
+        """Report the result of a scan
+
+        The default implementation really only deals with file-specific
+        geometry. Implement this method for custom scanners.
+
+        Returns
+        -------
+        report : dict
+        """
+        return self.observed
+
+    def add(self, header):
+        """Add a new header to the index
+
+        This is mandatory to implement for scanners
+        """
+        raise NotImplementedError
+
+class segmenter(scanner):
+    """Scan, check, and report geometry
+
+    Scan and report on the volume geometry, and verify that the file satisfies
+    oneseismic's requirements for regularity and structure.
+    """
     def __init__(self, primary, secondary, endian):
+        super().__init__(endian)
         self.primary = primary
         self.secondary = secondary
         self.primaries = []
         self.secondaries = []
         self.previous_secondary = None
         self.traceno = 0
-        self.intp = parseint(endian = endian, default_length = 4)
+
+    def report(self):
+        """Report the result
+
+        This function should be called after the full file has been scanned.
+
+        The report contains these keys:
+        + byteorder
+        + format
+        + samples
+        + sampleinterval
+        + byteoffset-first-trace
+        + dimensions
+        """
+        r = dict(super().report())
+        interval = r['sampleinterval']
+        samples = map(int, np.arange(0, r['samples'] * interval, interval))
+        r['dimensions'] = [
+            self.primaries,
+            self.secondaries,
+            list(samples),
+        ]
+        return r
 
     def add(self, header):
         """Add a record
@@ -45,6 +179,7 @@ class segmenter:
 
         # This is the first trace
         if not self.primaries and not self.secondaries:
+            self.scan_first_header(header)
             self.primaries = [key1]
             self.secondaries = [key2]
             increment()

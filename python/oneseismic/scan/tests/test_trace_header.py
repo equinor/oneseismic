@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from ..scan import updated_count_interval
+from ..segmenter import scanner
 
 def pytest_generate_tests(metafunc):
     if 'header' in metafunc.fixturenames:
@@ -36,37 +36,40 @@ def header():
 @pytest.mark.parametrize('endian', ['little', 'big'])
 def test_sans_count_sans_interval(header, endian):
     head = header(endian)
-    d = updated_count_interval(head, {}, endian)
+    s = scanner(endian = endian)
+    s.scan_first_header(head)
+    d = s.report()
     assert d['samples'] == 25
     assert d['sampleinterval'] == 4000
 
 @pytest.mark.parametrize('endian', ['little', 'big'])
 def test_with_count_sans_interval(header, endian):
     head = header(endian)
-    prev = {
-        'samples': 1,
-    }
-    d = updated_count_interval(head, prev, endian)
-    assert 'samples' not in d
+    s = scanner(endian = endian)
+    s.observed['samples'] = 1
+    s.scan_first_header(head)
+    d = s.report()
+    assert d['samples'] == 1
     assert d['sampleinterval'] == 4000
 
 @pytest.mark.parametrize('endian', ['little', 'big'])
 def test_sans_count_with_interval(header, endian):
     head = header(endian)
-    prev = {
-        'sampleinterval': 1,
-    }
-    d = updated_count_interval(head, prev, endian)
+    s = scanner(endian = endian)
+    s.observed['sampleinterval'] = 1
+    s.scan_first_header(head)
+    d = s.report()
     assert d['samples'] == 25
-    assert 'sampleinterval' not in d
+    assert d['sampleinterval'] == 1
 
 @pytest.mark.parametrize('endian', ['little', 'big'])
 def test_with_count_with_interval(header, endian):
     head = header(endian)
-    prev = {
-        'samples': 1,
-        'sampleinterval': 1,
-    }
-    d = updated_count_interval(head, prev, endian)
-    assert 'samples' not in d
-    assert 'sampleinterval' not in d
+    s = scanner(endian = endian)
+    s.observed['samples'] = 1
+    s.observed['sampleinterval'] = 1
+    s.scan_first_header(head)
+    d = s.report()
+
+    assert d['samples'] == 1
+    assert d['sampleinterval'] == 1

@@ -3,6 +3,9 @@ import json
 import sys
 
 from .scan import scan
+from .scan import resolve_endianness
+from .scan import hashio
+from .segmenter import segmenter
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -21,8 +24,18 @@ def main(argv):
 
     args = parser.parse_args(argv)
 
+    from .segmenter import segmenter
+
+    action = segmenter(
+        primary   = args.primary_word,
+        secondary = args.secondary_word,
+        endian    = resolve_endianness(args.big_endian, args.little_endian)
+    )
+
     with open(args.input, 'rb') as f:
-        d = scan(f, args.primary_word, args.secondary_word, args.little_endian, args.big_endian)
+        hashstream = hashio(f)
+        d = scan(hashstream, action)
+        d['guid'] = hashstream.hexdigest()
 
     if args.pretty:
         return json.dumps(d, sort_keys = True, indent = 4)
