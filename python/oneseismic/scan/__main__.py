@@ -21,21 +21,43 @@ def main(argv):
     parser.add_argument('--big-endian',    action = 'store_true', default = None)
     parser.add_argument('--pretty', action = 'store_true',
         help = 'pretty-print output')
-
-    args = parser.parse_args(argv)
-
-    from .segmenter import segmenter
-
-    action = segmenter(
-        primary   = args.primary_word,
-        secondary = args.secondary_word,
-        endian    = resolve_endianness(args.big_endian, args.little_endian)
+    parser.add_argument(
+        '--method',
+        choices = ['manifest', 'outline'],
+        default = 'manifest',
+        type = str,
+        help = '''Scan methods
+            manifest : scan geometry and volume metadata
+            outline  : scan the in/crossline set
+        ''',
     )
 
+    args = parser.parse_args(argv)
+    endian = resolve_endianness(args.big_endian, args.little_endian)
+
     with open(args.input, 'rb') as f:
-        hashstream = hashio(f)
-        d = scan(hashstream, action)
-        d['guid'] = hashstream.hexdigest()
+        stream = f
+        if args.method == 'manifest':
+            from .segmenter import segmenter
+            action = segmenter(
+                primary   = args.primary_word,
+                secondary = args.secondary_word,
+                endian    = endian,
+            )
+            stream = hashio(f)
+
+        elif args.method == 'outline':
+            from .segmenter import outline
+            action = outline(
+                primary   = args.primary_word,
+                secondary = args.secondary_word,
+                endian    = endian,
+            )
+
+        d = scan(stream, action)
+
+        if args.method == 'manifest':
+            d['guid'] = stream.hexdigest()
 
     if args.pretty:
         return json.dumps(d, sort_keys = True, indent = 4)

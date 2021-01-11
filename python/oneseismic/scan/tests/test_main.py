@@ -151,3 +151,19 @@ def test_missing_line_numbers():
     result = json.loads(s)
 
     assert result == expected_missing_line_numbers
+
+def test_outline_missing_line_numbers():
+    s = main([
+        '--method', 'outline',
+        datadir('missing-line-numbers.sgy'),
+    ])
+    result = json.loads(s)
+
+    expected_line_numbers = {
+        'dimensions': [
+            [1, 2, 3, 5, 6],
+            [20, 21, 23, 24, 25],
+        ],
+    }
+
+    assert result == expected_line_numbers

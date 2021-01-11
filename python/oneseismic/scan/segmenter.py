@@ -233,3 +233,32 @@ class segmenter(scanner):
                   "previous lines at trace: {} (primary: {}, secondary: {})."
             raise RuntimeError(msg.format(self.traceno, key1, key2))
         increment()
+
+class outline(scanner):
+    """Scan volume outline
+
+    Scan the volume outline, i.e. the set of present in- and crosslines. This
+    scanner has no consistency checks, but reports the set of detected in- and
+    cross-lines.
+    """
+    def __init__(self, primary, secondary, endian):
+        super().__init__(endian)
+        self.key1 = primary
+        self.key2 = secondary
+
+        self.key1s = set()
+        self.key2s = set()
+
+    def add(self, header):
+        key1 = self.intp.parse(header[self.key1])
+        key2 = self.intp.parse(header[self.key2])
+        self.key1s.add(key1)
+        self.key2s.add(key2)
+
+    def report(self):
+        return {
+            'dimensions': [
+                list(self.key1s),
+                list(self.key2s),
+            ],
+        }
