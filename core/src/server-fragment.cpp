@@ -19,6 +19,7 @@ int main(int argc, char** argv) {
     std::string redis_address;
     bool help = false;
     int ntransfers = 4;
+    int ready_repeat_ivl = 1000;
 
     auto cli
         = clara::Help(help)
@@ -40,6 +41,9 @@ int main(int argc, char** argv) {
         | clara::Opt(ntransfers, "transfers")
             ["-j"]["--transfers"]
             (fmt::format("Concurrent blob connections, default = {}", ntransfers))
+        | clara::Opt(ready_repeat_ivl, "ready_repeat_ivl")
+            ["--ready-repeat-ivl"]
+            (fmt::format("Sets the interval between sending READY messages"))
     ;
 
     auto result = cli.parse(clara::Args(argc, argv));
@@ -55,7 +59,7 @@ int main(int argc, char** argv) {
     }
 
     zmq::context_t ctx;
-    zmq::socket_t source(ctx, ZMQ_PULL);
+    zmq::socket_t source(ctx, ZMQ_DEALER);
     zmq::socket_t sink(ctx, ZMQ_PUSH);
     zmq::socket_t control(ctx, ZMQ_SUB);
     zmq::socket_t fail(ctx, ZMQ_PUSH);
@@ -91,7 +95,8 @@ int main(int argc, char** argv) {
     };
 
     while (true) {
-        zmq::poll(items, 2, -1);
+        source.send(zmq::message_t(std::string("READY")), zmq::send_flags::none);
+        zmq::poll(items, 2, ready_repeat_ivl);
 
         if (items[0].revents & ZMQ_POLLIN) {
             task.run(xfer, source, sink, fail);

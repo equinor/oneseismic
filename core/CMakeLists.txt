@@ -109,6 +109,7 @@ target_link_libraries(oneseismic-manifest
     fmt::fmt
     PkgConfig::zmq
     clara
+    Threads::Threads
 )
 
 add_executable(oneseismic-fragment
