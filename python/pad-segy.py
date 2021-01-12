@@ -7,6 +7,7 @@ import json
 import numpy as np
 import oneseismic
 import segyio
+import sys
 
 textheader_size = 3200
 header_size = 240
