@@ -116,6 +116,7 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
                 raise RuntimeError(msg)
 
             header = segyio.field.Field(buf = bytearray(chunk), kind = 'trace')
+            header.flush = lambda: None
             action.add(header)
 
         stream.seek(len(nulltrace), io.SEEK_CUR)
