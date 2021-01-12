@@ -89,7 +89,7 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
 
     with stream.deferred_read(header_size) as chunk:
         header = segyio.field.Field(buf = bytearray(chunk), kind = 'trace')
-        header.flush = lambda _: 1
+        header.flush = lambda: None
         action.scan_first_header(header)
         nulltrace.resize(action.tracelen())
 
