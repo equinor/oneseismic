@@ -14,7 +14,7 @@ header_size = 240
 endian = 'big'
 from oneseismic.scan.scan import format_size
 
-nulltrace = np.zeros(0, dtype = np.float32)
+null = {}
 
 import oneseismic.scan.segmenter
 class padder(oneseismic.scan.segmenter.scanner):
@@ -37,13 +37,15 @@ class padder(oneseismic.scan.segmenter.scanner):
             for key in self.key2s[self.key2s.index(self.prev2)+1:]:
                 header[self.key2] = key
                 self.stream.write(header.buf)
-                self.stream.write(nulltrace)
+                self.stream.write(null['trace'])
 
             # fill out leading null traces for this line
             for key in self.key2s[:self.key2s.index(key2)]:
                 header[self.key2] = key
                 self.stream.write(header.buf)
-                self.stream.write(nulltrace)
+                self.stream.write(null['trace'])
+
+            # TODO: skipping inlines?
 
         self.prev1 = key1
         self.prev2 = key2
@@ -71,10 +73,6 @@ class carbonfile:
     def write(self, b):
         self.sout.write(b)
 
-import struct
-def swap32(i):
-    return struct.unpack(">I", struct.pack("<I", i))[0]
-
 def main(sin, sout, key1s, key2s, key1, key2, endian):
     stream = carbonfile(sin, sout)
     action = padder(
@@ -92,7 +90,7 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
         header = segyio.field.Field(buf = bytearray(chunk), kind = 'trace')
         header.flush = lambda: None
         action.scan_first_header(header)
-        nulltrace.resize(action.tracelen())
+        null['trace'] = bytearray(action.tracelen())
 
         key1 = header[key1]
         key2 = header[key2]
@@ -102,9 +100,9 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
         for key in action.key2s[:action.key2s.index(key2)]:
             header[action.key2] = key
             stream.write(header.buf)
-            stream.write(nulltrace)
+            stream.write(null['trace'])
 
-    stream.seek(len(nulltrace), io.SEEK_CUR)
+    stream.seek(len(null['trace']), io.SEEK_CUR)
 
     trace_count = 1
     while True:
@@ -120,11 +118,19 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
             header.flush = lambda: None
             action.add(header)
 
-        stream.seek(len(nulltrace), io.SEEK_CUR)
+        stream.seek(len(null['trace']), io.SEEK_CUR)
         trace_count += 1
 
         if trace_count % 10000 == 0:
             print(f'{trace_count} processed', file = sys.stderr)
+
+    sin.seek( 3200, io.SEEK_SET)
+    sout.seek(3200, io.SEEK_SET)
+    chunk = sin.read(400)
+    binary = segyio.field.Field(buf = bytearray(chunk), kind = 'binary')
+    binary.flush = lambda: None
+    binary[segyio.su.ntrpr] = len(key1s) * len(key2s)
+    sout.write(binary.buf)
 
 if __name__ == '__main__':
     import argparse
@@ -140,7 +146,7 @@ if __name__ == '__main__':
     parser.add_argument('--endian', choices = ['little', 'big'], default = 'big')
     args = parser.parse_args()
 
-    with open(args.src, 'rb') as src, open(args.dst, 'wb') as dst:
+    with open(args.src, 'rb') as src, open(args.dst, 'wb+') as dst:
         with open(args.keys) as k:
             keys = json.load(k)
         main(
