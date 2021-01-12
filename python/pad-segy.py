@@ -98,7 +98,7 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
         action.prev1 = key1
         action.prev2 = key2
         for key in action.key2s[:action.key2s.index(key2)]:
-            header[key2] = key
+            header[action.key2] = key
             stream.write(header.buf)
             stream.write(nulltrace)
 
