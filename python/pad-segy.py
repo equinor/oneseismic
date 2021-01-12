@@ -88,7 +88,7 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
     meta = action.scan_binary(stream)
 
     with stream.deferred_read(header_size) as chunk:
-        header = segyio.field.Field(buf = bytes(chunk), kind = 'trace')
+        header = segyio.field.Field(buf = bytearray(chunk), kind = 'trace')
         action.scan_first_header(header)
         nulltrace.resize(action.tracelen())
 
@@ -114,7 +114,7 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
                 msg = 'file truncated at trace {}'.format(trace_count)
                 raise RuntimeError(msg)
 
-            header = segyio.field.Field(buf = bytes(chunk), kind = 'trace')
+            header = segyio.field.Field(buf = bytearray(chunk), kind = 'trace')
             action.add(header)
 
         stream.seek(len(nulltrace), io.SEEK_CUR)
