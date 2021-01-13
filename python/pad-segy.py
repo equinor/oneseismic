@@ -35,7 +35,7 @@ class padder(oneseismic.scan.segmenter.scanner):
         if self.prev1 != key1:
             # fill out trailing null traces for the previous line
             if self.prev2 is not None:
-                for key in self.key2s[self.key2s.index(self.prev2)+1:]:
+                for key in self.key2s[self.key2s.index(self.prev2):]:
                     header[self.key2] = key
                     self.stream.write(header.buf)
                     self.stream.write(null['trace'])
