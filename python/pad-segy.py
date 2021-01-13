@@ -104,6 +104,11 @@ def main(sin, sout, key1s, key2s, key1, key2, endian):
 
     stream.seek(len(null['trace']), io.SEEK_CUR)
 
+    for key in action.key2s[action.key2s.index(key2)+1:]:
+        header[action.key2] = key
+        stream.write(header.buf)
+        stream.write(null['trace'])
+
     trace_count = 1
     while True:
         with stream.deferred_read(header_size) as chunk:
