@@ -88,8 +88,10 @@ storage_configuration::action az::onstatus(
         case 403:
             throw unauthorized(response);
 
-        case 404:
-            throw notfound(response);
+        case 404: {
+            const auto msg = "Error fetching fragment {}, message: {}";
+            throw notfound(fmt::format(msg, fragment_id, response));
+        }
 
         case 500:
             /*
