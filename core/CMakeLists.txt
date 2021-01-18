@@ -74,6 +74,7 @@ add_library(oneseismic
     src/worker.cpp
     src/manifest.cpp
     src/messages.cpp
+    src/load_balancer.cpp
 )
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
@@ -108,6 +109,7 @@ target_link_libraries(oneseismic-manifest
     fmt::fmt
     PkgConfig::zmq
     clara
+    Threads::Threads
 )
 
 add_executable(oneseismic-fragment
@@ -163,6 +165,7 @@ add_executable(tests
     tests/geometry.cpp
     tests/azure-transfer-config.cpp
     tests/messages.cpp
+    tests/load_balancer.cpp
 )
 target_link_libraries(tests
     PRIVATE

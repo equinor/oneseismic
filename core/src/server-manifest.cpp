@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include <clara/clara.hpp>
 #include <fmt/format.h>
@@ -8,6 +9,27 @@
 
 #include <oneseismic/transfer.hpp>
 #include <oneseismic/tasks.hpp>
+#include <oneseismic/load_balancer.hpp>
+
+namespace {
+
+void start_load_balancer(
+        zmq::context_t &ctx,
+        zmq::socket_t &queue_front,
+        zmq::socket_t &queue_back,
+        int ready_ttl
+) {
+    std::string queue("inproc://queue");
+    queue_front.bind(queue);
+
+    std::thread([&ctx, &queue_back, ready_ttl, queue]() {
+        zmq::socket_t queue_source(ctx, ZMQ_PULL);
+        queue_source.connect(queue);
+        one::load_balancer(queue_source, queue_back, ready_ttl);
+    }).detach();
+}
+
+}
 
 int main(int argc, char** argv) {
     std::string source_address;
@@ -18,6 +40,7 @@ int main(int argc, char** argv) {
     bool help = false;
     int ntransfers = 4;
     int task_size = 10;
+    int ready_ttl = 3000;
 
     auto cli
         = clara::Help(help)
@@ -42,6 +65,9 @@ int main(int argc, char** argv) {
         | clara::Opt(task_size, "task size")
             ["-t"]["--task-size"]
             (fmt::format("Max task size (# of fragments), default = {}", task_size))
+        | clara::Opt(ready_ttl, "ready_ttl")
+            ["--ready-ttl"]
+            (fmt::format("Sets the timeout for worker READY messages"))
     ;
 
     auto result = cli.parse(clara::Args(argc, argv));
@@ -58,7 +84,8 @@ int main(int argc, char** argv) {
 
     zmq::context_t ctx;
     zmq::socket_t source(ctx, ZMQ_PULL);
-    zmq::socket_t sink(ctx, ZMQ_PUSH);
+    zmq::socket_t queue_front(ctx, ZMQ_PUSH);
+    zmq::socket_t queue_back(ctx, ZMQ_ROUTER);
     zmq::socket_t control(ctx, ZMQ_SUB);
     zmq::socket_t fail(ctx, ZMQ_PUSH);
     control.setsockopt(ZMQ_SUBSCRIBE, "ctrl:kill", 0);
@@ -70,7 +97,7 @@ int main(int argc, char** argv) {
         std::exit(EXIT_FAILURE);
     }
     try {
-        sink.bind(sink_address);
+        queue_back.bind(sink_address);
     } catch (...) {
         std::cerr << "Invalid sink address\n";
         std::exit(EXIT_FAILURE);
@@ -81,6 +108,8 @@ int main(int argc, char** argv) {
         std::cerr << "Invalid failure address\n";
         std::exit(EXIT_FAILURE);
     }
+
+    start_load_balancer(ctx, queue_front, queue_back, ready_ttl);
 
     one::manifest_task task;
     task.connect_working_storage(redis_address);
@@ -100,7 +129,7 @@ int main(int argc, char** argv) {
         zmq::poll(items, 2, -1);
 
         if (items[0].revents & ZMQ_POLLIN) {
-            task.run(source, sink, fail);
+            task.run(source, queue_front, fail);
         }
 
         if (items[1].revents & ZMQ_POLLIN) {
