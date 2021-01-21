@@ -184,7 +184,7 @@ class tokens:
         >>> oneseismic.ls(session)
         ['038855', '0d235a']
         """
-        pathlib.Path(self.root).mkdir(exist_ok = True)
+        os.makedirs(pathlib.Path(self.root), exist_ok = True)
 
         cache = self.cache()
         app = msal.PublicClientApplication(
