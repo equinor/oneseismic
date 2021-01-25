@@ -42,87 +42,6 @@ class parseint:
         chunk = i.to_bytes(length = length, byteorder = 'big', signed = signed)
         return int.from_bytes(chunk, byteorder = self.endian, signed = signed)
 
-def scan_binary(stream, endian):
-    """ Read info from the binary header
-
-    Read the necessary information from the binary header, and, if necessary,
-    seek past the extended textual headers.
-
-    Parameters
-    ----------
-    stream : stream_like
-        an open io.IOBase like stream
-    endian : { 'big', 'little' }
-
-    Returns
-    -------
-    out : dict
-        dict of the keys format, samples, sampleinterval and
-        byteoffset-first-trace
-
-    Notes
-    -----
-    If this function succeeds, stream will have read past the binary header and
-    the extended text headers.
-
-    If an exception is raised in this function, the stream is left at an
-    unspecified position, and must be seeked or reset to behave well defined.
-    """
-    chunk = stream.read(binary_size)
-    binary = segyio.field.Field(buf = chunk, kind = 'binary')
-
-    intp = parseint(endian = endian, default_length = 2)
-    # skip extra textual headers
-    exth = intp.parse(binary[segyio.su.exth])
-    for _ in range(exth):
-        stream.seek(textheader_size, whence = io.SEEK_CUR)
-
-    fmt = intp.parse(binary[segyio.su.format])
-    if fmt not in [1, 5]:
-        msg = 'only IBM float and 4-byte IEEE float supported, was {}'
-        raise NotImplementedError(msg.format(fmt))
-
-    return {
-        'format': fmt,
-        'samples': intp.parse(binary[segyio.su.hns], signed=False),
-        'sampleinterval': intp.parse(binary[segyio.su.hdt]),
-        'byteoffset-first-trace': 3600 + exth * 3200,
-    }
-
-def updated_count_interval(header, d, endian):
-    """ Return a dict to updated sample/interval from trace header
-
-    Get a dict of the missing sample-count and sample-interval, suitable as
-    a parameter to dict.update.
-
-    Use the output of this function to set the values missing from the binary
-    header.
-
-    Parameters
-    ----------
-    header : segyio.header or dict_like
-        dict_like trace header
-    d : dict
-        OpenVDS metadata from the run and binary header
-    endian : { 'little', 'big' }
-
-    Returns
-    -------
-    updated : dict
-        A dict of the sample-count and sample-interval not already present in
-        the d parameter
-    """
-    updated = {}
-
-    intp = parseint(endian = endian, default_length = 2)
-    if d.get('samples', 0) == 0:
-        updated['samples'] = intp.parse(header[segyio.su.ns])
-
-    if d.get('sampleinterval', 0) == 0:
-        updated['sampleinterval'] = intp.parse(header[segyio.su.dt])
-
-    return updated
-
 format_size = {
     1:  4,
     2:  4,
@@ -178,53 +97,173 @@ class hashio:
     def hexdigest(self):
         return self.sha1.hexdigest()
 
+class scanner:
+    """Base class and interface for scanner
 
-def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_endian=None):
-    """Scan a file and create an index
+    A scanner can be plugged into the scan.__main__ logic and scan.scan
+    function as an action, which implements the indexing and reporting logic
+    for a type of scan. All scans involve parsing the trace headers, and write
+    some report.
+    """
+    def __init__(self, endian):
+        self.endian = endian
+        self.intp = parseint(endian = endian, default_length = 4)
+        self.observed = {}
+
+    def scan_binary(self, binary):
+        """Scan a SEG-Y binary header
+
+        Parameters
+        ----------
+        binary : segyio.Field or dict_like
+
+        Returns
+        -------
+        skip : int
+            Number of external headers to skip
+        """
+        skip = self.intp.parse(binary[segyio.su.exth], length = 2)
+        fmt = self.intp.parse(binary[segyio.su.format], length = 2)
+        if fmt not in [1, 5]:
+            msg = 'only IBM float and 4-byte IEEE float supported, was {}'
+            raise NotImplementedError(msg.format(fmt))
+
+        samples = self.intp.parse(
+            binary[segyio.su.hns],
+            length = 2,
+            signed = False,
+        )
+        interval = self.intp.parse(binary[segyio.su.hdt], length = 2)
+        self.observed.update({
+            'byteorder': self.endian,
+            'format': fmt,
+            'samples': samples,
+            'sampleinterval': interval,
+            'byteoffset-first-trace': 3600 + skip * 3200,
+        })
+        return skip
+
+    def scan_first_header(self, header):
+        """Update metadata with (first) header information
+
+        Some metadata is not necessarily well-defined or set in the binary
+        header, but instead inferred from parsing the first trace header.
+
+        Generally, scanners themselves should call this function, not users.
+
+        Parameters
+        ----------
+        header : segyio.header or dict_like
+            dict_like trace header
+        """
+        intp = parseint(endian = self.endian, default_length = 2)
+        if self.observed.get('samples', 0) == 0:
+            self.observed['samples'] = intp.parse(header[segyio.su.ns])
+
+        if self.observed.get('sampleinterval', 0) == 0:
+            self.observed['sampleinterval'] = intp.parse(header[segyio.su.dt])
+
+    def tracelen(self):
+        return self.observed['samples'] * format_size[self.observed['format']]
+
+    def report(self):
+        """Report the result of a scan
+
+        The default implementation really only deals with file-specific
+        geometry. Implement this method for custom scanners.
+
+        Returns
+        -------
+        report : dict
+        """
+        return dict(self.observed)
+
+    def add(self, header):
+        """Add a new header to the index
+
+        This is mandatory to implement for scanners
+        """
+        raise NotImplementedError
+
+class lineset(scanner):
+    """Scan the lineset
+
+    Scan the set of lines in the survey, i.e. set of in- and crossline pairs.
+    The report after a completed scan is a suitable input for the upload
+    program.
+    """
+    def __init__(self, primary, secondary, endian):
+        super().__init__(endian)
+        # the header words for the in/crossline
+        # usually this will be 189 and 193
+        self.key1 = primary
+        self.key2 = secondary
+
+        self.key1s = set()
+        self.key2s = set()
+
+        # keep track of the last trace with a given inline (key1). This allows
+        # the upload program to track if all traces that belong to a line have
+        # been read, and buffers can be flushed
+        self.last1s = {}
+        self.traceno = 0
+
+    def add(self, header):
+        key1 = self.intp.parse(header[self.key1])
+        key2 = self.intp.parse(header[self.key2])
+        self.key1s.add(key1)
+        self.key2s.add(key2)
+        self.last1s[key1] = self.traceno
+        self.traceno += 1
+        # TODO: detect key-pair duplicates?
+        # TODO: check that the sample-interval is consistent across the file?
+
+    def report(self):
+        r = super().report()
+        interval = r['sampleinterval']
+        samples = map(int, np.arange(0, r['samples'] * interval, interval))
+        r['dimensions'] = [
+            sorted(self.key1s),
+            sorted(self.key2s),
+            list(samples),
+        ]
+        r['key1-last-trace'] = self.last1s
+        r['key-words'] = [self.key1, self.key2]
+        return r
+
+def scan(stream, action):
+    """Scan a file and build an index from action
 
     Scan a stream, and produce an index for building a job schedule in further
-    ingestion.
+    ingestion. The actual indexing is handled by the action interface, as it
+    turns out a lot of useful tasks boil down to scanning the headers of a
+    SEG-Y file.
 
     Parameters
     ----------
-    args
-        for expected members, see main in __main__.py
-    stream :
+    stream
         io.IOBase compatible interface
+    action : scanner
+        An object with a scanner compatible interface
 
     Returns
     -------
     d : dict
     """
-    from .segmenter import segmenter
-
-    endian = resolve_endianness(big_endian, little_endian)
-    out = {
-        'byteorder': endian,
-    }
-
-    stream = hashio(stream)
-    stream.seek(textheader_size, whence = io.SEEK_CUR)
-
-    out.update(scan_binary(stream, endian))
+    stream.seek(textheader_size, io.SEEK_CUR)
+    chunk = stream.read(binary_size)
+    binary = segyio.field.Field(buf = chunk, kind = 'binary')
+    skip = action.scan_binary(binary)
+    if skip > 0:
+        stream.seek(skip * textheader_size, io.SEEK_CUR)
 
     chunk = stream.read(header_size)
     header = segyio.field.Field(buf = chunk, kind = 'trace')
+    action.add(header)
+    tracelen = action.tracelen()
+    stream.seek(tracelen, io.SEEK_CUR)
 
-    out.update(updated_count_interval(header, out, endian))
-
-    tracelen = out['samples'] * format_size[out['format']]
-
-    seg = segmenter(
-        primary = primary_word,
-        secondary = secondary_word,
-        endian = endian,
-    )
-
-    seg.add(header)
-    stream.seek(tracelen, whence = io.SEEK_CUR)
-
-    trace_count = 0
+    trace_count = 1
     while True:
         chunk = stream.read(header_size)
         if len(chunk) == 0:
@@ -235,16 +274,8 @@ def scan(stream, primary_word=189, secondary_word=193, little_endian=None, big_e
             raise RuntimeError(msg)
 
         header = segyio.field.Field(buf = chunk, kind = 'trace')
-        seg.add(header)
-        stream.seek(tracelen, whence = io.SEEK_CUR)
+        action.add(header)
+        stream.seek(tracelen, io.SEEK_CUR)
         trace_count += 1
 
-    out['guid'] = stream.hexdigest()
-    interval = out['sampleinterval']
-    samples = map(int, np.arange(0, out['samples'] * interval, interval))
-    out['dimensions'] = [
-        seg.primaries,
-        seg.secondaries,
-        list(samples),
-    ]
-    return out
+    return action.report()

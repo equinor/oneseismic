@@ -2,16 +2,16 @@ import io
 import math
 import struct
 import segyio
+import segyio._segyio
 
 import pytest
 from hypothesis import given
 from hypothesis.strategies import integers
 
-from ..scan import scan_binary
+from ..scan import scanner
 
-@pytest.fixture
-def textbin():
-    return io.BytesIO(bytearray(3600))
+def emptybinary():
+    return bytearray(400)
 
 unsupported_formats = [
     ('i4', 2),
@@ -29,19 +29,20 @@ unsupported_formats = [
 ]
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @pytest.mark.parametrize('fmt', unsupported_formats)
-def test_unsupported_format_raises(textbin, endian, fmt):
+def test_unsupported_format_raises(endian, fmt):
+    chunk = emptybinary()
     if endian == 'big':
         packed = struct.pack('>h', fmt[1])
     else:
         packed = struct.pack('<h', fmt[1])
 
-    fst = int(segyio.su.format) - 1
+    fst = int(segyio.su.format) - 3201
     lst = fst + 2
-    textbin.getbuffer()[fst:lst] = packed
-
-    textbin.seek(3200)
+    chunk[fst:lst] = packed
+    binary = segyio.field.Field(buf = chunk, kind = 'binary')
     with pytest.raises(NotImplementedError):
-        _ = scan_binary(textbin, endian = endian)
+        scan = scanner(endian = endian)
+        _ = scan.scan_binary(binary)
 
 supported_formats = [
     ('ibm', 1),
@@ -49,60 +50,69 @@ supported_formats = [
 ]
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @pytest.mark.parametrize('fmt', supported_formats)
-def test_supported_formats(textbin, endian, fmt):
+def test_supported_formats(endian, fmt):
+    chunk = emptybinary()
     if endian == 'big':
         packed = struct.pack('>h', fmt[1])
     else:
         packed = struct.pack('<h', fmt[1])
 
-    fst = int(segyio.su.format) - 1
+    fst = int(segyio.su.format) - 3201
     lst = fst + 2
-    textbin.getbuffer()[fst:lst] = packed
-    textbin.seek(3200)
+    chunk[fst:lst] = packed
+    binary = segyio.field.Field(buf = chunk, kind = 'binary')
 
-    out = scan_binary(textbin, endian = endian)
+    scan = scanner(endian = endian)
+    scan.scan_binary(binary)
+    out = scan.report()
     assert out['format'] == fmt[1]
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @given(integers(min_value = 0, max_value = math.pow(2, 15) - 1))
-def test_get_sample_count(textbin, endian, val):
+def test_get_sample_count(endian, val):
+    chunk = emptybinary()
     if endian == 'big':
         packfmt = '>h'
     else:
         packfmt = '<h'
 
-    fst = int(segyio.su.hns) - 1
+    fst = int(segyio.su.hns) - 3201
     lst = fst + 2
-    textbin.getbuffer()[fst:lst] = struct.pack(packfmt, val)
+    chunk[fst:lst] = struct.pack(packfmt, val)
 
     # set format to ibm float - it doesn't affect the outcome of this test, and
     # if it is unset then the scan_binary function will fail
-    fst = int(segyio.su.format) - 1
+    fst = int(segyio.su.format) - 3201
     lst = fst + 2
-    textbin.getbuffer()[fst:lst] = struct.pack(packfmt, 1)
-    textbin.seek(3200)
+    chunk[fst:lst] = struct.pack(packfmt, 1)
 
-    out = scan_binary(textbin, endian = endian)
+    binary = segyio.field.Field(buf = chunk, kind = 'binary')
+    scan = scanner(endian = endian)
+    scan.scan_binary(binary)
+    out = scan.report()
     assert out['samples'] == val
 
 @pytest.mark.parametrize('endian', ['big', 'little'])
 @given(integers(min_value = 0, max_value = math.pow(2, 15) - 1))
-def test_get_sample_interval(textbin, endian, val):
+def test_get_sample_interval(endian, val):
+    chunk = emptybinary()
     if endian == 'big':
         packfmt = '>h'
     else:
         packfmt = '<h'
 
-    fst = int(segyio.su.hdt) - 1
+    fst = int(segyio.su.hdt) - 3201
     lst = fst + 2
-    textbin.getbuffer()[fst:lst] = struct.pack(packfmt, val)
+    chunk[fst:lst] = struct.pack(packfmt, val)
 
     # set format to ibm float - it doesn't affect the outcome of this test, and
     # if it is unset then the scan_binary function will fail
-    fst = int(segyio.su.format) - 1
+    fst = int(segyio.su.format) - 3201
     lst = fst + 2
-    textbin.getbuffer()[fst:lst] = struct.pack(packfmt, 1)
-    textbin.seek(3200)
+    chunk[fst:lst] = struct.pack(packfmt, 1)
 
-    out = scan_binary(textbin, endian = endian)
+    binary = segyio.field.Field(buf = chunk, kind = 'binary')
+    scan = scanner(endian = endian)
+    scan.scan_binary(binary)
+    out = scan.report()
     assert out['sampleinterval'] == val

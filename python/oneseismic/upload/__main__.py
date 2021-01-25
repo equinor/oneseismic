@@ -1,61 +1,69 @@
 import argparse
-import sys
-import os
 import json
-from azure.storage.blob import BlobServiceClient
+import os
+import sys
+
+from pathlib import Path
 
 from .upload import upload
+from ..internal import blobfs
+from ..internal import localfs
+from ..internal.argparse import blobfs_from_args
+from ..internal.argparse import localfs_from_args
+from ..internal.argparse import add_auth_args
+from ..internal.argparse import get_blob_path
 
 def main(argv):
-    dimhelp = 'fragment size (samples) in {} direction'
     parser = argparse.ArgumentParser(
         prog = 'upload',
         description = 'Upload cubes to oneseismic storage',
-        epilog = '%(prog)s relies on azure connection strings, see {}'.format(
-            'https://docs.microsoft.com/azure/storage/common/storage-configure-connection-string'
-        ),
     )
-    parser.add_argument('meta', type = str, help = 'metadata json')
-    parser.add_argument('input', type = str, help = 'input SEG-Y file')
+
+    parser.add_argument(
+        'meta',
+        type = str,
+        help = 'Metadata (output from scan). Pass - for stdin',
+    )
+    parser.add_argument(
+        'src',
+        type = str,
+        help = 'Input SEG-Y file. Can be a local file or a blob URL.',
+    )
+    parser.add_argument(
+        'dst',
+        type = str,
+        help = '''
+            Destination storage account. If connection strings are used, this
+            is ignored. If omitted, the destination account is inferred from
+            the output-credentials.
+        ''',
+        nargs = '?',
+    )
     parser.add_argument(
         '--subcube-dim-0', '-i',
         type = int,
-        default = 120,
-        metavar = 'I',
-        help = dimhelp.format('X'),
+        default = 64,
+        metavar = 'i',
+        dest = 'i',
     )
     parser.add_argument(
         '--subcube-dim-1', '-j',
         type = int,
-        default = 120,
-        metavar = 'J',
-        help = dimhelp.format('Y'),
+        default = 64,
+        metavar = 'j',
+        dest = 'j',
     )
     parser.add_argument(
         '--subcube-dim-2', '-k',
         type = int,
-        default = 120,
-        metavar = 'K',
-        help = dimhelp.format('Z'),
+        default = 64,
+        metavar = 'k',
+        dest = 'k',
     )
-    parser.add_argument(
-        '--connection-string', '-s',
-        metavar = '',
-        type = str,
-        help = '''
-            Azure connection string for blob store auth. Can also be set
-            with the env-var AZURE_CONNECTION_STRING
-        ''',
-    )
-    args = parser.parse_args(argv)
+    add_auth_args(parser, direction = 'input')
+    add_auth_args(parser, direction = 'output')
 
-    params = {
-        'subcube-dims': (
-            args.subcube_dim_0,
-            args.subcube_dim_1,
-            args.subcube_dim_2,
-        ),
-    }
+    args = parser.parse_args(argv)
 
     if args.meta == '-':
         meta = json.load(sys.stdin)
@@ -63,19 +71,33 @@ def main(argv):
         with open(args.meta) as f:
             meta = json.load(f)
 
-    connection_string = os.environ.get('AZURE_CONNECTION_STRING', None)
-    if args.connection_string:
-        connection_string = args.connection_string
+    try:
+        inputfs = blobfs_from_args(
+            url     = args.src,
+            method  = args.input_auth_method,
+            connstr = args.input_connection_string,
+            creds   = args.input_credentials,
+        )
+        container, blob = get_blob_path(args.src)
+        inputfs.cd(container)
+        src = blob
+    except ValueError:
+        inputfs = localfs_from_args(args.src)
+        src = args.src
 
-    if connection_string is None:
-        problem = 'No azure connection string'
-        solution = 'use --connection-string or env-var AZURE_CONNECTION_STRING'
-        sys.exit('{} - {}'.format(problem, solution))
+    try:
+        outputfs = blobfs_from_args(
+            url     = args.dst,
+            method  = args.output_auth_method,
+            connstr = args.output_connection_string,
+            creds   = args.output_credentials,
+        )
+    except ValueError:
+        outputfs = localfs_from_args(args.dst)
 
-
-    blob = BlobServiceClient.from_connection_string(connection_string)
-    with open(args.input, 'rb') as input:
-        upload(params, meta, input, blob)
+    fragment_shape = (args.i, args.j, args.k)
+    with inputfs.open(src, 'rb') as src:
+        upload(meta, fragment_shape, src, outputfs)
 
 if __name__ == '__main__':
-    print(main(sys.argv[1:]))
+    main(sys.argv[1:])
