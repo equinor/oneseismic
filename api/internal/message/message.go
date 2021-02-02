@@ -28,6 +28,10 @@ func (msg *Task) Pack() ([]byte, error) {
 	return json.Marshal(msg)
 }
 
+func (msg *Task) Unpack(doc []byte) (*Task, error) {
+	return msg, json.Unmarshal(doc, msg)
+}
+
 type Manifest struct {
 	Dimensions [][]int `json:"dimensions"`
 }
