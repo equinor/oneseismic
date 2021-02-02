@@ -1,5 +1,9 @@
-FROM debian:buster-slim AS baseimg
+# Define a pretty big base build image, with C++ build-time dependencies
+FROM debian:buster-slim AS buildimg
 ENV DEBIAN_FRONTEND=noninteractive
+
+# fmt and cppzmq are compiled from source, since buster's versions are slightly
+# off
 ENV FMT_VERSION 6.1.2
 ENV ZMQ_VERSION 4.6.0
 
@@ -21,6 +25,9 @@ RUN wget -q https://github.com/fmtlib/fmt/releases/download/${FMT_VERSION}/fmt-$
 RUN wget -q https://github.com/zeromq/cppzmq/archive/v${ZMQ_VERSION}.zip
 RUN unzip fmt-${FMT_VERSION}.zip && unzip v${ZMQ_VERSION}.zip
 
+# Since this is a docker build, just build the dependencies statically. It
+# makes copying a tad easier, and it makes go happy. This is in no way a
+# requirement though, and oneseismic is perfectly happy to dynamically link.
 WORKDIR /src/fmt-${FMT_VERSION}/build
 RUN cmake \
     -DCMAKE_BUILD_TYPE=Release \
@@ -35,12 +42,12 @@ RUN cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCPPZMQ_BUILD_TESTS=OFF \
     -DBUILD_SHARED_LIBS=OFF \
-    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
     /src/cppzmq-${ZMQ_VERSION}
-RUN make install -j2
+RUN make -j4 install
 RUN rm -rf /src
 
-FROM baseimg AS cppbuilder
+FROM buildimg AS cppbuilder
 WORKDIR /src
 COPY core/ core
 
@@ -54,13 +61,11 @@ RUN cmake \
     /src/core
 RUN make -j4 install
 
-FROM golang:1.15-buster as builder
-
+FROM golang:1.15-buster as gobuilder
 COPY --from=cppbuilder /usr/local /usr/local
-
-WORKDIR /src
 RUN apt-get update && apt-get install -y libzmq5-dev
 
+WORKDIR /src
 COPY api/go.mod .
 COPY api/go.sum .
 RUN go mod download
@@ -73,8 +78,22 @@ RUN go build -v
 WORKDIR /src/api/cmd/fetch
 RUN go build -v
 
-FROM debian:buster-slim as deployer
-RUN apt-get update && apt-get install -y libzmq5
-COPY --from=builder /src/api/cmd/query/query /bin/oneseismic-query
-COPY --from=builder /src/api/cmd/fetch/fetch /bin/oneseismic-fetch
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# The final image with only the binaries and runtime dependencies
+FROM debian:buster-slim as deployimg
+ENV DEBIAN_FRONTEND=noninteractive
+RUN    apt-get update \
+    && apt-get install -y \
+        libzmq5 \
+        libgnutls28-dev \
+        libcurl3-gnutls \
+        libhiredis0.14 \
+        ca-certificates \
+    && apt-get clean -y \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists
+
+COPY --from=gobuilder /src/api/cmd/query/query /bin/oneseismic-query
+COPY --from=gobuilder /src/api/cmd/fetch/fetch /bin/oneseismic-fetch
+
+COPY --from=cppbuilder /usr/local/bin/oneseismic-manifest /bin/oneseismic-manifest
+COPY --from=cppbuilder /usr/local/bin/oneseismic-fragment /bin/oneseismic-fragment
