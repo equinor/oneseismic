@@ -7,7 +7,6 @@
 #include <fmt/format.h>
 #include <zmq.hpp>
 
-#include <oneseismic/transfer.hpp>
 #include <oneseismic/tasks.hpp>
 #include <oneseismic/load_balancer.hpp>
 

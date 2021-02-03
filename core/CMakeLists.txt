@@ -34,14 +34,11 @@ add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
 find_package(fmt        REQUIRED)
-find_package(GnuTLS     REQUIRED)
-find_package(CURL       REQUIRED)
 find_package(Threads    REQUIRED)
 find_package(spdlog     REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(hiredis    IMPORTED_TARGET REQUIRED hiredis)
-pkg_check_modules(microhttpd IMPORTED_TARGET          libmicrohttpd)
 pkg_check_modules(zmq        IMPORTED_TARGET REQUIRED libzmq)
 
 find_program(REDIS_SERVER_EXECUTABLE redis-server)
@@ -70,7 +67,6 @@ add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
     src/transfer.cpp
-    src/azure.cpp
     src/manifest.cpp
     src/messages.cpp
     src/load_balancer.cpp
@@ -83,18 +79,11 @@ target_include_directories(oneseismic
         ${CURL_INCLUDE_DIRS}
     PRIVATE
         include
-        ${GNUTLS_INCLUDE_DIR}
         external/nlohmann
-)
-target_compile_options(oneseismic
-    PUBLIC
-        ${GNUTLS_DEFINITIONS}
 )
 target_link_libraries(oneseismic
     PUBLIC
         fmt::fmt
-        ${GNUTLS_LIBRARIES}
-        ${CURL_LIBRARIES}
         PkgConfig::hiredis
         PkgConfig::zmq
 )
@@ -150,7 +139,6 @@ add_subdirectory(external/catch2)
 add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
-    tests/azure-transfer-config.cpp
     tests/messages.cpp
     tests/load_balancer.cpp
 )
@@ -169,13 +157,6 @@ add_test(NAME unit-tests COMMAND tests)
 # to make it easy to add new dependencies without complicated list and
 # exhaustiveness logic.
 set(all-integration-test-dependencies TRUE)
-if (NOT TARGET PkgConfig::microhttpd)
-    set(all-integration-test-dependencies FALSE)
-    message(WARNING
-        "microhttpd not found - not building integration tests "
-        "https://www.gnu.org/software/libmicrohttpd/"
-    )
-endif ()
 if (PRIVATE_REDIS)
     if (NOT REDIS_SERVER_EXECUTABLE)
         set(all-integration-test-dependencies FALSE)
@@ -256,12 +237,7 @@ if (all-integration-test-dependencies)
     endif ()
     target_sources(tests
         PRIVATE
-            tests/transfer-http.cpp
             tests/manifest-task.cpp
-    )
-    target_link_libraries(tests
-        PRIVATE
-            PkgConfig::microhttpd
     )
     target_compile_definitions(tests
         PRIVATE

@@ -8,7 +8,6 @@
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 
-#include <oneseismic/azure.hpp>
 #include <oneseismic/geometry.hpp>
 #include <oneseismic/messages.hpp>
 #include <oneseismic/tasks.hpp>
@@ -223,21 +222,6 @@ try {
             this->p->pid
     );
     this->p->failure("bad-message").send(failure);
-} catch (const unauthorized&) {
-    /*
-     * TODO: log the headers?
-     * TODO: log manifest url?
-     */
-    spdlog::info("pid={}, not authorized", this->p->pid);
-    this->p->failure("manifest-not-authorized").send(failure);
-} catch (const notfound& e) {
-    spdlog::info(
-            "pid={}, {} manifest not found: '{}'",
-            this->p->pid,
-            this->p->request.guid,
-            e.what()
-    );
-    this->p->failure("manifest-not-found").send(failure);
 } catch (const nlohmann::json::parse_error& e) {
     spdlog::error(
             "pid={}, badly formatted manifest: {}",
