@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/equinor/oneseismic/api/api"
@@ -11,7 +12,7 @@ import (
 	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
-	"github.com/namsral/flag"
+	"github.com/pborman/getopt/v2"
 	"github.com/pebbe/zmq4"
 )
 
@@ -26,68 +27,83 @@ type opts struct {
 	signkey      string
 }
 
-func parseopts() (opts, error) {
-	type option struct {
-		param *string
-		flag  string
-		help  string
+func parseopts() opts {
+	help := getopt.BoolLong("help", 0, "print this help text")
+	opts := opts {
+		authserver:   os.Getenv("AUTHSERVER"),
+		audience:     os.Getenv("AUDIENCE"),
+		clientID:     os.Getenv("CLIENT_ID"),
+		clientSecret: os.Getenv("CLIENT_SECRET"),
+		storageURL:   os.Getenv("STORAGE_URL"),
+		redisURL:     os.Getenv("REDIS_URL"),
+		bind:         os.Getenv("BIND"),
+		signkey:      os.Getenv("SIGN_KEY"),
 	}
 
-	opts := opts {}
-	params := []option {
-		option {
-			param: &opts.authserver,
-			flag: "authserver",
-			help: "OpenID Connect discovery server",
-		},
-		option {
-			param: &opts.audience,
-			flag: "audience",
-			help: "Audience",
-		},
-		option {
-			param: &opts.clientID,
-			flag: "client-id",
-			help: "Client ID",
-		},
-		option {
-			param: &opts.clientSecret,
-			flag: "client-secret",
-			help: "Client Secret",
-		},
-		option {
-			param: &opts.storageURL,
-			flag: "storage-url",
-			help: "Storage URL",
-		},
-		option {
-			param: &opts.redisURL,
-			flag: "redis-url",
-			help: "Redis URL",
-		},
-		option {
-			param: &opts.bind,
-			flag: "bind",
-			help: "Bind URL e.g. tcp://*:port",
-		},
-		option {
-			param: &opts.signkey,
-			flag:  "sign-key",
-			help:  "Signing key used for response authorization tokens",
-		},
+	getopt.FlagLong(
+		&opts.authserver,
+		"authserver",
+		0,
+		"OpenID Connect discovery server",
+		"addr",
+	)
+	getopt.FlagLong(
+		&opts.audience,
+		"audience",
+		0,
+		"Audience for token validation",
+		"audience",
+	)
+	getopt.FlagLong(
+		&opts.clientID,
+		"client-id",
+		0,
+		"Client ID for on-behalf tokens",
+		"id",
+	)
+	getopt.FlagLong(
+		&opts.clientSecret,
+		"client-secret",
+		0,
+		"Client ID for on-behalf tokens",
+		"secret",
+	)
+	getopt.FlagLong(
+		&opts.storageURL,
+		"storage-url",
+		0,
+		"Storage URL, e.g. https://<account>.blob.core.windows.net",
+		"url",
+	)
+	getopt.FlagLong(
+		&opts.redisURL,
+		"redis-url",
+		0,
+		"Redis URL",
+		"url",
+	)
+	getopt.FlagLong(
+		&opts.bind,
+		"bind",
+		0,
+		"Bind URL e.g. tcp://*:port",
+		"addr",
+	)
+	getopt.FlagLong(
+		&opts.signkey,
+		"sign-key",
+		0,
+		"Signing key used for response authorization tokens",
+		"key",
+	)
+
+	getopt.Parse()
+	if *help {
+		getopt.Usage()
+		os.Exit(0)
 	}
 
-	for _, opt := range params {
-		flag.StringVar(opt.param, opt.flag, "", opt.help)
-	}
-	flag.Parse()
-	for _, opt := range params {
-		if *opt.param == "" {
-			return opts, fmt.Errorf("%s not set", opt.flag)
-		}
-	}
-
-	return opts, nil
+	return opts
 }
 
 /*
@@ -152,11 +168,7 @@ func (c *clientconfig) Get(ctx *gin.Context) {
 }
 
 func main() {
-	opts, err := parseopts()
-	if err != nil {
-		log.Fatalf("Unable to start server: %v", err)
-	}
-
+	opts := parseopts()
 	httpclient := http.Client {
 		Timeout: 10 * time.Second,
 	}

@@ -4,7 +4,7 @@ services:
     image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
       context: .
-      dockerfile: core/Dockerfile
+      dockerfile: Dockerfile
     command: [
         "oneseismic-manifest",
         "--source",  "tcp://api:6143",
@@ -16,29 +16,26 @@ services:
     depends_on:
       - api
       - storage
+
   fragment:
     image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
       context: .
-      dockerfile: core/Dockerfile
+      dockerfile: Dockerfile
     command: [
-        "oneseismic-fragment",
-        "--source",  "tcp://manifest:6142",
-        "--sink",    "tcp://0.0.0.0:6144",
-        "--control", "tcp://0.0.0.0:6141",
-        "--fail",    "tcp://api:6140",
-        "--redis",   "storage",
+        "oneseismic-fetch",
+        "--source", "tcp://manifest:6142",
+        "--redis",  "storage:6379",
+        "--heartbeat", "60s",
     ]
     depends_on:
-      - api
-      - manifest
       - storage
 
   api:
-    image: oneseismic.azurecr.io/api:${VERSION:-latest}
+    image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
       context: .
-      dockerfile: api/Dockerfile
+      dockerfile: Dockerfile
     ports:
       - '8080:8080'
     command: [
