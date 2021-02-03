@@ -71,7 +71,6 @@ add_library(oneseismic
     src/geometry.cpp
     src/transfer.cpp
     src/azure.cpp
-    src/worker.cpp
     src/manifest.cpp
     src/messages.cpp
     src/load_balancer.cpp

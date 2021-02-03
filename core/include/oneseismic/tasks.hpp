@@ -34,25 +34,6 @@ private:
     std::unique_ptr< impl > p;
 };
 
-class fragment_task {
-public:
-    void run(
-            one::transfer& xfer,
-            zmq::socket_t& input,
-            zmq::socket_t& output,
-            zmq::socket_t& fail)
-        noexcept (false);
-
-    void connect_working_storage(const std::string&);
-
-    fragment_task();
-    ~fragment_task();
-
-private:
-    class impl;
-    std::unique_ptr< impl > p;
-};
-
 }
 
 #endif // ONESEISMIC_TASKS_HPP
