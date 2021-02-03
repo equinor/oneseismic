@@ -136,9 +136,8 @@ noexcept (false) {
 /*
  * The run() function:
  *  - pulls a job from the session manager queue
- *  - reads the request and fetches a manifest from storage
  *  - reads the manifest and uses it to create job descriptions
- *  - pushes job description on the output queue
+ *  - pushes job descriptions on the output queue
  *
  * This requires tons of helpers, and they all use exceptions to communicate
  * failures, whenever they can't do the job. That includes a failed transfer,
