@@ -161,15 +161,15 @@ if (PRIVATE_REDIS)
     if (NOT REDIS_SERVER_EXECUTABLE)
         set(all-integration-test-dependencies FALSE)
         message(WARNING
-            "redis-server not found - not building integration tests "
-            "install redis-server or set with -DREDIS_SERVER_EXECUTABLE=<path>"
+            "redis-server not found - not building integration tests."
+            "Install redis-server or set with -DREDIS_SERVER_EXECUTABLE=<path>"
         )
     endif ()
     if (NOT REDIS_CLI_EXECUTABLE)
         set(all-integration-test-dependencies FALSE)
         message(WARNING
-            "redis-cli not found - not building integration tests "
-            "install redis-cli or set with -DREDIS_CLI_EXECUTABLE=<path>"
+            "redis-cli not found - not building integration tests."
+            "Install redis-cli or set with -DREDIS_CLI_EXECUTABLE=<path>"
         )
     endif ()
 endif ()
