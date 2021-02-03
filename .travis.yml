@@ -42,9 +42,8 @@ script:
   - python setup.py test
   - popd
 
-  - pip install -r core/python/requirements-dev.txt
   - mkdir build
   - pushd build
-  - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DBUILD_PYTHON=OFF
+  - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
   - make
   - ctest --output-on-failure

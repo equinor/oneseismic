@@ -256,5 +256,3 @@ if (all-integration-test-dependencies)
             redis
     )
 endif()
-
-add_subdirectory(python)
