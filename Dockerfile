@@ -96,4 +96,3 @@ COPY --from=gobuilder /src/api/cmd/query/query /bin/oneseismic-query
 COPY --from=gobuilder /src/api/cmd/fetch/fetch /bin/oneseismic-fetch
 
 COPY --from=cppbuilder /usr/local/bin/oneseismic-manifest /bin/oneseismic-manifest
-COPY --from=cppbuilder /usr/local/bin/oneseismic-fragment /bin/oneseismic-fragment

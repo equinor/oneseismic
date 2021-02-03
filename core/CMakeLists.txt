@@ -112,22 +112,10 @@ target_link_libraries(oneseismic-manifest
     Threads::Threads
 )
 
-add_executable(oneseismic-fragment
-    src/server-fragment.cpp
-)
-
-target_link_libraries(oneseismic-fragment
-    oneseismic::oneseismic
-    fmt::fmt
-    PkgConfig::zmq
-    clara
-)
-
 install(
     TARGETS
         oneseismic
         oneseismic-manifest
-        oneseismic-fragment
     EXPORT
         oneseismic-export
     ARCHIVE DESTINATION
@@ -271,7 +259,6 @@ if (all-integration-test-dependencies)
         PRIVATE
             tests/transfer-http.cpp
             tests/manifest-task.cpp
-            tests/fragment-task.cpp
     )
     target_link_libraries(tests
         PRIVATE
