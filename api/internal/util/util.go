@@ -47,6 +47,7 @@ func FetchManifest(
 		azblob.CountToEnd,
 		azblob.BlobAccessConditions {},
 		false, /* content-get-md5 */
+		azblob.ClientProvidedKeyOptions {},
 	)
 	if err != nil {
 		return nil, err

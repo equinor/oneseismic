@@ -297,6 +297,7 @@ func fetchblob(ctx context.Context, blob azblob.BlobURL) ([]byte, error) {
 		azblob.CountToEnd,
 		azblob.BlobAccessConditions{},
 		false,
+		azblob.ClientProvidedKeyOptions {},
 	)
 	if err != nil {
 		return nil, err

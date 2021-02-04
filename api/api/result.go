@@ -134,6 +134,7 @@ func (az *azstorage) download(
 		azblob.CountToEnd,
 		azblob.BlobAccessConditions {},
 		false, /* content-get-md5 */
+		azblob.ClientProvidedKeyOptions {},
 	)
 
 	/*
