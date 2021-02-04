@@ -3,7 +3,6 @@
 
 #include <catch/catch.hpp>
 #include <fmt/format.h>
-#include <microhttpd.h>
 #include <nlohmann/json.hpp>
 #include <zmq_addon.hpp>
 #include <zmq.hpp>
@@ -12,7 +11,6 @@
 #include <oneseismic/tasks.hpp>
 
 #include "config.hpp"
-#include "mhttpd.hpp"
 #include "utility.hpp"
 
 using namespace Catch::Matchers;

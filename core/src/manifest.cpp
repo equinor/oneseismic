@@ -8,7 +8,6 @@
 #include <zmq.hpp>
 #include <zmq_addon.hpp>
 
-#include <oneseismic/azure.hpp>
 #include <oneseismic/geometry.hpp>
 #include <oneseismic/messages.hpp>
 #include <oneseismic/tasks.hpp>
@@ -136,9 +135,8 @@ noexcept (false) {
 /*
  * The run() function:
  *  - pulls a job from the session manager queue
- *  - reads the request and fetches a manifest from storage
  *  - reads the manifest and uses it to create job descriptions
- *  - pushes job description on the output queue
+ *  - pushes job descriptions on the output queue
  *
  * This requires tons of helpers, and they all use exceptions to communicate
  * failures, whenever they can't do the job. That includes a failed transfer,
@@ -224,21 +222,6 @@ try {
             this->p->pid
     );
     this->p->failure("bad-message").send(failure);
-} catch (const unauthorized&) {
-    /*
-     * TODO: log the headers?
-     * TODO: log manifest url?
-     */
-    spdlog::info("pid={}, not authorized", this->p->pid);
-    this->p->failure("manifest-not-authorized").send(failure);
-} catch (const notfound& e) {
-    spdlog::info(
-            "pid={}, {} manifest not found: '{}'",
-            this->p->pid,
-            this->p->request.guid,
-            e.what()
-    );
-    this->p->failure("manifest-not-found").send(failure);
 } catch (const nlohmann::json::parse_error& e) {
     spdlog::error(
             "pid={}, badly formatted manifest: {}",

@@ -10,7 +10,6 @@ ENV ZMQ_VERSION 4.6.0
 RUN apt-get update && apt-get install --no-install-recommends -y \
     build-essential \
     cmake \
-    libgnutls28-dev libcurl4-gnutls-dev \
     pkg-config \
     wget \
     unzip \
@@ -84,8 +83,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN    apt-get update \
     && apt-get install -y \
         libzmq5 \
-        libgnutls28-dev \
-        libcurl3-gnutls \
         libhiredis0.14 \
         ca-certificates \
     && apt-get clean -y \
@@ -96,4 +93,3 @@ COPY --from=gobuilder /src/api/cmd/query/query /bin/oneseismic-query
 COPY --from=gobuilder /src/api/cmd/fetch/fetch /bin/oneseismic-fetch
 
 COPY --from=cppbuilder /usr/local/bin/oneseismic-manifest /bin/oneseismic-manifest
-COPY --from=cppbuilder /usr/local/bin/oneseismic-fragment /bin/oneseismic-fragment

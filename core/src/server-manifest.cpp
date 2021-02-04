@@ -7,7 +7,6 @@
 #include <fmt/format.h>
 #include <zmq.hpp>
 
-#include <oneseismic/transfer.hpp>
 #include <oneseismic/tasks.hpp>
 #include <oneseismic/load_balancer.hpp>
 
@@ -38,7 +37,6 @@ int main(int argc, char** argv) {
     std::string fail_address;
     std::string redis_address;
     bool help = false;
-    int ntransfers = 4;
     int task_size = 10;
     int ready_ttl = 3000;
 
@@ -59,9 +57,6 @@ int main(int argc, char** argv) {
         | clara::Opt(redis_address, "redis")
             ["--redis"]
             (fmt::format("working storage (redis) address"))
-        | clara::Opt(ntransfers, "transfers")
-            ["-j"]["--transfers"]
-            (fmt::format("Concurrent blob connections, default = {}", ntransfers))
         | clara::Opt(task_size, "task size")
             ["-t"]["--task-size"]
             (fmt::format("Max task size (# of fragments), default = {}", task_size))
