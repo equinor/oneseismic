@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 )
@@ -187,7 +187,7 @@ func (az *azstorage) download(
  * effectively boils down to asking if a set of keys exists, and count the ones
  * that do.
  */
-func ready(storage redis.Cmdable, identifiers []string) (bool, error) {
+func ready(storage redis.Cmdable, ctx context.Context, identifiers []string) (bool, error) {
 	waits := []time.Duration {
 		200,
 		100,
@@ -200,7 +200,7 @@ func ready(storage redis.Cmdable, identifiers []string) (bool, error) {
 	items := int64(len(identifiers))
 
 	for _, wait := range waits {
-		count, err := storage.Exists(identifiers...).Result()
+		count, err := storage.Exists(ctx, identifiers...).Result()
 		if err != nil {
 			return false, err
 		}
@@ -243,7 +243,7 @@ func parseProcessHeader(doc []byte) (processheader, error) {
 
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
-	body, err := r.Storage.Get(headerkey(pid)).Bytes()
+	body, err := r.Storage.Get(ctx, headerkey(pid)).Bytes()
 	if err != nil {
 		log.Printf("Unable to get process header: %v", err)
 		ctx.AbortWithStatus(http.StatusNotFound)
@@ -263,7 +263,7 @@ func (r *Result) Get(ctx *gin.Context) {
 		identifiers = append(identifiers, id)
 	}
 
-	ready, err := ready(r.Storage, identifiers)
+	ready, err := ready(r.Storage, ctx, identifiers)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -277,7 +277,7 @@ func (r *Result) Get(ctx *gin.Context) {
 		return
 	}
 
-	tiles, rerr := r.Storage.MGet(identifiers...).Result()
+	tiles, rerr := r.Storage.MGet(ctx, identifiers...).Result()
 	if rerr != nil {
 		log.Printf("pid=%s, failed to get result from storage; %v", pid, rerr)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -331,7 +331,7 @@ func (r *Result) Status(ctx *gin.Context) {
 	 *
 	 * [1] the header-write step not completed, to be precise
 	 */
-	body, err := r.Storage.Get(headerkey(pid)).Bytes()
+	body, err := r.Storage.Get(ctx, headerkey(pid)).Bytes()
 	if err == redis.Nil {
 		/* request sucessful, but key does not exist */
 		ctx.JSON(http.StatusAccepted, gin.H {
@@ -358,7 +358,7 @@ func (r *Result) Status(ctx *gin.Context) {
 		identifiers[i] = fmt.Sprintf("%s:%d/%d", pid, i, proc.Parts)
 	}
 
-	count, err := r.Storage.Exists(identifiers...).Result()
+	count, err := r.Storage.Exists(ctx, identifiers...).Result()
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)

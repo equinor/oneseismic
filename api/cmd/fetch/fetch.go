@@ -18,7 +18,7 @@ import (
 	"github.com/equinor/oneseismic/api/internal/message"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 /*
@@ -284,7 +284,7 @@ func (p *process) gather(
 
 	key := fmt.Sprintf("%s:%s", p.pid, p.part)
 	packed := p.pack()
-	_ = storage.Set(key, packed, 10 * time.Minute)
+	_ = storage.Set(p.ctx, key, packed, 10 * time.Minute)
 }
 
 /*
