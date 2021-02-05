@@ -11,7 +11,7 @@ import (
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
 	"github.com/pebbe/zmq4"
 )

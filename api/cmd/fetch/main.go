@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
 	"github.com/pebbe/zmq4"
 )
