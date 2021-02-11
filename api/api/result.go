@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,49 +20,6 @@ type Result struct {
 	StorageURL string
 	Storage    redis.Cmdable
 	Keyring    *auth.Keyring
-}
-
-/*
- * Check if a set of tiles are ready.
- *
- * This is a hack that
- * 1. hides some redis implementation detail from the Result.Get function and
- * 2. implements a wonky retry scheme to try to reduce latency
- *
- * Under ideal circumstances results are ready or almost-ready when fetched, in
- * which case sleep-and-wait will save a round trip, authentitication and a
- * bunch of other overhead. The ready() function will still time out after a
- * little more than a second, however, and is not infinitely blocking.
- *
- * A result is ready when all identifiers have been written to storage, so this
- * effectively boils down to asking if a set of keys exists, and count the ones
- * that do.
- */
-func ready(storage redis.Cmdable, ctx context.Context, identifiers []string) (bool, error) {
-	waits := []time.Duration {
-		200,
-		100,
-		100,
-		200,
-		500,
-		0,
-	}
-
-	items := int64(len(identifiers))
-
-	for _, wait := range waits {
-		count, err := storage.Exists(ctx, identifiers...).Result()
-		if err != nil {
-			return false, err
-		}
-
-		if count == items {
-			return true, nil
-		}
-		time.Sleep(wait * time.Millisecond)
-	}
-
-	return false, nil
 }
 
 /*
@@ -91,6 +49,55 @@ func parseProcessHeader(doc []byte) (processheader, error) {
 	return ph, nil
 }
 
+func collectResult(
+	ctx context.Context,
+	storage redis.Cmdable,
+	pid string,
+	parts int,
+	tiles chan []byte,
+	failure chan error,
+) {
+	defer close(tiles)
+	defer close(failure)
+
+	header := make([]byte, 5)
+	/* msgpack array type */
+	header[0] = 0xDD
+	/* msgpack array length, a 4-byte big-endian integer */
+	binary.BigEndian.PutUint32(header[1:], uint32(parts))
+	tiles <- header
+
+	streamCursor := "0"
+	count := 0
+	for count < parts {
+		xreadArgs := redis.XReadArgs{
+			Streams: []string{pid, streamCursor},
+			Block:   0,
+		}
+		reply, err := storage.XRead(ctx, &xreadArgs).Result()
+
+		if err != nil {
+			failure <- err
+			return
+		}
+
+		for _, message := range reply[0].Messages {
+			for _, tile := range message.Values {
+				chunk, ok := tile.(string)
+				if !ok {
+					msg := fmt.Sprintf("tile.type = %T; expected []byte]", tile)
+					failure <- errors.New(msg)
+					return
+				}
+
+				tiles <- []byte(chunk)
+				count++
+			}
+			streamCursor = message.ID
+		}
+	}
+}
+
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
 	body, err := r.Storage.Get(ctx, headerkey(pid)).Bytes()
@@ -107,58 +114,28 @@ func (r *Result) Get(ctx *gin.Context) {
 		return
 	}
 
-	identifiers := make([]string, 0)
-	for i := 0; i < meta.Parts; i++ {
-		id := fmt.Sprintf("%s:%d/%d", pid, i, meta.Parts)
-		identifiers = append(identifiers, id)
-	}
+	count, err := r.Storage.XLen(ctx, pid).Result()
 
-	ready, err := ready(r.Storage, ctx, identifiers)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+	if count < int64(meta.Parts) {
+		ctx.AbortWithStatus(http.StatusAccepted)
 		return
 	}
 
-	if !ready {
-		log.Printf("pid=%s, tiles timed out; result not ready yet", pid)
-		// TODO: return NotReady, or is that only for a /status method?
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
+	tiles := make(chan []byte, 1000)
+	failure := make(chan error)
+	go collectResult(ctx, r.Storage, pid, meta.Parts, tiles, failure)
+
+	result := make([]byte, 0)
+
+	for tile := range tiles {
+		result = append(result, tile...)
 	}
 
-	tiles, rerr := r.Storage.MGet(ctx, identifiers...).Result()
-	if rerr != nil {
-		log.Printf("pid=%s, failed to get result from storage; %v", pid, rerr)
+	err, ok := <-failure
+
+	if ok {
+		log.Printf("pid=%s, %s", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	result := make([]byte, 5)
-	/* msgpack array type */
-	result[0] = 0xDD
-	/* msgpack array length, a 4-byte big-endian integer */
-	binary.BigEndian.PutUint32(result[1:], uint32(meta.Parts))
-
-	for _, tile := range tiles {
-		/*
-		 * A chunk of bytes is represented as a string in redis, and mapped
-		 * back to a string in go.
-		 *
-		 * The type cast is necessary [1] to copy the value, and doubles as a
-		 * sanity check. Should an object for some reason be missing, or of an
-		 * unexpected type, it probably means a programmer error at some other
-		 * place in the system.
-		 *
-		 * [1] is it really?
-		 */
-		chunk, ok := tile.(string)
-		if !ok {
-			log.Printf("pid=%s, tile.type = %T; expected string", pid, tile)
-			ctx.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-		result = append(result, chunk...)
 	}
 
 	ctx.Data(http.StatusOK, "application/octet-stream", result)
@@ -203,21 +180,15 @@ func (r *Result) Status(ctx *gin.Context) {
 		return
 	}
 
-	identifiers := make([]string, proc.Parts)
-	for i := 0; i < proc.Parts; i++ {
-		identifiers[i] = fmt.Sprintf("%s:%d/%d", pid, i, proc.Parts)
-	}
-
-	count, err := r.Storage.Exists(ctx, identifiers...).Result()
+	count, err := r.Storage.XLen(ctx, pid).Result()
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	items := int64(len(identifiers))
-	done := count == items
-	completed := fmt.Sprintf("%d/%d", count, items)
+	done := count == int64(proc.Parts)
+	completed := fmt.Sprintf("%d/%d", count, proc.Parts)
 
 	// TODO: add (and detect) failed status
 	if done {

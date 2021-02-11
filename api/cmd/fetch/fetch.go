@@ -282,9 +282,18 @@ func (p *process) gather(
 		}
 	}
 
-	key := fmt.Sprintf("%s:%s", p.pid, p.part)
 	packed := p.pack()
-	_ = storage.Set(p.ctx, key, packed, 10 * time.Minute)
+	log.Printf("%s ready", p.logpid())
+	args := redis.XAddArgs{
+		Stream: p.pid,
+		Values: map[string]interface{}{p.part: packed},
+	}
+	err := storage.XAdd(p.ctx, &args).Err()
+	if err != nil {
+		log.Printf("%s write to storage failed: %v", p.logpid(), err)
+	}
+	storage.Expire(p.ctx, p.pid, 10 * time.Minute)
+	log.Printf("%s written to storage", p.logpid())
 }
 
 /*
