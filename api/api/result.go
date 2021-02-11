@@ -98,6 +98,48 @@ func collectResult(
 	}
 }
 
+func (r *Result) Stream(ctx *gin.Context) {
+	pid := ctx.Param("pid")
+	body, err := r.Storage.Get(ctx, headerkey(pid)).Bytes()
+	if err != nil {
+		log.Printf("Unable to get process header: %v", err)
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	meta, err := parseProcessHeader(body)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	tiles := make(chan []byte)
+	failure := make(chan error)
+	go collectResult(ctx, r.Storage, pid, meta.Parts, tiles, failure)
+
+	w := ctx.Writer
+	header := w.Header()
+	header.Set("Transfer-Encoding", "chunked")
+	header.Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+
+	for {
+		select {
+		case output, ok := <-tiles:
+			if !ok {
+				w.(http.Flusher).Flush()
+				return
+			}
+			w.Write(output)
+
+		case err := <-failure:
+			log.Printf("pid=%s, %s", pid, err)
+			return
+		}
+	}
+}
+
 func (r *Result) Get(ctx *gin.Context) {
 	pid := ctx.Param("pid")
 	body, err := r.Storage.Get(ctx, headerkey(pid)).Bytes()
