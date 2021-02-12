@@ -13,6 +13,9 @@ from urllib.parse import urlunparse
 from .blobfs import blobfs
 from .localfs import localfs
 
+class NotUrlError(ValueError):
+    pass
+
 def add_auth_args(parser, direction):
     """
     """
@@ -53,9 +56,9 @@ def blobfs_from_args(url, method, connstr, creds):
     Instead, it is simple automation on how the arguments are interpreted, with
     fallbacks and exclusive options.
 
-    If a method is explicitly specified, that method willfor authentication. If
-    a no method is specified, and either the connection-string or the
-    credentials are specified, then that method will be used.  If neither
+    If a method is explicitly specified, that method will be used for
+    authentication. If no method is specified, and either the connection-string
+    or the credentials are specified, then that method will be used. If neither
     method, connection string, nor credentials are specified, it is assumed it
     is encoded in the URL. See the docs [1]_ for the blob client.
 
@@ -122,23 +125,8 @@ def blobfs_from_args(url, method, connstr, creds):
     if method in ['url', 'credentials']:
         parsed = urlparse(url)
         if parsed.scheme not in ['http', 'https']:
-            raise ValueError('not a blob url')
-
-        # If the credentials are encoded in the URL, either as a SAS token or a
-        # URL-encoded account key, then creds should be None anyway, and the
-        # case of url-encoded and explicit credentials end up being the same
-
-        # Only keep the first part of the path, in case it specifies the
-        # container and blob.
-        unparsed = (
-            parsed.scheme,
-            parsed.netloc,
-            '/'.join(parsed.path.split('/')[:2]),
-            parsed.params,
-            parsed.query,
-            parsed.fragment
-        )
-        return blobfs.from_url(urlunparse(unparsed), credential = creds)
+            raise NotUrlError('not a blob url')
+        return blobfs.from_url(url, credential = creds)
     elif method == 'connection-string':
         return blobfs.from_connection_string(connstr)
     else:

@@ -10,6 +10,7 @@ from ..internal.argparse import add_auth_args
 from ..internal.argparse import blobfs_from_args
 from ..internal.argparse import localfs_from_args
 from ..internal.argparse import get_blob_path
+from ..internal.argparse import NotUrlError
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -40,7 +41,7 @@ def main(argv):
         container, blob = get_blob_path(args.src)
         inputfs.cd(container)
         src = blob
-    except ValueError:
+    except NotUrlError:
         inputfs = localfs_from_args(args.src)
         src = args.src
 
