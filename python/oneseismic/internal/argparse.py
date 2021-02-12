@@ -126,22 +126,7 @@ def blobfs_from_args(url, method, connstr, creds):
         parsed = urlparse(url)
         if parsed.scheme not in ['http', 'https']:
             raise NotUrlError('not a blob url')
-
-        # If the credentials are encoded in the URL, either as a SAS token or a
-        # URL-encoded account key, then creds should be None anyway, and the
-        # case of url-encoded and explicit credentials end up being the same
-
-        # Only keep the first part of the path, in case it specifies the
-        # container and blob.
-        unparsed = (
-            parsed.scheme,
-            parsed.netloc,
-            '/'.join(parsed.path.split('/')[:2]),
-            parsed.params,
-            parsed.query,
-            parsed.fragment
-        )
-        return blobfs.from_url(urlunparse(unparsed), credential = creds)
+        return blobfs.from_url(url, credential = creds)
     elif method == 'connection-string':
         return blobfs.from_connection_string(connstr)
     else:

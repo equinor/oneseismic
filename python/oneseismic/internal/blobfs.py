@@ -3,6 +3,8 @@ import io
 import numpy as np
 
 from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobClient
+from urllib.parse import urlparse
 
 class blobfs:
     """Azure blob file system
@@ -50,7 +52,18 @@ class blobfs:
         -----
         This does not change os.getcwd()
         """
-        self.cwd = self.cli.get_container_client(path)
+        try:
+            self.cwd = self.cli.get_container_client(path)
+        except AttributeError:
+            # not a BlobServiceClient, so check if cd() into the BlobClient's
+            # directory. Any other directory can not be supported with the
+            # initialisation path used to get here (from-url with a blob path,
+            # not just account).
+            if self.cli.container_name == path:
+                self.cwd = self.cli
+            else:
+                msg = f'bad path; can only cd to {self.cli.container_name}'
+                raise ValueError(msg)
 
     def open(self, name, mode = 'rb'):
         """Open file and return a stream
@@ -64,15 +77,61 @@ class blobfs:
         2. Read-only streams are seekable
         3. Writable streams are not seekable, and will be written atomically
 
+        The blob path must be relative to the container, to be more consistent
+        with localfs. The container and blob names can be obtained from an url
+        with get_blob_path(). See examples for more details.
+
         Parameters
         ----------
         name : pathlib.Path or str
-            File name to open
+            File name to open. Relative to container
         mode : { 'rb', 'wb' }
             Mode in which the file is opened. Identical to the builtin open()
+
+        Examples
+        --------
+        Open file from url-encoded SAS:
+        >>> bloburl = 'https://storage.com/container/my-blob?sas=token'
+        >>> blobfs = blobfs_from_args(url = bloburl)
+        >>> container, name = get_blob_path(bloburl)
+        >>> container
+        'container'
+        >>> name
+        'my-blob'
+        >>> blobfs.cd(container) # effectively becomes no-op
+        >>> f = blobfs.open(name)
+
+        Open file with SAS as separate argument:
+        >>> bloburl = 'https://storage.com/'
+        >>> sas = 'sas=token' # sas-token for the account, not just the blob
+        >>> blobfs = blobfs_from_args(url = bloburl, creds = sas)
+        >>> container = 'container'
+        >>> name = 'my-blob'
+        >>> blobfs.cd(container)
+        >>> f = blobfs.open(name)
         """
         if mode in ['r', 'rb']:
-            return blobread(self.cwd, name)
+            try:
+                # If initialised with a BlobServiceClient, cd() should have
+                # been called and we can obtain a blob client from the name
+                cli = self.cwd.get_blob_client(name)
+            except AttributeError:
+                # self.cwd is not a container_client, so this was *probably*
+                # initialised directly with a blob client. This is the most
+                # common case for reading really, since users typically copy a
+                # full SAS-parameterised url from the portal. If so, make sure
+                # that the blob name matches the blob name in the URL, to catch
+                # errors such as:
+                #
+                #   blobfs = makefs(<storage>/<container>/<blob1>?<sas>)
+                #   blobfs.cd(<container>)
+                #   f = blobfs.open(<blob2>)
+                if name == self.cli.blob_name:
+                    cli = self.cli
+                else:
+                    msg = f'bad name; can only open {self.cli.blob_name}'
+                    raise ValueError(msg)
+            return blobread(cli)
 
         if mode in ['w', 'wb']:
             return blobwrite(self.cwd, name)
@@ -98,7 +157,7 @@ class blobfs:
         return blobfs(client = client)
 
     @staticmethod
-    def from_url(account_url, credential):
+    def from_url(url, credential):
         """Init filesystem from account URL
 
         Initialize a virtual blob filesystem based on an account URL and a
@@ -107,19 +166,44 @@ class blobfs:
 
         Parameters
         ----------
-        account_url : str
-            Account URL, eg. https://<account>.blob.core.windows.net
+        url: str
+            Account or blob URL, e.g. https://<account>.blob.core.windows.net
         credential : str
             Credential, Shared Access Signature or connection string
 
         References
         ----------
         .. [1] https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
+
+        Examples
+        --------
+        Storage account filesystem:
+        >>> account_url = 'https://acc.storage.com/?sas=token'
+        >>> fs = blobfs.from_url(account_url)
+        >>> fs.cd('container')
+
+        Single-file filesystem. cd and open only works for the blob_url object:
+        >>> blob_url = 'https://acc.storage.com/container/blob?sas=token'
+        >>> fs = blobfs.from_url(blob_url)
+        >>> fs.cd('bad-path')
+        ValueError
+        >>> fs.cd('container')
+        >>> fs.open('bad-blob')
+        ValueError
+        >>> f = fs.open('blob')
         """
-        client = BlobServiceClient(
-            account_url = account_url,
-            credential = credential,
-        )
+        parsed = urlparse(url)
+        # parsed.path can (always?) contain the leading '/'
+        if len(parsed.path) > 1:
+            client = BlobClient.from_blob_url(
+                blob_url = url,
+                credential = credential,
+            )
+        else:
+            client = BlobServiceClient(
+                account_url = url,
+                credential = credential,
+            )
         return blobfs(client = client)
 
 class blobwrite(io.RawIOBase):
@@ -147,8 +231,8 @@ class blobwrite(io.RawIOBase):
         return False
 
 class blobread(io.RawIOBase):
-    def __init__(self, client, name, cachesize = 1e6):
-        self.client = client.get_blob_client(name)
+    def __init__(self, client, cachesize = 1e6):
+        self.client = client
         self.cachesize = int(cachesize)
 
         self.cache_begin = 0
