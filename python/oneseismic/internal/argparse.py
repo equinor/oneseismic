@@ -53,9 +53,9 @@ def blobfs_from_args(url, method, connstr, creds):
     Instead, it is simple automation on how the arguments are interpreted, with
     fallbacks and exclusive options.
 
-    If a method is explicitly specified, that method willfor authentication. If
-    a no method is specified, and either the connection-string or the
-    credentials are specified, then that method will be used.  If neither
+    If a method is explicitly specified, that method will be used for
+    authentication. If no method is specified, and either the connection-string
+    or the credentials are specified, then that method will be used. If neither
     method, connection string, nor credentials are specified, it is assumed it
     is encoded in the URL. See the docs [1]_ for the blob client.
 
