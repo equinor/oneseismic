@@ -158,7 +158,7 @@ class blobfs:
 
     @staticmethod
     def from_url(url, credential):
-        """Init filesystem from account URL
+        """Init filesystem from an URL
 
         Initialize a virtual blob filesystem based on an account URL and a
         credential. The credential can be a connection string or a shared
