@@ -13,6 +13,9 @@ from urllib.parse import urlunparse
 from .blobfs import blobfs
 from .localfs import localfs
 
+class NotUrlError(ValueError):
+    pass
+
 def add_auth_args(parser, direction):
     """
     """
@@ -122,7 +125,7 @@ def blobfs_from_args(url, method, connstr, creds):
     if method in ['url', 'credentials']:
         parsed = urlparse(url)
         if parsed.scheme not in ['http', 'https']:
-            raise ValueError('not a blob url')
+            raise NotUrlError('not a blob url')
 
         # If the credentials are encoded in the URL, either as a SAS token or a
         # URL-encoded account key, then creds should be None anyway, and the
