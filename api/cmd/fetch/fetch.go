@@ -254,7 +254,7 @@ func (p *process) container() (azblob.ContainerURL, error) {
  * This function finalizes the process.
  */
 func (p *process) gather(
-	storage    *redis.Client,
+	storage    redis.Cmdable,
 	nfragments int,
 	fragments  chan fragment,
 	errors     chan error,

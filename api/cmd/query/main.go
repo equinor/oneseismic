@@ -191,7 +191,13 @@ func main() {
 	defer out.Close()
 
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
-	slice := api.MakeSlice(&keyring, opts.storageURL, out)
+	cmdable := redis.NewClient(
+		&redis.Options {
+			Addr: opts.redisURL,
+			DB: 0,
+		},
+	)
+	slice := api.MakeSlice(&keyring, opts.storageURL, out, cmdable)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,

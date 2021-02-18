@@ -1,13 +1,21 @@
 package api
 
+// #cgo LDFLAGS: -loneseismic -lfmt
+// #include <stdlib.h>
+// #include "slice.h"
+import "C"
+import "unsafe"
+
 import (
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/pebbe/zmq4"
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
@@ -27,17 +35,20 @@ type Slice struct {
 	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
 	queue    *zmq4.Socket
 	keyring  *auth.Keyring
+	storage  redis.Cmdable
 }
 
 func MakeSlice(
 	keyring *auth.Keyring,
 	endpoint string,
 	queue *zmq4.Socket,
+	storage  redis.Cmdable,
 ) Slice {
 	return Slice {
 		endpoint: endpoint,
 		queue: queue,
 		keyring: keyring,
+		storage: storage,
 	}
 }
 
@@ -172,6 +183,24 @@ func (s *Slice) About(ctx *gin.Context) {
 	})
 }
 
+func makeSchedule(request []byte) [][]byte {
+	raw := C.mkschedule(
+		(*C.char)(unsafe.Pointer(&request[0])),
+		C.int(len(request)),
+		10, /* task-size */
+	)
+	defer C.cleanup(raw)
+
+	result := make([][]byte, 0)
+	size := unsafe.Sizeof(C.struct_task {})
+	base := uintptr(unsafe.Pointer(raw.tasks))
+	for i := uintptr(0); i < uintptr(raw.size); i++ {
+		this := (*C.struct_task)(unsafe.Pointer(base + (size * i)))
+		result = append(result, C.GoBytes(this.task, this.size))
+	}
+	return result
+}
+
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
 
@@ -241,12 +270,32 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	proc := process {
-		pid: pid,
-		request: req,
-	}
-	log.Printf("pid=%s, Scheduling process", pid)
-	proc.sendZMQ(s.queue)
+	tasks := makeSchedule(req)
+	ntasks := len(tasks)
+	go func() {
+		/*
+		 * Do the I/O in a go-routine to respond to clients faster.
+		 */
+		s.storage.Set(
+			ctx,
+			fmt.Sprintf("%s:header.json", pid),
+			fmt.Sprintf("{\"parts\": %d }", ntasks),
+			10 * time.Minute,
+		)
+		for i, task := range tasks {
+			values := []interface{} {
+				"pid",  pid,
+				"part", fmt.Sprintf("%d/%d", i, ntasks),
+				"task", task,
+			}
+			args := redis.XAddArgs{Stream: "jobs", Values: values}
+			_, err = s.storage.XAdd(ctx, &args).Result()
+			if err != nil {
+				log.Fatalf("Unable to put %d in storage; %v", i, err)
+			}
+		}
+	}()
+
 	ctx.JSON(http.StatusOK, gin.H {
 		"location": fmt.Sprintf("result/%s", pid),
 		"status":   fmt.Sprintf("result/%s/status", pid),

@@ -24,9 +24,7 @@ services:
       dockerfile: Dockerfile
     command: [
         "oneseismic-fetch",
-        "--source", "tcp://manifest:6142",
         "--redis",  "storage:6379",
-        "--heartbeat", "60s",
     ]
     depends_on:
       - storage
