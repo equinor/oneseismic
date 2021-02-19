@@ -18,9 +18,6 @@ find_package(fmt        REQUIRED)
 find_package(Threads    REQUIRED)
 find_package(spdlog     REQUIRED)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(zmq        IMPORTED_TARGET REQUIRED libzmq)
-
 if (NOT MSVC)
     # assuming gcc-style options
     # add warnings in debug mode
@@ -58,7 +55,6 @@ target_include_directories(oneseismic
 target_link_libraries(oneseismic
     PUBLIC
         fmt::fmt
-        PkgConfig::zmq
 )
 
 install(
