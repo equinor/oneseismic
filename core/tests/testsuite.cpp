@@ -3,18 +3,6 @@
 
 #include <spdlog/spdlog.h>
 
-#include "config.hpp"
-
-static std::string redis_addr;
-
-std::string redisaddr() {
-    if (redis_addr.empty()) {
-        const auto msg = "redis address undefined; set with --redis host:port";
-        throw std::runtime_error(msg);
-    }
-    return redis_addr;
-}
-
 /*
  * Use own defined main, because that's catch2's way of allowing custom global
  * init [1]. spdlog is turned off because otherwise test output gets very
@@ -26,13 +14,7 @@ int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::off);
 
     Catch::Session session;
-    auto cli = session.cli()
-    #if defined(INTEGRATION_TESTS_REDIS)
-        | Catch::clara::Opt(redis_addr, "host:port")
-            ["--redis"]
-            ("Address to running redis instance")
-    #endif
-    ;
+    auto cli = session.cli();
     session.cli(cli);
     return session.run(argc, argv);
 }

@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     unzip \
     libzmq5-dev \
     libspdlog-dev \
-    libhiredis-dev \
     libmsgpack-dev \
     ca-certificates
 
@@ -83,7 +82,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN    apt-get update \
     && apt-get install -y \
         libzmq5 \
-        libhiredis0.14 \
         ca-certificates \
     && apt-get clean -y \
     && apt-get autoremove -y \
