@@ -11,6 +11,5 @@ require (
 	github.com/go-redis/redis/v8 v8.5.0
 	github.com/google/uuid v1.2.0
 	github.com/pborman/getopt/v2 v2.1.0
-	github.com/pebbe/zmq4 v1.2.2
 	github.com/stretchr/testify v1.7.0
 )

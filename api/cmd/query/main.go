@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
-	"github.com/pebbe/zmq4"
 )
 
 type opts struct {
@@ -36,7 +35,6 @@ func parseopts() opts {
 		clientSecret: os.Getenv("CLIENT_SECRET"),
 		storageURL:   os.Getenv("STORAGE_URL"),
 		redisURL:     os.Getenv("REDIS_URL"),
-		bind:         os.Getenv("BIND"),
 		signkey:      os.Getenv("SIGN_KEY"),
 	}
 
@@ -180,16 +178,6 @@ func main() {
 		log.Fatalf("Unable to get OpenID keyset: %v", err)
 	}
 
-	out, err := zmq4.NewSocket(zmq4.PUSH)
-	if err != nil {
-		log.Fatalf("Unable to create socket: %v", err)
-	}
-	err = out.Bind(opts.bind)
-	if err != nil {
-		log.Fatalf("Unable to bind queue to %s: %v", opts.bind, err)
-	}
-	defer out.Close()
-
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
 	cmdable := redis.NewClient(
 		&redis.Options {
@@ -197,7 +185,7 @@ func main() {
 			DB: 0,
 		},
 	)
-	slice := api.MakeSlice(&keyring, opts.storageURL, out, cmdable)
+	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,

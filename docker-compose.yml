@@ -33,7 +33,6 @@ services:
       - CLIENT_SECRET
       - LOG_LEVEL
       - REDIS_URL=storage:6379
-      - BIND=tcp://*:6143
       - SIGN_KEY
 
   storage:

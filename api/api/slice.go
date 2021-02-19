@@ -16,7 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
-	"github.com/pebbe/zmq4"
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/equinor/oneseismic/api/internal/util"
@@ -27,13 +26,8 @@ type process struct {
 	request []byte
 }
 
-func (proc *process) sendZMQ(socket *zmq4.Socket) (total int, err error) {
-	return socket.SendMessage(proc.pid, proc.request)
-}
-
 type Slice struct {
 	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
-	queue    *zmq4.Socket
 	keyring  *auth.Keyring
 	storage  redis.Cmdable
 }
@@ -41,12 +35,10 @@ type Slice struct {
 func MakeSlice(
 	keyring *auth.Keyring,
 	endpoint string,
-	queue *zmq4.Socket,
 	storage  redis.Cmdable,
 ) Slice {
 	return Slice {
 		endpoint: endpoint,
-		queue: queue,
 		keyring: keyring,
 		storage: storage,
 	}
