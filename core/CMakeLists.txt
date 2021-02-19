@@ -68,7 +68,6 @@ add_library(oneseismic
     src/geometry.cpp
     src/transfer.cpp
     src/messages.cpp
-    src/load_balancer.cpp
 )
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
@@ -126,7 +125,6 @@ add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
     tests/messages.cpp
-    tests/load_balancer.cpp
 )
 target_link_libraries(tests
     PRIVATE
