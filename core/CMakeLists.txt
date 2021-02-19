@@ -67,7 +67,6 @@ add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
     src/transfer.cpp
-    src/manifest.cpp
     src/messages.cpp
     src/load_balancer.cpp
 )
@@ -222,10 +221,6 @@ if (all-integration-test-dependencies)
                 redis
         )
     endif ()
-    target_sources(tests
-        PRIVATE
-            tests/manifest-task.cpp
-    )
     target_compile_definitions(tests
         PRIVATE
             INTEGRATION_TESTS_REDIS
