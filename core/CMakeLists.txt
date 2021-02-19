@@ -66,7 +66,6 @@ set(CMAKE_CXX_STANDARD 14)
 add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
-    src/transfer.cpp
     src/messages.cpp
 )
 add_library(oneseismic::oneseismic ALIAS oneseismic)
