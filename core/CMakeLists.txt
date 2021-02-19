@@ -11,9 +11,6 @@ option(BUILD_PYTHON  "Build Python library"                ON)
 add_library(json INTERFACE)
 target_include_directories(json INTERFACE external/nlohmann)
 
-add_library(clara INTERFACE)
-target_include_directories(clara INTERFACE external/clara)
-
 find_package(fmt        REQUIRED)
 find_package(spdlog     REQUIRED)
 
