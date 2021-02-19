@@ -15,7 +15,6 @@ add_library(clara INTERFACE)
 target_include_directories(clara INTERFACE external/clara)
 
 find_package(fmt        REQUIRED)
-find_package(Threads    REQUIRED)
 find_package(spdlog     REQUIRED)
 
 if (NOT MSVC)
@@ -102,7 +101,6 @@ target_link_libraries(tests
         catch2
         oneseismic::oneseismic
         fmt::fmt
-        Threads::Threads
         json
 )
 add_test(NAME unit-tests COMMAND tests)
