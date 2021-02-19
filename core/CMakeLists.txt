@@ -88,22 +88,9 @@ target_link_libraries(oneseismic
         PkgConfig::zmq
 )
 
-add_executable(oneseismic-manifest
-    src/server-manifest.cpp
-)
-
-target_link_libraries(oneseismic-manifest
-    oneseismic::oneseismic
-    fmt::fmt
-    PkgConfig::zmq
-    clara
-    Threads::Threads
-)
-
 install(
     TARGETS
         oneseismic
-        oneseismic-manifest
     EXPORT
         oneseismic-export
     ARCHIVE DESTINATION
