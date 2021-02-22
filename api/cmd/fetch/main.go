@@ -172,6 +172,33 @@ func main() {
 			log.Fatalf("Unable to read from redis: %v", err)
 		}
 
+		go func() {
+			/*
+			 * Send a request-for-delete once the message has been read, in
+			 * order to stop the infinite growth of the job queue.
+			 *
+			 * This is the simplest solution that is correct [1] - the node
+			 * that gets a job also deletes it, which emulates a
+			 * fire-and-forget job queue. Unfortunately it also means more
+			 * traffic back to the central job queue node. In redis6.2 the
+			 * XTRIM MINID strategy is introduced, which opens up some
+			 * interesting strategies for cleaning up the job queue. This is
+			 * work for later though.
+			 *
+			 * [1] except in some crashing scenarios
+			 */
+			ids := make([]string, 0, 3)
+			for _, xmsg := range msgs {
+				for _, msg := range xmsg.Messages {
+					ids = append(ids, msg.ID)
+				}
+			}
+			err := storage.XDel(ctx, opts.stream, ids...).Err()
+			if err != nil {
+				log.Fatalf("Unable to XDEL: %v", err)
+			}
+		}()
+
 		/*
 		 * The redis interface is designed for asking for a set of messages per
 		 * XReadGroup command, but we really only ask for one [1]. The redis-go
