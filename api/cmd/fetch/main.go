@@ -168,8 +168,27 @@ func main() {
 	 * program can immediately go into the work loop assuming that the stream
 	 * and group exists, without having to do any chatter or sync.
 	 */
-	// TODO: check-err, fail on hard errors
-	storage.XGroupCreateMkStream(ctx, opts.stream, opts.group, "0")
+	err := storage.XGroupCreateMkStream(ctx, opts.stream, opts.group, "0").Err()
+	if err != nil {
+		 // Check if the response is a redis error (= BUSYGROUP), which just
+		 // means the group already exists and nothing happens, or if it is a
+		 // network error or something
+		_, busygroup := err.(interface{RedisError()});
+		if !busygroup {
+			log.Fatalf(
+				"Unable to create group %s for stream %s: %v",
+				opts.group,
+				opts.stream,
+				err,
+			)
+		}
+	}
+	log.Printf(
+		"consumer %s in group %s connecting to stream %s",
+		opts.consumerid,
+		opts.group,
+		opts.stream,
+	)
 
 	// TODO: destroy consumers on shutdown
 	// All reads can re-use the same group-args
