@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
+
+	"github.com/equinor/oneseismic/api/internal/util"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
@@ -11,10 +14,11 @@ import (
 )
 
 type opts struct {
-	redis     string
-	group     string
-	stream    string
-	jobs      int
+	redis      string
+	group      string
+	stream     string
+	consumerid string
+	jobs       int
 }
 
 func parseopts() opts {
@@ -48,6 +52,16 @@ func parseopts() opts {
 		    "You should normally not need to change this.",
 		"name",
 	)
+	getopt.FlagLong(
+		&opts.consumerid,
+		"consumer-id",
+		'C',
+		"Consumer ID of this worker. This should be unique among all the " +
+			"workers in the consumer group. If no name is specified, " +
+			"a random ID will be generated. You should normally not need " +
+			"to specify a consumer ID.",
+		"id",
+	)
 	jobs := getopt.IntLong(
 		"jobs",
 		'j',
@@ -62,6 +76,9 @@ func parseopts() opts {
 		os.Exit(0)
 	}
 
+	if opts.consumerid == "" {
+		opts.consumerid = fmt.Sprintf("consumer:%s", util.MakePID())
+	}
 	opts.jobs = *jobs
 	return opts
 }
@@ -160,7 +177,7 @@ func main() {
 	// should a node crash.
 	args := redis.XReadGroupArgs {
 		Group:    opts.group,
-		Consumer: "consumer-id", // derive-from-node
+		Consumer: opts.consumerid,
 		Streams:  []string { opts.stream, ">", },
 		Count:    1,
 		NoAck:    true,
