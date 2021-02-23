@@ -61,6 +61,8 @@ WORKDIR /src/api/cmd/query
 RUN go build -v
 WORKDIR /src/api/cmd/fetch
 RUN go build -v
+WORKDIR /src/api/cmd/gc
+RUN go build -v
 
 # The final image with only the binaries and runtime dependencies
 FROM debian:buster-slim as deployimg
@@ -74,3 +76,4 @@ RUN    apt-get update \
 
 COPY --from=gobuilder /src/api/cmd/query/query /bin/oneseismic-query
 COPY --from=gobuilder /src/api/cmd/fetch/fetch /bin/oneseismic-fetch
+COPY --from=gobuilder /src/api/cmd/gc/gc       /bin/oneseismic-gc
