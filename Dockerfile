@@ -57,12 +57,7 @@ RUN go mod download
 COPY api api
 WORKDIR /src/api
 RUN go test -race ./...
-WORKDIR /src/api/cmd/query
-RUN go build -v
-WORKDIR /src/api/cmd/fetch
-RUN go build -v
-WORKDIR /src/api/cmd/gc
-RUN go build -v
+RUN go install ./...
 
 # The final image with only the binaries and runtime dependencies
 FROM debian:buster-slim as deployimg
@@ -74,6 +69,6 @@ RUN    apt-get update \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists
 
-COPY --from=gobuilder /src/api/cmd/query/query /bin/oneseismic-query
-COPY --from=gobuilder /src/api/cmd/fetch/fetch /bin/oneseismic-fetch
-COPY --from=gobuilder /src/api/cmd/gc/gc       /bin/oneseismic-gc
+COPY --from=gobuilder /go/bin/query /bin/oneseismic-query
+COPY --from=gobuilder /go/bin/fetch /bin/oneseismic-fetch
+COPY --from=gobuilder /go/bin/gc    /bin/oneseismic-gc
