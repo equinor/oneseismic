@@ -86,6 +86,10 @@ export(
 )
 set(ONESEISMIC_LIB_CMAKECONFIG_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE PATH "")
 
+if (NOT BUILD_TESTING)
+    return()
+endif ()
+
 add_subdirectory(external/catch2)
 
 add_executable(tests
