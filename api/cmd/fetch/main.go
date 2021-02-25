@@ -1,33 +1,32 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
-	"time"
+
+	"github.com/equinor/oneseismic/api/internal/util"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
-	"github.com/pebbe/zmq4"
 )
 
 type opts struct {
-	source    string
-	redis     string
-	heartbeat time.Duration
-	jobs      int
+	redis      string
+	group      string
+	stream     string
+	consumerid string
+	jobs       int
 }
 
 func parseopts() opts {
 	help := getopt.BoolLong("help", 0, "print this help text")
-	opts := opts {}
-	getopt.FlagLong(
-		&opts.source,
-		"source",
-		's',
-		"Address to source, e.g. tcp://host[:port]",
-		"addr",
-	).Mandatory()
+	opts := opts {
+		group:  "fetch",
+		stream: "jobs",
+	}
 	getopt.FlagLong(
 		&opts.redis,
 		"redis",
@@ -35,12 +34,33 @@ func parseopts() opts {
 		"Address to redis, e.g. host[:port]",
 		"addr",
 	).Mandatory()
-	heartbeat := getopt.DurationLong(
-		"heartbeat",
-		'H',
-		60 * time.Second,
-		"time between READY messages to source",
-		"interval",
+	getopt.FlagLong(
+		&opts.group,
+		"group",
+		'G',
+		"Consumer group. " +
+		    "All workers should belong to the same group for " +
+		    "fair distribution of work. " +
+		    "You should normally not need to change this.",
+		"name",
+	)
+	getopt.FlagLong(
+		&opts.stream,
+		"stream",
+		'S',
+		"Stream ID to read tasks from. Must be consistent with the producer. " +
+		    "You should normally not need to change this.",
+		"name",
+	)
+	getopt.FlagLong(
+		&opts.consumerid,
+		"consumer-id",
+		'C',
+		"Consumer ID of this worker. This should be unique among all the " +
+			"workers in the consumer group. If no name is specified, " +
+			"a random ID will be generated. You should normally not need " +
+			"to specify a consumer ID.",
+		"id",
 	)
 	jobs := getopt.IntLong(
 		"jobs",
@@ -56,7 +76,9 @@ func parseopts() opts {
 		os.Exit(0)
 	}
 
-	opts.heartbeat = *heartbeat
+	if opts.consumerid == "" {
+		opts.consumerid = fmt.Sprintf("consumer:%s", util.MakePID())
+	}
 	opts.jobs = *jobs
 	return opts
 }
@@ -66,18 +88,66 @@ type task struct {
 	blob  azblob.BlobURL
 }
 
+func run(
+	storage redis.Cmdable,
+	njobs   int,
+	process map[string]interface{},
+) {
+	/*
+	 * Curiously, the XReadGroup/XStream values end up being map[string]string
+	 * effectively. This is detail of the go library where it uses ReadLine()
+	 * internally - redis uses byte strings as strings anyway.
+	 *
+	 * The type assertion is not checked and will panic. This is a good thing
+	 * as it should only happen when the redis library is updated to no longer
+	 * return strings, and crash oneseismic properly. This should catch such a
+	 * change early.
+	 */
+	pid  := process["pid" ].(string)
+	part := process["part"].(string)
+	body := process["task"].(string)
+	msg  := [][]byte{ []byte(pid), []byte(part), []byte(body) }
+	proc, err := exec(msg)
+	if err != nil {
+		log.Printf("%s dropping bad process %v", proc.logpid(), err)
+		return
+	}
+	/*
+	 * Build the container-URL early, in case it should be broken,
+	 * so that no goroutines are scheduled before any sanity
+	 * checking of input.
+	 */
+	container, err := proc.container()
+	if err != nil {
+		log.Printf("%s dropping bad process %v", proc.logpid(), err)
+		return
+	}
+
+	// TODO: share job queue between processes, but use private
+	// output/error queue? Then buffered-elements would control
+	// number of pending jobs Rather than it now continuing once
+	// the last task has been scheduled and possibly spawning N
+	// more goroutines.
+	frags  := make(chan fragment)
+	tasks  := make(chan task)
+	errors := make(chan error)
+	/*
+	 * The goroutines must be signalled that there are no more data, or
+	 * they will leak.
+	 */
+	defer close(tasks)
+	for i := 0; i < njobs; i++ {
+		go fetch(proc.ctx, tasks, frags, errors)
+	}
+	fragments := proc.fragments()
+	go proc.gather(storage, len(fragments), frags, errors)
+	for i, id := range fragments {
+		tasks <- task { index: i, blob: container.NewBlobURL(id) }
+	}
+}
+
 func main() {
 	opts := parseopts()
-
-	source, err := zmq4.NewSocket(zmq4.DEALER)
-	if err != nil {
-		log.Fatalf("Unable to create socket: %v", err)
-	}
-	err = source.Connect(opts.source)
-	if err != nil {
-		log.Fatalf("Unable to connect queue to %s: %v", opts.source, err)
-	}
-	defer source.Close()
 
 	storage := redis.NewClient(&redis.Options {
 		Addr: opts.redis,
@@ -86,106 +156,103 @@ func main() {
 	// TODO: err?
 	defer storage.Close()
 
-	poll := zmq4.NewPoller()
-	poll.Add(source, zmq4.POLLIN)
+	ctx := context.Background()
+	/*
+	 * Always try to create the group and stream on start-up. The stream may
+	 * have already been created, but that is a soft error to be discarded. In
+	 * fact, the stream and group *probably* exists already because nodes
+	 * connect in parallel.
+	 *
+	 * The XGroupCreate command is really just a try-create and fits well here,
+	 * it offloads all the concurrency issues to redis. Consequently, this
+	 * program can immediately go into the work loop assuming that the stream
+	 * and group exists, without having to do any chatter or sync.
+	 */
+	err := storage.XGroupCreateMkStream(ctx, opts.stream, opts.group, "0").Err()
+	if err != nil {
+		 // Check if the response is a redis error (= BUSYGROUP), which just
+		 // means the group already exists and nothing happens, or if it is a
+		 // network error or something
+		_, busygroup := err.(interface{RedisError()});
+		if !busygroup {
+			log.Fatalf(
+				"Unable to create group %s for stream %s: %v",
+				opts.group,
+				opts.stream,
+				err,
+			)
+		}
+	}
+	log.Printf(
+		"consumer %s in group %s connecting to stream %s",
+		opts.consumerid,
+		opts.group,
+		opts.stream,
+	)
+
+	// TODO: destroy consumers on shutdown
+	// All reads can re-use the same group-args
+	// NoAck is turned on - we can afford to fail requests and lose messages
+	// should a node crash.
+	args := redis.XReadGroupArgs {
+		Group:    opts.group,
+		Consumer: opts.consumerid,
+		Streams:  []string { opts.stream, ">", },
+		Count:    1,
+		NoAck:    true,
+	}
+
 	for {
-		/*
-		 * There should only be new assignments after a READY message is sent,
-		 * so it should be performed unconditionally at the start of the loop.
-		 */
-		_, err := source.Send("READY", 0)
+		msgs, err := storage.XReadGroup(ctx, &args).Result()
 		if err != nil {
-			switch zmq4.AsErrno(err) {
-				/*
-				 * Add handlers for recoverable errors here
-				 */
+			log.Fatalf("Unable to read from redis: %v", err)
+		}
+
+		go func() {
+			/*
+			 * Send a request-for-delete once the message has been read, in
+			 * order to stop the infinite growth of the job queue.
+			 *
+			 * This is the simplest solution that is correct [1] - the node
+			 * that gets a job also deletes it, which emulates a
+			 * fire-and-forget job queue. Unfortunately it also means more
+			 * traffic back to the central job queue node. In redis6.2 the
+			 * XTRIM MINID strategy is introduced, which opens up some
+			 * interesting strategies for cleaning up the job queue. This is
+			 * work for later though.
+			 *
+			 * [1] except in some crashing scenarios
+			 */
+			ids := make([]string, 0, 3)
+			for _, xmsg := range msgs {
+				for _, msg := range xmsg.Messages {
+					ids = append(ids, msg.ID)
+				}
 			}
-
-			/*
-			 * Take down the service if the source socket breaks. This is a bit
-			 * heavy handed, but I have no good grasp right now on what might
-			 * go wrong or is recoverable, so the right call is to promptly
-			 * kill anything that breaks the socket and fix issues when they
-			 * come up.
-			 *
-			 * There should be an automated log alert for this error.
-			 */
-			log.Fatalf("socket broken: %v", err)
-		}
-
-		active, err := poll.Poll(opts.heartbeat)
-		if err != nil {
-			/*
-			 * Take down the service if the poll breaks. This is a bit heavy
-			 * handed, but I have no good grasp right now on what might go
-			 * wrong, and what is recoverable, so the right call is to properly
-			 * kill anything that breaks and fix issues as they come up.
-			 *
-			 * There should be an automated log alert for this error.
-			 */
-			log.Fatalf("poll broken: %v", err)
-		}
+			err := storage.XDel(ctx, opts.stream, ids...).Err()
+			if err != nil {
+				log.Fatalf("Unable to XDEL: %v", err)
+			}
+		}()
 
 		/*
-		 * Process pending requests
+		 * The redis interface is designed for asking for a set of messages per
+		 * XReadGroup command, but we really only ask for one [1]. The redis-go
+		 * API is is aware of this which means the message structure must be
+		 * unpacked with nested loops. As a consequence, the read-count can
+		 * be increased with little code change, but it also means more nested
+		 * loops.
 		 *
-		 * There's some syntactical noise here with the range-of-sockets and
-		 * then switch. It is quite unnecessary for as long as there's only one
-		 * queue in use, but there's a high probability there will be more, and
-		 * with for-all infrastructure set up it should be easy to integrate
-		 * new handlers into the loop.
+		 * For ease of understanding, the loops can be ignored.
+		 *
+		 * [1] Instead opting for multiple fragments to download per message.
+		 *     This is a design decision from before redis streams, but it
+		 *     works well with redis streams too.
 		 */
-		for _, socket := range active {
-			switch s := socket.Socket; s {
-			case source:
-				msg, err := source.RecvMessageBytes(0)
-				if err != nil {
-					log.Fatalf("recvmessage broken: %v", err)
-				}
-				proc, err := exec(msg)
-				if err != nil {
-					log.Printf("%s dropping bad process %v", proc.logpid(), err)
-					break
-				}
-				/*
-				 * Build the container-URL early, in case it should be broken,
-				 * so that no goroutines are scheduled before any sanity
-				 * checking of input.
-				 */
-				container, err := proc.container()
-				if err != nil {
-					log.Printf("%s dropping bad process %v", proc.logpid(), err)
-					break
-				}
-				log.Printf("%s being processed", proc.logpid())
-				// TODO: share job between processes, but private use
-				// output/error queue? Then buffered-elements would control
-				// number of pending jobs Rather than it now continuing once
-				// the last task has been scheduled and possibly spawning N
-				// more goroutines.
-				frags  := make(chan fragment)
-				tasks  := make(chan task)
-				errors := make(chan error)
-				for i := 0; i < opts.jobs; i++ {
-					go fetch(proc.ctx, tasks, frags, errors)
-				}
-				fragments := proc.fragments()
-				go proc.gather(storage, len(fragments), frags, errors)
-				for i, id := range fragments {
-					tasks <- task { index: i, blob: container.NewBlobURL(id) }
-				}
-				/*
-				 * The goroutines must be signalled that there are no more
-				 * data, or they will leak. defer close() cannot be used since
-				 * it works on a function scope, unless the rest of the body is
-				 * wrapped in a func(){}()
-				 *
-				 * https://stackoverflow.com/questions/49456943/why-is-golang-defer-scoped-to-function-not-lexical-enclosure
-				 */
-				close(tasks)
-
-			default:
-				log.Fatalf("unhandled message: %v", s)
+		for _, xmsg := range msgs {
+			for _, message := range xmsg.Messages {
+				// TODO: graceful shutdown and/or cancellation
+				run(storage, opts.jobs, message.Values)
 			}
 		}
 	}

@@ -1,22 +1,5 @@
 version: '3.0'
 services:
-  manifest:
-    image: oneseismic.azurecr.io/base:${VERSION:-latest}
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: [
-        "oneseismic-manifest",
-        "--source",  "tcp://api:6143",
-        "--sink",    "tcp://*:6142",
-        "--control", "tcp://0.0.0.0:6141",
-        "--fail",    "tcp://api:6140",
-        "--redis",   "storage:6379",
-    ]
-    depends_on:
-      - api
-      - storage
-
   fragment:
     image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
@@ -24,9 +7,7 @@ services:
       dockerfile: Dockerfile
     command: [
         "oneseismic-fetch",
-        "--source", "tcp://manifest:6142",
         "--redis",  "storage:6379",
-        "--heartbeat", "60s",
     ]
     depends_on:
       - storage
@@ -52,7 +33,6 @@ services:
       - CLIENT_SECRET
       - LOG_LEVEL
       - REDIS_URL=storage:6379
-      - BIND=tcp://*:6143
       - SIGN_KEY
 
   storage:

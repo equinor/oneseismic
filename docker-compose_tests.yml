@@ -3,9 +3,6 @@ services:
   fragment:
     volumes:
       - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
-  manifest:
-    volumes:
-      - ./tests/ssl/az.pem:/etc/ssl/certs/az.pem
   auth:
     image: lambdaville/no-factor-auth:v0.1.0
     environment:
