@@ -116,9 +116,8 @@ func ParseManifest(doc []byte) (*message.Manifest, error) {
  * implemented as such. It's a plain function because it relies on the endpoint
  * & guid parameter. The endpoint can certainly be embedded as it is (for now)
  * static per invocation, but the guid needs to be parsed from the parameters.
- * This too can be moved into middleware, but at the cost of doing a lot of
- * hiding control flow a little bit more. It's not a too reasonable refactoring
- * however.
+ * This too can be moved into middleware, but at the cost of obscuring control
+ * flow. It's not a too reasonable refactoring however.
  */
 func GetManifest(
 	ctx      *gin.Context,
