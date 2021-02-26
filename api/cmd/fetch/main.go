@@ -142,7 +142,13 @@ func run(
 	fragments := proc.fragments()
 	go proc.gather(storage, len(fragments), frags, errors)
 	for i, id := range fragments {
-		tasks <- task { index: i, blob: container.NewBlobURL(id) }
+		select {
+		case tasks <- task { index: i, blob: container.NewBlobURL(id) }:
+		case <-proc.ctx.Done():
+			msg := "%s cancelled after %d scheduling fragments; %v"
+			log.Printf(msg, proc.logpid(), i, proc.ctx.Err())
+			break
+		}
 	}
 }
 
