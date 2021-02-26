@@ -207,7 +207,8 @@ func main() {
 	app := gin.Default()
 	
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
-	onbehalf := auth.OnBehalfOf(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
+	tokens   := auth.NewTokens(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
+	onbehalf := auth.OnBehalfOf(tokens)
 	queries := app.Group("/query")
 	queries.Use(validate)
 	queries.Use(onbehalf)

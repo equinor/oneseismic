@@ -220,3 +220,21 @@ func TestResultAuthTokens(t *testing.T) {
 		}
 	}
 }
+
+func TestOnbehalfBadTokenGivesBadRequest(t *testing.T) {
+	tokens := NewTokens("", "", "")
+
+	empty := ""
+	_, err := tokens.GetOnbehalf(empty)
+	status := err.(*statusError).status
+	if status != http.StatusBadRequest {
+		t.Errorf("Empty token should set status 400 BadRequest")
+	}
+
+	nobearer := "valid-but-malformed"
+	_, err = tokens.GetOnbehalf(nobearer)
+	status = err.(*statusError).status
+	if status != http.StatusBadRequest {
+		t.Errorf("Malformed token should status 400 BadRequest")
+	}
+}
