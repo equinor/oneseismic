@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
@@ -121,17 +122,15 @@ func ParseManifest(doc []byte) (*message.Manifest, error) {
  */
 func GetManifest(
 	ctx      *gin.Context,
+	tokens   auth.Tokens,
 	endpoint string,
 	guid     string,
 ) (*message.Manifest, error) {
-	token := ctx.GetString("OBOJWT")
-	if token == "" {
-		/*
-		 * The OBOJWT should be set in the middleware pipeline, so it's a
-		 * programming error if it's not set
-		 */
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return nil, fmt.Errorf("OBOJWT was not set on gin.Context")
+	authorization := ctx.GetHeader("Authorization")
+	token, err := tokens.GetOnbehalf(authorization)
+	if err != nil {
+		auth.AbortContextFromToken(ctx, err)
+		return nil, err
 	}
 
 	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))

@@ -104,6 +104,21 @@ func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
 	return obo.AccessToken, nil
 }
 
+/*
+ * A stupid helper that automates the inspection of the (unexported!) error
+ * type and setting the right status code. Logging is left to the caller, but
+ * the statusError supports the Error interface, so this should be perfectly
+ * fine.
+ */
+func AbortContextFromToken(ctx *gin.Context, err error) {
+	switch e := err.(type) {
+	case *statusError:
+		ctx.AbortWithStatus(e.status)
+	default:
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+	}
+}
+
 func verifyIssuerAudience(
 	issuer   string,
 	audience string,
@@ -250,37 +265,6 @@ func (o *oboToken) UnmarshalJSON(b []byte) error {
 
 	o.AccessToken = aux.AccessToken
 	return nil
-}
-
-/*
- * Re-write the authorization header, and perform requests to Azure on behalf
- * of the caller
- *
- * TODO: this should probably be broken up a bit more and more thoroughly
- * tested
- *
- * https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-on-behalf-of-flow
- */
-func OnBehalfOf(
-	tokens Tokens,
-) gin.HandlerFunc {
-	return func (ctx *gin.Context) {
-		// "Authorization: Bearer $token"
-		token := ctx.GetHeader("Authorization")
-		obotok, err := tokens.GetOnbehalf(token)
-		if err != nil {
-			switch e := err.(type) {
-			case *statusError:
-				log.Printf(e.message)
-				ctx.AbortWithStatus(e.status)
-			default:
-				log.Printf("%v", err)
-				ctx.AbortWithStatus(http.StatusInternalServerError)
-			}
-			return
-		}
-		ctx.Set("OBOJWT", obotok)
-	}
 }
 
 /*

@@ -179,13 +179,18 @@ func main() {
 	}
 
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
+	tokens  := auth.NewTokens(
+		openidcfg.TokenEndpoint,
+		opts.clientID,
+		opts.clientSecret,
+	)
 	cmdable := redis.NewClient(
 		&redis.Options {
 			Addr: opts.redisURL,
 			DB: 0,
 		},
 	)
-	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable)
+	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable, tokens)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
@@ -207,11 +212,8 @@ func main() {
 	app := gin.Default()
 	
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
-	tokens   := auth.NewTokens(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
-	onbehalf := auth.OnBehalfOf(tokens)
 	queries := app.Group("/query")
 	queries.Use(validate)
-	queries.Use(onbehalf)
 	queries.Use(util.GeneratePID)
 	queries.Use(util.QueryLogger)
 	queries.GET("/", slice.List)

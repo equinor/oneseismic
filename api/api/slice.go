@@ -30,17 +30,20 @@ type Slice struct {
 	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
 	keyring  *auth.Keyring
 	storage  redis.Cmdable
+	tokens   auth.Tokens
 }
 
 func MakeSlice(
 	keyring *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
+	tokens   auth.Tokens,
 ) Slice {
 	return Slice {
 		endpoint: endpoint,
 		keyring: keyring,
 		storage: storage,
+		tokens:  tokens,
 	}
 }
 
@@ -124,7 +127,7 @@ func (s *Slice) Entry(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.endpoint, guid)
+	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -157,7 +160,7 @@ func (s *Slice) About(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.endpoint, guid)
+	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -203,7 +206,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.endpoint, params.guid)
+	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, params.guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -246,7 +249,14 @@ func (s *Slice) Get(ctx *gin.Context) {
 	 * faithful to what's stored in blob, i.e. information can be stripped out
 	 * or added.
 	 */
-	token := ctx.GetString("OBOJWT")
+	authorization := ctx.GetHeader("Authorization")
+	token, err := s.tokens.GetOnbehalf(authorization)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		auth.AbortContextFromToken(ctx, err)
+		return
+	}
+
 	msg := s.makeTask(pid, token, manifest, params)
 	req, err := msg.Pack()
 	if err != nil {
@@ -297,7 +307,13 @@ func (s *Slice) Get(ctx *gin.Context) {
 
 func (s *Slice) List(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
-	token := ctx.GetString("OBOJWT")
+	authorization := ctx.GetHeader("Authorization")
+	token, err := s.tokens.GetOnbehalf(authorization)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		auth.AbortContextFromToken(ctx, err)
+		return
+	}
 
 	endpoint, err := url.Parse(s.endpoint)
 	if err != nil {
