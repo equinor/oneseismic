@@ -311,37 +311,28 @@ func (s *Slice) Get(ctx *gin.Context) {
 
 func (s *Slice) List(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
-	authorization := ctx.GetHeader("Authorization")
-	token, err := s.tokens.GetOnbehalf(authorization)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		auth.AbortContextFromToken(ctx, err)
-		return
-	}
-
 	endpoint, err := url.Parse(s.endpoint)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	cubes, err := util.ListCubes(ctx, endpoint, token)
+
+	authorization := ctx.GetHeader("Authorization")
+	cubes, err := util.WithOnbehalfAndRetry(
+		s.tokens,
+		authorization,
+		func (tok string) (interface{}, error) {
+			return util.ListCubes(ctx, endpoint, tok)
+		},
+	)
 	if err != nil {
-		s.tokens.Invalidate(authorization)
-		token, err = s.tokens.GetOnbehalf(authorization)
-		if err != nil {
-			log.Printf("pid=%s, %v", pid, err)
-			auth.AbortContextFromToken(ctx, err)
-			return
-		}
-		cubes, err = util.ListCubes(ctx, endpoint, token)
 		log.Printf("pid=%s, %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
+		auth.AbortContextFromToken(ctx, err)
 	}
 
 	links := make(map[string]string)
-	for _, cube := range cubes {
+	for _, cube := range cubes.([]string) {
 		links[cube] = fmt.Sprintf("query/%s", cube)
 	}
 
