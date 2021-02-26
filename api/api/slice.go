@@ -278,12 +278,17 @@ func (s *Slice) Get(ctx *gin.Context) {
 
 	tasks := makeSchedule(req)
 	ntasks := len(tasks)
+
+	ctxcopy := ctx.Copy()
 	go func() {
 		/*
 		 * Do the I/O in a go-routine to respond to clients faster.
+		 *
+		 * The context must be copied for this to not be broken
+		 * https://pkg.go.dev/github.com/gin-gonic/gin#Context.Copy
 		 */
 		s.storage.Set(
-			ctx,
+			ctxcopy,
 			fmt.Sprintf("%s:header.json", pid),
 			fmt.Sprintf("{\"parts\": %d }", ntasks),
 			10 * time.Minute,
@@ -295,7 +300,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 				"task", task,
 			}
 			args := redis.XAddArgs{Stream: "jobs", Values: values}
-			_, err = s.storage.XAdd(ctx, &args).Result()
+			_, err = s.storage.XAdd(ctxcopy, &args).Result()
 			if err != nil {
 				log.Fatalf("Unable to put %d in storage; %v", i, err)
 			}
