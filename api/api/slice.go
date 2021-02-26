@@ -252,6 +252,10 @@ func (s *Slice) Get(ctx *gin.Context) {
 	authorization := ctx.GetHeader("Authorization")
 	token, err := s.tokens.GetOnbehalf(authorization)
 	if err != nil {
+		// No further recovery is tried - GetManifest should already have fixed
+		// a broken token, so this should be readily cached. If it is
+		// just-about to expire then the process will fail pretty soon anyway,
+		// so just give up.
 		log.Printf("pid=%s, %v", pid, err)
 		auth.AbortContextFromToken(ctx, err)
 		return
@@ -323,7 +327,15 @@ func (s *Slice) List(ctx *gin.Context) {
 	}
 	cubes, err := util.ListCubes(ctx, endpoint, token)
 	if err != nil {
-		log.Printf("%s %v", pid, err)
+		s.tokens.Invalidate(authorization)
+		token, err = s.tokens.GetOnbehalf(authorization)
+		if err != nil {
+			log.Printf("pid=%s, %v", pid, err)
+			auth.AbortContextFromToken(ctx, err)
+			return
+		}
+		cubes, err = util.ListCubes(ctx, endpoint, token)
+		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}

@@ -141,8 +141,17 @@ func GetManifest(
 
 	manifest, err := FetchManifest(ctx, token, container)
 	if err != nil {
-		AbortOnManifestError(ctx, err)
-		return nil, err
+		tokens.Invalidate(authorization)
+		token, err = tokens.GetOnbehalf(authorization)
+		if err != nil {
+			auth.AbortContextFromToken(ctx, err)
+			return nil, err
+		}
+		manifest, err = FetchManifest(ctx, token, container)
+		if err != nil {
+			AbortOnManifestError(ctx, err)
+			return nil, err
+		}
 	}
 
 	m, err := ParseManifest(manifest)

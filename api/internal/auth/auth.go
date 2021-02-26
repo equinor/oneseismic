@@ -37,7 +37,12 @@ func (s *statusError) Error() string {
 }
 
 type Tokens interface {
+	// Get an on-behalf-of token, possibly from cache. The token may have
+	// expired, be bad, or revoked, in which case it must be manually evicted.
 	GetOnbehalf(auth string) (string, error)
+	// Invalidate a user token. This evicts the key from the cache, and makes
+	// the next invocation of GetOnbehalf() fetch a fresh token.
+	Invalidate(auth string)
 }
 
 type TokenFetch struct {
@@ -109,6 +114,10 @@ func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
 	}
 	t.cache.Store(token, obo.AccessToken)
 	return obo.AccessToken, nil
+}
+
+func (t *TokenFetch) Invalidate(auth string) {
+	t.cache.Delete(auth)
 }
 
 /*
