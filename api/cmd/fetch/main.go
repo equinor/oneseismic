@@ -128,8 +128,8 @@ func run(
 	// number of pending jobs Rather than it now continuing once
 	// the last task has been scheduled and possibly spawning N
 	// more goroutines.
-	frags  := make(chan fragment)
-	tasks  := make(chan task)
+	frags  := make(chan fragment, njobs)
+	tasks  := make(chan task, njobs)
 	errors := make(chan error)
 	/*
 	 * The goroutines must be signalled that there are no more data, or
