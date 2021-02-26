@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"sync"
 
 	"github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
@@ -43,6 +44,7 @@ type TokenFetch struct {
 	loginAddr    string
 	clientID     string
 	clientSecret string
+	cache        sync.Map
 }
 
 func NewTokens(
@@ -58,6 +60,10 @@ func NewTokens(
 }
 
 func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
+	if cached, found := t.cache.Load(token); found {
+		return cached.(string), nil
+	}
+
 	if err := checkAuthorizationHeader(token); err != nil {
 		// TODO: should the authorization header itself be logged?
 		return "", &statusError {
@@ -101,6 +107,7 @@ func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
 			message: fmt.Sprintf("Token decoding failed: %v", err),
 		}
 	}
+	t.cache.Store(token, obo.AccessToken)
 	return obo.AccessToken, nil
 }
 
