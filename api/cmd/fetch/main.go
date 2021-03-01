@@ -128,8 +128,8 @@ func run(
 	// number of pending jobs Rather than it now continuing once
 	// the last task has been scheduled and possibly spawning N
 	// more goroutines.
-	frags  := make(chan fragment)
-	tasks  := make(chan task)
+	frags  := make(chan fragment, njobs)
+	tasks  := make(chan task, njobs)
 	errors := make(chan error)
 	/*
 	 * The goroutines must be signalled that there are no more data, or
@@ -142,7 +142,13 @@ func run(
 	fragments := proc.fragments()
 	go proc.gather(storage, len(fragments), frags, errors)
 	for i, id := range fragments {
-		tasks <- task { index: i, blob: container.NewBlobURL(id) }
+		select {
+		case tasks <- task { index: i, blob: container.NewBlobURL(id) }:
+		case <-proc.ctx.Done():
+			msg := "%s cancelled after %d scheduling fragments; %v"
+			log.Printf(msg, proc.logpid(), i, proc.ctx.Err())
+			break
+		}
 	}
 }
 

@@ -9,11 +9,131 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"sync"
 
 	"github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/gin-gonic/gin"
 )
+
+/*
+ * The status error is an internal error type that provides a (suggested) http
+ * error code and a (suggested) log message. Virtually all errors should result
+ * in aborting the request and setting the appropriate HTTP return code, and
+ * this has to be communicated from helper functions somehow.
+ *
+ * Without a custom and predicatable error type, then functions that call
+ * helpers would have to know intimately all error paths and possible error
+ * types when writing log messages and setting status codes, which defeats the
+ * purpose of the helper functions. This is not designed to be an exported.
+ */
+type statusError struct {
+	status  int
+	message string
+}
+
+func (s *statusError) Error() string {
+	return s.message
+}
+
+type Tokens interface {
+	// Get an on-behalf-of token, possibly from cache. The token may have
+	// expired, be bad, or revoked, in which case it must be manually evicted.
+	GetOnbehalf(auth string) (string, error)
+	// Invalidate a user token. This evicts the key from the cache, and makes
+	// the next invocation of GetOnbehalf() fetch a fresh token.
+	Invalidate(auth string)
+}
+
+type TokenFetch struct {
+	loginAddr    string
+	clientID     string
+	clientSecret string
+	cache        sync.Map
+}
+
+func NewTokens(
+	loginAddr    string,
+	clientID     string,
+	clientSecret string,
+) Tokens {
+	return &TokenFetch {
+		loginAddr:    loginAddr,
+		clientID:     clientID,
+		clientSecret: clientSecret,
+	}
+}
+
+func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
+	if cached, found := t.cache.Load(token); found {
+		return cached.(string), nil
+	}
+
+	if err := checkAuthorizationHeader(token); err != nil {
+		// TODO: should the authorization header itself be logged?
+		return "", &statusError {
+			status: http.StatusBadRequest,
+			message: fmt.Sprintf("%v", err),
+		}
+	}
+
+	/*
+	 * TODO: this could use some more tests to make sure that error paths are
+	 * properly taken and errors are properly set. Unfortunately, it's mostly
+	 * I/O and invoking third-party parsing, so testing is a right pain and an
+	 * underwhelming gain, so it's put off until later.
+	 */
+	response, err := fetchOnBehalfToken(
+		t.loginAddr,
+		t.clientID,
+		t.clientSecret,
+		strings.Split(token, " ")[1],
+	)
+	if err != nil {
+		return "", &statusError {
+			status:  http.StatusUnauthorized,
+			message: fmt.Sprintf("Request for obo token failed: %v", err),
+		}
+	}
+
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return "", &statusError {
+			status:  http.StatusUnauthorized,
+			message: response.Status,
+		}
+	}
+
+	obo := oboToken{}
+	err = json.NewDecoder(response.Body).Decode(&obo)
+	if err != nil {
+		return "", &statusError {
+			status: http.StatusInternalServerError,
+			message: fmt.Sprintf("Token decoding failed: %v", err),
+		}
+	}
+	t.cache.Store(token, obo.AccessToken)
+	return obo.AccessToken, nil
+}
+
+func (t *TokenFetch) Invalidate(auth string) {
+	t.cache.Delete(auth)
+}
+
+/*
+ * A stupid helper that automates the inspection of the (unexported!) error
+ * type and setting the right status code. Logging is left to the caller, but
+ * the statusError supports the Error interface, so this should be perfectly
+ * fine.
+ */
+func AbortContextFromToken(ctx *gin.Context, err error) {
+	switch e := err.(type) {
+	case *statusError:
+		ctx.AbortWithStatus(e.status)
+	default:
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+	}
+}
 
 func verifyIssuerAudience(
 	issuer   string,
@@ -161,61 +281,6 @@ func (o *oboToken) UnmarshalJSON(b []byte) error {
 
 	o.AccessToken = aux.AccessToken
 	return nil
-}
-
-/*
- * Re-write the authorization header, and perform requests to Azure on behalf
- * of the caller
- *
- * TODO: this should probably be broken up a bit more and more thoroughly
- * tested
- *
- * https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-on-behalf-of-flow
- */
-func OnBehalfOf(
-	loginAddr    string,
-	clientID     string,
-	clientSecret string,
-) gin.HandlerFunc {
-
-	return func (ctx *gin.Context) {
-		// "Authorization: Bearer $token"
-		token := ctx.GetHeader("Authorization")
-		if err := checkAuthorizationHeader(token); err != nil {
-			ctx.AbortWithStatus(http.StatusInternalServerError)
-			// TODO: should the authorization header itself be logged?
-			log.Printf("%v", err)
-			return
-		}
-
-		response, err := fetchOnBehalfToken(
-			loginAddr,
-			clientID,
-			clientSecret,
-			strings.Split(token, " ")[1],
-		)
-		if err != nil {
-			log.Printf("Could not perform request for obo token: %v", err)
-			// InternalServerError?
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		defer response.Body.Close()
-		if response.StatusCode != http.StatusOK {
-			log.Printf("Request for obo token failed: %v", response.Status)
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		obo := oboToken{}
-		err = json.NewDecoder(response.Body).Decode(&obo)
-		if err != nil {
-			log.Printf("Unable to decode obo token: %v", err)
-			ctx.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-		ctx.Set("OBOJWT", obo.AccessToken)
-	}
 }
 
 /*

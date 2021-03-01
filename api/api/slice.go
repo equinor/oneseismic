@@ -30,17 +30,20 @@ type Slice struct {
 	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
 	keyring  *auth.Keyring
 	storage  redis.Cmdable
+	tokens   auth.Tokens
 }
 
 func MakeSlice(
 	keyring *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
+	tokens   auth.Tokens,
 ) Slice {
 	return Slice {
 		endpoint: endpoint,
 		keyring: keyring,
 		storage: storage,
+		tokens:  tokens,
 	}
 }
 
@@ -124,7 +127,7 @@ func (s *Slice) Entry(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.endpoint, guid)
+	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -157,7 +160,7 @@ func (s *Slice) About(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.endpoint, guid)
+	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -203,7 +206,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.endpoint, params.guid)
+	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, params.guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -246,7 +249,18 @@ func (s *Slice) Get(ctx *gin.Context) {
 	 * faithful to what's stored in blob, i.e. information can be stripped out
 	 * or added.
 	 */
-	token := ctx.GetString("OBOJWT")
+	authorization := ctx.GetHeader("Authorization")
+	token, err := s.tokens.GetOnbehalf(authorization)
+	if err != nil {
+		// No further recovery is tried - GetManifest should already have fixed
+		// a broken token, so this should be readily cached. If it is
+		// just-about to expire then the process will fail pretty soon anyway,
+		// so just give up.
+		log.Printf("pid=%s, %v", pid, err)
+		auth.AbortContextFromToken(ctx, err)
+		return
+	}
+
 	msg := s.makeTask(pid, token, manifest, params)
 	req, err := msg.Pack()
 	if err != nil {
@@ -264,12 +278,17 @@ func (s *Slice) Get(ctx *gin.Context) {
 
 	tasks := makeSchedule(req)
 	ntasks := len(tasks)
+
+	ctxcopy := ctx.Copy()
 	go func() {
 		/*
 		 * Do the I/O in a go-routine to respond to clients faster.
+		 *
+		 * The context must be copied for this to not be broken
+		 * https://pkg.go.dev/github.com/gin-gonic/gin#Context.Copy
 		 */
 		s.storage.Set(
-			ctx,
+			ctxcopy,
 			fmt.Sprintf("%s:header.json", pid),
 			fmt.Sprintf("{\"parts\": %d }", ntasks),
 			10 * time.Minute,
@@ -281,7 +300,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 				"task", task,
 			}
 			args := redis.XAddArgs{Stream: "jobs", Values: values}
-			_, err = s.storage.XAdd(ctx, &args).Result()
+			_, err = s.storage.XAdd(ctxcopy, &args).Result()
 			if err != nil {
 				log.Fatalf("Unable to put %d in storage; %v", i, err)
 			}
@@ -297,23 +316,28 @@ func (s *Slice) Get(ctx *gin.Context) {
 
 func (s *Slice) List(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
-	token := ctx.GetString("OBOJWT")
-
 	endpoint, err := url.Parse(s.endpoint)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	cubes, err := util.ListCubes(ctx, endpoint, token)
+
+	authorization := ctx.GetHeader("Authorization")
+	cubes, err := util.WithOnbehalfAndRetry(
+		s.tokens,
+		authorization,
+		func (tok string) (interface{}, error) {
+			return util.ListCubes(ctx, endpoint, tok)
+		},
+	)
 	if err != nil {
-		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
+		log.Printf("pid=%s, %v", pid, err)
+		auth.AbortContextFromToken(ctx, err)
 	}
 
 	links := make(map[string]string)
-	for _, cube := range cubes {
+	for _, cube := range cubes.([]string) {
 		links[cube] = fmt.Sprintf("query/%s", cube)
 	}
 

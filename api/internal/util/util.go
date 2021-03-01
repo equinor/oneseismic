@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
@@ -116,44 +117,103 @@ func ParseManifest(doc []byte) (*message.Manifest, error) {
  * implemented as such. It's a plain function because it relies on the endpoint
  * & guid parameter. The endpoint can certainly be embedded as it is (for now)
  * static per invocation, but the guid needs to be parsed from the parameters.
- * This too can be moved into middleware, but at the cost of doing a lot of
- * hiding control flow a little bit more. It's not a too reasonable refactoring
- * however.
+ * This too can be moved into middleware, but at the cost of obscuring control
+ * flow. It's not a too reasonable refactoring however.
  */
 func GetManifest(
 	ctx      *gin.Context,
+	tokens   auth.Tokens,
 	endpoint string,
 	guid     string,
 ) (*message.Manifest, error) {
-	token := ctx.GetString("OBOJWT")
-	if token == "" {
-		/*
-		 * The OBOJWT should be set in the middleware pipeline, so it's a
-		 * programming error if it's not set
-		 */
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return nil, fmt.Errorf("OBOJWT was not set on gin.Context")
-	}
-
 	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return nil, err
 	}
 
-	manifest, err := FetchManifest(ctx, token, container)
+	authorization := ctx.GetHeader("Authorization")
+	manifest, err := WithOnbehalfAndRetry(
+		tokens,
+		authorization,
+		func (tok string) (interface{}, error) {
+			return FetchManifest(ctx, tok, container)
+		},
+	)
 	if err != nil {
-		AbortOnManifestError(ctx, err)
+		auth.AbortContextFromToken(ctx, err)
 		return nil, err
 	}
 
-	m, err := ParseManifest(manifest)
+	m, err := ParseManifest(manifest.([]byte))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return nil, err
 	}
 
 	return m, nil
+}
+
+// This function is pure automation
+//
+// So checking if a token is valid, has the right permissions, not-yet-expired
+// and actually works is something we don't want to do - it's error prone,
+// mistakes mean security vulnerabilities, and it's plain ugly. At the same
+// time we need to cache, because requesting fresh tokens every time is *very*
+// slow (400ms or more added to each request).
+//
+// To handle this, the auth.Tokens implementation can cache for us, but it
+// cannot know what we want to use to the token for. That's where this function
+// kicks in - it automates getting a token (maybe from cache, maybe fresh),
+// calling a function and checking the error, and retrying once should it fail.
+//
+// If the failure is simply a revoked or expired token, the second call should
+// be successful. If it's bad permissions or similar then the second call
+// should also fail. This means bad requests are significantly slower, but they
+// should be reasonably rare.
+//
+// Effectively, this is a way to evict old cache entries, and using this helper
+// should be preferred to manually retrying. It does come with some complexity
+// though - generic code in go is not pretty (hello, interface{}), but the
+// alternative is the structurally repetitive try-then-maybe-retry which I
+// already messed up once. It also mixes errors from GetOnbehalf and the actual
+// function, so callers that really care about error specifics must handle
+// both.
+//
+// The fn callback should take an on-behalf token as a parameter.
+//
+// Example use:
+//
+// ctx := context.Background()
+// endpoint := "https://acc.storage.com/"
+// authorization := ctx.GetHeader("Authorization")
+// cubes, err := util.WithOnbehalfAndRetry(
+// 	tokens,
+// 	authorization,
+// 	function (tok string) (interface{}, error) {
+// 		return list(ctx, endpoint, tok)
+//  }
+// )
+func WithOnbehalfAndRetry(
+	tokens auth.Tokens,
+	auth   string,
+	fn     func(string) (interface{}, error),
+) (interface{}, error) {
+	token, err := tokens.GetOnbehalf(auth)
+	if err != nil {
+		return nil, err
+	}
+	v, err := fn(token)
+	if err == nil {
+		return v, nil
+	}
+
+	tokens.Invalidate(auth)
+	token, err = tokens.GetOnbehalf(auth)
+	if err != nil {
+		return nil, err
+	}
+	return fn(token)
 }
 
 /*
