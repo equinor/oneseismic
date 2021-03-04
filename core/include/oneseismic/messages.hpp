@@ -35,6 +35,7 @@ struct common_task {
     std::string        manifest;
     std::string        storage_endpoint;
     std::vector< int > shape;
+    std::vector< int > shape_cube;
     std::string        function;
 
     std::string pack() const noexcept(false);
@@ -58,7 +59,6 @@ struct slice_fetch : public slice_task {
     slice_fetch() = default;
     explicit slice_fetch(const slice_task& t) : slice_task(t) {}
 
-    std::vector< int > cube_shape;
     std::vector< std::vector< int > > ids;
 
     std::string pack() const noexcept (false);

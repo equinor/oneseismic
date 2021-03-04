@@ -35,6 +35,7 @@ TEST_CASE("well-formed slice-task is unpacked correctly") {
         "storage_endpoint": "https://storage.com",
         "manifest": "{}",
         "shape": [64, 64, 64],
+        "shape-cube": [128, 128, 128],
         "function": "slice",
         "params": {
             "dim": 0,
@@ -48,7 +49,8 @@ TEST_CASE("well-formed slice-task is unpacked correctly") {
     CHECK(task.guid  == "object-id");
     CHECK(task.manifest == "{}");
     CHECK(task.storage_endpoint == "https://storage.com");
-    CHECK_THAT(task.shape, Equals(std::vector< int >{64, 64, 64}));
+    CHECK_THAT(task.shape,      Equals(std::vector< int >{ 64,  64,  64}));
+    CHECK_THAT(task.shape_cube, Equals(std::vector< int >{128, 128, 128}));
     CHECK(task.dim == 0);
     CHECK(task.lineno == 10);
 }
@@ -103,6 +105,7 @@ TEST_CASE("slice-task can round trip packing") {
     task.manifest = "{}";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
+    task.shape_cube = { 128, 128, 128 };
     task.function = "slice";
     task.dim = 1;
     task.lineno = 2;
@@ -121,6 +124,7 @@ TEST_CASE("slice-task sets function to 'slice'") {
     task.manifest = "{}";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
+    task.shape_cube = { 128, 128, 128 };
     task.function = "garbage";
     task.dim = 1;
     task.lineno = 2;
@@ -138,10 +142,10 @@ TEST_CASE("slice-fetch can round trip packing") {
     task.manifest = "{}";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
+    task.shape_cube = { 128, 128, 128 };
     task.function = "slice";
     task.dim = 1;
     task.lineno = 2;
-    task.cube_shape = { 128, 128, 128 };
     task.ids = {
         { 0, 1, 2 },
         { 3, 4, 5 },

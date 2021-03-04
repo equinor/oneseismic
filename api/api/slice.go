@@ -91,6 +91,8 @@ func (s *Slice) makeTask(
 	pid string,
 	token string,
 	manifest []byte,
+	shape     []int32,
+	shapecube []int32,
 	params *sliceParams,
 ) message.Task {
 	return message.Task {
@@ -99,7 +101,8 @@ func (s *Slice) makeTask(
 		Guid:  params.guid,
 		StorageEndpoint: s.endpoint,
 		Manifest: string(manifest),
-		Shape: []int32 { 64, 64, 64, },
+		Shape: shape,
+		ShapeCube: shapecube,
 		Function: "slice",
 		Params: &message.SliceParams {
 			Dim:    params.dimension,
@@ -261,7 +264,18 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	msg := s.makeTask(pid, token, manifest, params)
+	cubeshape := make([]int32, 0, len(m.Dimensions))
+	for i := 0; i < len(m.Dimensions); i++ {
+		cubeshape = append(cubeshape, int32(len(m.Dimensions[i])))
+	}
+	msg := s.makeTask(
+		pid,
+		token,
+		manifest,
+		[]int32{ 64, 64, 64 },
+		cubeshape,
+		params,
+	)
 	req, err := msg.Pack()
 	if err != nil {
 		log.Printf("pid=%s, pack error: %v", pid, err)

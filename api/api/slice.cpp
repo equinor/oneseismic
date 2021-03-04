@@ -55,7 +55,7 @@ noexcept (false) {
 
     // TODO: name loop
     for (const auto& dimension : manifest_dimensions)
-        out.cube_shape.push_back(dimension.size());
+        out.shape_cube.push_back(dimension.size());
 
     const auto to_vec = [](const auto& x) {
         return std::vector< int > { int(x[0]), int(x[1]), int(x[2]) };

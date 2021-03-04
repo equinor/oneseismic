@@ -69,9 +69,9 @@ void slice::init(const char* msg, int len) {
     };
 
     one::CS< 3 > cube_shape {
-        std::size_t(this->req.cube_shape[0]),
-        std::size_t(this->req.cube_shape[1]),
-        std::size_t(this->req.cube_shape[2]),
+        std::size_t(this->req.shape_cube[0]),
+        std::size_t(this->req.shape_cube[1]),
+        std::size_t(this->req.shape_cube[2]),
     };
 
     this->dim = one::dimension< 3 >(this->req.dim);

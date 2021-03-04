@@ -8,11 +8,13 @@
 namespace one {
 
 void to_json(nlohmann::json& doc, const common_task& task) noexcept (false) {
+    assert(task.shape_cube.size() == task.shape.size());
     doc["token"]            = task.token;
     doc["guid"]             = task.guid;
     doc["manifest"]         = task.manifest;
     doc["storage_endpoint"] = task.storage_endpoint;
     doc["shape"]            = task.shape;
+    doc["shape-cube"]       = task.shape_cube;
     doc["function"]         = task.function;
 }
 
@@ -22,6 +24,7 @@ void from_json(const nlohmann::json& doc, common_task& task) noexcept (false) {
     doc.at("manifest")        .get_to(task.manifest);
     doc.at("storage_endpoint").get_to(task.storage_endpoint);
     doc.at("shape")           .get_to(task.shape);
+    doc.at("shape-cube")      .get_to(task.shape_cube);
     doc.at("function")        .get_to(task.function);
 }
 
@@ -48,14 +51,11 @@ void from_json(const nlohmann::json& doc, slice_task& task) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const slice_fetch& task) noexcept (false) {
     to_json(doc, static_cast< const slice_task& >(task));
-    assert(task.cube_shape.size() == task.shape.size());
-    doc["cube-shape"] = task.cube_shape;
     doc["ids"]        = task.ids;
 }
 
 void from_json(const nlohmann::json& doc, slice_fetch& task) noexcept (false) {
     from_json(doc, static_cast< slice_task& >(task));
-    doc.at("cube-shape").get_to(task.cube_shape);
     doc.at("ids")       .get_to(task.ids);
 
     const auto dims = task.ids.front().size();
