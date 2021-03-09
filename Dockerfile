@@ -47,7 +47,6 @@ RUN make -j4 install
 
 FROM golang:1.15-buster as gobuilder
 COPY --from=cppbuilder /usr/local /usr/local
-RUN apt-get update && apt-get install -y nlohmann-json3-dev
 
 WORKDIR /src
 COPY api/go.mod .
