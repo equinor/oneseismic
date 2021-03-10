@@ -1,6 +1,6 @@
 package api
 
-// #cgo LDFLAGS: -loneseismic -lfmt
+// #cgo LDFLAGS: -loneseismic
 // #include <stdlib.h>
 // #include "scheduler.h"
 import "C"
