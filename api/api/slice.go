@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/equinor/oneseismic/api/internal/util"
@@ -21,27 +21,22 @@ type process struct {
 }
 
 type Slice struct {
-	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
-	keyring  *auth.Keyring
-	tokens   auth.Tokens
-	sched    scheduler
+	BasicEndpoint
 }
 
 func MakeSlice(
-	keyring *auth.Keyring,
+	keyring  *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
 	tokens   auth.Tokens,
-) Slice {
-	return Slice {
-		endpoint: endpoint,
-		keyring: keyring,
-		tokens:  tokens,
-		/*
-		 * Scheduler should probably be exported (and in internal/?) and be
-		 * constructed directly by the caller.
-		 */
-		sched:   newScheduler(storage),
+) *Slice {
+	return &Slice {
+		MakeBasicEndpoint(
+			keyring,
+			endpoint,
+			storage,
+			tokens,
+		),
 	}
 }
 
@@ -85,28 +80,28 @@ func parseSliceParams(ctx *gin.Context) (*sliceParams, error) {
  * copy-parameter-into-struct function, but is a hook for sanity checks,
  * hard-coded values etc (such as the function parameter).
  */
-func (s *Slice) makeTask(
-	pid string,
-	token string,
-	manifest []byte,
+func (s *Slice) MakeTask(
+	pid       string,
+	token     string,
+	manifest  []byte,
 	shape     []int32,
 	shapecube []int32,
-	params *sliceParams,
-) message.Task {
-	return message.Task {
-		Pid:   pid,
-		Token: token,
-		Guid:  params.guid,
-		StorageEndpoint: s.endpoint,
-		Manifest: string(manifest),
-		Shape: shape,
-		ShapeCube: shapecube,
-		Function: "slice",
-		Params: &message.SliceParams {
-			Dim:    params.dimension,
-			Lineno: params.lineno,
-		},
+	params    *sliceParams,
+) *message.Task {
+	task := s.BasicEndpoint.MakeTask(
+		pid,
+		params.guid,
+		token,
+		manifest,
+		shape,
+		shapecube,
+	)
+	task.Function = "slice"
+	task.Params   = &message.SliceParams {
+		Dim:    params.dimension,
+		Lineno: params.lineno,
 	}
+	return task
 }
 
 func contains(haystack []int, needle int) bool {
@@ -116,40 +111,6 @@ func contains(haystack []int, needle int) bool {
 		}
 	}
 	return false
-}
-
-func (s *Slice) Entry(ctx *gin.Context) {
-	pid := ctx.GetString("pid")
-
-	guid := ctx.Param("guid")
-	if guid == "" {
-		log.Printf("pid=%s, guid empty", pid)
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		return
-	}
-
-	dims := make([]message.DimensionDescription, len(m.Dimensions))
-	for i := 0; i < len(m.Dimensions); i++ {
-		dims[i] = message.DimensionDescription {
-			Dimension: i,
-			Size: len(m.Dimensions[i]),
-			Keys: m.Dimensions[i],
-		}
-	}
-
-	ctx.JSON(http.StatusOK, gin.H {
-		"functions": gin.H {
-			"slice": fmt.Sprintf("query/%s/slice", guid),
-		},
-		"dimensions": dims,
-		"pid": pid,
-	})
 }
 
 func (s *Slice) About(ctx *gin.Context) {
@@ -248,7 +209,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 	for i := 0; i < len(m.Dimensions); i++ {
 		cubeshape = append(cubeshape, int32(len(m.Dimensions[i])))
 	}
-	msg := s.makeTask(
+	msg := s.MakeTask(
 		pid,
 		token,
 		manifest,
@@ -265,7 +226,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 	}
 
 	go func () {
-		err := s.sched.Schedule(context.Background(), &msg)
+		err := s.sched.Schedule(context.Background(), msg)
 		if err != nil {
 			/*
 			 * Make scheduling errors fatal to detect them for debugging.
@@ -279,37 +240,5 @@ func (s *Slice) Get(ctx *gin.Context) {
 		"location": fmt.Sprintf("result/%s", pid),
 		"status":   fmt.Sprintf("result/%s/status", pid),
 		"authorization": key,
-	})
-}
-
-func (s *Slice) List(ctx *gin.Context) {
-	pid := ctx.GetString("pid")
-	endpoint, err := url.Parse(s.endpoint)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	authorization := ctx.GetHeader("Authorization")
-	cubes, err := util.WithOnbehalfAndRetry(
-		s.tokens,
-		authorization,
-		func (tok string) (interface{}, error) {
-			return util.ListCubes(ctx, endpoint, tok)
-		},
-	)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		auth.AbortContextFromToken(ctx, err)
-	}
-
-	links := make(map[string]string)
-	for _, cube := range cubes.([]string) {
-		links[cube] = fmt.Sprintf("query/%s", cube)
-	}
-
-	ctx.JSON(http.StatusOK, gin.H {
-		"links": links,
 	})
 }
