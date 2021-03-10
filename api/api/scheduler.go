@@ -17,13 +17,18 @@ import "unsafe"
  */
 
 import(
+	"context"
 	"fmt"
+	"time"
+
+	"github.com/go-redis/redis/v8"
 
 	"github.com/equinor/oneseismic/api/internal/message"
 )
 
 type cppscheduler struct {
 	tasksize int
+	storage  redis.Cmdable
 }
 
 /*
@@ -33,25 +38,37 @@ type cppscheduler struct {
  * for now.
  */
 type scheduler interface {
-	Schedule(*message.Task) ([][]byte, error)
-	ScheduleRaw([]byte) ([][]byte, error)
+	/*
+	 * Schedule the task
+	 */
+	Schedule(context.Context, *message.Task) error
+	/*
+	 * Schedule the task when the task has already been packed into a byte
+	 * array.
+	 */
+	ScheduleRaw(context.Context, string, []byte) error
 }
 
-func newScheduler() scheduler {
+func newScheduler(storage redis.Cmdable) scheduler {
 	return &cppscheduler{
+		storage:  storage,
 		tasksize: 10,
 	}
 }
 
-func (sched *cppscheduler) Schedule(task *message.Task) ([][]byte, error) {
+func (sched *cppscheduler) Schedule(
+	ctx  context.Context,
+	task *message.Task,
+) error {
 	req, err := task.Pack()
 	if err != nil {
-		return nil, fmt.Errorf("pack error: %w", err)
+		return fmt.Errorf("pack error: %w", err)
 	}
-	return sched.ScheduleRaw(req)
+	return sched.ScheduleRaw(ctx, task.Pid, req)
 }
 
-func (sched *cppscheduler) ScheduleRaw(task []byte) ([][]byte, error) {
+func (sched *cppscheduler) plan(task []byte) ([][]byte, error) {
+	// TODO: exhaustive error check including those from C++ exceptions
 	csched := C.mkschedule(
 		(*C.char)(unsafe.Pointer(&task[0])),
 		C.int(len(task)),
@@ -67,4 +84,47 @@ func (sched *cppscheduler) ScheduleRaw(task []byte) ([][]byte, error) {
 		result = append(result, C.GoBytes(this.task, this.size))
 	}
 	return result, nil
+}
+
+func (sched *cppscheduler) ScheduleRaw(
+	ctx  context.Context,
+	pid  string,
+	task []byte,
+) error {
+	/*
+	 * TODO: This mixes I/O with parsing and building the plan. This could very
+	 * well be split up into sub structs and functions which can then be
+	 * dependency-injected for some customisation and easier testing.
+	 */
+	plan, err := sched.plan(task)
+	if err != nil {
+		return err
+	}
+	ntasks := len(plan)
+
+	sched.storage.Set(
+		ctx,
+		fmt.Sprintf("%s:header.json", pid),
+		fmt.Sprintf("{\"parts\": %d }", ntasks),
+		10 * time.Minute,
+	)
+	for i, task := range plan {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		part := fmt.Sprintf("%d/%d", i, ntasks)
+		values := []interface{} {
+			"pid",  pid,
+			"part", part,
+			"task", task,
+		}
+		args := redis.XAddArgs{Stream: "jobs", Values: values}
+		_, err := sched.storage.XAdd(ctx, &args).Result()
+		if err != nil {
+			msg := "part=%v unable to put in storage; %w"
+			return fmt.Errorf(msg, part, err)
+		}
+	}
+	return nil
 }

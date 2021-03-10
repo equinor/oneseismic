@@ -1,12 +1,12 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -23,7 +23,6 @@ type process struct {
 type Slice struct {
 	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
 	keyring  *auth.Keyring
-	storage  redis.Cmdable
 	tokens   auth.Tokens
 	sched    scheduler
 }
@@ -37,9 +36,12 @@ func MakeSlice(
 	return Slice {
 		endpoint: endpoint,
 		keyring: keyring,
-		storage: storage,
 		tokens:  tokens,
-		sched:   newScheduler(),
+		/*
+		 * Scheduler should probably be exported (and in internal/?) and be
+		 * constructed directly by the caller.
+		 */
+		sched:   newScheduler(storage),
 	}
 }
 
@@ -255,14 +257,6 @@ func (s *Slice) Get(ctx *gin.Context) {
 		params,
 	)
 
-	tasks, err := s.sched.Schedule(&msg)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	ntasks := len(tasks)
-
 	key, err := s.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
@@ -270,34 +264,17 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	ctxcopy := ctx.Copy()
-	go func() {
-		/*
-		 * Do the I/O in a go-routine to respond to clients faster.
-		 *
-		 * The context must be copied for this to not be broken
-		 * https://pkg.go.dev/github.com/gin-gonic/gin#Context.Copy
-		 */
-		s.storage.Set(
-			ctxcopy,
-			fmt.Sprintf("%s:header.json", pid),
-			fmt.Sprintf("{\"parts\": %d }", ntasks),
-			10 * time.Minute,
-		)
-		for i, task := range tasks {
-			values := []interface{} {
-				"pid",  pid,
-				"part", fmt.Sprintf("%d/%d", i, ntasks),
-				"task", task,
-			}
-			args := redis.XAddArgs{Stream: "jobs", Values: values}
-			_, err = s.storage.XAdd(ctxcopy, &args).Result()
-			if err != nil {
-				log.Fatalf("Unable to put %d in storage; %v", i, err)
-			}
+	go func () {
+		err := s.sched.Schedule(context.Background(), &msg)
+		if err != nil {
+			/*
+			 * Make scheduling errors fatal to detect them for debugging.
+			 * Eventually this should log, maybe cancel the process, and
+			 * continue.
+			 */
+			log.Fatalf("pid=%s, %v", pid, err)
 		}
 	}()
-
 	ctx.JSON(http.StatusOK, gin.H {
 		"location": fmt.Sprintf("result/%s", pid),
 		"status":   fmt.Sprintf("result/%s/status", pid),
