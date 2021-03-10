@@ -1,11 +1,12 @@
 #ifndef ONESEISMIC_PLAN_HPP
 #define ONESEISMIC_PLAN_HPP
 
+#include <string>
 #include <vector>
 
 namespace one {
 
-std::vector< std::vector< char > >
+std::vector< std::string >
 mkschedule(const char* doc, int len, int task_size) noexcept (false);
 
 }
