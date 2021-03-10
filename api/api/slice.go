@@ -1,11 +1,5 @@
 package api
 
-// #cgo LDFLAGS: -loneseismic -lfmt
-// #include <stdlib.h>
-// #include "slice.h"
-import "C"
-import "unsafe"
-
 import (
 	"fmt"
 	"log"
@@ -31,6 +25,7 @@ type Slice struct {
 	keyring  *auth.Keyring
 	storage  redis.Cmdable
 	tokens   auth.Tokens
+	sched    scheduler
 }
 
 func MakeSlice(
@@ -44,6 +39,7 @@ func MakeSlice(
 		keyring: keyring,
 		storage: storage,
 		tokens:  tokens,
+		sched:   newScheduler(),
 	}
 }
 
@@ -181,24 +177,6 @@ func (s *Slice) About(ctx *gin.Context) {
 	})
 }
 
-func makeSchedule(request []byte) [][]byte {
-	raw := C.mkschedule(
-		(*C.char)(unsafe.Pointer(&request[0])),
-		C.int(len(request)),
-		10, /* task-size */
-	)
-	defer C.cleanup(raw)
-
-	result := make([][]byte, 0)
-	size := unsafe.Sizeof(C.struct_task {})
-	base := uintptr(unsafe.Pointer(raw.tasks))
-	for i := uintptr(0); i < uintptr(raw.size); i++ {
-		this := (*C.struct_task)(unsafe.Pointer(base + (size * i)))
-		result = append(result, C.GoBytes(this.task, this.size))
-	}
-	return result
-}
-
 func (s *Slice) Get(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
 
@@ -276,12 +254,14 @@ func (s *Slice) Get(ctx *gin.Context) {
 		cubeshape,
 		params,
 	)
-	req, err := msg.Pack()
+
+	tasks, err := s.sched.Schedule(&msg)
 	if err != nil {
-		log.Printf("pid=%s, pack error: %v", pid, err)
+		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+	ntasks := len(tasks)
 
 	key, err := s.keyring.Sign(pid)
 	if err != nil {
@@ -289,9 +269,6 @@ func (s *Slice) Get(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-
-	tasks := makeSchedule(req)
-	ntasks := len(tasks)
 
 	ctxcopy := ctx.Copy()
 	go func() {
