@@ -58,6 +58,18 @@ void from_json(const nlohmann::json& doc, slice_fetch& task) noexcept (false) {
     from_json(doc, static_cast< slice_task& >(task));
     doc.at("ids")       .get_to(task.ids);
 
+    if (task.ids.empty()) {
+        /*
+         * TODO:
+         * Is this an error? Why is a request for zero fragments sent? It could
+         * be silently discarded or properly logged, then discarded.
+         *
+         * Since everything eventually loops over this list of IDs, accepting
+         * the message effectively silently discards it.
+         */
+        return;
+    }
+
     const auto dims = task.ids.front().size();
     const auto same_size = [dims](const auto& id) noexcept (true) {
         return id.size() == dims;
