@@ -11,7 +11,7 @@ namespace one {
 
 void slice::init(const char* msg, int len) {
     this->req.unpack(msg, msg + len);
-    this->tiles.clear();
+    this->tiles.tiles.clear();
 
     assert(this->req.shape[0] > 0);
     assert(this->req.shape[1] > 0);
@@ -38,7 +38,7 @@ void slice::init(const char* msg, int len) {
     );
 
     const auto& cs = this->gvt.cube_shape();
-    this->shape.assign(cs.begin(), cs.end());
+    this->tiles.shape.assign(cs.begin(), cs.end());
 }
 
 std::vector< std::string > slice::fragments() const {
@@ -78,11 +78,11 @@ void slice::add(int index, const char* chunk, int len) {
         src += this->layout.superstride * sizeof(float);
     }
 
-    this->tiles.push_back(t);
+    this->tiles.tiles.push_back(t);
 }
 
 std::string slice::pack() {
-    return this->one::slice_tiles::pack();
+    return this->tiles.pack();
 }
 
 }

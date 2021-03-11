@@ -32,7 +32,7 @@ public:
     std::string packed;
 };
 
-class slice : public proc, private one::slice_tiles {
+class slice : public proc {
 public:
     void init(const char* msg, int len) override;
     std::vector< std::string > fragments() const override;
@@ -41,6 +41,7 @@ public:
 
 private:
     one::slice_fetch req;
+    one::slice_tiles tiles;
 
     one::dimension< 3 > dim = one::dimension< 3 >(0);
     int idx;
