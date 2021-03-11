@@ -9,6 +9,19 @@
 
 namespace one {
 
+namespace {
+
+template < typename Seq >
+one::FID< 3 > id3(const Seq& seq) noexcept (false) {
+    return {
+        std::size_t(seq[0]),
+        std::size_t(seq[1]),
+        std::size_t(seq[2]),
+    };
+}
+
+}
+
 void proc::set_fragment_shape(const std::string& shape) noexcept (false) {
     this->prefix = "src/" + shape + "/";
 }
@@ -69,13 +82,7 @@ void slice::init(const char* msg, int len) {
 
 void slice::add(int key, const char* chunk, int len) {
     auto& t = this->output.tiles[key];
-    const auto& triple = this->input.ids[key];
-    const auto id3 = one::FID< 3 > {
-        std::size_t(triple[0]),
-        std::size_t(triple[1]),
-        std::size_t(triple[2]),
-    };
-    const auto squeezed_id = id3.squeeze(this->dim);
+    const auto squeezed_id = id3(this->input.ids[key]).squeeze(this->dim);
     const auto tile_layout = this->gvt.injection_stride(squeezed_id);
     t.iterations   = tile_layout.iterations;
     t.chunk_size   = tile_layout.chunk_size;
