@@ -33,7 +33,7 @@ const std::string& proc::fragments() const {
 void slice::init(const char* msg, int len) {
     this->clear();
     this->input.unpack(msg, msg + len);
-    this->output.tiles.clear();
+    this->output.tiles.resize(this->input.ids.size());
 
     assert(this->input.shape[0] > 0);
     assert(this->input.shape[1] > 0);
@@ -67,9 +67,9 @@ void slice::init(const char* msg, int len) {
         this->add_fragment(fmt::format("{}.f32", fmt::join(id, "-")));
 }
 
-void slice::add(int index, const char* chunk, int len) {
-    one::tile t;
-    const auto& triple = this->input.ids[index];
+void slice::add(int key, const char* chunk, int len) {
+    auto& t = this->output.tiles[key];
+    const auto& triple = this->input.ids[key];
     const auto id3 = one::FID< 3 > {
         std::size_t(triple[0]),
         std::size_t(triple[1]),
@@ -91,8 +91,6 @@ void slice::add(int index, const char* chunk, int len) {
         dst += this->layout.substride * sizeof(float);
         src += this->layout.superstride * sizeof(float);
     }
-
-    this->output.tiles.push_back(t);
 }
 
 std::string slice::pack() {
