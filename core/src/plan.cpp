@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -27,7 +28,13 @@ int task_count(int jobs, int task_size) {
     /*
      * Return the number of task-size'd tasks needed to process all jobs
      */
-    return (jobs + (task_size - 1)) / task_size;
+    const auto x = (jobs + (task_size - 1)) / task_size;
+    assert(x != 0);
+    if (x <= 0) {
+        const auto msg = "task-count < 0; probably integer overflow";
+        throw std::runtime_error(msg);
+    }
+    return x;
 }
 
 /*
