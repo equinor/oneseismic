@@ -9,7 +9,25 @@
 
 namespace one {
 
+void proc::set_fragment_shape(const std::string& shape) noexcept (false) {
+    this->prefix = "src/" + shape + "/";
+}
+
+void proc::add_fragment(const std::string& id) noexcept (false) {
+    if (not this->frags.empty())
+        this->frags.push_back(';');
+
+    this->frags += this->prefix;
+    this->frags += id;
+}
+
+void proc::clear() noexcept (true) {
+    this->prefix.clear();
+    this->frags.clear();
+}
+
 void slice::init(const char* msg, int len) {
+    this->clear();
     this->input.unpack(msg, msg + len);
     this->output.tiles.clear();
 
@@ -29,6 +47,7 @@ void slice::init(const char* msg, int len) {
         std::size_t(this->input.shape_cube[2]),
     };
 
+    this->set_fragment_shape(fmt::format("{}", fmt::join(fragment_shape, "-")));
     this->dim = one::dimension< 3 >(this->input.dim);
     this->idx = this->input.lineno;
     this->layout = fragment_shape.slice_stride(this->dim);
