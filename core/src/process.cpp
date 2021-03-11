@@ -20,6 +20,22 @@ one::FID< 3 > id3(const Seq& seq) noexcept (false) {
     };
 }
 
+class slice : public proc {
+public:
+    void init(const char* msg, int len) override;
+    virtual void add(int, const char* chunk, int len) override;
+    std::string pack() override;
+
+private:
+    one::slice_fetch input;
+    one::slice_tiles output;
+
+    one::dimension< 3 > dim = one::dimension< 3 >(0);
+    int idx;
+    one::slice_layout layout;
+    one::gvt< 2 > gvt;
+};
+
 }
 
 std::unique_ptr< proc > proc::make(const std::string& kind) noexcept (false) {

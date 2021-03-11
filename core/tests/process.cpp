@@ -21,14 +21,13 @@ one::slice_fetch default_slice_fetch() {
 
 TEST_CASE("Slice IDs are generated from a task") {
     auto input = default_slice_fetch();
-
-    auto slice = one::slice();
+    auto slice = one::proc::make("slice");
 
     SECTION("None when ids are empty") {
         input.ids = {};
         const auto msg = input.pack();
-        slice.init(msg.data(), msg.size());
-        CHECK(slice.fragments() == "");
+        slice->init(msg.data(), msg.size());
+        CHECK(slice->fragments() == "");
     }
 
     SECTION("Without delimiter when there is 1 id") {
@@ -36,8 +35,8 @@ TEST_CASE("Slice IDs are generated from a task") {
             { 0, 1, 2 },
         };
         const auto msg = input.pack();
-        slice.init(msg.data(), msg.size());
-        CHECK(slice.fragments() == "src/64-64-64/0-1-2.f32");
+        slice->init(msg.data(), msg.size());
+        CHECK(slice->fragments() == "src/64-64-64/0-1-2.f32");
     }
 
     SECTION("Delimited when there are many ids") {
@@ -46,12 +45,12 @@ TEST_CASE("Slice IDs are generated from a task") {
             { 2, 1, 1 },
         };
         const auto msg = input.pack();
-        slice.init(msg.data(), msg.size());
+        slice->init(msg.data(), msg.size());
         const auto expected =
             "src/64-64-64/0-1-2.f32" ";"
             "src/64-64-64/2-1-1.f32"
         ;
-        CHECK(slice.fragments() == expected);
+        CHECK(slice->fragments() == expected);
     }
 }
 
