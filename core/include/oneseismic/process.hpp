@@ -61,7 +61,6 @@ public:
 
     virtual ~proc() = default;
 
-    std::string errmsg;
     std::string packed;
 
 protected:

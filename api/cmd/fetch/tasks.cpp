@@ -9,6 +9,7 @@
 
 struct proc {
     std::unique_ptr< one::proc > p;
+    std::string errmsg;
 };
 
 proc* newproc(const char* kind) try {
@@ -28,7 +29,7 @@ void cleanup(proc* p) {
 }
 
 const char* errmsg(proc* p) {
-    return p->p->errmsg.c_str();
+    return p->errmsg.c_str();
 }
 
 bool init(proc* p, const void* msg, int len) {
@@ -36,7 +37,7 @@ bool init(proc* p, const void* msg, int len) {
         p->p->init(static_cast< const char* >(msg), len);
         return true;
     } catch (std::exception& e) {
-        p->p->errmsg = e.what();
+        p->errmsg = e.what();
         return false;
     }
 }
@@ -50,7 +51,7 @@ bool add(proc* p, int index, const void* chunk, int len) {
         p->p->add(index, static_cast< const char* >(chunk), len);
         return true;
     } catch (std::exception& e) {
-        p->p->errmsg = e.what();
+        p->errmsg = e.what();
         return false;
     }
 }
@@ -64,7 +65,7 @@ packed pack(proc* p) {
         pd.size = pp->packed.size();
         pd.body = pp->packed.data();
     } catch (std::exception& e) {
-        pp->errmsg = e.what();
+        p->errmsg = e.what();
         pd.err = true;
     }
     return pd;
