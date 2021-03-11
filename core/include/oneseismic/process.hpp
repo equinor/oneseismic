@@ -27,11 +27,23 @@ public:
     const std::string& fragments() const;
 
     /*
-     * The add() function is responsible for taking a fragment (size len) and
-     * extract the endpoint-specified shape from it, e.g. for /slice/0 it
-     * should extract the slice along the inline.
+     * Add (or register) a downloaded fragment. This function is responsible
+     * for extracting data from the fragment, and storing it so that when all
+     * fragments are add()ed, pack() will produce an output message.
+     *
+     * The key is the *index* of the fragment chunk given by fragments(), and
+     * must be maintained by the caller.
+     *
+     * Example use from python:
+     *     ids = enumerate(proc.fragments().split(';'))
+     *     for key, id in ids:
+     *         chunk = download(url(id))
+     *         proc.add(key, id, len(id))
+     *
+     * Chunks can be added in any order, but chunks and ids must always
+     * correspond.
      */
-    virtual void add(int index, const char* chunk, int len) = 0;
+    virtual void add(int key, const char* chunk, int len) = 0;
     virtual std::string pack() = 0;
 
     virtual ~proc() = default;
