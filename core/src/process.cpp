@@ -10,27 +10,27 @@
 namespace one {
 
 void slice::init(const char* msg, int len) {
-    this->req.unpack(msg, msg + len);
-    this->tiles.tiles.clear();
+    this->input.unpack(msg, msg + len);
+    this->output.tiles.clear();
 
-    assert(this->req.shape[0] > 0);
-    assert(this->req.shape[1] > 0);
-    assert(this->req.shape[2] > 0);
+    assert(this->input.shape[0] > 0);
+    assert(this->input.shape[1] > 0);
+    assert(this->input.shape[2] > 0);
 
     one::FS< 3 > fragment_shape {
-        std::size_t(this->req.shape[0]),
-        std::size_t(this->req.shape[1]),
-        std::size_t(this->req.shape[2]),
+        std::size_t(this->input.shape[0]),
+        std::size_t(this->input.shape[1]),
+        std::size_t(this->input.shape[2]),
     };
 
     one::CS< 3 > cube_shape {
-        std::size_t(this->req.shape_cube[0]),
-        std::size_t(this->req.shape_cube[1]),
-        std::size_t(this->req.shape_cube[2]),
+        std::size_t(this->input.shape_cube[0]),
+        std::size_t(this->input.shape_cube[1]),
+        std::size_t(this->input.shape_cube[2]),
     };
 
-    this->dim = one::dimension< 3 >(this->req.dim);
-    this->idx = this->req.lineno;
+    this->dim = one::dimension< 3 >(this->input.dim);
+    this->idx = this->input.lineno;
     this->layout = fragment_shape.slice_stride(this->dim);
     this->gvt = one::gvt< 2 >(
         cube_shape.squeeze(this->dim),
@@ -38,15 +38,15 @@ void slice::init(const char* msg, int len) {
     );
 
     const auto& cs = this->gvt.cube_shape();
-    this->tiles.shape.assign(cs.begin(), cs.end());
+    this->output.shape.assign(cs.begin(), cs.end());
 }
 
 std::vector< std::string > slice::fragments() const {
     std::vector< std::string > ids;
-    ids.reserve(this->req.ids.size());
+    ids.reserve(this->input.ids.size());
 
-    const auto prefix = fmt::format("src/{}", fmt::join(this->req.shape, "-"));
-    for (const auto& id : this->req.ids) {
+    const auto prefix = fmt::format("src/{}", fmt::join(this->input.shape, "-"));
+    for (const auto& id : this->input.ids) {
         ids.push_back(fmt::format("{}/{}.f32", prefix, fmt::join(id, "-")));
     }
 
@@ -55,7 +55,7 @@ std::vector< std::string > slice::fragments() const {
 
 void slice::add(int index, const char* chunk, int len) {
     one::tile t;
-    const auto& triple = this->req.ids[index];
+    const auto& triple = this->input.ids[index];
     const auto id3 = one::FID< 3 > {
         std::size_t(triple[0]),
         std::size_t(triple[1]),
@@ -78,11 +78,11 @@ void slice::add(int index, const char* chunk, int len) {
         src += this->layout.superstride * sizeof(float);
     }
 
-    this->tiles.tiles.push_back(t);
+    this->output.tiles.push_back(t);
 }
 
 std::string slice::pack() {
-    return this->tiles.pack();
+    return this->output.pack();
 }
 
 }

@@ -40,8 +40,8 @@ public:
     std::string pack() override;
 
 private:
-    one::slice_fetch req;
-    one::slice_tiles tiles;
+    one::slice_fetch input;
+    one::slice_tiles output;
 
     one::dimension< 3 > dim = one::dimension< 3 >(0);
     int idx;
