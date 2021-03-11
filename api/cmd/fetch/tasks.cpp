@@ -10,6 +10,7 @@
 struct proc {
     std::unique_ptr< one::proc > p;
     std::string errmsg;
+    std::string packed;
 };
 
 proc* newproc(const char* kind) try {
@@ -60,10 +61,10 @@ packed pack(proc* p) {
     packed pd;
     auto* pp = p->p.get();
     try {
-        pp->packed = pp->pack();
+        p->packed = p->p->pack();
         pd.err = false;
-        pd.size = pp->packed.size();
-        pd.body = pp->packed.data();
+        pd.size = p->packed.size();
+        pd.body = p->packed.data();
     } catch (std::exception& e) {
         p->errmsg = e.what();
         pd.err = true;

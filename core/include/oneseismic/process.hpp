@@ -61,8 +61,6 @@ public:
 
     virtual ~proc() = default;
 
-    std::string packed;
-
 protected:
     /*
      * Set the fragment shape. This is cleared by clear() and must be set for
