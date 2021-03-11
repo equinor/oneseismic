@@ -98,6 +98,7 @@ add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
     tests/messages.cpp
+    tests/process.cpp
 )
 target_link_libraries(tests
     PRIVATE
