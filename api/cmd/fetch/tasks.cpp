@@ -45,19 +45,7 @@ bool init(proc* p, const void* msg, int len) {
 }
 
 const char* fragments(proc* p) {
-    const auto& frags = p->p->fragments();
-    if (frags.empty())
-        return "";
-
-    // ';'.join(fragments)
-    auto s = frags.front();
-    std::for_each(frags.begin() + 1, frags.end(), [&s](const std::string& x) {
-        s.push_back(';');
-        s += x;
-    });
-
-    p->p->frags = std::move(s);
-    return p->p->frags.c_str();
+    return p->p->fragments().c_str();
 }
 
 bool add(proc* p, int index, const void* chunk, int len) {

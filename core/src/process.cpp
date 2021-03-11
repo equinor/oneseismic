@@ -26,6 +26,10 @@ void proc::clear() noexcept (true) {
     this->frags.clear();
 }
 
+const std::string& proc::fragments() const {
+    return this->frags;
+}
+
 void slice::init(const char* msg, int len) {
     this->clear();
     this->input.unpack(msg, msg + len);
@@ -58,18 +62,9 @@ void slice::init(const char* msg, int len) {
 
     const auto& cs = this->gvt.cube_shape();
     this->output.shape.assign(cs.begin(), cs.end());
-}
 
-std::vector< std::string > slice::fragments() const {
-    std::vector< std::string > ids;
-    ids.reserve(this->input.ids.size());
-
-    const auto prefix = fmt::format("src/{}", fmt::join(this->input.shape, "-"));
-    for (const auto& id : this->input.ids) {
-        ids.push_back(fmt::format("{}/{}.f32", prefix, fmt::join(id, "-")));
-    }
-
-    return ids;
+    for (const auto& id : this->input.ids)
+        this->add_fragment(fmt::format("{}.f32", fmt::join(id, "-")));
 }
 
 void slice::add(int index, const char* chunk, int len) {

@@ -13,9 +13,18 @@ public:
     virtual void init(const char* msg, int len) = 0;
 
     /*
-     * A vector-of-fragment IDs for this process.
+     * Get the list of fragment IDs for this process as a ';'-separated string.
+     * This is intended for parsing and building real URLs.
+     *
+     * The substrings come back as '<resolution>/<shape>/<id>;...'
+     *
+     * Example use from python:
+     *     urls = [
+     *          f'{endpoint}/{guid}/{fragment}'
+     *          for fragment in proc.fragments().split(';')
+     *     ]
      */
-    virtual std::vector< std::string > fragments() const = 0;
+    const std::string& fragments() const;
 
     /*
      * The add() function is responsible for taking a fragment (size len) and
@@ -28,7 +37,6 @@ public:
     virtual ~proc() = default;
 
     std::string errmsg;
-    std::string frags;
     std::string packed;
 
 protected:
@@ -49,12 +57,12 @@ protected:
 
 private:
     std::string prefix;
+    std::string frags;
 };
 
 class slice : public proc {
 public:
     void init(const char* msg, int len) override;
-    std::vector< std::string > fragments() const override;
     virtual void add(int, const char* chunk, int len) override;
     std::string pack() override;
 
