@@ -1,6 +1,7 @@
 #ifndef ONESEISMIC_PROC_HPP
 #define ONESEISMIC_PROC_HPP
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,18 @@ namespace one {
 
 class proc {
 public:
+    /*
+     * Make a new proc of a specific kind. If the kind is unrecognized, this
+     * will return a nullptr. If the constrtion fails, it will raise an
+     * appropriate exception.
+     *
+     * Kind should be one of:
+     * - slice
+     */
+    static
+    std::unique_ptr< proc > make(const std::string& kind)
+    noexcept (false);
+
     virtual void init(const char* msg, int len) = 0;
 
     /*

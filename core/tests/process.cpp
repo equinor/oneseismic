@@ -54,3 +54,8 @@ TEST_CASE("Slice IDs are generated from a task") {
         CHECK(slice.fragments() == expected);
     }
 }
+
+TEST_CASE("All process kinds can be constructed") {
+    CHECK( one::proc::make("slice"));
+    CHECK(!one::proc::make("unknown"));
+}

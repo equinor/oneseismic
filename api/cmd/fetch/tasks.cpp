@@ -13,15 +13,14 @@ struct proc {
     std::unique_ptr< one::proc > p;
 };
 
-proc* newproc(const char* cid) try {
-    const auto id = std::string(cid);
+proc* newproc(const char* kind) try {
     auto up = std::make_unique< proc >();
-    if (id == "slice") {
-        up->p = std::make_unique< one::slice >();
-        return up.release();
-    } else {
-        return nullptr;
-    }
+    up->p = one::proc::make(kind);
+
+    // Unknown kind, bail out
+    if (!up->p) return nullptr;
+
+    return up.release();
 } catch (...) {
     return nullptr;
 }

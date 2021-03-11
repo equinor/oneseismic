@@ -22,6 +22,13 @@ one::FID< 3 > id3(const Seq& seq) noexcept (false) {
 
 }
 
+std::unique_ptr< proc > proc::make(const std::string& kind) noexcept (false) {
+    if (kind == "slice")
+        return std::make_unique< slice >();
+    else
+        return nullptr;
+}
+
 void proc::set_fragment_shape(const std::string& shape) noexcept (false) {
     this->prefix = "src/" + shape + "/";
 }
