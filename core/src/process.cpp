@@ -1,3 +1,4 @@
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -56,11 +57,26 @@ private:
     one::gvt< 2 > gvt;
 };
 
+class curtain : public proc {
+public:
+    void init(const char* msg, int len) override;
+    virtual void add(int, const char* chunk, int len) override;
+    std::string pack() override;
+
+private:
+    one::curtain_fetch  input;
+    one::curtain_traces output;
+    one::gvt< 3 >       gvt;
+    std::vector< int >  traceindex;
+};
+
 }
 
 std::unique_ptr< proc > proc::make(const std::string& kind) noexcept (false) {
     if (kind == "slice")
         return std::make_unique< slice >();
+    if (kind == "curtain")
+        return std::make_unique< curtain >();
     else
         return nullptr;
 }
@@ -132,6 +148,83 @@ void slice::add(int key, const char* chunk, int len) {
 }
 
 std::string slice::pack() {
+    return this->output.pack();
+}
+
+void curtain::init(const char* msg, int len) {
+    this->clear();
+    this->input.unpack(msg, msg + len);
+    this->gvt = gvt3(this->input);
+    this->set_fragment_shape(
+        fmt::format("{}", fmt::join(this->gvt.fragment_shape(), "-"))
+    );
+
+    const auto& ids = this->input.ids;
+
+    for (const auto& single : ids)
+        this->add_fragment(fmt::format("{}.f32", fmt::join(single.id, "-")));
+
+    /*
+     * The curtain call uses an auxillary table to figure out where to write
+     * traces as they are extracted from fragments. This simplifies the
+     * algorithm greatly, and means that add() can be called in parallel (!)[1]
+     * since every add() should write to a different segment of the output.
+     *
+     * The traceindex [k] contains the *starting position* of the add(k)
+     * output. This is assigned by scanning size of the traces/coordinate-list
+     * to extract per fragment.
+     *
+     * By making traceindex.size() = id.size() + 1, we can avoid a bunch of
+     * special cases, and the # of traces in total can be read at
+     * traceindex.back().
+     *
+     * [1] as long as the key-argument to add is distinct
+     */
+    this->traceindex.resize(ids.size() + 1);
+    this->traceindex[0] = 0;
+    std::transform(
+        ids.begin(),
+        ids.end(),
+        this->traceindex.begin() + 1,
+        [](const auto& x) { return x.coordinates.size(); }
+    );
+    std::partial_sum(
+        this->traceindex.begin(),
+        this->traceindex.end(),
+        this->traceindex.begin()
+    );
+
+    const auto ntraces = this->traceindex.back();
+    this->output.traces.resize(ntraces);
+}
+
+void curtain::add(int key, const char* chunk, int len) {
+    const auto& id = this->input.ids[key];
+    assert(
+           this->traceindex[key] + int(id.coordinates.size())
+        == this->traceindex[key + 1]
+    );
+
+    const auto* fchunk = reinterpret_cast< const float* >(chunk);
+    auto out = this->output.traces.begin() + this->traceindex[key];
+    const auto fid = id3(id.id);
+    const auto zheight = this->gvt.fragment_shape()[2];
+
+    for (const auto& coord : id.coordinates) {
+        const auto fp = one::FP< 3 > {
+            std::size_t(coord[0]),
+            std::size_t(coord[1]),
+            std::size_t(0),
+        };
+        const auto global = this->gvt.to_global(fid, fp);
+        out->coordinates.assign(global.begin(), global.end());
+        const auto off = this->gvt.fragment_shape().to_offset(fp);
+        out->v.assign(fchunk + off, fchunk + off + zheight);
+        ++out;
+    }
+}
+
+std::string curtain::pack() {
     return this->output.pack();
 }
 

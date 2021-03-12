@@ -49,6 +49,27 @@ void from_json(const nlohmann::json& doc, slice_task& task) noexcept (false) {
     params.at("lineno").get_to(task.lineno);
 }
 
+void to_json(nlohmann::json& doc, const curtain_task& task) noexcept (false) {
+    to_json(doc, static_cast< const common_task& >(task));
+    doc["function"] = "curtain";
+    auto& params = doc["params"];
+    params["dim0s"] = task.dim0s;
+    params["dim1s"] = task.dim1s;
+}
+
+void from_json(const nlohmann::json& doc, curtain_task& task) noexcept (false) {
+    from_json(doc, static_cast< common_task& >(task));
+
+    if (task.function != "curtain") {
+        const auto msg = "expected task 'curtain', got {}";
+        throw bad_message(fmt::format(msg, task.function));
+    }
+
+    const auto& params = doc.at("params");
+    params.at("dim0s").get_to(task.dim0s);
+    params.at("dim1s").get_to(task.dim1s);
+}
+
 void to_json(nlohmann::json& doc, const slice_fetch& task) noexcept (false) {
     to_json(doc, static_cast< const slice_task& >(task));
     doc["ids"]        = task.ids;
@@ -108,6 +129,44 @@ void from_json(const nlohmann::json& doc, slice_tiles& tiles) noexcept (false) {
     doc.at("tiles").get_to(tiles.tiles);
 }
 
+void to_json(nlohmann::json& doc, const single& single) noexcept (false) {
+    doc["id"]          = single.id;
+    doc["coordinates"] = single.coordinates;
+}
+
+void from_json(const nlohmann::json& doc, single& single) noexcept (false) {
+    doc.at("id")         .get_to(single.id);
+    doc.at("coordinates").get_to(single.coordinates);
+}
+
+void to_json(nlohmann::json& doc, const curtain_fetch& curtain) noexcept (false) {
+    to_json(doc, static_cast< const curtain_task& >(curtain));
+    doc["ids"] = curtain.ids;
+}
+
+void from_json(const nlohmann::json& doc, curtain_fetch& curtain) noexcept (false) {
+    from_json(doc, static_cast< curtain_task& >(curtain));
+    doc.at("ids").get_to(curtain.ids);
+}
+
+void to_json(nlohmann::json& doc, const trace& trace) noexcept (false) {
+    doc["coordinates"] = trace.coordinates;
+    doc["v"]           = trace.v;
+}
+
+void from_json(const nlohmann::json& doc, trace& trace) noexcept (false) {
+    doc.at("coordinates").get_to(trace.coordinates);
+    doc.at("v")          .get_to(trace.v);
+}
+
+void to_json(nlohmann::json& doc, const curtain_traces& traces) noexcept (false) {
+    doc["traces"] = traces.traces;
+}
+
+void from_json(const nlohmann::json& doc, curtain_traces& traces) noexcept (false) {
+    doc.at("traces").get_to(traces.traces);
+}
+
 /*
  * The go API server only sends plain-text messages as they're already tiny,
  * and contains no binary data. JSON is picked due to library support slightly
@@ -145,6 +204,34 @@ void slice_tiles::unpack(const char* fst, const char* lst) noexcept (false) {
 }
 
 std::string slice_tiles::pack() const {
+    const auto doc = nlohmann::json(*this);
+    const auto msg = nlohmann::json::to_msgpack(doc);
+    return std::string(msg.begin(), msg.end());
+}
+
+void curtain_fetch::unpack(const char* fst, const char* lst) noexcept (false) {
+    const auto doc = nlohmann::json::parse(fst, lst);
+    *this = doc.get< curtain_fetch >();
+}
+
+std::string curtain_fetch::pack() const {
+    return nlohmann::json(*this).dump();
+}
+
+void curtain_task::unpack(const char* fst, const char* lst) noexcept (false) {
+    const auto doc = nlohmann::json::parse(fst, lst);
+    *this = doc.get< curtain_task >();
+}
+
+std::string curtain_task::pack() const {
+    return nlohmann::json(*this).dump();
+}
+
+void curtain_traces::unpack(const char* fst, const char* lst) noexcept (false) {
+    *this = nlohmann::json::from_msgpack(fst, lst).get< curtain_traces >();
+}
+
+std::string curtain_traces::pack() const {
     const auto doc = nlohmann::json(*this);
     const auto msg = nlohmann::json::to_msgpack(doc);
     return std::string(msg.begin(), msg.end());

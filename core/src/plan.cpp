@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <iterator>
 #include <string>
@@ -192,6 +193,99 @@ schedule_maker< one::slice_task, one::slice_fetch >::build(
     return out;
 }
 
+template <>
+one::curtain_fetch
+schedule_maker< one::curtain_task, one::curtain_fetch >::build(
+    const one::curtain_task& task,
+    const nlohmann::json& manifest)
+{
+    const auto less = [](const auto& lhs, const auto& rhs) noexcept (true) {
+        return std::lexicographical_compare(
+            lhs.id.begin(),
+            lhs.id.end(),
+            rhs.begin(),
+            rhs.end()
+        );
+    };
+    const auto equal = [](const auto& lhs, const auto& rhs) noexcept (true) {
+        return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+    };
+
+    auto out  = one::curtain_fetch(task);
+    auto& ids = out.ids;
+
+    const auto& dim0s = task.dim0s;
+    const auto& dim1s = task.dim1s;
+    auto gvt = geometry(manifest["dimensions"], task.shape);
+
+    const auto zfrags  = gvt.fragment_count(one::dimension< 3 >(2));
+    const auto zheight = gvt.fragment_shape()[2];
+
+    /*
+     * Guess the number of coordinates per fragment. A reasonable assumption is
+     * a plane going through a fragment, with a little bit of margin. Not
+     * pre-reserving is perfectly fine, but we can save a bunch of allocations
+     * in the average case by guessing well. It is reasonably short-lived, so
+     * overestimating slightly should not be a problem.
+     */
+    const auto approx_coordinates_per_fragment =
+        int(std::max(gvt.fragment_shape()[0], gvt.fragment_shape()[1]) * 1.2);
+
+    /*
+     * Pre-allocate the id objects by scanning the input and build the
+     * one::single objects, sorted by id lexicographically. All fragments in
+     * the column (z-axis) are generated from the x-y pair. This is essentially
+     * constructing the "buckets" in advance, as many x/y pairs will end up in
+     * the same "bin"/fragment.
+     *
+     * This is effectively
+     *  ids = set([fragmentid(x, y, z) for z in zheight for (x, y) in input])
+     *
+     * but without any intermediary structures.
+     *
+     * The bins are lexicographically sorted.
+     */
+    for (int i = 0; i < int(dim0s.size()); ++i) {
+        auto top_point = one::CP< 3 > {
+            std::size_t(dim0s[i]),
+            std::size_t(dim1s[i]),
+            std::size_t(0),
+        };
+        const auto fid = gvt.frag_id(top_point);
+
+        auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
+        if (itr == ids.end() or (not equal(itr->id, fid))) {
+            one::single top;
+            top.id.assign(fid.begin(), fid.end());
+            top.coordinates.reserve(approx_coordinates_per_fragment);
+            itr = ids.insert(itr, zfrags, top);
+            for (int z = 0; z < zfrags; ++z, ++itr)
+                itr->id[2] = z;
+        }
+    }
+
+    /*
+     * Traverse the x/y coordinates and put them in the correct bins/fragment
+     * ids.
+     */
+    for (int i = 0; i < int(dim0s.size()); ++i) {
+        const auto cp = one::CP< 3 > {
+            std::size_t(dim0s[i]),
+            std::size_t(dim1s[i]),
+            std::size_t(0),
+        };
+        const auto fid = gvt.frag_id(cp);
+        const auto lid = gvt.to_local(cp);
+        auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
+        const auto end = itr + zfrags;
+        for (auto task = itr; task != end; ++task) {
+            task->coordinates.push_back({ int(lid[0]), int(lid[1]) });
+        }
+    }
+
+    return out;
+}
+
 }
 
 namespace one {
@@ -200,11 +294,15 @@ std::vector< std::string >
 mkschedule(const char* doc, int len, int task_size) noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
 
-    auto slice = schedule_maker< one::slice_task, one::slice_fetch >{};
+    auto slice   = schedule_maker< one::slice_task,   one::slice_fetch >{};
+    auto curtain = schedule_maker< one::curtain_task, one::curtain_fetch >{};
 
     const std::string function = document["function"];
     if (function == "slice") {
         return slice.schedule(doc, len, task_size);
+    }
+    if (function == "curtain") {
+        return curtain.schedule(doc, len, task_size);
     }
 
     throw std::runtime_error("No handler for function " + function);

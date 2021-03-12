@@ -53,6 +53,17 @@ struct slice_task : public common_task {
     void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
+struct curtain_task : public common_task {
+    curtain_task() = default;
+    explicit curtain_task(const common_task& t) : common_task(t) {}
+
+    std::vector< int > dim0s;
+    std::vector< int > dim1s;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
 /*
  */
 struct slice_fetch : public slice_task {
@@ -80,6 +91,38 @@ struct slice_tiles {
      */
     std::vector< int > shape;
     std::vector< tile > tiles;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+struct single {
+    /* id is a 3-tuple (i,j,k) that gives the fragment-ID */
+    std::vector< int > id;
+    /*
+     * coordinates is a 2-tuple (i', j') that gives the x/y position of the
+     * trace. This is already a "local" coordinate a is 0-based.
+     */
+    std::vector< std::array< int, 2 > > coordinates;
+};
+
+struct curtain_fetch : public curtain_task {
+    curtain_fetch() = default;
+    explicit curtain_fetch(const curtain_task& t) : curtain_task(t) {}
+
+    std::vector< single > ids;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+struct trace {
+    std::vector< int > coordinates;
+    std::vector< float > v;
+};
+
+struct curtain_traces {
+    std::vector< trace > traces;
 
     std::string pack() const noexcept(false);
     void unpack(const char* fst, const char* lst) noexcept (false);
