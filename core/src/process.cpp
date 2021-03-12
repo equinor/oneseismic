@@ -20,6 +20,26 @@ one::FID< 3 > id3(const Seq& seq) noexcept (false) {
     };
 }
 
+one::gvt< 3 > gvt3(const one::common_task& task) {
+    assert(task.shape[0] > 0);
+    assert(task.shape[1] > 0);
+    assert(task.shape[2] > 0);
+
+    one::FS< 3 > fs {
+        std::size_t(task.shape[0]),
+        std::size_t(task.shape[1]),
+        std::size_t(task.shape[2]),
+    };
+
+    one::CS< 3 > cs {
+        std::size_t(task.shape_cube[0]),
+        std::size_t(task.shape_cube[1]),
+        std::size_t(task.shape_cube[2]),
+    };
+
+    return { cs, fs };
+}
+
 class slice : public proc {
 public:
     void init(const char* msg, int len) override;
@@ -71,21 +91,9 @@ void slice::init(const char* msg, int len) {
     this->input.unpack(msg, msg + len);
     this->output.tiles.resize(this->input.ids.size());
 
-    assert(this->input.shape[0] > 0);
-    assert(this->input.shape[1] > 0);
-    assert(this->input.shape[2] > 0);
-
-    one::FS< 3 > fragment_shape {
-        std::size_t(this->input.shape[0]),
-        std::size_t(this->input.shape[1]),
-        std::size_t(this->input.shape[2]),
-    };
-
-    one::CS< 3 > cube_shape {
-        std::size_t(this->input.shape_cube[0]),
-        std::size_t(this->input.shape_cube[1]),
-        std::size_t(this->input.shape_cube[2]),
-    };
+    const auto g3 = gvt3(this->input);
+    const auto& fragment_shape = g3.fragment_shape();
+    const auto& cube_shape     = g3.cube_shape();
 
     this->set_fragment_shape(fmt::format("{}", fmt::join(fragment_shape, "-")));
     this->dim = one::dimension< 3 >(this->input.dim);
