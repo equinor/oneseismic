@@ -25,6 +25,29 @@ def assemble_slice(msg):
 
     return result.reshape((shape0, shape1))
 
+def assemble_curtain(msg):
+    # This function is very rough and does suggest that the message from the
+    # server should be richer, to more easily allocate and construct a curtain
+    # object
+    unpacked = msgpack.unpackb(msg)
+    r = collections.defaultdict(list)
+    for bundle in unpacked:
+        for part in bundle['traces']:
+            xyz = tuple(part['coordinates'])
+            r[xyz[:-1]].append((xyz[-1], part['v']))
+
+    for trace in r.values():
+        trace.sort()
+
+    a = []
+    for key in sorted(r.keys()):
+        trace = []
+        for _, subtrace in r[key]:
+            trace.extend(subtrace)
+        a.append(trace)
+
+    return np.array(a, dtype = np.float)
+
 class cube:
     """ Cube handle
 
@@ -97,6 +120,30 @@ class cube:
         )
 
         return assemble_slice(proc.raw_result())
+
+    def curtain(self, intersections):
+        """Fetch a curtain
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        curtain : numpy.ndarray
+        """
+
+        resource = f'query/{self.guid}/curtain'
+        body = {
+            'intersections': intersections
+        }
+        import json
+        proc = schedule(
+            session = self.session,
+            resource = resource,
+            data = json.dumps(body),
+        )
+
+        return assemble_curtain(proc.raw_result())
 
 class process:
     """
