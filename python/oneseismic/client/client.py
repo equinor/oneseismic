@@ -185,7 +185,7 @@ class process:
         """
         raise NotImplementedError
 
-def schedule(session, resource):
+def schedule(session, resource, data = None):
     """Start a server-side process.
 
     This function centralises setting up a HTTP session and building the
@@ -208,7 +208,7 @@ def schedule(session, resource):
     -----
     Scheduling a process manually is reserved for the implementation.
     """
-    r = session.get(resource)
+    r = session.get(resource, data = data)
 
     body = r.json()
     auth = 'Bearer {}'.format(body['authorization'])
