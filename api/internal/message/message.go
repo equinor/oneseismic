@@ -51,6 +51,11 @@ type SliceParams struct {
 	Lineno int `json:"lineno"`
 }
 
+type CurtainParams struct {
+	Dim0s []int `json:"dim0s"`
+	Dim1s []int `json:"dim1s"`
+}
+
 type DimensionDescription struct {
 	Dimension int   `json:"dimension"`
 	Size      int   `json:"size"`

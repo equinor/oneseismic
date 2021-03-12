@@ -192,6 +192,7 @@ func main() {
 	)
 	basic := api.MakeBasicEndpoint(&keyring, opts.storageURL, cmdable, tokens)
 	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable, tokens)
+	curtain := api.MakeCurtain(&keyring, opts.storageURL, cmdable, tokens)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
@@ -220,6 +221,7 @@ func main() {
 	queries.GET("/",      basic.List)
 	queries.GET("/:guid", basic.Entry)
 	queries.GET("/:guid/slice/:dimension/:lineno", slice.Get)
+	queries.GET("/:guid/curtain", curtain.Get)
 
 	results := app.Group("/result")
 	results.Use(auth.ResultAuth(&keyring))

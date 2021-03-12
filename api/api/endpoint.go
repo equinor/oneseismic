@@ -151,7 +151,8 @@ func (s *BasicEndpoint) Entry(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H {
 		"functions": gin.H {
-			"slice": fmt.Sprintf("query/%s/slice", guid),
+			"slice":   fmt.Sprintf("query/%s/slice",   guid),
+			"curtain": fmt.Sprintf("query/%s/curtain", guid),
 		},
 		"dimensions": dims,
 		"pid": pid,
