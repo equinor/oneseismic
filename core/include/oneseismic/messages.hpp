@@ -42,6 +42,27 @@ struct common_task {
     void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
+/*
+ * The process header, which should be output by the scheduler/planner. It
+ * describes the number of tasks the process has been split into and advices
+ * the client on how to parse the response.
+ *
+ * The process header is written from a point of awareness of the shape of the
+ * survey, so the shape tuple is the shape of the response *with padding*.
+ *
+ * The contents and order of the shape and index depend on the request type and
+ * parameters.
+ */
+struct process_header {
+    std::string        pid;
+    int                ntasks;
+    std::vector< int > shape;
+    std::vector< std::vector< int > > index;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
 struct slice_task : public common_task {
     slice_task() = default;
     explicit slice_task(const common_task& t) : common_task(t) {}

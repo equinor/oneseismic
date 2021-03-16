@@ -30,6 +30,20 @@ void from_json(const nlohmann::json& doc, common_task& task) noexcept (false) {
     doc.at("function")        .get_to(task.function);
 }
 
+void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
+    doc["pid"]    = head.pid;
+    doc["ntasks"] = head.ntasks;
+    doc["shape"]  = head.shape;
+    doc["index"]  = head.index;
+}
+
+void from_json(const nlohmann::json& doc, process_header& head) noexcept (false) {
+    doc.at("pid")   .get_to(head.pid);
+    doc.at("ntasks").get_to(head.ntasks);
+    doc.at("shape") .get_to(head.shape);
+    doc.at("index") .get_to(head.index);
+}
+
 void to_json(nlohmann::json& doc, const slice_task& task) noexcept (false) {
     to_json(doc, static_cast< const common_task& >(task));
     doc["function"] = "slice";
@@ -180,6 +194,15 @@ void common_task::unpack(const char* fst, const char* lst) noexcept (false) {
 }
 
 std::string common_task::pack() const {
+    return nlohmann::json(*this).dump();
+}
+
+void process_header::unpack(const char* fst, const char* lst) noexcept (false) {
+    const auto doc = nlohmann::json::parse(fst, lst);
+    *this = doc.get< process_header >();
+}
+
+std::string process_header::pack() const {
     return nlohmann::json(*this).dump();
 }
 
