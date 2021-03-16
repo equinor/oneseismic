@@ -165,7 +165,7 @@ std::size_t gvt< ND >::global_size() const noexcept (true) {
 }
 
 template < std::size_t ND >
-std::size_t gvt< ND >::fragment_count(Dimension dim) const noexcept (false) {
+std::size_t gvt< ND >::fragment_count(Dimension dim) const noexcept (true) {
     const auto global = this->global_dims[dim.v];
     const auto local  = this->fragment_dims[dim.v];
     return (global + (local - 1)) / local;

@@ -472,7 +472,7 @@ class gvt {
         /*
          * The number of fragments in a direction.
          */
-        std::size_t fragment_count(Dimension) const noexcept (false);
+        std::size_t fragment_count(Dimension)  const noexcept (true);
 
         const CS< ND >& cube_shape()     const noexcept (true);
         const FS< ND >& fragment_shape() const noexcept (true);
