@@ -66,6 +66,8 @@ public:
     using base_type::rbegin;
     using base_type::rend;
     using base_type::size;
+    using base_type::front;
+    using base_type::back;
 
     std::string string() const;
 
