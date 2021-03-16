@@ -293,18 +293,15 @@ namespace one {
 std::vector< std::string >
 mkschedule(const char* doc, int len, int task_size) noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
-
-    auto slice   = schedule_maker< one::slice_task,   one::slice_fetch >{};
-    auto curtain = schedule_maker< one::curtain_task, one::curtain_fetch >{};
-
     const std::string function = document["function"];
     if (function == "slice") {
+        auto slice = schedule_maker< slice_task, slice_fetch >{};
         return slice.schedule(doc, len, task_size);
     }
     if (function == "curtain") {
+        auto curtain = schedule_maker< curtain_task, curtain_fetch >{};
         return curtain.schedule(doc, len, task_size);
     }
-
     throw std::runtime_error("No handler for function " + function);
 }
 
