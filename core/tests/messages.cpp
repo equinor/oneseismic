@@ -30,6 +30,7 @@ bool operator == (const one::slice_task& lhs, const one::slice_task& rhs) {
 
 TEST_CASE("well-formed slice-task is unpacked correctly") {
     const auto doc = R"({
+        "pid": "some-pid",
         "token": "on-behalf-of-token",
         "guid": "object-id",
         "storage_endpoint": "https://storage.com",
@@ -45,6 +46,7 @@ TEST_CASE("well-formed slice-task is unpacked correctly") {
 
     one::slice_task task;
     task.unpack(doc, doc + std::strlen(doc));
+    CHECK(task.pid   == "some-pid");
     CHECK(task.token == "on-behalf-of-token");
     CHECK(task.guid  == "object-id");
     CHECK(task.manifest == "{}");
@@ -57,6 +59,7 @@ TEST_CASE("well-formed slice-task is unpacked correctly") {
 
 TEST_CASE("unpacking task with missing field fails") {
     const auto entries = std::vector< std::string > {
+        R"("pid": "some-pid")",
         R"("token": "on-behalf-of-token")",
         R"("guid": "object-id")",
         R"("manifest": "{}")",
@@ -82,6 +85,7 @@ TEST_CASE("unpacking task with missing field fails") {
 
 TEST_CASE("unpacking message with wrong function tag fails") {
     const auto doc = R"({
+        "pid": "some-pid",
         "token": "on-behalf-of-token",
         "guid": "object-id",
         "manifest": "{}",
@@ -100,6 +104,7 @@ TEST_CASE("unpacking message with wrong function tag fails") {
 
 TEST_CASE("slice-task can round trip packing") {
     one::slice_task task;
+    task.pid = "pid";
     task.token = "token";
     task.guid = "guid";
     task.manifest = "{}";
@@ -119,6 +124,7 @@ TEST_CASE("slice-task can round trip packing") {
 
 TEST_CASE("slice-task sets function to 'slice'") {
     one::slice_task task;
+    task.pid = "pid";
     task.token = "token";
     task.guid = "guid";
     task.manifest = "{}";
@@ -137,6 +143,7 @@ TEST_CASE("slice-task sets function to 'slice'") {
 
 TEST_CASE("slice-fetch can round trip packing") {
     one::slice_fetch task;
+    task.pid = "pid";
     task.token = "token";
     task.guid = "guid";
     task.manifest = "{}";
