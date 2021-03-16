@@ -1,8 +1,8 @@
 package api
 
 import (
+	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +13,7 @@ import (
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/go-redis/redis/v8"
 	"github.com/gin-gonic/gin"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Result struct {
@@ -60,12 +61,14 @@ func collectResult(
 	defer close(tiles)
 	defer close(failure)
 
-	header := make([]byte, 5)
-	/* msgpack array type */
-	header[0] = 0xDD
-	/* msgpack array length, a 4-byte big-endian integer */
-	binary.BigEndian.PutUint32(header[1:], uint32(parts))
-	tiles <- header
+	var b bytes.Buffer
+	enc := msgpack.NewEncoder(&b)
+	err := enc.EncodeArrayLen(parts)
+	if err != nil {
+		failure <- err
+		return
+	}
+	tiles <- b.Bytes()
 
 	streamCursor := "0"
 	count := 0
