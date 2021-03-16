@@ -136,6 +136,34 @@ TEST_CASE("Squeezing gvt") {
     }
 }
 
+TEST_CASE("gvt counts fragments and samples right") {
+    auto cube = one::gvt< 3  >(
+        { 9, 15, 23 },
+        { 3,  9,  5 }
+    );
+
+    SECTION("in dimension 0") {
+        const auto d = cube.mkdim(0);
+        CHECK(cube.fragment_count(d)  == 3);
+        CHECK(cube.nsamples(d)        == 9);
+        CHECK(cube.nsamples_padded(d) == 9);
+    }
+
+    SECTION("in dimension 1") {
+        const auto d = cube.mkdim(1);
+        CHECK(cube.fragment_count(d)  == 2);
+        CHECK(cube.nsamples(d)        == 15);
+        CHECK(cube.nsamples_padded(d) == 18);
+    }
+
+    SECTION("in dimension 2") {
+        const auto d = cube.mkdim(2);
+        CHECK(cube.fragment_count(d)  == 5);
+        CHECK(cube.nsamples(d)        == 23);
+        CHECK(cube.nsamples_padded(d) == 25);
+    }
+}
+
 TEST_CASE("Generate the fragments capturing an inline") {
     auto cube = one::gvt< 3  >(
         { 9, 15, 23 },

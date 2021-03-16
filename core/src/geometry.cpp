@@ -171,6 +171,16 @@ std::size_t gvt< ND >::fragment_count(Dimension dim) const noexcept (true) {
     return (global + (local - 1)) / local;
 }
 
+template < std::size_t ND >
+std::size_t gvt< ND >::nsamples(Dimension dim) const noexcept (true) {
+    return this->global_dims[dim.v];
+}
+
+template < std::size_t ND >
+std::size_t gvt< ND >::nsamples_padded(Dimension dim) const noexcept (true) {
+    return this->fragment_count(dim) * this->fragment_dims[dim.v];
+}
+
 template< std::size_t ND >
 const CS< ND >&
 gvt< ND >::cube_shape() const noexcept (true) {

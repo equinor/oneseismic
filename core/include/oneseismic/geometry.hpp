@@ -470,9 +470,11 @@ class gvt {
         slice_layout injection_stride(FID< ND >) const noexcept (true);
 
         /*
-         * The number of fragments in a direction.
+         * The number of fragments and samples in a direction.
          */
         std::size_t fragment_count(Dimension)  const noexcept (true);
+        std::size_t nsamples(Dimension)        const noexcept (true);
+        std::size_t nsamples_padded(Dimension) const noexcept (true);
 
         const CS< ND >& cube_shape()     const noexcept (true);
         const FS< ND >& fragment_shape() const noexcept (true);
