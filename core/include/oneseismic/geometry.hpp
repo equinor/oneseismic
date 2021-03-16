@@ -388,6 +388,30 @@ template < std::size_t ND >
 class gvt {
     public:
         using Dimension = dimension< ND >;
+
+        /*
+         * Make a gvt-compatible dimension from an integral.
+         *
+         * A bunch of functions take a dimension< ND > as an argument, as a way
+         * of catching some classes of errors compile-time (e.g. dimensions for
+         * different cubes are mixed).
+         *
+         * In practice, gvt objects are often constructed elsewhere, and the
+         * desired dimension comes from some dynamic input (e.g. message from
+         * the scheduler), which makes constructing the dimension object noisy.
+         *
+         *     zdim0 = one::dimension< 3 >(2);      // only works for gvt< 3 >
+         *     zdim1 = decltype(gvt)::Dimension(2); // works for any gvt, noisy
+         *     zdim2 = gvt.mkdim(2);
+         *
+         * This function only serves to make the strongly typed integers less
+         * noisy, and to make it easier to derive the "right" kind from related
+         * values.
+         */
+        static constexpr Dimension mkdim(decltype(ND) d) noexcept (false) {
+            return Dimension(d);
+        }
+
         /*
          * The cube dimension is the source, un-padded cube dimension, which
          * *must* be rectangular. If the source survey tapers like this:
