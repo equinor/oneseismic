@@ -135,6 +135,14 @@ int gvt< ND >::padding(FID< ND > id, Dimension d) const noexcept (true) {
     return this->fragment_dims[d] - not_padding;
 }
 
+template< typename std::size_t ND >
+gvt< ND - 1 > gvt< ND >::squeeze(Dimension d) const noexcept (true) {
+    static_assert(ND > 1, "non-sensical squeeze of gvt< 1 >");
+    const auto cs = this->cube_shape()    .squeeze(d);
+    const auto fs = this->fragment_shape().squeeze(d);
+    return gvt< ND - 1 >(cs, fs);
+}
+
 template < std::size_t ND >
 std::size_t CS< ND >::slice_samples(dimension< ND > dim)
 const noexcept (true) {

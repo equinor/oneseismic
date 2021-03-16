@@ -89,6 +89,53 @@ SCENARIO( "Converting between global and local coordinates" ) {
     }
 }
 
+TEST_CASE("Squeezing gvt") {
+    const auto original = one::gvt< 3 >(
+        one::CS< 3 >(6, 9, 18),
+        one::FS< 3 >(2, 3, 5)
+    );
+
+    using Dimension = decltype(original)::Dimension;
+    SECTION("in Dimension(0)") {
+        const auto squeezed = original.squeeze(Dimension(0));
+        const auto cs = squeezed.cube_shape();
+        const auto fs = squeezed.fragment_shape();
+        CHECK(squeezed.cube_shape().size() == 2);
+        CHECK(squeezed.cube_shape()[0] == original.cube_shape()[1]);
+        CHECK(squeezed.cube_shape()[1] == original.cube_shape()[2]);
+
+        CHECK(squeezed.fragment_shape().size() == 2);
+        CHECK(squeezed.fragment_shape()[0] == original.fragment_shape()[1]);
+        CHECK(squeezed.fragment_shape()[1] == original.fragment_shape()[2]);
+    }
+
+    SECTION("in Dimension(1)") {
+        const auto squeezed = original.squeeze(Dimension(1));
+        const auto cs = squeezed.cube_shape();
+        const auto fs = squeezed.fragment_shape();
+        CHECK(squeezed.cube_shape().size() == 2);
+        CHECK(squeezed.cube_shape()[0] == original.cube_shape()[0]);
+        CHECK(squeezed.cube_shape()[1] == original.cube_shape()[2]);
+
+        CHECK(squeezed.fragment_shape().size() == 2);
+        CHECK(squeezed.fragment_shape()[0] == original.fragment_shape()[0]);
+        CHECK(squeezed.fragment_shape()[1] == original.fragment_shape()[2]);
+    }
+
+    SECTION("in Dimension(2)") {
+        const auto squeezed = original.squeeze(Dimension(2));
+        const auto cs = squeezed.cube_shape();
+        const auto fs = squeezed.fragment_shape();
+        CHECK(squeezed.cube_shape().size() == 2);
+        CHECK(squeezed.cube_shape()[0] == original.cube_shape()[0]);
+        CHECK(squeezed.cube_shape()[1] == original.cube_shape()[1]);
+
+        CHECK(squeezed.fragment_shape().size() == 2);
+        CHECK(squeezed.fragment_shape()[0] == original.fragment_shape()[0]);
+        CHECK(squeezed.fragment_shape()[1] == original.fragment_shape()[1]);
+    }
+}
+
 TEST_CASE("Generate the fragments capturing an inline") {
     auto cube = one::gvt< 3  >(
         { 9, 15, 23 },

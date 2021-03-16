@@ -468,6 +468,25 @@ class gvt {
          */
         int padding(FID< ND > id, Dimension d) const noexcept (true);
 
+        /*
+         * Squeeze dimension d of this gvt. This removes dimensions d and
+         * shifts all tailing dimensions to the left.
+         *
+         * Examples
+         * --------
+         *  g0 = gvt< 3 > { {9, 18, 9 }, { 3, 3, 3 } };
+         *
+         *  g1 = g0.squeeze(Dimension(0));
+         *  g1.cube_shape()[0] == 18
+         *  g1.cube_shape()[1] == 9
+         *
+         *  g2 = g0.squeeze(Dimension(1)
+         *  g1.cube_shape()[0] == 9
+         *  g1.cube_shape()[1] == 9
+         *
+         */
+        gvt< ND - 1 > squeeze(Dimension d) const noexcept (true);
+
     private:
         CS< ND > global_dims;
         FS< ND > fragment_dims;
