@@ -185,7 +185,7 @@ schedule_maker< one::slice_task, one::slice_fetch >::build(
     };
 
     out.lineno = pin % gvt.fragment_shape()[task.dim];
-    const auto ids = gvt.slice(one::dimension< 3 >(task.dim), pin);
+    const auto ids = gvt.slice(gvt.mkdim(task.dim), pin);
     // TODO: name loop
     for (const auto& id : ids)
         out.ids.push_back(to_vec(id));
@@ -218,7 +218,7 @@ schedule_maker< one::curtain_task, one::curtain_fetch >::build(
     const auto& dim1s = task.dim1s;
     auto gvt = geometry(manifest["dimensions"], task.shape);
 
-    const auto zfrags  = gvt.fragment_count(one::dimension< 3 >(2));
+    const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
     const auto zheight = gvt.fragment_shape()[2];
 
     /*

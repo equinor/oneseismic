@@ -112,7 +112,7 @@ void slice::init(const char* msg, int len) {
     const auto& cube_shape     = g3.cube_shape();
 
     this->set_fragment_shape(fmt::format("{}", fmt::join(fragment_shape, "-")));
-    this->dim = one::dimension< 3 >(this->input.dim);
+    this->dim = g3.mkdim(this->input.dim);
     this->idx = this->input.lineno;
     this->layout = fragment_shape.slice_stride(this->dim);
     this->gvt = one::gvt< 2 >(
