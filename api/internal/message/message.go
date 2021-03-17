@@ -1,7 +1,10 @@
 package message
 
 import (
+	"bytes"
 	"encoding/json"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Message interface {
@@ -113,4 +116,44 @@ func (m *ProcessHeader) Pack() ([]byte, error) {
 
 func (m *ProcessHeader) Unpack(doc []byte) (*ProcessHeader, error) {
 	return m, json.Unmarshal(doc, m)
+}
+
+/*
+ * The header written as the first part of the end-user result, and meant to be
+ * decoded by the clients. Since this is client-facing it has much higher
+ * stability requirements than most messages in oneseismic.
+ */
+type ResultHeader struct {
+	Bundles int
+	Shape   []int
+	Index   [][]int
+}
+
+/*
+ * Pack the result header. Please note that the result of Pack() is *not* a
+ * valid msgpack message - it assumes that the caller will add Bundles elements
+ * after to complete the array.
+ */
+func (rh *ResultHeader) Pack() ([]byte, error) {
+	var b bytes.Buffer
+	enc := msgpack.NewEncoder(&b)
+
+	if err := enc.EncodeArrayLen(2); err != nil {
+		return nil, err
+	}
+	if err := enc.EncodeMapLen(3); err != nil {
+		return nil, err
+	}
+	err := enc.EncodeMulti(
+		"bundles", rh.Bundles,
+		"shape",   rh.Shape,
+		"index",   rh.Index,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := enc.EncodeArrayLen(rh.Bundles); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }

@@ -31,8 +31,12 @@ tasks* mkschedule(const char* doc, int len, int task_size) {
     cs->err = nullptr;
     cs->tasks = new task[packed.size()];
     cs->size = packed.size();
-    for (std::size_t i = 0; i < packed.size(); ++i) {
-        auto& task = cs->tasks[i];
+
+    auto& header = cs->tasks[0];
+    header.size  = packed.back().size();
+    header.task  = copyalloc(packed.back());
+    for (std::size_t i = 0; i < packed.size() - 1; ++i) {
+        auto& task = cs->tasks[i + 1];
         task.size = packed[i].size();
         task.task = copyalloc(packed[i]);
     }
