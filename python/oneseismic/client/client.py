@@ -1,59 +1,80 @@
 import collections
+import functools
 import numpy as np
 import requests
 import msgpack
 import time
 
-def assemble_slice(msg):
-    unpacked = msgpack.unpackb(msg)
+class assembler:
+    """Base for the assembler
+    """
+    kind = 'untyped'
 
-    index = unpacked[0]['index']
-    dims0 = len(index[0])
-    dims1 = len(index[1])
+    def __repr__(self):
+        return self.kind
 
-    result = np.zeros((dims0 * dims1), dtype = np.single)
-    for bundle in unpacked[1]:
-        for tile in bundle['tiles']:
-            layout = tile
-            dst = layout['initial-skip']
-            chunk_size = layout['chunk-size']
-            src = 0
-            v = tile['v']
-            for _ in range(layout['iterations']):
-                result[dst : dst + chunk_size] = v[src : src + chunk_size]
-                src += layout['substride']
-                dst += layout['superstride']
+    def numpy(self, msg):
+        raise NotImplementedError
 
-    return result.reshape((dims0, dims1))
+    def xarray(self, msg):
+        raise NotImplementedError
 
-def assemble_curtain(msg):
-    # This function is very rough and does suggest that the message from the
-    # server should be richer, to more easily allocate and construct a curtain
-    # object
-    unpacked = msgpack.unpackb(msg)
-    header = unpacked[0]
-    shape = header['shape']
-    index = header['index']
-    dims0 = len(index[0])
-    dimsz = len(index[2])
+class assembler_slice(assembler):
+    kind = 'slice'
 
-    # pre-compute where to put traces based on the dim0/dim1 coordinates
-    # note that the index is made up of zero-indexed coordinates in the volume,
-    # not the actual line numbers
-    xyindex = { (x, y): i for i, (x, y) in enumerate(zip(index[0], index[1])) }
+    def numpy(self, msg):
+        unpacked = msgpack.unpackb(msg)
 
-    # allocate the result. The shape can be slightly larger than dims0 * dimsz
-    # since the traces can be padded at the end. By allocating space for the
-    # padded traces we can just put floats directly into the array
-    xs = np.zeros(shape = shape, dtype = np.single)
+        index = unpacked[0]['index']
+        dims0 = len(index[0])
+        dims1 = len(index[1])
 
-    for bundle in unpacked[1]:
-        for part in bundle['traces']:
-            x, y, z = part['coordinates']
-            v = part['v']
-            xs[xyindex[(x, y)], z:z+len(v)] = v[:]
+        result = np.zeros((dims0 * dims1), dtype = np.single)
+        for bundle in unpacked[1]:
+            for tile in bundle['tiles']:
+                layout = tile
+                dst = layout['initial-skip']
+                chunk_size = layout['chunk-size']
+                src = 0
+                v = tile['v']
+                for _ in range(layout['iterations']):
+                    result[dst : dst + chunk_size] = v[src : src + chunk_size]
+                    src += layout['substride']
+                    dst += layout['superstride']
 
-    return xs[:dims0, :dimsz]
+        return result.reshape((dims0, dims1))
+
+class assembler_curtain(assembler):
+    kind = 'curtain'
+
+    def numpy(self, msg):
+        # This function is very rough and does suggest that the message from the
+        # server should be richer, to more easily allocate and construct a curtain
+        # object
+        unpacked = msgpack.unpackb(msg)
+        header = unpacked[0]
+        shape = header['shape']
+        index = header['index']
+        dims0 = len(index[0])
+        dimsz = len(index[2])
+
+        # pre-compute where to put traces based on the dim0/dim1 coordinates
+        # note that the index is made up of zero-indexed coordinates in the volume,
+        # not the actual line numbers
+        xyindex = { (x, y): i for i, (x, y) in enumerate(zip(index[0], index[1])) }
+
+        # allocate the result. The shape can be slightly larger than dims0 * dimsz
+        # since the traces can be padded at the end. By allocating space for the
+        # padded traces we can just put floats directly into the array
+        xs = np.zeros(shape = shape, dtype = np.single)
+
+        for bundle in unpacked[1]:
+            for part in bundle['traces']:
+                x, y, z = part['coordinates']
+                v = part['v']
+                xs[xyindex[(x, y)], z:z+len(v)] = v[:]
+
+        return xs[:dims0, :dimsz]
 
 class cube:
     """ Cube handle
@@ -125,8 +146,8 @@ class cube:
             session = self.session,
             resource = resource,
         )
-
-        return assemble_slice(proc.raw_result())
+        proc.assembler = assembler_slice()
+        return proc
 
     def curtain(self, intersections):
         """Fetch a curtain
@@ -150,7 +171,8 @@ class cube:
             data = json.dumps(body),
         )
 
-        return assemble_curtain(proc.raw_result())
+        proc.assembler = assembler_curtain()
+        return proc
 
 class process:
     """
@@ -183,6 +205,7 @@ class process:
     def __init__(self, session, pid, status_url, result_url):
         self.session = session
         self.pid = pid
+        self.assembler = None
         self.status_url = status_url
         self.result_url = result_url
         self.done = False
@@ -191,6 +214,7 @@ class process:
         return '\n\t'.join([
             'oneseismic.process',
                 f'pid: {self.pid}',
+                f'assembler: {repr(self.assembler)}'
         ])
 
     def status(self):
@@ -238,15 +262,19 @@ class process:
         r = self.session.get(self.result_url)
         return r.content
 
-    def result(self):
-        return self.assemble(self.raw_result())
+    def get(self):
+        """
+        This is an alias for self.numpy
+        """
+        return self.numpy()
 
-    def assemble(self, body):
-        """
-        Assemble the response body into a suitable object. To be implemented by
-        derived classes.
-        """
-        raise NotImplementedError
+    def numpy(self):
+        try:
+            return self._cached_numpy
+        except AttributeError:
+            raw = self.raw_result()
+            self._cached_numpy = self.assembler.numpy(raw)
+            return self._cached_numpy
 
 def schedule(session, resource, data = None):
     """Start a server-side process.

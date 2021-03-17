@@ -148,23 +148,23 @@ def test_slices(w, h, d):
     cube = oneseismic.client.client.cube(guid, session)
 
     # test end slices
-    np.testing.assert_almost_equal(cube.slice(0, 1), data[0, :, :])
-    np.testing.assert_almost_equal(cube.slice(1, 1), data[:, 0, :])
-    np.testing.assert_almost_equal(cube.slice(2, 0), data[:, :, 0])
-    np.testing.assert_almost_equal(cube.slice(0, w), data[w - 1, :, :])
-    np.testing.assert_almost_equal(cube.slice(1, h), data[:, h - 1, :])
+    np.testing.assert_almost_equal(cube.slice(0, 1).numpy(), data[0, :, :])
+    np.testing.assert_almost_equal(cube.slice(1, 1).numpy(), data[:, 0, :])
+    np.testing.assert_almost_equal(cube.slice(2, 0).numpy(), data[:, :, 0])
+    np.testing.assert_almost_equal(cube.slice(0, w).numpy(), data[w - 1, :, :])
+    np.testing.assert_almost_equal(cube.slice(1, h).numpy(), data[:, h - 1, :])
     np.testing.assert_almost_equal(
-        cube.slice(2, (d - 1) * 4000),
+        cube.slice(2, (d - 1) * 4000).numpy(),
         data[:, :, d - 1]
     )
 
     # test end slices between the two first segments
     if w > 64:
-        np.testing.assert_almost_equal(cube.slice(0, 64), data[63, :, :])
-        np.testing.assert_almost_equal(cube.slice(0, 65), data[64, :, :])
+        np.testing.assert_almost_equal(cube.slice(0, 64).numpy(), data[63, :, :])
+        np.testing.assert_almost_equal(cube.slice(0, 65).numpy(), data[64, :, :])
     if h > 64:
-        np.testing.assert_almost_equal(cube.slice(1, 64), data[:, 63, :])
-        np.testing.assert_almost_equal(cube.slice(1, 65), data[:, 64, :])
+        np.testing.assert_almost_equal(cube.slice(1, 64).numpy(), data[:, 63, :])
+        np.testing.assert_almost_equal(cube.slice(1, 65).numpy(), data[:, 64, :])
     if d > 64:
-        np.testing.assert_almost_equal(cube.slice(2, 63 * 4000), data[:, :, 63])
-        np.testing.assert_almost_equal(cube.slice(2, 64 * 4000), data[:, :, 64])
+        np.testing.assert_almost_equal(cube.slice(2, 63 * 4000).numpy(), data[:, :, 63])
+        np.testing.assert_almost_equal(cube.slice(2, 64 * 4000).numpy(), data[:, :, 64])

@@ -185,9 +185,10 @@ def test_slice(**kwargs):
         ], dtype = 'single'
     )
 
-    npt.assert_array_equal(cube.slice(0, 12), expected_0_12)
-    npt.assert_array_equal(cube.slice(1, 22), expected_1_22)
-    npt.assert_array_equal(cube.slice(2, 30), expected_2_30)
+    print(cube.slice(0, 12).numpy() - expected_0_12)
+    npt.assert_array_equal(cube.slice(0, 12).numpy(), expected_0_12)
+    npt.assert_array_equal(cube.slice(1, 22).numpy(), expected_1_22)
+    npt.assert_array_equal(cube.slice(2, 30).numpy(), expected_2_30)
 
 @requests_mock.Mocker(kw='m')
 def test_ls(**kwargs):
