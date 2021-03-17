@@ -75,9 +75,9 @@ int task_count(int jobs, int task_size) {
 
 /*
  * Default implementations and customization points for the scheduling steps.
- * In general, you should only need to implement build() for new endpoints, but
- * partition() and make() are made availble should there be a need to customize
- * them too.
+ * In general, you should only need to implement build() and header() for new
+ * endpoints, but partition() and make() are made availble should there be a
+ * need to customize them too.
  */
 template < typename Input, typename Output >
 struct schedule_maker {
@@ -92,6 +92,21 @@ struct schedule_maker {
     Output build(const Input&, const nlohmann::json&) noexcept (false);
 
     /*
+     * Make a header. This function requires deep knowledge of the shape and
+     * oneseismic geometry, and must be implemented for all shape types.
+     *
+     * The information in the process header is crucial for efficient and
+     * precise assembly of the end-result on the client side. Otherwise,
+     * clients must buffer the full response, then parse it and make sense of
+     * the shape, keys, linenos etc after the fact, since data can arrive in
+     * arbitrary order. This makes detecting errors more difficult too. The
+     * process header should provide enough information for clients to properly
+     * pre-allocate and build metadata to make sense of data as it is streamed.
+     */
+    one::process_header
+    header(const Input&, const nlohmann::json&, int ntasks) noexcept (false);
+
+    /*
      * Partition partitions an Output in-place and pack()s it into blobs of
      * task_size jobs. It assumes the Output type has a vector-like member
      * called 'ids'. This is a name lookup - should the member be named
@@ -102,7 +117,9 @@ struct schedule_maker {
     partition(Output&, int task_size) noexcept (false);
 
     /*
-     * Make a schedule() - calls build() and partition() in sequence.
+     * Make a schedule() - calls build(), header(), and partition() in
+     * sequence. The output vector should always have the header() as the
+     * *last* element.
      */
     std::vector< std::string >
     schedule(const char* doc, int len, int task_size) noexcept (false);
@@ -149,7 +166,12 @@ noexcept (false) {
     in.unpack(doc, doc + len);
     const auto manifest = nlohmann::json::parse(in.manifest);
     auto fetch = this->build(in, manifest);
-    return this->partition(fetch, task_size);
+    auto sched = this->partition(fetch, task_size);
+
+    const auto ntasks = int(sched.size());
+    const auto head   = this->header(in, manifest, ntasks);
+    sched.push_back(head.pack());
+    return sched;
 }
 
 template <>
@@ -191,6 +213,43 @@ schedule_maker< one::slice_task, one::slice_fetch >::build(
         out.ids.push_back(to_vec(id));
 
     return out;
+}
+
+template <>
+one::process_header
+schedule_maker< one::slice_task, one::slice_fetch >::header(
+    const one::slice_task& task,
+    const nlohmann::json& manifest,
+    int ntasks
+) noexcept (false) {
+    const auto& mdims = manifest["dimensions"];
+    const auto gvt  = geometry(mdims, task.shape);
+    const auto dim  = gvt.mkdim(task.dim);
+    const auto gvt2 = gvt.squeeze(dim);
+    const auto fs2  = gvt2.fragment_shape();
+
+    one::process_header head;
+    head.pid    = task.pid;
+    head.ntasks = ntasks;
+
+    /*
+     * The shape of a slice are the dimensions of the survey squeezed in that
+     * dimension.
+     */
+    for (std::size_t i = 0; i < fs2.size(); ++i) {
+        const auto dim = gvt2.mkdim(i);
+        head.shape.push_back(gvt2.nsamples(dim));
+    }
+
+    /*
+     * Build the index from the line numbers for the directions !=
+     * params.lineno
+     */
+    for (std::size_t i = 0; i < mdims.size(); ++i) {
+        if (i == task.dim) continue;
+        head.index.push_back(mdims[i]);
+    }
+    return head;
 }
 
 template <>
@@ -284,6 +343,32 @@ schedule_maker< one::curtain_task, one::curtain_fetch >::build(
     }
 
     return out;
+}
+
+template <>
+one::process_header
+schedule_maker< one::curtain_task, one::curtain_fetch >::header(
+    const one::curtain_task& task,
+    const nlohmann::json& manifest,
+    int ntasks
+) noexcept (false) {
+    const auto& mdims = manifest["dimensions"];
+
+    one::process_header head;
+    head.pid    = task.pid;
+    head.ntasks = ntasks;
+
+    const auto gvt  = geometry(mdims, task.shape);
+    const auto zpad = gvt.nsamples_padded(gvt.mkdim(gvt.ndims - 1));
+    head.shape = {
+        int(task.dim0s.size()),
+        int(zpad),
+    };
+
+    head.index.push_back(task.dim0s);
+    head.index.push_back(task.dim1s);
+    head.index.push_back(mdims.back());
+    return head;
 }
 
 }
