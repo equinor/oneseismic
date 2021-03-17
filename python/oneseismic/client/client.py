@@ -165,6 +165,8 @@ class process:
     session : request.Session
         A requests.Session-like with a get() method. Authorization headers
         should be set.
+    pid : str
+        The process id
     status_url : str
         Relative path to the status endpoint.
     result_url : str
@@ -178,8 +180,9 @@ class process:
     --------
     schedule
     """
-    def __init__(self, session, status_url, result_url):
+    def __init__(self, session, pid, status_url, result_url):
         self.session = session
+        self.pid = pid
         self.status_url = status_url
         self.result_url = result_url
         self.done = False
@@ -269,8 +272,10 @@ def schedule(session, resource, data = None):
     s = http_session(session.base_url)
     s.headers.update({'Authorization': auth})
 
+    pid = body['location'].split('/')[-1]
     return process(
         session = s,
+        pid = pid,
         status_url = body['status'],
         result_url = body['location'],
     )
