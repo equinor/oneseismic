@@ -18,8 +18,7 @@ void* copyalloc(const T& x) {
 }
 
 tasks* mkschedule(const char* doc, int len, int task_size) {
-    auto packed = one::mkschedule(doc, len, task_size);
-    packed.pop_back();
+    const auto packed = one::mkschedule(doc, len, task_size);
 
     struct deleter {
         void operator () (tasks* t) noexcept (true) {

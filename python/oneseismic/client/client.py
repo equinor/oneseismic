@@ -5,48 +5,55 @@ import msgpack
 import time
 
 def assemble_slice(msg):
-    parts = msgpack.unpackb(msg)
+    unpacked = msgpack.unpackb(msg)
 
-    # assume that all tiles have the same shape (which holds, at least for
-    # now), so look up the shape from the first tile
-    shape0, shape1 = parts[0]['shape']
-    result = np.zeros(shape0 * shape1)
+    index = unpacked[0]['index']
+    dims0 = len(index[0])
+    dims1 = len(index[1])
 
-    for part in parts:
-        for tile in part['tiles']:
+    result = np.zeros((dims0 * dims1), dtype = np.single)
+    for bundle in unpacked[1]:
+        for tile in bundle['tiles']:
             layout = tile
             dst = layout['initial-skip']
             chunk_size = layout['chunk-size']
             src = 0
+            v = tile['v']
             for _ in range(layout['iterations']):
-                result[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
+                result[dst : dst + chunk_size] = v[src : src + chunk_size]
                 src += layout['substride']
                 dst += layout['superstride']
 
-    return result.reshape((shape0, shape1))
+    return result.reshape((dims0, dims1))
 
 def assemble_curtain(msg):
     # This function is very rough and does suggest that the message from the
     # server should be richer, to more easily allocate and construct a curtain
     # object
     unpacked = msgpack.unpackb(msg)
-    r = collections.defaultdict(list)
-    for bundle in unpacked:
+    header = unpacked[0]
+    shape = header['shape']
+    index = header['index']
+    dims0 = len(index[0])
+    dimsz = len(index[2])
+
+    # pre-compute where to put traces based on the dim0/dim1 coordinates
+    # note that the index is made up of zero-indexed coordinates in the volume,
+    # not the actual line numbers
+    xyindex = { (x, y): i for i, (x, y) in enumerate(zip(index[0], index[1])) }
+
+    # allocate the result. The shape can be slightly larger than dims0 * dimsz
+    # since the traces can be padded at the end. By allocating space for the
+    # padded traces we can just put floats directly into the array
+    xs = np.zeros(shape = shape, dtype = np.single)
+
+    for bundle in unpacked[1]:
         for part in bundle['traces']:
-            xyz = tuple(part['coordinates'])
-            r[xyz[:-1]].append((xyz[-1], part['v']))
+            x, y, z = part['coordinates']
+            v = part['v']
+            xs[xyindex[(x, y)], z:z+len(v)] = v[:]
 
-    for trace in r.values():
-        trace.sort()
-
-    a = []
-    for key in sorted(r.keys()):
-        trace = []
-        for _, subtrace in r[key]:
-            trace.extend(subtrace)
-        a.append(trace)
-
-    return np.array(a, dtype = np.float)
+    return xs[:dims0, :dimsz]
 
 class cube:
     """ Cube handle

@@ -1,9 +1,7 @@
 package api
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -11,9 +9,9 @@ import (
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
+	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/go-redis/redis/v8"
 	"github.com/gin-gonic/gin"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Result struct {
@@ -29,50 +27,55 @@ type Result struct {
  * all over the place.
  */
 func headerkey(pid string) string {
-	return fmt.Sprintf("%s:header.json", pid)
+	return fmt.Sprintf("%s/header.json", pid)
 }
 
-type processheader struct {
-	Parts int `:json:"parts"`
-}
-
-func parseProcessHeader(doc []byte) (processheader, error) {
-	ph := processheader {}
-	if err := json.Unmarshal(doc, &ph); err != nil {
+func parseProcessHeader(doc []byte) (*message.ProcessHeader, error) {
+	ph, err := (&message.ProcessHeader{}).Unpack(doc)
+	if err != nil {
 		log.Printf("bad process header: %s", string(doc))
 		return ph, fmt.Errorf("unable to parse process header: %w", err)
 	}
 
-	if ph.Parts <= 0 {
+	if ph.Ntasks <= 0 {
 		log.Printf("bad process header: %s", string(doc))
-		return ph, fmt.Errorf("processheader.parts = %d; want >= 1", ph.Parts)
+		return ph, fmt.Errorf("processheader.parts = %d; want >= 1", ph.Ntasks)
 	}
 	return ph, nil
+}
+
+func resultFromProcessHeader(
+	head *message.ProcessHeader,
+) *message.ResultHeader {
+	return &message.ResultHeader {
+		Bundles: head.Ntasks,
+		Shape:   head.Shape,
+		Index:   head.Index,
+	}
 }
 
 func collectResult(
 	ctx context.Context,
 	storage redis.Cmdable,
 	pid string,
-	parts int,
+	head *message.ProcessHeader,
 	tiles chan []byte,
 	failure chan error,
 ) {
 	defer close(tiles)
 	defer close(failure)
 
-	var b bytes.Buffer
-	enc := msgpack.NewEncoder(&b)
-	err := enc.EncodeArrayLen(parts)
+	rh := resultFromProcessHeader(head)
+	rhpacked, err := rh.Pack()
 	if err != nil {
 		failure <- err
 		return
 	}
-	tiles <- b.Bytes()
+	tiles <- rhpacked
 
 	streamCursor := "0"
 	count := 0
-	for count < parts {
+	for count < head.Ntasks {
 		xreadArgs := redis.XReadArgs{
 			Streams: []string{pid, streamCursor},
 			Block:   0,
@@ -110,7 +113,7 @@ func (r *Result) Stream(ctx *gin.Context) {
 		return
 	}
 
-	meta, err := parseProcessHeader(body)
+	head, err := parseProcessHeader(body)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -119,7 +122,7 @@ func (r *Result) Stream(ctx *gin.Context) {
 
 	tiles := make(chan []byte)
 	failure := make(chan error)
-	go collectResult(ctx, r.Storage, pid, meta.Parts, tiles, failure)
+	go collectResult(ctx, r.Storage, pid, head, tiles, failure)
 
 	w := ctx.Writer
 	header := w.Header()
@@ -152,7 +155,7 @@ func (r *Result) Get(ctx *gin.Context) {
 		return
 	}
 
-	meta, err := parseProcessHeader(body)
+	head, err := parseProcessHeader(body)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -161,14 +164,14 @@ func (r *Result) Get(ctx *gin.Context) {
 
 	count, err := r.Storage.XLen(ctx, pid).Result()
 
-	if count < int64(meta.Parts) {
+	if count < int64(head.Ntasks) {
 		ctx.AbortWithStatus(http.StatusAccepted)
 		return
 	}
 
 	tiles := make(chan []byte, 1000)
 	failure := make(chan error)
-	go collectResult(ctx, r.Storage, pid, meta.Parts, tiles, failure)
+	go collectResult(ctx, r.Storage, pid, head, tiles, failure)
 
 	result := make([]byte, 0)
 
@@ -232,8 +235,8 @@ func (r *Result) Status(ctx *gin.Context) {
 		return
 	}
 
-	done := count == int64(proc.Parts)
-	completed := fmt.Sprintf("%d/%d", count, proc.Parts)
+	done := count == int64(proc.Ntasks)
+	completed := fmt.Sprintf("%d/%d", count, proc.Ntasks)
 
 	// TODO: add (and detect) failed status
 	if done {

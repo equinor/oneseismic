@@ -96,16 +96,18 @@ func (sched *cppscheduler) ScheduleRaw(
 	 * well be split up into sub structs and functions which can then be
 	 * dependency-injected for some customisation and easier testing.
 	 */
-	plan, err := sched.plan(task)
+	planb, err := sched.plan(task)
 	if err != nil {
 		return err
 	}
+	header := planb[0]
+	plan   := planb[1:]
 	ntasks := len(plan)
 
 	sched.storage.Set(
 		ctx,
-		fmt.Sprintf("%s:header.json", pid),
-		fmt.Sprintf("{\"parts\": %d }", ntasks),
+		fmt.Sprintf("%s/header.json", pid),
+		header,
 		10 * time.Minute,
 	)
 	for i, task := range plan {
