@@ -187,6 +187,12 @@ class process:
         self.result_url = result_url
         self.done = False
 
+    def __repr__(self):
+        return '\n\t'.join([
+            'oneseismic.process',
+                f'pid: {self.pid}',
+        ])
+
     def status(self):
         """ Processs status
 
