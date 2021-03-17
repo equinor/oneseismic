@@ -392,6 +392,14 @@ class gvt {
         using Dimension = dimension< ND >;
 
         /*
+         * Programmatic access to the number-of-dimensions for users of gvt.
+         * This has uses such as when you want the "last" dimension
+         * (downwards), but don't care too much how many dimensions there are,
+         * or don't want to hard-code dimensionality.
+         */
+        constexpr static const auto ndims = ND;
+
+        /*
          * Make a gvt-compatible dimension from an integral.
          *
          * A bunch of functions take a dimension< ND > as an argument, as a way
@@ -405,6 +413,7 @@ class gvt {
          *     zdim0 = one::dimension< 3 >(2);      // only works for gvt< 3 >
          *     zdim1 = decltype(gvt)::Dimension(2); // works for any gvt, noisy
          *     zdim2 = gvt.mkdim(2);
+         *     zdim3 = gvt.mkdim(gvt.ndims - 1);
          *
          * This function only serves to make the strongly typed integers less
          * noisy, and to make it easier to derive the "right" kind from related
