@@ -4,11 +4,15 @@ import numpy as np
 import requests
 import msgpack
 import time
+import xarray
 
 class assembler:
     """Base for the assembler
     """
     kind = 'untyped'
+
+    def __init__(self, src):
+        self.sourcecube = src
 
     def __repr__(self):
         return self.kind
@@ -21,6 +25,11 @@ class assembler:
 
 class assembler_slice(assembler):
     kind = 'slice'
+
+    def __init__(self, sourcecube, dimlabels, name):
+        super().__init__(sourcecube)
+        self.dims = dimlabels
+        self.name = name
 
     def numpy(self, msg):
         unpacked = msgpack.unpackb(msg)
@@ -43,6 +52,18 @@ class assembler_slice(assembler):
                     dst += layout['superstride']
 
         return result.reshape((dims0, dims1))
+
+    def xarray(self, msg):
+        unpacked = msgpack.unpackb(msg)
+        index = unpacked[0]['index']
+        a = self.numpy(msg)
+        # TODO: add units for time/depth
+        return xarray.DataArray(
+            data   = a,
+            dims   = self.dims,
+            name   = self.name,
+            coords = index,
+        )
 
 class assembler_curtain(assembler):
     kind = 'curtain'
@@ -75,6 +96,31 @@ class assembler_curtain(assembler):
                 xs[xyindex[(x, y)], z:z+len(v)] = v[:]
 
         return xs[:dims0, :dimsz]
+
+    def xarray(self, msg):
+        unpacked = msgpack.unpackb(msg)
+        index = unpacked[0]['index']
+        a = self.numpy(msg)
+        ijk = self.sourcecube.ijk
+
+        xs = [ijk[0][x] for x in index[0]]
+        ys = [ijk[1][x] for x in index[1]]
+        # TODO: address this inconsistency - zs is in 'real' sample offsets,
+        # while xs/ys are cube indexed
+        zs = index[2]
+        da = xarray.DataArray(
+            data = a,
+            name = 'curtain',
+            # TODO: derive labels from query, header, or manifest
+            dims = ['xy', 'z'],
+            coords = {
+                'x': ('xy', xs),
+                'y': ('xy', ys),
+                'z': zs,
+            }
+        )
+
+        return da
 
 class cube:
     """ Cube handle
@@ -142,11 +188,14 @@ class cube:
         slice : numpy.ndarray
         """
         resource = f"query/{self.guid}/slice/{dim}/{lineno}"
+        # TODO: derive labels from query, header, or manifest
+        labels = ['inline', 'crossline', 'time']
+        name = f'{labels.pop(dim)} {lineno}'
         proc = schedule(
             session = self.session,
             resource = resource,
         )
-        proc.assembler = assembler_slice()
+        proc.assembler = assembler_slice(self, dimlabels = labels, name = name)
         return proc
 
     def curtain(self, intersections):
@@ -171,7 +220,7 @@ class cube:
             data = json.dumps(body),
         )
 
-        proc.assembler = assembler_curtain()
+        proc.assembler = assembler_curtain(self)
         return proc
 
 class process:
@@ -275,6 +324,14 @@ class process:
             raw = self.raw_result()
             self._cached_numpy = self.assembler.numpy(raw)
             return self._cached_numpy
+
+    def xarray(self):
+        try:
+            return self._cached_xarray
+        except AttributeError:
+            raw = self.raw_result()
+            self._cached_xarray = self.assembler.xarray(raw)
+            return self._cached_xarray
 
 def schedule(session, resource, data = None):
     """Start a server-side process.
