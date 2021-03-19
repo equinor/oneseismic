@@ -315,10 +315,15 @@ class process:
         raise AssertionError(f'Unhandled status code f{r.status_code}')
 
     def get_raw(self):
-        """
+        """Get the unparsed response
         Get the raw response for the result. This function will block until the
         result is ready, and will start downloading data as soon as any is
         available.
+
+        Returns
+        -------
+        reponse : bytes
+            The (possibly cached) response
         """
         try:
             return self._cached_raw
@@ -329,6 +334,8 @@ class process:
             return self._cached_raw
 
     def get(self):
+        """Get the parsed response
+        """
         return msgpack.unpackb(self.get_raw())
 
     def numpy(self):
