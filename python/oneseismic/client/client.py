@@ -320,9 +320,13 @@ class process:
         result is ready, and will start downloading data as soon as any is
         available.
         """
-        stream = f'{self.result_url}/stream'
-        r = self.session.get(stream)
-        return r.content
+        try:
+            return self._cached_raw
+        except AttributeError:
+            stream = f'{self.result_url}/stream'
+            r = self.session.get(stream)
+            self._cached_raw = r.content
+            return self._cached_raw
 
     def get(self):
         return msgpack.unpackb(self.get_raw())
