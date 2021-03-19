@@ -292,36 +292,24 @@ class process:
 
         raise AssertionError(f'Unhandled status code f{r.status_code}')
 
-    def raw_result(self):
+    def get_raw(self):
         """
-        The response body for result. This method should rarely be called
-        directly, but can be useful for debugging, inspecting, or custom
-        parsing.
-
-        The function will block until the result is ready.
+        Get the raw response for the result. This function will block until the
+        result is ready, and will start downloading data as soon as any is
+        available.
         """
-        # TODO: optionally do a blocking read server-side
-        # TODO: async/await support
-        while not self.done:
-            _ = self.status()
-            if not self.done:
-                time.sleep(1)
-
-        # TODO: cache?
-        r = self.session.get(self.result_url)
+        stream = f'{self.result_url}/stream'
+        r = self.session.get(stream)
         return r.content
 
     def get(self):
-        """
-        This is an alias for self.numpy
-        """
-        return self.numpy()
+        return msgpack.unpackb(self.get_raw())
 
     def numpy(self):
         try:
             return self._cached_numpy
         except AttributeError:
-            raw = self.raw_result()
+            raw = self.get_raw()
             self._cached_numpy = self.assembler.numpy(raw)
             return self._cached_numpy
 
@@ -329,7 +317,7 @@ class process:
         try:
             return self._cached_xarray
         except AttributeError:
-            raw = self.raw_result()
+            raw = self.get_raw()
             self._cached_xarray = self.assembler.xarray(raw)
             return self._cached_xarray
 

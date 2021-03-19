@@ -155,9 +155,9 @@ def test_slice(**kwargs):
     kwargs['m'].get('http://api/result/pid-1-22/status', text = status_1_22)
     kwargs['m'].get('http://api/result/pid-2-30/status', text = status_2_30)
 
-    kwargs['m'].get('http://api/result/pid-0-12', content = slice_0_12)
-    kwargs['m'].get('http://api/result/pid-1-22', content = slice_1_22)
-    kwargs['m'].get('http://api/result/pid-2-30', content = slice_2_30)
+    kwargs['m'].get('http://api/result/pid-0-12/stream', content = slice_0_12)
+    kwargs['m'].get('http://api/result/pid-1-22/stream', content = slice_1_22)
+    kwargs['m'].get('http://api/result/pid-2-30/stream', content = slice_2_30)
 
     expected_0_12 = np.asarray(
         [
