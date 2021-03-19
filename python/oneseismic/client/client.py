@@ -17,10 +17,37 @@ class assembler:
     def __repr__(self):
         return self.kind
 
-    def numpy(self, msg):
+    def numpy(self, unpacked):
+        """Assemble numpy array
+
+        Assemble a numpy array from a parsed response.
+
+        Parameters
+        ----------
+        unpacked
+            The result of msgpack.unpackb(slice.get())
+        Returns
+        -------
+        a : numpy.array
+            The result as a numpy array
+        """
         raise NotImplementedError
 
-    def xarray(self, msg):
+    def xarray(self, unpacked):
+        """Assemble xarray
+
+        Assemble an xarray from a parsed response.
+
+        Parameters
+        ----------
+        unpacked
+            The result of msgpack.unpackb(slice.get())
+
+        Returns
+        -------
+        xa : xarray.DataArray
+            The result as an xarray
+        """
         raise NotImplementedError
 
 class assembler_slice(assembler):
@@ -31,9 +58,7 @@ class assembler_slice(assembler):
         self.dims = dimlabels
         self.name = name
 
-    def numpy(self, msg):
-        unpacked = msgpack.unpackb(msg)
-
+    def numpy(self, unpacked):
         index = unpacked[0]['index']
         dims0 = len(index[0])
         dims1 = len(index[1])
@@ -53,10 +78,9 @@ class assembler_slice(assembler):
 
         return result.reshape((dims0, dims1))
 
-    def xarray(self, msg):
-        unpacked = msgpack.unpackb(msg)
+    def xarray(self, unpacked):
         index = unpacked[0]['index']
-        a = self.numpy(msg)
+        a = self.numpy(unpacked)
         # TODO: add units for time/depth
         return xarray.DataArray(
             data   = a,
@@ -68,11 +92,10 @@ class assembler_slice(assembler):
 class assembler_curtain(assembler):
     kind = 'curtain'
 
-    def numpy(self, msg):
+    def numpy(self, unpacked):
         # This function is very rough and does suggest that the message from the
         # server should be richer, to more easily allocate and construct a curtain
         # object
-        unpacked = msgpack.unpackb(msg)
         header = unpacked[0]
         shape = header['shape']
         index = header['index']
@@ -97,10 +120,9 @@ class assembler_curtain(assembler):
 
         return xs[:dims0, :dimsz]
 
-    def xarray(self, msg):
-        unpacked = msgpack.unpackb(msg)
+    def xarray(self, unpacked):
         index = unpacked[0]['index']
-        a = self.numpy(msg)
+        a = self.numpy(unpacked)
         ijk = self.sourcecube.ijk
 
         xs = [ijk[0][x] for x in index[0]]
@@ -309,7 +331,7 @@ class process:
         try:
             return self._cached_numpy
         except AttributeError:
-            raw = self.get_raw()
+            raw = self.get()
             self._cached_numpy = self.assembler.numpy(raw)
             return self._cached_numpy
 
@@ -317,7 +339,7 @@ class process:
         try:
             return self._cached_xarray
         except AttributeError:
-            raw = self.get_raw()
+            raw = self.get()
             self._cached_xarray = self.assembler.xarray(raw)
             return self._cached_xarray
 
