@@ -76,12 +76,14 @@ func (sched *cppscheduler) plan(task []byte) ([][]byte, error) {
 	)
 	defer C.cleanup(csched)
 
-	result := make([][]byte, 0, int(csched.size))
-	size := unsafe.Sizeof(C.struct_task {})
-	base := uintptr(unsafe.Pointer(csched.tasks))
-	for i := uintptr(0); i < uintptr(csched.size); i++ {
-		this := (*C.struct_task)(unsafe.Pointer(base + (size * i)))
-		result = append(result, C.GoBytes(this.task, this.size))
+	ntasks := int(csched.len)
+	result := make([][]byte, 0, ntasks)
+	sizes  := (*[1 << 30]C.int)(unsafe.Pointer(csched.sizes))[:ntasks:ntasks]
+
+	this := uintptr(unsafe.Pointer(csched.tasks))
+	for _, size := range sizes {
+		result = append(result, C.GoBytes(unsafe.Pointer(this), size))
+		this += uintptr(size)
 	}
 	return result, nil
 }

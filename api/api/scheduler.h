@@ -5,15 +5,11 @@
 extern "C" {
 #endif //__cplusplus
 
-struct task {
-    int size;
-    const void* task;
-};
-
 struct tasks {
     const char* err;
-    int size;
-    struct task* tasks;
+    int len;
+    int* sizes;
+    char* tasks;
 };
 
 struct tasks* mkschedule(const char* doc, int len, int task_size);

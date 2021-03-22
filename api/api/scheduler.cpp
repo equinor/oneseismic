@@ -1,18 +1,18 @@
 #include "scheduler.h"
 
-#include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <numeric>
 
 #include <oneseismic/plan.hpp>
 
 namespace {
 
 template < typename T >
-void* copyalloc(const T& x) {
-    void* p = std::malloc(x.size() * sizeof(*x.data()));
-    std::memcpy(p, x.data(), x.size());
-    return p;
+char* copy(char* dst, const T& x) noexcept (true) {
+    const auto len = x.size();
+    std::memcpy(dst, x.data(), len);
+    return dst + len;
 }
 
 }
@@ -26,18 +26,27 @@ tasks* mkschedule(const char* doc, int len, int task_size) {
         }
     };
 
+    const auto flat_tasksize = std::accumulate(
+        packed.begin(),
+        packed.end(),
+        0,
+        [](const int acc, const std::string& x) noexcept (true) {
+            return acc + x.size();
+        }
+    );
+
     std::unique_ptr< tasks, deleter > cs(new tasks());
     cs->err = nullptr;
-    cs->tasks = new task[packed.size()];
-    cs->size = packed.size();
+    cs->sizes = new int [packed.size()];
+    cs->tasks = new char[flat_tasksize];
+    cs->len   = packed.size();
+    char* dst = cs->tasks;
 
-    auto& header = cs->tasks[0];
-    header.size  = packed.back().size();
-    header.task  = copyalloc(packed.back());
+    cs->sizes[0] = packed.back().size();
+    dst = copy(dst, packed.back());
     for (std::size_t i = 0; i < packed.size() - 1; ++i) {
-        auto& task = cs->tasks[i + 1];
-        task.size = packed[i].size();
-        task.task = copyalloc(packed[i]);
+        cs->sizes[i + 1] = packed[i].size();
+        dst = copy(dst, packed[i]);
     }
 
     return cs.release();
@@ -46,10 +55,8 @@ tasks* mkschedule(const char* doc, int len, int task_size) {
 void cleanup(tasks* cs) {
     if (!cs) return;
 
-    for (int i = 0; i < cs->size; ++i) {
-        std::free((void*)cs->tasks[i].task);
-    }
     delete cs->err;
+    delete cs->sizes;
     delete cs->tasks;
     delete cs;
 }
