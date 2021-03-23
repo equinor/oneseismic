@@ -354,6 +354,44 @@ class process:
             self._cached_xarray = self.assembler.xarray(raw)
             return self._cached_xarray
 
+    def withcompression(self, kind = 'gz'):
+        """Get response compressed if available
+
+        Request that the response be sent compressed, if available.  Compressed
+        responses are typically half the size of uncompressed responses, which
+        can be faster if there is limited bandwidth to oneseismic. Compressed
+        responses are typically not faster inside the data centre.
+
+        If kind is None, compression will be disabled.
+
+        Compression defaults to 'gz'.
+
+        Parameters
+        ----------
+        kind : { 'gz', None }, optional
+            Compression algorithm. Defaults to gz.
+
+        Returns
+        -------
+        self : process
+
+        Examples
+        --------
+        Read a compressed slice:
+        >>> proc = cube.slice(dim = 0, lineno = 5024)
+        >>> proc.withcompression(kind = 'gz')
+        >>> s = proc.numpy()
+        >>> proc = cube.slice(dim = 0, lineno = 5).withcompression(kind = 'gz')
+        >>> s = proc.numpy()
+        """
+        self.session.withcompression(kind)
+        return self
+
+    def withgz(self):
+        """process.withcompression(kind = 'gz')
+        """
+        return self.withcompression(kind = 'gz')
+
 def schedule(session, resource, data = None):
     """Start a server-side process.
 
@@ -479,6 +517,42 @@ class http_session(requests.Session):
         r = super().get(f'{self.base_url}/{url}', *args, **kwargs)
         r.raise_for_status()
         return r
+
+    def withcompression(self, kind):
+        """Get response compressed if available
+
+        Request that the response be sent compressed, if available.  Compressed
+        responses are typically half the size of uncompressed responses, which
+        can be faster if there is limited bandwidth to oneseismic. Compressed
+        responses are typically not faster inside the data centre.
+
+        If kind is None, compression will be disabled.
+
+        Parameters
+        ----------
+        kind : { 'gz', None }
+            Compression algorithm
+
+        Returns
+        -------
+        self : http_session
+
+        Notes
+        -----
+        This function does not accept defaults, and the http_session does not
+        have withgz() or similar methods, since it is a lower-level class and
+        not built for end-users.
+        """
+        if kind is None:
+            self.params.pop('compression', None)
+            return self
+
+        kinds = ['gz']
+        if kind not in kinds:
+            msg = f'compression {kind} not one of {",".join(kinds)}'
+            raise ValueError(msg)
+        self.params['compression'] = kind
+        return self
 
     @staticmethod
     def fromconfig(cache_dir = None):
