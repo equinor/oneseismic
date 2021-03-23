@@ -1,11 +1,13 @@
 package util
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
@@ -21,6 +23,77 @@ func MakePID() string {
 
 func GeneratePID(ctx *gin.Context) {
 	ctx.Set("pid", MakePID())
+}
+
+type gzipWriter struct {
+	gin.ResponseWriter
+	writer *gzip.Writer
+}
+
+func (gz *gzipWriter) Write(b []byte) (int, error) {
+	return gz.writer.Write(b)
+}
+
+// Compress the response if requested with a ?compression=kind query
+//
+// The implementation is roughly based on https://github.com/gin-contrib/gzip/
+// with a couple of changed assumptions. The gin-contrib/gzip does not quite
+// fit our usecase, and is very much geared towards compressing small
+// text-responses and serving files, in a proper webserver fashion.
+func Compression() gin.HandlerFunc {
+	// responses are not very compressible (usually compressible to half the
+	// size), and *speed* is the key anyway. Within the data centre it seems
+	// like the break-even for compression time vs. saved transport cost is at
+	// approx 20M responses.
+	//
+	// From a small rough experiment on a 14M response built from a 1.4M
+	// response concatenated 10 times indicates that there are no significant
+	// size improvements, but huge runtime costs in upping the compression
+	// level:
+	//
+	// $ time gzip -1 -c response.bin | wc -c
+	// 5812130
+	// real    0m0.286s
+	// $ time gzip -6 -c response.bin | wc -c
+	// 5330006
+	// real    0m1.230s
+
+	// make new writers from a pool. There is some overhead in creating new
+	// gzip writers, and they're easily re-usable. Using a sync.pool seems to
+	// be the standard implementation for this.
+	//
+	// https://github.com/gin-contrib/gzip/blob/7bbc855cce8a575268c8f3e8d0f7a6a67f3dee65/handler.go#L22
+	gzpool := sync.Pool {
+		New: func() interface {} {
+			gz, err := gzip.NewWriterLevel(ioutil.Discard, 1)
+			if err != nil {
+				panic(err)
+			}
+			return gz
+		},
+	}
+
+	// It is very important that ctx.Next() is called - it effectively suspends
+	// this handler and performs the request, then resumes where it left off.
+	// It ensures that the Close(), Reset() and Put() are performed *after*
+	// everything is properly written, and resources can be cleaned up.
+	return func (ctx *gin.Context) {
+		if (ctx.Query("compression") == "gz") {
+			gz := gzpool.Get().(*gzip.Writer)
+			defer gzpool.Put(gz)
+			defer gz.Reset(ioutil.Discard)
+			defer gz.Close()
+
+			gz.Reset(ctx.Writer)
+			ctx.Writer = &gzipWriter{ctx.Writer, gz}
+			ctx.Header("Content-Encoding", "gzip")
+			ctx.Next()
+
+			if (ctx.GetHeader("Transfer-Encoding") != "chunked") {
+				ctx.Header("Content-Length", fmt.Sprint(ctx.Writer.Size()))
+			}
+		}
+	}
 }
 
 /*

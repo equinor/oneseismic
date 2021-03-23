@@ -225,6 +225,7 @@ func main() {
 
 	results := app.Group("/result")
 	results.Use(auth.ResultAuth(&keyring))
+	results.Use(util.Compression())
 	results.GET("/:pid", result.Get)
 	results.GET("/:pid/stream", result.Stream)
 	results.GET("/:pid/status", result.Status)
