@@ -190,7 +190,9 @@ func main() {
 			DB: 0,
 		},
 	)
+	basic := api.MakeBasicEndpoint(&keyring, opts.storageURL, cmdable, tokens)
 	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable, tokens)
+	curtain := api.MakeCurtain(&keyring, opts.storageURL, cmdable, tokens)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
@@ -216,12 +218,14 @@ func main() {
 	queries.Use(validate)
 	queries.Use(util.GeneratePID)
 	queries.Use(util.QueryLogger)
-	queries.GET("/", slice.List)
-	queries.GET("/:guid", slice.Entry)
+	queries.GET("/",      basic.List)
+	queries.GET("/:guid", basic.Entry)
 	queries.GET("/:guid/slice/:dimension/:lineno", slice.Get)
+	queries.GET("/:guid/curtain", curtain.Get)
 
 	results := app.Group("/result")
 	results.Use(auth.ResultAuth(&keyring))
+	results.Use(util.Compression())
 	results.GET("/:pid", result.Get)
 	results.GET("/:pid/stream", result.Stream)
 	results.GET("/:pid/status", result.Status)

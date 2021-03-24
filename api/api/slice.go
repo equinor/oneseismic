@@ -1,21 +1,15 @@
 package api
 
-// #cgo LDFLAGS: -loneseismic -lfmt
-// #include <stdlib.h>
-// #include "slice.h"
-import "C"
-import "unsafe"
-
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/equinor/oneseismic/api/internal/util"
@@ -27,23 +21,22 @@ type process struct {
 }
 
 type Slice struct {
-	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
-	keyring  *auth.Keyring
-	storage  redis.Cmdable
-	tokens   auth.Tokens
+	BasicEndpoint
 }
 
 func MakeSlice(
-	keyring *auth.Keyring,
+	keyring  *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
 	tokens   auth.Tokens,
-) Slice {
-	return Slice {
-		endpoint: endpoint,
-		keyring: keyring,
-		storage: storage,
-		tokens:  tokens,
+) *Slice {
+	return &Slice {
+		MakeBasicEndpoint(
+			keyring,
+			endpoint,
+			storage,
+			tokens,
+		),
 	}
 }
 
@@ -87,25 +80,28 @@ func parseSliceParams(ctx *gin.Context) (*sliceParams, error) {
  * copy-parameter-into-struct function, but is a hook for sanity checks,
  * hard-coded values etc (such as the function parameter).
  */
-func (s *Slice) makeTask(
-	pid string,
-	token string,
-	manifest []byte,
-	params *sliceParams,
-) message.Task {
-	return message.Task {
-		Pid:   pid,
-		Token: token,
-		Guid:  params.guid,
-		StorageEndpoint: s.endpoint,
-		Manifest: string(manifest),
-		Shape: []int32 { 64, 64, 64, },
-		Function: "slice",
-		Params: &message.SliceParams {
-			Dim:    params.dimension,
-			Lineno: params.lineno,
-		},
+func (s *Slice) MakeTask(
+	pid       string,
+	token     string,
+	manifest  []byte,
+	shape     []int32,
+	shapecube []int32,
+	params    *sliceParams,
+) *message.Task {
+	task := s.BasicEndpoint.MakeTask(
+		pid,
+		params.guid,
+		token,
+		manifest,
+		shape,
+		shapecube,
+	)
+	task.Function = "slice"
+	task.Params   = &message.SliceParams {
+		Dim:    params.dimension,
+		Lineno: params.lineno,
 	}
+	return task
 }
 
 func contains(haystack []int, needle int) bool {
@@ -115,40 +111,6 @@ func contains(haystack []int, needle int) bool {
 		}
 	}
 	return false
-}
-
-func (s *Slice) Entry(ctx *gin.Context) {
-	pid := ctx.GetString("pid")
-
-	guid := ctx.Param("guid")
-	if guid == "" {
-		log.Printf("pid=%s, guid empty", pid)
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		return
-	}
-
-	dims := make([]message.DimensionDescription, len(m.Dimensions))
-	for i := 0; i < len(m.Dimensions); i++ {
-		dims[i] = message.DimensionDescription {
-			Dimension: i,
-			Size: len(m.Dimensions[i]),
-			Keys: m.Dimensions[i],
-		}
-	}
-
-	ctx.JSON(http.StatusOK, gin.H {
-		"functions": gin.H {
-			"slice": fmt.Sprintf("query/%s/slice", guid),
-		},
-		"dimensions": dims,
-		"pid": pid,
-	})
 }
 
 func (s *Slice) About(ctx *gin.Context) {
@@ -176,24 +138,6 @@ func (s *Slice) About(ctx *gin.Context) {
 		"links": links,
 		"pid": pid,
 	})
-}
-
-func makeSchedule(request []byte) [][]byte {
-	raw := C.mkschedule(
-		(*C.char)(unsafe.Pointer(&request[0])),
-		C.int(len(request)),
-		10, /* task-size */
-	)
-	defer C.cleanup(raw)
-
-	result := make([][]byte, 0)
-	size := unsafe.Sizeof(C.struct_task {})
-	base := uintptr(unsafe.Pointer(raw.tasks))
-	for i := uintptr(0); i < uintptr(raw.size); i++ {
-		this := (*C.struct_task)(unsafe.Pointer(base + (size * i)))
-		result = append(result, C.GoBytes(this.task, this.size))
-	}
-	return result
 }
 
 func (s *Slice) Get(ctx *gin.Context) {
@@ -261,13 +205,18 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	msg := s.makeTask(pid, token, manifest, params)
-	req, err := msg.Pack()
-	if err != nil {
-		log.Printf("pid=%s, pack error: %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
+	cubeshape := make([]int32, 0, len(m.Dimensions))
+	for i := 0; i < len(m.Dimensions); i++ {
+		cubeshape = append(cubeshape, int32(len(m.Dimensions[i])))
 	}
+	msg := s.MakeTask(
+		pid,
+		token,
+		manifest,
+		[]int32{ 64, 64, 64 },
+		cubeshape,
+		params,
+	)
 
 	key, err := s.keyring.Sign(pid)
 	if err != nil {
@@ -276,72 +225,20 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	tasks := makeSchedule(req)
-	ntasks := len(tasks)
-
-	ctxcopy := ctx.Copy()
-	go func() {
-		/*
-		 * Do the I/O in a go-routine to respond to clients faster.
-		 *
-		 * The context must be copied for this to not be broken
-		 * https://pkg.go.dev/github.com/gin-gonic/gin#Context.Copy
-		 */
-		s.storage.Set(
-			ctxcopy,
-			fmt.Sprintf("%s:header.json", pid),
-			fmt.Sprintf("{\"parts\": %d }", ntasks),
-			10 * time.Minute,
-		)
-		for i, task := range tasks {
-			values := []interface{} {
-				"pid",  pid,
-				"part", fmt.Sprintf("%d/%d", i, ntasks),
-				"task", task,
-			}
-			args := redis.XAddArgs{Stream: "jobs", Values: values}
-			_, err = s.storage.XAdd(ctxcopy, &args).Result()
-			if err != nil {
-				log.Fatalf("Unable to put %d in storage; %v", i, err)
-			}
+	go func () {
+		err := s.sched.Schedule(context.Background(), msg)
+		if err != nil {
+			/*
+			 * Make scheduling errors fatal to detect them for debugging.
+			 * Eventually this should log, maybe cancel the process, and
+			 * continue.
+			 */
+			log.Fatalf("pid=%s, %v", pid, err)
 		}
 	}()
-
 	ctx.JSON(http.StatusOK, gin.H {
 		"location": fmt.Sprintf("result/%s", pid),
 		"status":   fmt.Sprintf("result/%s/status", pid),
 		"authorization": key,
-	})
-}
-
-func (s *Slice) List(ctx *gin.Context) {
-	pid := ctx.GetString("pid")
-	endpoint, err := url.Parse(s.endpoint)
-	if err != nil {
-		log.Printf("%s %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	authorization := ctx.GetHeader("Authorization")
-	cubes, err := util.WithOnbehalfAndRetry(
-		s.tokens,
-		authorization,
-		func (tok string) (interface{}, error) {
-			return util.ListCubes(ctx, endpoint, tok)
-		},
-	)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		auth.AbortContextFromToken(ctx, err)
-	}
-
-	links := make(map[string]string)
-	for _, cube := range cubes.([]string) {
-		links[cube] = fmt.Sprintf("query/%s", cube)
-	}
-
-	ctx.JSON(http.StatusOK, gin.H {
-		"links": links,
 	})
 }

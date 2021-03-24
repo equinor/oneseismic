@@ -35,7 +35,29 @@ struct common_task {
     std::string        manifest;
     std::string        storage_endpoint;
     std::vector< int > shape;
+    std::vector< int > shape_cube;
     std::string        function;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+/*
+ * The process header, which should be output by the scheduler/planner. It
+ * describes the number of tasks the process has been split into and advices
+ * the client on how to parse the response.
+ *
+ * The process header is written from a point of awareness of the shape of the
+ * survey, so the shape tuple is the shape of the response *with padding*.
+ *
+ * The contents and order of the shape and index depend on the request type and
+ * parameters.
+ */
+struct process_header {
+    std::string        pid;
+    int                ntasks;
+    std::vector< int > shape;
+    std::vector< std::vector< int > > index;
 
     std::string pack() const noexcept(false);
     void unpack(const char* fst, const char* lst) noexcept (false);
@@ -52,13 +74,23 @@ struct slice_task : public common_task {
     void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
+struct curtain_task : public common_task {
+    curtain_task() = default;
+    explicit curtain_task(const common_task& t) : common_task(t) {}
+
+    std::vector< int > dim0s;
+    std::vector< int > dim1s;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
 /*
  */
 struct slice_fetch : public slice_task {
     slice_fetch() = default;
     explicit slice_fetch(const slice_task& t) : slice_task(t) {}
 
-    std::vector< int > cube_shape;
     std::vector< std::vector< int > > ids;
 
     std::string pack() const noexcept (false);
@@ -80,6 +112,38 @@ struct slice_tiles {
      */
     std::vector< int > shape;
     std::vector< tile > tiles;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+struct single {
+    /* id is a 3-tuple (i,j,k) that gives the fragment-ID */
+    std::vector< int > id;
+    /*
+     * coordinates is a 2-tuple (i', j') that gives the x/y position of the
+     * trace. This is already a "local" coordinate a is 0-based.
+     */
+    std::vector< std::array< int, 2 > > coordinates;
+};
+
+struct curtain_fetch : public curtain_task {
+    curtain_fetch() = default;
+    explicit curtain_fetch(const curtain_task& t) : curtain_task(t) {}
+
+    std::vector< single > ids;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+struct trace {
+    std::vector< int > coordinates;
+    std::vector< float > v;
+};
+
+struct curtain_traces {
+    std::vector< trace > traces;
 
     std::string pack() const noexcept(false);
     void unpack(const char* fst, const char* lst) noexcept (false);

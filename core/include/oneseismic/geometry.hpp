@@ -66,6 +66,8 @@ public:
     using base_type::rbegin;
     using base_type::rend;
     using base_type::size;
+    using base_type::front;
+    using base_type::back;
 
     std::string string() const;
 
@@ -388,6 +390,39 @@ template < std::size_t ND >
 class gvt {
     public:
         using Dimension = dimension< ND >;
+
+        /*
+         * Programmatic access to the number-of-dimensions for users of gvt.
+         * This has uses such as when you want the "last" dimension
+         * (downwards), but don't care too much how many dimensions there are,
+         * or don't want to hard-code dimensionality.
+         */
+        constexpr static const auto ndims = ND;
+
+        /*
+         * Make a gvt-compatible dimension from an integral.
+         *
+         * A bunch of functions take a dimension< ND > as an argument, as a way
+         * of catching some classes of errors compile-time (e.g. dimensions for
+         * different cubes are mixed).
+         *
+         * In practice, gvt objects are often constructed elsewhere, and the
+         * desired dimension comes from some dynamic input (e.g. message from
+         * the scheduler), which makes constructing the dimension object noisy.
+         *
+         *     zdim0 = one::dimension< 3 >(2);      // only works for gvt< 3 >
+         *     zdim1 = decltype(gvt)::Dimension(2); // works for any gvt, noisy
+         *     zdim2 = gvt.mkdim(2);
+         *     zdim3 = gvt.mkdim(gvt.ndims - 1);
+         *
+         * This function only serves to make the strongly typed integers less
+         * noisy, and to make it easier to derive the "right" kind from related
+         * values.
+         */
+        static constexpr Dimension mkdim(decltype(ND) d) noexcept (false) {
+            return Dimension(d);
+        }
+
         /*
          * The cube dimension is the source, un-padded cube dimension, which
          * *must* be rectangular. If the source survey tapers like this:
@@ -444,9 +479,11 @@ class gvt {
         slice_layout injection_stride(FID< ND >) const noexcept (true);
 
         /*
-         * The number of fragments in a direction.
+         * The number of fragments and samples in a direction.
          */
-        std::size_t fragment_count(Dimension) const noexcept (false);
+        std::size_t fragment_count(Dimension)  const noexcept (true);
+        std::size_t nsamples(Dimension)        const noexcept (true);
+        std::size_t nsamples_padded(Dimension) const noexcept (true);
 
         const CS< ND >& cube_shape()     const noexcept (true);
         const FS< ND >& fragment_shape() const noexcept (true);
@@ -467,6 +504,25 @@ class gvt {
          * Number of samples padded in direction d.
          */
         int padding(FID< ND > id, Dimension d) const noexcept (true);
+
+        /*
+         * Squeeze dimension d of this gvt. This removes dimensions d and
+         * shifts all tailing dimensions to the left.
+         *
+         * Examples
+         * --------
+         *  g0 = gvt< 3 > { {9, 18, 9 }, { 3, 3, 3 } };
+         *
+         *  g1 = g0.squeeze(Dimension(0));
+         *  g1.cube_shape()[0] == 18
+         *  g1.cube_shape()[1] == 9
+         *
+         *  g2 = g0.squeeze(Dimension(1)
+         *  g1.cube_shape()[0] == 9
+         *  g1.cube_shape()[1] == 9
+         *
+         */
+        gvt< ND - 1 > squeeze(Dimension d) const noexcept (true);
 
     private:
         CS< ND > global_dims;

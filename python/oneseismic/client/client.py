@@ -1,29 +1,148 @@
 import collections
+import functools
 import numpy as np
 import requests
 import msgpack
 import time
+import xarray
 
-def assemble_slice(msg):
-    parts = msgpack.unpackb(msg)
+class assembler:
+    """Base for the assembler
+    """
+    kind = 'untyped'
 
-    # assume that all tiles have the same shape (which holds, at least for
-    # now), so look up the shape from the first tile
-    shape0, shape1 = parts[0]['shape']
-    result = np.zeros(shape0 * shape1)
+    def __init__(self, src):
+        self.sourcecube = src
 
-    for part in parts:
-        for tile in part['tiles']:
-            layout = tile
-            dst = layout['initial-skip']
-            chunk_size = layout['chunk-size']
-            src = 0
-            for _ in range(layout['iterations']):
-                result[dst : dst + chunk_size] = tile['v'][src : src + chunk_size]
-                src += layout['substride']
-                dst += layout['superstride']
+    def __repr__(self):
+        return self.kind
 
-    return result.reshape((shape0, shape1))
+    def numpy(self, unpacked):
+        """Assemble numpy array
+
+        Assemble a numpy array from a parsed response.
+
+        Parameters
+        ----------
+        unpacked
+            The result of msgpack.unpackb(slice.get())
+        Returns
+        -------
+        a : numpy.array
+            The result as a numpy array
+        """
+        raise NotImplementedError
+
+    def xarray(self, unpacked):
+        """Assemble xarray
+
+        Assemble an xarray from a parsed response.
+
+        Parameters
+        ----------
+        unpacked
+            The result of msgpack.unpackb(slice.get())
+
+        Returns
+        -------
+        xa : xarray.DataArray
+            The result as an xarray
+        """
+        raise NotImplementedError
+
+class assembler_slice(assembler):
+    kind = 'slice'
+
+    def __init__(self, sourcecube, dimlabels, name):
+        super().__init__(sourcecube)
+        self.dims = dimlabels
+        self.name = name
+
+    def numpy(self, unpacked):
+        index = unpacked[0]['index']
+        dims0 = len(index[0])
+        dims1 = len(index[1])
+
+        result = np.zeros((dims0 * dims1), dtype = np.single)
+        for bundle in unpacked[1]:
+            for tile in bundle['tiles']:
+                layout = tile
+                dst = layout['initial-skip']
+                chunk_size = layout['chunk-size']
+                src = 0
+                v = tile['v']
+                for _ in range(layout['iterations']):
+                    result[dst : dst + chunk_size] = v[src : src + chunk_size]
+                    src += layout['substride']
+                    dst += layout['superstride']
+
+        return result.reshape((dims0, dims1))
+
+    def xarray(self, unpacked):
+        index = unpacked[0]['index']
+        a = self.numpy(unpacked)
+        # TODO: add units for time/depth
+        return xarray.DataArray(
+            data   = a,
+            dims   = self.dims,
+            name   = self.name,
+            coords = index,
+        )
+
+class assembler_curtain(assembler):
+    kind = 'curtain'
+
+    def numpy(self, unpacked):
+        # This function is very rough and does suggest that the message from the
+        # server should be richer, to more easily allocate and construct a curtain
+        # object
+        header = unpacked[0]
+        shape = header['shape']
+        index = header['index']
+        dims0 = len(index[0])
+        dimsz = len(index[2])
+
+        # pre-compute where to put traces based on the dim0/dim1 coordinates
+        # note that the index is made up of zero-indexed coordinates in the volume,
+        # not the actual line numbers
+        xyindex = { (x, y): i for i, (x, y) in enumerate(zip(index[0], index[1])) }
+
+        # allocate the result. The shape can be slightly larger than dims0 * dimsz
+        # since the traces can be padded at the end. By allocating space for the
+        # padded traces we can just put floats directly into the array
+        xs = np.zeros(shape = shape, dtype = np.single)
+
+        for bundle in unpacked[1]:
+            for part in bundle['traces']:
+                x, y, z = part['coordinates']
+                v = part['v']
+                xs[xyindex[(x, y)], z:z+len(v)] = v[:]
+
+        return xs[:dims0, :dimsz]
+
+    def xarray(self, unpacked):
+        index = unpacked[0]['index']
+        a = self.numpy(unpacked)
+        ijk = self.sourcecube.ijk
+
+        xs = [ijk[0][x] for x in index[0]]
+        ys = [ijk[1][x] for x in index[1]]
+        # TODO: address this inconsistency - zs is in 'real' sample offsets,
+        # while xs/ys are cube indexed
+        zs = index[2]
+        da = xarray.DataArray(
+            data = a,
+            name = 'curtain',
+            # TODO: derive labels from query, header, or manifest
+            dims = ['xy', 'z'],
+            coords = {
+                'x': ('xy', xs),
+                'y': ('xy', ys),
+                'z': zs,
+            }
+        )
+
+        return da
 
 class cube:
     """ Cube handle
@@ -91,12 +210,40 @@ class cube:
         slice : numpy.ndarray
         """
         resource = f"query/{self.guid}/slice/{dim}/{lineno}"
+        # TODO: derive labels from query, header, or manifest
+        labels = ['inline', 'crossline', 'time']
+        name = f'{labels.pop(dim)} {lineno}'
         proc = schedule(
             session = self.session,
             resource = resource,
         )
+        proc.assembler = assembler_slice(self, dimlabels = labels, name = name)
+        return proc
 
-        return assemble_slice(proc.raw_result())
+    def curtain(self, intersections):
+        """Fetch a curtain
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        curtain : numpy.ndarray
+        """
+
+        resource = f'query/{self.guid}/curtain'
+        body = {
+            'intersections': intersections
+        }
+        import json
+        proc = schedule(
+            session = self.session,
+            resource = resource,
+            data = json.dumps(body),
+        )
+
+        proc.assembler = assembler_curtain(self)
+        return proc
 
 class process:
     """
@@ -111,6 +258,8 @@ class process:
     session : request.Session
         A requests.Session-like with a get() method. Authorization headers
         should be set.
+    pid : str
+        The process id
     status_url : str
         Relative path to the status endpoint.
     result_url : str
@@ -124,11 +273,20 @@ class process:
     --------
     schedule
     """
-    def __init__(self, session, status_url, result_url):
+    def __init__(self, session, pid, status_url, result_url):
         self.session = session
+        self.pid = pid
+        self.assembler = None
         self.status_url = status_url
         self.result_url = result_url
         self.done = False
+
+    def __repr__(self):
+        return '\n\t'.join([
+            'oneseismic.process',
+                f'pid: {self.pid}',
+                f'assembler: {repr(self.assembler)}'
+        ])
 
     def status(self):
         """ Processs status
@@ -156,36 +314,85 @@ class process:
 
         raise AssertionError(f'Unhandled status code f{r.status_code}')
 
-    def raw_result(self):
+    def get_raw(self):
+        """Get the unparsed response
+        Get the raw response for the result. This function will block until the
+        result is ready, and will start downloading data as soon as any is
+        available.
+
+        Returns
+        -------
+        reponse : bytes
+            The (possibly cached) response
         """
-        The response body for result. This method should rarely be called
-        directly, but can be useful for debugging, inspecting, or custom
-        parsing.
+        try:
+            return self._cached_raw
+        except AttributeError:
+            stream = f'{self.result_url}/stream'
+            r = self.session.get(stream)
+            self._cached_raw = r.content
+            return self._cached_raw
 
-        The function will block until the result is ready.
+    def get(self):
+        """Get the parsed response
         """
-        # TODO: optionally do a blocking read server-side
-        # TODO: async/await support
-        while not self.done:
-            _ = self.status()
-            if not self.done:
-                time.sleep(1)
+        return msgpack.unpackb(self.get_raw())
 
-        # TODO: cache?
-        r = self.session.get(self.result_url)
-        return r.content
+    def numpy(self):
+        try:
+            return self._cached_numpy
+        except AttributeError:
+            raw = self.get()
+            self._cached_numpy = self.assembler.numpy(raw)
+            return self._cached_numpy
 
-    def result(self):
-        return self.assemble(self.raw_result())
+    def xarray(self):
+        try:
+            return self._cached_xarray
+        except AttributeError:
+            raw = self.get()
+            self._cached_xarray = self.assembler.xarray(raw)
+            return self._cached_xarray
 
-    def assemble(self, body):
+    def withcompression(self, kind = 'gz'):
+        """Get response compressed if available
+
+        Request that the response be sent compressed, if available.  Compressed
+        responses are typically half the size of uncompressed responses, which
+        can be faster if there is limited bandwidth to oneseismic. Compressed
+        responses are typically not faster inside the data centre.
+
+        If kind is None, compression will be disabled.
+
+        Compression defaults to 'gz'.
+
+        Parameters
+        ----------
+        kind : { 'gz', None }, optional
+            Compression algorithm. Defaults to gz.
+
+        Returns
+        -------
+        self : process
+
+        Examples
+        --------
+        Read a compressed slice:
+        >>> proc = cube.slice(dim = 0, lineno = 5024)
+        >>> proc.withcompression(kind = 'gz')
+        >>> s = proc.numpy()
+        >>> proc = cube.slice(dim = 0, lineno = 5).withcompression(kind = 'gz')
+        >>> s = proc.numpy()
         """
-        Assemble the response body into a suitable object. To be implemented by
-        derived classes.
-        """
-        raise NotImplementedError
+        self.session.withcompression(kind)
+        return self
 
-def schedule(session, resource):
+    def withgz(self):
+        """process.withcompression(kind = 'gz')
+        """
+        return self.withcompression(kind = 'gz')
+
+def schedule(session, resource, data = None):
     """Start a server-side process.
 
     This function centralises setting up a HTTP session and building the
@@ -208,15 +415,17 @@ def schedule(session, resource):
     -----
     Scheduling a process manually is reserved for the implementation.
     """
-    r = session.get(resource)
+    r = session.get(resource, data = data)
 
     body = r.json()
     auth = 'Bearer {}'.format(body['authorization'])
     s = http_session(session.base_url)
     s.headers.update({'Authorization': auth})
 
+    pid = body['location'].split('/')[-1]
     return process(
         session = s,
+        pid = pid,
         status_url = body['status'],
         result_url = body['location'],
     )
@@ -308,6 +517,42 @@ class http_session(requests.Session):
         r = super().get(f'{self.base_url}/{url}', *args, **kwargs)
         r.raise_for_status()
         return r
+
+    def withcompression(self, kind):
+        """Get response compressed if available
+
+        Request that the response be sent compressed, if available.  Compressed
+        responses are typically half the size of uncompressed responses, which
+        can be faster if there is limited bandwidth to oneseismic. Compressed
+        responses are typically not faster inside the data centre.
+
+        If kind is None, compression will be disabled.
+
+        Parameters
+        ----------
+        kind : { 'gz', None }
+            Compression algorithm
+
+        Returns
+        -------
+        self : http_session
+
+        Notes
+        -----
+        This function does not accept defaults, and the http_session does not
+        have withgz() or similar methods, since it is a lower-level class and
+        not built for end-users.
+        """
+        if kind is None:
+            self.params.pop('compression', None)
+            return self
+
+        kinds = ['gz']
+        if kind not in kinds:
+            msg = f'compression {kind} not one of {",".join(kinds)}'
+            raise ValueError(msg)
+        self.params['compression'] = kind
+        return self
 
     @staticmethod
     def fromconfig(cache_dir = None):

@@ -37,6 +37,8 @@ add_library(oneseismic
     src/base64.cpp
     src/geometry.cpp
     src/messages.cpp
+    src/plan.cpp
+    src/process.cpp
 )
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
@@ -96,6 +98,7 @@ add_executable(tests
     tests/testsuite.cpp
     tests/geometry.cpp
     tests/messages.cpp
+    tests/process.cpp
 )
 target_link_libraries(tests
     PRIVATE

@@ -253,6 +253,10 @@ class tokens:
             account = self.app.get_accounts()[0],
         )
 
+        if result is None:
+            msg = 'Unable to acquire token; log-in expired?'
+            raise RuntimeError(msg)
+
         if 'access_token' not in result:
             raise RuntimeError("Invalid token found in cache")
 

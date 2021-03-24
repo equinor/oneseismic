@@ -8,6 +8,6 @@ requests
 requests_mock
 segyio
 tqdm
-ujson
 xdg
 msgpack
+xarray
