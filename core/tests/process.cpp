@@ -113,7 +113,6 @@ TEST_CASE("Slices extracted from chunks matches hand-extracted slice") {
         add_dim1_line(expected, blob);
     }
 
-    auto packed = slice->pack();
     auto output = unpack< one::slice_tiles >(slice->pack());
     std::vector< float > extracted;
     for (const auto& tile : output.tiles)
@@ -149,12 +148,10 @@ TEST_CASE("slice.add is not sensitive to order") {
     slice->add(l, (char*)expected[l].data(), sizeof(float));
     slice->add(r, (char*)expected[r].data(), sizeof(float));
 
-    auto packed = slice->pack();
-    one::slice_tiles t;
-    t.unpack(packed.data(), packed.data() + packed.size());
-    CHECK(t.tiles.size() == 2);
-    CHECK_THAT(t.tiles.at(0).v, Equals(expected[0]));
-    CHECK_THAT(t.tiles.at(1).v, Equals(expected[1]));
+    auto unpacked = unpack< one::slice_tiles >(slice->pack());
+    CHECK(unpacked.tiles.size() == 2);
+    CHECK_THAT(unpacked.tiles.at(0).v, Equals(expected[0]));
+    CHECK_THAT(unpacked.tiles.at(1).v, Equals(expected[1]));
 }
 
 one::curtain_fetch default_curtain_fetch() {
