@@ -27,9 +27,9 @@ The best way to illustrate this is with a motivating example:
     cli = oneseismic.client.new()
     cube = cli.cubes[cubeid]
 
-    inline24    = cube.slice(dim = 0, lineno = 24)
-    crossline13 = cube.slice(dim = 1, lineno = 13)
-    depth220    = cube.slice(dim = 1, lineno = 220)
+    inline24    = cube.slice(dim = 0, lineno = 24).numpy()
+    crossline13 = cube.slice(dim = 1, lineno = 13).numpy()
+    depth220    = cube.slice(dim = 1, lineno = 220).numpy()
 
 This Python program gets three slices - an inline slice, a crossline slice, and
 a time slice, and makes them immediately available. This simple example only
@@ -43,13 +43,20 @@ useful with it:
     v1 = cli.cubes[vintage1]
     v2 = cli.cubes[vintage2]
 
-    slicev1 = v1.slice(dim = 1, lineno = 13)
-    slicev2 = v2.slice(dim = 1, lineno = 13)
+    proc1 = v1.slice(dim = 1, lineno = 13)
+    proc2 = v2.slice(dim = 1, lineno = 13)
+    slicev1 = proc1.numpy()
+    slicev2 = proc2.numpy()
 
     diff = slicev2 - slicev1
 
 This program computes the difference between the samples between two vintages
 of the same field.
+
+Notice that instead of immediately realising the data as a numpy array, this
+program uses the temporaries proc1 and proc2. Creating a process will
+_schedule_ the fetch, but not actually start serve the data right away. This
+makes the oneseismic server process both queries in parallel.
 
 Is oneseismic a database?
 -------------------------
