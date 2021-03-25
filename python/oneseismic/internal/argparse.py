@@ -136,11 +136,7 @@ def localfs_from_args(path):
     if path is None:
         path = Path()
     path = Path(path)
-    if path.is_absolute():
-        root = Path('/')
-    else:
-        root = Path('.')
-    return localfs(root)
+    return localfs(path)
 
 def get_blob_path(url):
     """
