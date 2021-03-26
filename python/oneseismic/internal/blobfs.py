@@ -4,6 +4,7 @@ import numpy as np
 
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import BlobClient
+from azure.storage.blob import ContainerClient
 from urllib.parse import urlparse
 
 class blobfs:
@@ -192,11 +193,31 @@ class blobfs:
         ValueError
         >>> f = fs.open('blob')
         """
+        # building a client from an url with sas is an exercise, as we need to
+        # use a different constructor depending on the token being issued is a
+        # blob, a container, or an account.
+        #
+        # determining what kind of url it is is done by parsing the url and
+        # guessing it from the path.
+        #
+        # >>> urlparse('https://acc.blob.com/').path
+        # '/'
+        # >>> urlparse('https://acc.blob.com/').path.split('/')
+        # ['', '']
+        # >>> urlparse('https://acc.blob.com/container').path.split('/')
+        # ['', 'container']
+        # >>> urlparse('https://acc.blob.com/container/blob').path.split('/')
+        # ['', 'container', 'blob']
         parsed = urlparse(url)
-        # parsed.path can (always?) contain the leading '/'
-        if len(parsed.path) > 1:
+        path = parsed.path.split('/')[1:]
+        if len(path) > 1:
             client = BlobClient.from_blob_url(
                 blob_url = url,
+                credential = credential,
+            )
+        elif len(path) == 1 and len(path[0]) > 0:
+            client = ContainerClient.from_container_url(
+                container_url = url,
                 credential = credential,
             )
         else:
