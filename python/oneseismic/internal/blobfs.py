@@ -111,31 +111,32 @@ class blobfs:
         >>> blobfs.cd(container)
         >>> f = blobfs.open(name)
         """
+        try:
+            # If initialised with a BlobServiceClient, cd() should have
+            # been called and we can obtain a blob client from the name
+            cli = self.cwd.get_blob_client(name)
+        except AttributeError:
+            # self.cwd is not a container_client, so this was *probably*
+            # initialised directly with a blob client. This is the most
+            # common case for reading really, since users typically copy a
+            # full SAS-parameterised url from the portal. If so, make sure
+            # that the blob name matches the blob name in the URL, to catch
+            # errors such as:
+            #
+            #   blobfs = makefs(<storage>/<container>/<blob1>?<sas>)
+            #   blobfs.cd(<container>)
+            #   f = blobfs.open(<blob2>)
+            if name == self.cli.blob_name:
+                cli = self.cli
+            else:
+                msg = f'bad name; can only open {self.cli.blob_name}'
+                raise ValueError(msg)
+
         if mode in ['r', 'rb']:
-            try:
-                # If initialised with a BlobServiceClient, cd() should have
-                # been called and we can obtain a blob client from the name
-                cli = self.cwd.get_blob_client(name)
-            except AttributeError:
-                # self.cwd is not a container_client, so this was *probably*
-                # initialised directly with a blob client. This is the most
-                # common case for reading really, since users typically copy a
-                # full SAS-parameterised url from the portal. If so, make sure
-                # that the blob name matches the blob name in the URL, to catch
-                # errors such as:
-                #
-                #   blobfs = makefs(<storage>/<container>/<blob1>?<sas>)
-                #   blobfs.cd(<container>)
-                #   f = blobfs.open(<blob2>)
-                if name == self.cli.blob_name:
-                    cli = self.cli
-                else:
-                    msg = f'bad name; can only open {self.cli.blob_name}'
-                    raise ValueError(msg)
             return blobread(cli)
 
         if mode in ['w', 'wb']:
-            return blobwrite(self.cwd, name)
+            return blobwrite(cli)
 
         raise ValueError('mode must be rb or wb')
 
@@ -228,8 +229,8 @@ class blobfs:
         return blobfs(client = client)
 
 class blobwrite(io.RawIOBase):
-    def __init__(self, client, name):
-        self.client = client.get_blob_client(name)
+    def __init__(self, client):
+        self.client = client
 
     def write(self, b):
         self.client.upload_blob(bytes(b))
