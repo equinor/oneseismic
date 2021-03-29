@@ -25,12 +25,10 @@ func MakeBasicEndpoint(
 	keyring *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
-	tokens   auth.Tokens,
 ) BasicEndpoint {
 	return BasicEndpoint {
 		endpoint: endpoint,
 		keyring: keyring,
-		tokens:  tokens,
 		/*
 		 * Scheduler should probably be exported (and in internal/?) and be
 		 * constructed directly by the caller.
@@ -68,7 +66,7 @@ func (be *BasicEndpoint) Root(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, be.tokens, be.endpoint, guid)
+	m, err := util.GetManifest(ctx, be.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -101,21 +99,14 @@ func (be *BasicEndpoint) List(ctx *gin.Context) {
 		return
 	}
 
-	authorization := ctx.GetHeader("Authorization")
-	cubes, err := util.WithOnbehalfAndRetry(
-		be.tokens,
-		authorization,
-		func (tok string) (interface{}, error) {
-			return util.ListCubes(ctx, endpoint, tok)
-		},
-	)
+	token := ctx.GetString("Token")
+	cubes, err := util.ListCubes(ctx, endpoint, token)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		auth.AbortContextFromToken(ctx, err)
 	}
 
 	links := make(map[string]string)
-	for _, cube := range cubes.([]string) {
+	for _, cube := range cubes {
 		links[cube] = fmt.Sprintf("query/%s", cube)
 	}
 
@@ -134,7 +125,7 @@ func (s *BasicEndpoint) Entry(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
+	m, err := util.GetManifest(ctx, s.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return

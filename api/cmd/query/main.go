@@ -179,20 +179,16 @@ func main() {
 	}
 
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
-	tokens  := auth.NewTokens(
-		openidcfg.TokenEndpoint,
-		opts.clientID,
-		opts.clientSecret,
-	)
 	cmdable := redis.NewClient(
 		&redis.Options {
 			Addr: opts.redisURL,
 			DB: 0,
 		},
 	)
-	basic := api.MakeBasicEndpoint(&keyring, opts.storageURL, cmdable, tokens)
-	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable, tokens)
-	curtain := api.MakeCurtain(&keyring, opts.storageURL, cmdable, tokens)
+
+	basic := api.MakeBasicEndpoint(&keyring, opts.storageURL, cmdable)
+	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable)
+	curtain := api.MakeCurtain(&keyring, opts.storageURL, cmdable)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
@@ -212,10 +208,13 @@ func main() {
 	}
 
 	app := gin.Default()
-	
+
 	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
+	tokens := auth.NewTokens(openidcfg.TokenEndpoint, opts.clientID, opts.clientSecret)
+	onBehalfOf := auth.OnBehalOf(tokens)
 	queries := app.Group("/query")
 	queries.Use(validate)
+	queries.Use(onBehalfOf)
 	queries.Use(util.GeneratePID)
 	queries.Use(util.QueryLogger)
 	queries.GET("/",      basic.List)

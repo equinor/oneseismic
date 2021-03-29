@@ -22,14 +22,12 @@ func MakeCurtain(
 	keyring  *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
-	tokens   auth.Tokens,
 ) *Curtain {
 	return &Curtain {
 		MakeBasicEndpoint(
 			keyring,
 			endpoint,
 			storage,
-			tokens,
 		),
 	}
 }
@@ -81,7 +79,7 @@ func (c *Curtain) Get(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
 	guid := ctx.Param("guid")
 
-	m, err := util.GetManifest(ctx, c.tokens, c.endpoint, guid)
+	m, err := util.GetManifest(ctx, c.endpoint, guid)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return
@@ -101,15 +99,13 @@ func (c *Curtain) Get(ctx *gin.Context) {
 		return
 	}
 
-	authorization := ctx.GetHeader("Authorization")
-	token, err := c.tokens.GetOnbehalf(authorization)
+	token := ctx.GetString("Token")
 	if err != nil {
 		// No further recovery is tried - GetManifest should already have fixed
 		// a broken token, so this should be readily cached. If it is
 		// just-about to expire then the process will fail pretty soon anyway,
 		// so just give up.
 		log.Printf("pid=%s, %v", pid, err)
-		auth.AbortContextFromToken(ctx, err)
 		return
 	}
 

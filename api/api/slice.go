@@ -28,14 +28,12 @@ func MakeSlice(
 	keyring  *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
-	tokens   auth.Tokens,
 ) *Slice {
 	return &Slice {
 		MakeBasicEndpoint(
 			keyring,
 			endpoint,
 			storage,
-			tokens,
 		),
 	}
 }
@@ -122,7 +120,7 @@ func (s *Slice) About(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, guid)
+	m, err := util.GetManifest(ctx, s.endpoint, guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -150,7 +148,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
-	m, err := util.GetManifest(ctx, s.tokens, s.endpoint, params.guid)
+	m, err := util.GetManifest(ctx, s.endpoint, params.guid)
 	if err != nil {
 		log.Printf("%s %v", pid, err)
 		return
@@ -173,17 +171,7 @@ func (s *Slice) Get(ctx *gin.Context) {
 	 * faithful to what's stored in blob, i.e. information can be stripped out
 	 * or added.
 	 */
-	authorization := ctx.GetHeader("Authorization")
-	token, err := s.tokens.GetOnbehalf(authorization)
-	if err != nil {
-		// No further recovery is tried - GetManifest should already have fixed
-		// a broken token, so this should be readily cached. If it is
-		// just-about to expire then the process will fail pretty soon anyway,
-		// so just give up.
-		log.Printf("pid=%s, %v", pid, err)
-		auth.AbortContextFromToken(ctx, err)
-		return
-	}
+	token := ctx.GetString("Token")
 
 	cubeshape := make([]int32, 0, len(m.Dimensions))
 	for i := 0; i < len(m.Dimensions); i++ {

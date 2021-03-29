@@ -64,9 +64,26 @@ func NewTokens(
 	}
 }
 
+/*
+ * Check if the JWT token is expired. Note that this function
+ * does *not* verify the token signature, and should therfore not be used for
+ * token verification. This should however be sufficient to decide if a token
+ * should be loaded from cache or a new one should be fetched.
+ */
+func tokenExpired(token *jwt.Token) bool {
+	claims, _ := token.Claims.(jwt.MapClaims)
+	exp := int64(claims["exp"].(float64))
+
+	return exp < time.Now().Unix()
+}
+
 func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
 	if cached, found := t.cache.Load(token); found {
-		return cached.(string), nil
+		token, _ := jwt.Parse(cached.(string), nil)
+
+		if !tokenExpired(token) {
+			return cached.(string), nil
+		}
 	}
 
 	if err := checkAuthorizationHeader(token); err != nil {
@@ -150,6 +167,21 @@ func verifyIssuerAudience(
 	}
 
 	return nil
+}
+
+func OnBehalOf(
+	tokens Tokens,
+) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		// "Authorization: Bearer $token"
+		token := ctx.GetHeader("Authorization")
+		obotok, err := tokens.GetOnbehalf(token)
+		if err != nil {
+			AbortContextFromToken(ctx, err)
+		}
+
+		ctx.Set("Token", obotok)
+	}
 }
 
 func validateKey(
