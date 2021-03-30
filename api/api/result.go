@@ -63,7 +63,6 @@ func collectResult(
 	failure chan error,
 ) {
 	defer close(tiles)
-	defer close(failure)
 
 	rh := resultFromProcessHeader(head)
 	rhpacked, err := rh.Pack()
