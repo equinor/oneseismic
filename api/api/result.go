@@ -62,6 +62,9 @@ func collectResult(
 	tiles chan []byte,
 	failure chan error,
 ) {
+	// This close is quite important - when the tiles channel is closed, it is
+	// a signal to the caller that all partial results are in and processed,
+	// and that the transfer is completed.
 	defer close(tiles)
 
 	rh := resultFromProcessHeader(head)
