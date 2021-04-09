@@ -31,6 +31,11 @@ type cppscheduler struct {
 	storage  redis.Cmdable
 }
 
+type Query struct {
+	header []byte
+	plan   [][]byte
+}
+
 /*
  * This interface does feel superfluous, and should probably not need to be
  * exported. Using an interface makes testing a lot easier though, and unless
@@ -38,15 +43,8 @@ type cppscheduler struct {
  * for now.
  */
 type scheduler interface {
-	/*
-	 * Schedule the task
-	 */
-	Schedule(context.Context, *message.Task) error
-	/*
-	 * Schedule the task when the task has already been packed into a byte
-	 * array.
-	 */
-	ScheduleRaw(context.Context, string, []byte) error
+	MakeQuery(*message.Task) (*Query, error)
+	Schedule(context.Context, string, *Query) error
 }
 
 func newScheduler(storage redis.Cmdable) scheduler {
@@ -56,18 +54,11 @@ func newScheduler(storage redis.Cmdable) scheduler {
 	}
 }
 
-func (sched *cppscheduler) Schedule(
-	ctx  context.Context,
-	task *message.Task,
-) error {
-	req, err := task.Pack()
+func (sched *cppscheduler) MakeQuery(msg *message.Task) (*Query, error) {
+	task, err := msg.Pack()
 	if err != nil {
-		return fmt.Errorf("pack error: %w", err)
+		return nil, fmt.Errorf("pack error: %w", err)
 	}
-	return sched.ScheduleRaw(ctx, task.Pid, req)
-}
-
-func (sched *cppscheduler) plan(task []byte) ([][]byte, error) {
 	// TODO: exhaustive error check including those from C++ exceptions
 	csched := C.mkschedule(
 		(*C.char)(unsafe.Pointer(&task[0])),
@@ -85,34 +76,31 @@ func (sched *cppscheduler) plan(task []byte) ([][]byte, error) {
 		result = append(result, C.GoBytes(unsafe.Pointer(this), size))
 		this += uintptr(size)
 	}
-	return result, nil
+
+	return &Query {
+		header: result[0],
+		plan:   result[1:],
+	}, nil
 }
 
-func (sched *cppscheduler) ScheduleRaw(
+func (sched *cppscheduler) Schedule(
 	ctx  context.Context,
 	pid  string,
-	task []byte,
+	plan *Query,
 ) error {
 	/*
 	 * TODO: This mixes I/O with parsing and building the plan. This could very
 	 * well be split up into sub structs and functions which can then be
 	 * dependency-injected for some customisation and easier testing.
 	 */
-	planb, err := sched.plan(task)
-	if err != nil {
-		return err
-	}
-	header := planb[0]
-	plan   := planb[1:]
-	ntasks := len(plan)
-
 	sched.storage.Set(
 		ctx,
 		fmt.Sprintf("%s/header.json", pid),
-		header,
+		plan.header,
 		10 * time.Minute,
 	)
-	for i, task := range plan {
+	ntasks := len(plan.plan)
+	for i, task := range plan.plan {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}

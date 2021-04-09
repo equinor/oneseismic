@@ -225,8 +225,15 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
+	query, err := s.sched.MakeQuery(msg)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
 	go func () {
-		err := s.sched.Schedule(context.Background(), msg)
+		err := s.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
 			/*
 			 * Make scheduling errors fatal to detect them for debugging.
