@@ -182,12 +182,22 @@ schedule_maker< one::slice_task, one::slice_fetch >::build(
 {
     auto out = one::slice_fetch(task);
 
+    const auto& manifest_dimensions = manifest["dimensions"];
+    if (!(0 <= task.dim && task.dim < manifest_dimensions.size())) {
+        const auto msg = fmt::format(
+            "param.dimension (= {}) not in [0, {})",
+            task.dim,
+            manifest_dimensions.size()
+        );
+        // TODO: custom exceptions?
+        throw std::out_of_range(msg);
+    }
+
     /*
      * TODO:
      * faster to not make vector, but rather parse-and-compare individual
      * integers?
      */
-    const auto& manifest_dimensions = manifest["dimensions"];
     const auto index = manifest_dimensions[task.dim].get< std::vector< int > >();
     const auto itr = std::find(index.begin(), index.end(), task.lineno);
     if (itr == index.end()) {

@@ -66,6 +66,21 @@ func (sched *cppscheduler) MakeQuery(msg *message.Task) (*Query, error) {
 		C.int(sched.tasksize),
 	)
 	defer C.cleanup(csched)
+	if csched == nil {
+		/*
+		 * The mkschedule should never return nullptr according to its
+		 * contract, and if it does something is *very* wrong. Abort as soon as
+		 * possible and debug.
+		 *
+		 * The contract may be changed in the future, in which case this might
+		 * be converted into a softer error. For now, we want processes to
+		 * scream, crash, and burn.
+		 */
+		panic("mkschedule() unexpectedly returned nullptr")
+	}
+	if csched.err != nil {
+		return nil, fmt.Errorf(C.GoString(csched.err))
+	}
 
 	ntasks := int(csched.len)
 	result := make([][]byte, 0, ntasks)

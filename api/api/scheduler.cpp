@@ -18,7 +18,18 @@ char* copy(char* dst, const T& x) noexcept (true) {
 }
 
 tasks* mkschedule(const char* doc, int len, int task_size) {
-    const auto packed = one::mkschedule(doc, len, task_size);
+    std::vector< std::string > packed;
+    try {
+        packed = one::mkschedule(doc, len, task_size);
+    } catch (std::exception& e) {
+        auto* cs = new tasks();
+        cs->tasks = nullptr;
+        cs->sizes = nullptr;
+        auto* err = new char[std::strlen(e.what()) + 1];
+        std::strcpy(err, e.what());
+        cs->err = err;
+        return cs;
+    }
 
     struct deleter {
         void operator () (tasks* t) noexcept (true) {

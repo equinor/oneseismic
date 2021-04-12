@@ -155,26 +155,6 @@ func (s *Slice) Get(ctx *gin.Context) {
 		log.Printf("%s %v", pid, err)
 		return
 	}
-
-	if !(params.dimension < len(m.Dimensions)) {
-		msg := fmt.Sprintf(
-			"param.dimension (= %d) not in [0, %d)",
-			params.dimension,
-			len(m.Dimensions),
-		)
-		log.Printf("%s %s in cube %s", pid, msg, params.guid)
-		ctx.String(http.StatusNotFound, msg)
-		ctx.Abort()
-		return
-	}
-	if !contains(m.Dimensions[params.dimension], params.lineno) {
-		msg := fmt.Sprintf("param.lineno (= %d) not in cube", params.lineno)
-		log.Printf("%s %s %s", pid, msg, params.guid)
-		ctx.String(http.StatusNotFound, msg)
-		ctx.Abort()
-		return
-	}
-
 	manifest, err := m.Pack()
 	if err != nil {
 		log.Printf("%s %v", pid, err)
