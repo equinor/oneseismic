@@ -9,6 +9,7 @@
 
 #include <oneseismic/geometry.hpp>
 #include <oneseismic/messages.hpp>
+#include <oneseismic/plan.hpp>
 
 namespace {
 
@@ -189,8 +190,7 @@ schedule_maker< one::slice_task, one::slice_fetch >::build(
             task.dim,
             manifest_dimensions.size()
         );
-        // TODO: custom exceptions?
-        throw std::out_of_range(msg);
+        throw one::not_found(msg);
     }
 
     /*
@@ -202,7 +202,7 @@ schedule_maker< one::slice_task, one::slice_fetch >::build(
     const auto itr = std::find(index.begin(), index.end(), task.lineno);
     if (itr == index.end()) {
         const auto msg = "line (= {}) not found in index";
-        throw std::invalid_argument(fmt::format(msg, task.lineno));
+        throw one::not_found(fmt::format(msg, task.lineno));
     }
 
     const auto pin = std::distance(index.begin(), itr);
