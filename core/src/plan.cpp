@@ -397,7 +397,7 @@ mkschedule(const char* doc, int len, int task_size) noexcept (false) {
         auto curtain = schedule_maker< curtain_task, curtain_fetch >{};
         return curtain.schedule(doc, len, task_size);
     }
-    throw std::runtime_error("No handler for function " + function);
+    throw std::logic_error("No handler for function " + function);
 }
 
 }
