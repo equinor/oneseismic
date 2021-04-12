@@ -21,8 +21,18 @@ plan mkschedule(const char* doc, int len, int task_size) {
     std::vector< std::string > packed;
     try {
         packed = one::mkschedule(doc, len, task_size);
+    } catch (one::not_found& e) {
+        plan p;
+        p.status_code = 404;
+        p.sizes = nullptr;
+        p.tasks = nullptr;
+        auto* err = new char[std::strlen(e.what()) + 1];
+        std::strcpy(err, e.what());
+        p.err = err;
+        return p;
     } catch (std::exception& e) {
         plan p;
+        p.status_code = 0;
         p.tasks = nullptr;
         p.sizes = nullptr;
         auto* err = new char[std::strlen(e.what()) + 1];

@@ -208,7 +208,12 @@ func (s *Slice) Get(ctx *gin.Context) {
 	query, err := s.sched.MakeQuery(msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		qe := err.(*QueryError)
+		if qe.Status() != 0 {
+			ctx.AbortWithStatus(qe.Status())
+		} else {
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+		}
 		return
 	}
 

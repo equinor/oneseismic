@@ -36,6 +36,19 @@ type Query struct {
 	plan   [][]byte
 }
 
+type QueryError struct {
+	msg    string
+	status int
+}
+
+func (qe *QueryError) Error() string {
+	return qe.msg
+}
+
+func (qe *QueryError) Status() int {
+	return qe.status
+}
+
 /*
  * This interface does feel superfluous, and should probably not need to be
  * exported. Using an interface makes testing a lot easier though, and unless
@@ -67,7 +80,10 @@ func (sched *cppscheduler) MakeQuery(msg *message.Task) (*Query, error) {
 	)
 	defer C.cleanup(&csched)
 	if csched.err != nil {
-		return nil, fmt.Errorf(C.GoString(csched.err))
+		return nil, &QueryError {
+			msg: C.GoString(csched.err),
+			status: int(csched.status_code),
+		}
 	}
 
 	ntasks := int(csched.len)

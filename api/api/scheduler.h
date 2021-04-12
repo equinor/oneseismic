@@ -7,6 +7,7 @@ extern "C" {
 
 struct plan {
     const char* err;
+    int status_code;
     int len;
     int* sizes;
     char* tasks;
