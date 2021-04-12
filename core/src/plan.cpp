@@ -134,7 +134,7 @@ schedule_maker< Input, Output >::partition(
 ) noexcept (false) {
     if (task_size < 1) {
         const auto msg = fmt::format("task_size (= {}) < 1", task_size);
-        throw std::invalid_argument(msg);
+        throw std::logic_error(msg);
     }
 
     const auto ids = output.ids;
