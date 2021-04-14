@@ -131,3 +131,8 @@ PID
 
 A day in the life (of a request)
 --------------------------------
+
+License
+=======
+The server is licensed under AGPL v3+, while the connector and python libraries
+are licensed under the LGPL v3+.
