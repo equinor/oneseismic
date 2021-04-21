@@ -9,6 +9,7 @@
 
 #include <oneseismic/geometry.hpp>
 #include <oneseismic/messages.hpp>
+#include <oneseismic/plan.hpp>
 
 namespace {
 
@@ -133,7 +134,7 @@ schedule_maker< Input, Output >::partition(
 ) noexcept (false) {
     if (task_size < 1) {
         const auto msg = fmt::format("task_size (= {}) < 1", task_size);
-        throw std::invalid_argument(msg);
+        throw std::logic_error(msg);
     }
 
     const auto ids = output.ids;
@@ -182,17 +183,26 @@ schedule_maker< one::slice_task, one::slice_fetch >::build(
 {
     auto out = one::slice_fetch(task);
 
+    const auto& manifest_dimensions = manifest["dimensions"];
+    if (!(0 <= task.dim && task.dim < manifest_dimensions.size())) {
+        const auto msg = fmt::format(
+            "param.dimension (= {}) not in [0, {})",
+            task.dim,
+            manifest_dimensions.size()
+        );
+        throw one::not_found(msg);
+    }
+
     /*
      * TODO:
      * faster to not make vector, but rather parse-and-compare individual
      * integers?
      */
-    const auto& manifest_dimensions = manifest["dimensions"];
     const auto index = manifest_dimensions[task.dim].get< std::vector< int > >();
     const auto itr = std::find(index.begin(), index.end(), task.lineno);
     if (itr == index.end()) {
         const auto msg = "line (= {}) not found in index";
-        throw std::invalid_argument(fmt::format(msg, task.lineno));
+        throw one::not_found(fmt::format(msg, task.lineno));
     }
 
     const auto pin = std::distance(index.begin(), itr);
@@ -387,7 +397,7 @@ mkschedule(const char* doc, int len, int task_size) noexcept (false) {
         auto curtain = schedule_maker< curtain_task, curtain_fetch >{};
         return curtain.schedule(doc, len, task_size);
     }
-    throw std::runtime_error("No handler for function " + function);
+    throw std::logic_error("No handler for function " + function);
 }
 
 }

@@ -17,14 +17,24 @@ char* copy(char* dst, const T& x) noexcept (true) {
 
 }
 
-tasks* mkschedule(const char* doc, int len, int task_size) {
-    const auto packed = one::mkschedule(doc, len, task_size);
-
-    struct deleter {
-        void operator () (tasks* t) noexcept (true) {
-            cleanup(t);
-        }
-    };
+plan mkschedule(const char* doc, int len, int task_size) {
+    plan p {};
+    std::vector< std::string > packed;
+    try {
+        packed = one::mkschedule(doc, len, task_size);
+    } catch (one::not_found& e) {
+        p.status_code = 404;
+        auto* err = new char[std::strlen(e.what()) + 1];
+        std::strcpy(err, e.what());
+        p.err = err;
+        return p;
+    } catch (std::exception& e) {
+        p.status_code = 500;
+        auto* err = new char[std::strlen(e.what()) + 1];
+        std::strcpy(err, e.what());
+        p.err = err;
+        return p;
+    }
 
     const auto flat_tasksize = std::accumulate(
         packed.begin(),
@@ -35,28 +45,27 @@ tasks* mkschedule(const char* doc, int len, int task_size) {
         }
     );
 
-    std::unique_ptr< tasks, deleter > cs(new tasks());
-    cs->err = nullptr;
-    cs->sizes = new int [packed.size()];
-    cs->tasks = new char[flat_tasksize];
-    cs->len   = packed.size();
-    char* dst = cs->tasks;
+    p.status_code = 200;
+    p.sizes = new int [packed.size()];
+    p.tasks = new char[flat_tasksize];
+    p.len   = packed.size();
+    char* dst = p.tasks;
 
-    cs->sizes[0] = packed.back().size();
+    p.sizes[0] = packed.back().size();
     dst = copy(dst, packed.back());
     for (std::size_t i = 0; i < packed.size() - 1; ++i) {
-        cs->sizes[i + 1] = packed[i].size();
+        p.sizes[i + 1] = packed[i].size();
         dst = copy(dst, packed[i]);
     }
 
-    return cs.release();
+    return p;
 }
 
-void cleanup(tasks* cs) {
-    if (!cs) return;
+void cleanup(plan* p) {
+    if (!p) return;
 
-    delete cs->err;
-    delete cs->sizes;
-    delete cs->tasks;
-    delete cs;
+    delete p->err;
+    delete p->sizes;
+    delete p->tasks;
+    *p = plan {};
 }

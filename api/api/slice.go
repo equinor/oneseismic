@@ -155,26 +155,6 @@ func (s *Slice) Get(ctx *gin.Context) {
 		log.Printf("%s %v", pid, err)
 		return
 	}
-
-	if !(params.dimension < len(m.Dimensions)) {
-		msg := fmt.Sprintf(
-			"param.dimension (= %d) not in [0, %d)",
-			params.dimension,
-			len(m.Dimensions),
-		)
-		log.Printf("%s %s in cube %s", pid, msg, params.guid)
-		ctx.String(http.StatusNotFound, msg)
-		ctx.Abort()
-		return
-	}
-	if !contains(m.Dimensions[params.dimension], params.lineno) {
-		msg := fmt.Sprintf("param.lineno (= %d) not in cube", params.lineno)
-		log.Printf("%s %s %s", pid, msg, params.guid)
-		ctx.String(http.StatusNotFound, msg)
-		ctx.Abort()
-		return
-	}
-
 	manifest, err := m.Pack()
 	if err != nil {
 		log.Printf("%s %v", pid, err)
@@ -225,8 +205,20 @@ func (s *Slice) Get(ctx *gin.Context) {
 		return
 	}
 
+	query, err := s.sched.MakeQuery(msg)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		qe := err.(*QueryError)
+		if qe.Status() != 0 {
+			ctx.AbortWithStatus(qe.Status())
+		} else {
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+		}
+		return
+	}
+
 	go func () {
-		err := s.sched.Schedule(context.Background(), msg)
+		err := s.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
 			/*
 			 * Make scheduling errors fatal to detect them for debugging.

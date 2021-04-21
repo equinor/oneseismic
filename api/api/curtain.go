@@ -161,8 +161,19 @@ func (c *Curtain) Get(ctx *gin.Context) {
 		return
 	}
 
+	query, err := c.sched.MakeQuery(msg)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		qe := err.(*QueryError)
+		if qe.Status() != 0 {
+			ctx.AbortWithStatus(qe.Status())
+		} else {
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+		}
+		return
+	}
 	go func() {
-		err := c.sched.Schedule(context.Background(), msg)
+		err := c.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
 			/*
 			 * Make scheduling errors fatal to detect them for debugging.
