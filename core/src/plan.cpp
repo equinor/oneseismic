@@ -262,6 +262,32 @@ schedule_maker< one::slice_task, one::slice_fetch >::header(
     return head;
 }
 
+/*
+ * Compute the cartesian coordinate of the label/line numbers. This is
+ * effectively a glorified indexof() in practice, although conceptually it
+ * maps from a user-oriented grid to its internal representation. The cartesian
+ * coordinates are taken at face value by the rest of the system, and can be
+ * used for lookup directly. From oneseismic's point of view, the grid labels
+ * are forgotten after this function is called.
+ */
+void to_cartesian_inplace(
+    const std::vector< int >& labels,
+    std::vector< int >& xs)
+noexcept (false) {
+    assert(std::is_sorted(labels.begin(), labels.end()));
+
+    auto indexof = [&labels](auto x) {
+        const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
+        if (*itr != x) {
+            const auto msg = fmt::format("lineno {} not in index");
+            throw one::not_found(msg);
+        }
+        return std::distance(labels.begin(), itr);
+    };
+
+    std::transform(xs.begin(), xs.end(), xs.begin(), indexof);
+}
+
 template <>
 one::curtain_fetch
 schedule_maker< one::curtain_task, one::curtain_fetch >::build(
@@ -280,13 +306,14 @@ schedule_maker< one::curtain_task, one::curtain_fetch >::build(
         return std::equal(lhs.begin(), lhs.end(), rhs.begin());
     };
 
-    auto out  = one::curtain_fetch(task);
+    auto out = one::curtain_fetch(task);
+    to_cartesian_inplace(manifest["dimensions"][0], out.dim0s);
+    to_cartesian_inplace(manifest["dimensions"][1], out.dim1s);
     auto& ids = out.ids;
+    const auto& dim0s = out.dim0s;
+    const auto& dim1s = out.dim1s;
 
-    const auto& dim0s = task.dim0s;
-    const auto& dim1s = task.dim1s;
     auto gvt = geometry(manifest["dimensions"], task.shape);
-
     const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
     const auto zheight = gvt.fragment_shape()[2];
 
@@ -378,6 +405,8 @@ schedule_maker< one::curtain_task, one::curtain_fetch >::header(
     head.index.push_back(task.dim0s);
     head.index.push_back(task.dim1s);
     head.index.push_back(mdims.back());
+    to_cartesian_inplace(mdims[0], head.index[0]);
+    to_cartesian_inplace(mdims[1], head.index[1]);
     return head;
 }
 
