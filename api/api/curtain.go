@@ -60,40 +60,19 @@ func (c *Curtain) MakeTask(
  * The path is a tiny helper to parse the input "parameter" (the request body).
  * Eventually this will parse some normalised format, either from a previously
  * parsed input, or from some curtain storage system.
- *
- * It comes with a single method, the zeroindexed() which returns the
- * zero-index'd path, to keep that noise out of the handler body.
  */
 type path struct {
 	Intersections [][2]int `json:intersections`
 }
 
-func (p *path) zeroindexed(
+func (p *path) toCurtainParams(
 	manifest *message.Manifest,
 ) (*message.CurtainParams, error) {
-	// binary-search instead?
-	// since we know lines are sorted, use bin-search in contains()
-	dim0 := make(map[int]int, len(manifest.Dimensions[0]))
-	dim1 := make(map[int]int, len(manifest.Dimensions[1]))
-	for i, x := range manifest.Dimensions[0] {
-		dim0[x] = i + 1
-	}
-	for i, x := range manifest.Dimensions[1] {
-		dim1[x] = i + 1
-	}
-	xs := make([]int, 0, len(p.Intersections))
-	ys := make([]int, 0, len(p.Intersections))
-	for _, xy := range p.Intersections {
-		in0 := dim0[xy[0]]
-		if in0 == 0 {
-			return nil, fmt.Errorf("%d not in dimensions[0]", xy[0])
-		}
-		in1 := dim1[xy[1]]
-		if in1 == 0 {
-			return nil, fmt.Errorf("%d not in dimensions[1]", xy[1])
-		}
-		xs = append(xs, in0 - 1)
-		ys = append(ys, in1 - 1)
+	xs := make([]int, len(p.Intersections))
+	ys := make([]int, len(p.Intersections))
+	for i, xy := range p.Intersections {
+		xs[i] = xy[0]
+		ys[i] = xy[1]
 	}
 	return &message.CurtainParams{ Dim0s: xs, Dim1s: ys }, nil
 }
@@ -115,9 +94,10 @@ func (c *Curtain) Get(ctx *gin.Context) {
 		return
 	}
 
-	params, err := path.zeroindexed(m)
+	params, err := path.toCurtainParams(m)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
