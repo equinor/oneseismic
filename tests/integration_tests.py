@@ -10,7 +10,9 @@ import segyio
 import tempfile
 from azure.core.credentials import AccessToken
 from azure.core.exceptions import ResourceNotFoundError
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, generate_account_sas
+import oneseismic
+import datetime
 from oneseismic import scan
 from oneseismic import upload
 
@@ -18,6 +20,7 @@ API_ADDR = os.getenv("API_ADDR", "http://localhost:8080")
 AUTHSERVER = os.getenv("AUTHSERVER", "http://localhost:8089")
 AUDIENCE = os.getenv("AUDIENCE")
 STORAGE_URL = os.getenv("STORAGE_URL")
+STORAGE_KEY = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='
 
 
 class CustomTokenCredential(object):
@@ -168,3 +171,26 @@ def test_slices(w, h, d):
     if d > 64:
         np.testing.assert_almost_equal(cube.slice(2, 63 * 4000).numpy(), data[:, :, 63])
         np.testing.assert_almost_equal(cube.slice(2, 64 * 4000).numpy(), data[:, :, 64])
+
+
+def test_sas_token_auth(cube):
+    exp = datetime.datetime.now() + datetime.timedelta(seconds=60)
+    sas = generate_account_sas(
+        'devstoreaccount1',
+        STORAGE_KEY,
+        'sco',
+        'rl',
+        exp,
+        protocol='https'
+    )
+
+    cli = oneseismic.client.new_from_sas(
+        base_url=API_ADDR,
+        sas_token=sas,
+    )
+
+    try:
+        cli.cubes[cube].slice(0, 1)
+    except requests.HTTPError as e:
+        msg = f"SAS token auth failed with status code {e.response.status_code}"
+        pytest.fail(msg)

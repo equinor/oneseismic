@@ -451,10 +451,11 @@ class http_session(requests.Session):
     This class is meant for internal use, to provide a clean boundary for
     low-level network-oriented code.
     """
-    def __init__(self, base_url, tokens = None, *args, **kwargs):
+    def __init__(self, base_url, tokens = None, params = {}, *args, **kwargs):
         self.base_url = base_url
         self.tokens = tokens
         super().__init__(*args, **kwargs)
+        self.params.update(params)
 
     def merge_auth_headers(self, kwargs):
         if self.tokens is None:
@@ -514,7 +515,10 @@ class http_session(requests.Session):
         >>> session.get('/no-auth', headers = { 'Authorization': None })
         """
         kwargs = self.merge_auth_headers(kwargs)
-        r = super().get(f'{self.base_url}/{url}', *args, **kwargs)
+        r = super().get(
+            f'{self.base_url}/{url}',
+            *args, **kwargs
+        )
         r.raise_for_status()
         return r
 
@@ -576,6 +580,25 @@ class http_session(requests.Session):
         cfg = config(cache_dir = cache_dir).load()
         auth = tokens(cache_dir = cache_dir).load(cfg)
         return http_session(base_url = cfg['url'], tokens = auth)
+
+    @staticmethod
+    def from_sas_token(sas_token, base_url):
+        """Create a new session from a SAS token
+
+        Parameters
+        ----------
+        sas_token : str
+        base_url : str
+
+        Returns
+        -------
+        session : http_session
+            A ready-to-use http_session with authorization headers set
+        """
+        from urllib.parse import parse_qs
+        sas = parse_qs(sas_token)
+
+        return http_session(base_url=base_url, params=sas)
 
 def ls(session):
     """List available cubes
