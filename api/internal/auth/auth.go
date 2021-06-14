@@ -175,6 +175,13 @@ func OnBehalOf(
 	return func(ctx *gin.Context) {
 		// "Authorization: Bearer $token"
 		token := ctx.GetHeader("Authorization")
+
+		// Empty Authorization header, possibly other authentication mechanism
+		// (e.g. Shared Access Token).
+		if token == "" {
+			return
+		}
+
 		obotok, err := tokens.GetOnbehalf(token)
 		if err != nil {
 			AbortContextFromToken(ctx, err)
@@ -232,6 +239,7 @@ func ValidateJWT(
 			}
 			return key, err
 		},
+		CredentialsOptional: true,
 	})
 
 	return func (ctx *gin.Context) {
