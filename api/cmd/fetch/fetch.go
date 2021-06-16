@@ -260,6 +260,7 @@ func (p *process) gather(
 	errors     chan error,
 ) {
 	defer p.cleanup()
+	//log.Printf("%s gather %v fragments", p.logpid(), nfragments)
 	for i := 0; i < nfragments; i++ {
 		select {
 		case f := <-fragments:
@@ -269,6 +270,7 @@ func (p *process) gather(
 			}
 		case e := <-errors:
 			log.Printf("%s download failed: %v", p.logpid(), e)
+		GRAB_THE_REST_LOOP:
 			for {
 				// Grab the remaining available errors to log them, but don't
 				// wait around for any new ones to come in
@@ -276,12 +278,18 @@ func (p *process) gather(
 				case e := <-errors:
 					log.Printf("%s download failed: %v", p.logpid(), e)
 				default:
-					return
+					break GRAB_THE_REST_LOOP
 				}
 			}
-		}
-	}
-
+			args := redis.XAddArgs{Stream: p.pid, Values: map[string]interface{}{"error": e.Error()}}
+			log.Printf("%s signal error and return", p.logpid())
+			err := storage.XAdd(p.ctx, &args).Err()
+			if err != nil {
+				log.Printf("%s write to storage failed: %v", p.logpid(), err)
+			}
+			return
+		} // select
+	} // for
 	packed := p.pack()
 	log.Printf("%s ready", p.logpid())
 	args := redis.XAddArgs{
@@ -312,7 +320,8 @@ func fetchblob(ctx context.Context, blob azblob.BlobURL) ([]byte, error) {
 		return nil, err
 	}
 
-	body := dl.Body(azblob.RetryReaderOptions{})
+	// TODO: Make number of retries configurable
+	body := dl.Body(azblob.RetryReaderOptions{MaxRetryRequests: 1})
 	defer body.Close()
 	return ioutil.ReadAll(body)
 }
