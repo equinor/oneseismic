@@ -8,6 +8,9 @@ import (
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	
+	"github.com/alicebob/miniredis/v2"
+	"github.com/go-redis/redis/v8"
 )
 
 func testpipeline() pipeline.Pipeline {
@@ -70,6 +73,12 @@ func TestMessageOnErrorCancelsGather(t *testing.T) {
 	fragments := make(chan fragment, 1)
 	errors    := make(chan error, 1)
 
+	mniredis, err := miniredis.Run()
+	if err != nil {
+		panic(err)
+	}
+	defer mniredis.Close()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	// directly construct the process by populating fields manually. This is to
 	// avoid having to shuffle bytes about and init the C++ object, which
@@ -86,7 +95,8 @@ func TestMessageOnErrorCancelsGather(t *testing.T) {
 	// Pretend that there are 2 fragments to be fetched. None will be sent, but
 	// it increases the confidence that the worker loop is aborted immediately
 	// rather than waiting for more data.
-	proc.gather(nil, 2, fragments, errors)
+	cli := redis.NewClient(&redis.Options{ Addr: mniredis.Addr(), })
+	proc.gather(cli, 2, fragments, errors)
 	select {
 	case <-ctx.Done():
 	default:
