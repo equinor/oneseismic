@@ -90,7 +90,13 @@ func collectResult(
 		}
 
 		for _, message := range reply[0].Messages {
-			for _, tile := range message.Values {
+			for key, tile := range message.Values {
+				// If the stream includes a key named "error" something failed
+				// when fetching fragments. Pass the error-text to failure-channel
+				if key == "error" {
+					failure <- errors.New(tile.(string))
+					return
+				}
 				chunk, ok := tile.(string)
 				if !ok {
 					msg := fmt.Sprintf("tile.type = %T; expected []byte]", tile)
@@ -143,6 +149,8 @@ func (r *Result) Stream(ctx *gin.Context) {
 
 		case err := <-failure:
 			log.Printf("pid=%s, %s", pid, err)
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+			w.(http.Flusher).Flush()
 			return
 		}
 	}
