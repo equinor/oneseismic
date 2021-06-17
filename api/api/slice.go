@@ -81,6 +81,7 @@ func parseSliceParams(ctx *gin.Context) (*sliceParams, error) {
 func (s *Slice) MakeTask(
 	pid       string,
 	token     string,
+	endpoint  string,
 	manifest  []byte,
 	shape     []int32,
 	shapecube []int32,
@@ -89,6 +90,7 @@ func (s *Slice) MakeTask(
 	task := s.BasicEndpoint.MakeTask(
 		pid,
 		params.guid,
+		endpoint,
 		token,
 		manifest,
 		shape,
@@ -177,9 +179,16 @@ func (s *Slice) Get(ctx *gin.Context) {
 	for i := 0; i < len(m.Dimensions); i++ {
 		cubeshape = append(cubeshape, int32(len(m.Dimensions[i])))
 	}
+	endpoint, err := util.WithSASToken(ctx, s.endpoint)
+	if err != nil {
+		log.Printf("pid=%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
 	msg := s.MakeTask(
 		pid,
 		token,
+		endpoint.String(),
 		manifest,
 		[]int32{ 64, 64, 64 },
 		cubeshape,

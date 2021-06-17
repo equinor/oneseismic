@@ -35,6 +35,7 @@ func MakeCurtain(
 func (c *Curtain) MakeTask(
 	pid       string,
 	guid      string,
+	endpoint  string,
 	token     string,
 	manifest  []byte,
 	shape     []int32,
@@ -44,6 +45,7 @@ func (c *Curtain) MakeTask(
 	task := c.BasicEndpoint.MakeTask(
 		pid,
 		guid,
+		endpoint,
 		token,
 		manifest,
 		shape,
@@ -120,9 +122,16 @@ func (c *Curtain) Get(ctx *gin.Context) {
 	for i := 0; i < len(m.Dimensions); i++ {
 		cubeshape = append(cubeshape, int32(len(m.Dimensions[i])))
 	}
+	endpoint, err := util.WithSASToken(ctx, c.endpoint)
+	if err != nil {
+		log.Printf("pid=%s %v", pid, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
 	msg := c.MakeTask(
 		pid,
 		guid,
+		endpoint.String(),
 		token,
 		manifest,
 		[]int32{ 64, 64, 64 },

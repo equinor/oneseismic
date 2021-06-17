@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -40,6 +39,7 @@ func MakeBasicEndpoint(
 func (be *BasicEndpoint) MakeTask(
 	pid       string,
 	guid      string,
+	endpoint  string,
 	token     string,
 	manifest  []byte,
 	shape     []int32,
@@ -49,7 +49,7 @@ func (be *BasicEndpoint) MakeTask(
 		Pid:             pid,
 		Token:           token,
 		Guid:            guid,
-		StorageEndpoint: be.endpoint,
+		StorageEndpoint: endpoint,
 		Manifest:        string(manifest),
 		Shape:           shape,
 		ShapeCube:       shapecube,
@@ -92,7 +92,7 @@ func (be *BasicEndpoint) Root(ctx *gin.Context) {
 
 func (be *BasicEndpoint) List(ctx *gin.Context) {
 	pid := ctx.GetString("pid")
-	endpoint, err := url.Parse(be.endpoint)
+	endpoint, err := util.WithSASToken(ctx, be.endpoint)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)

@@ -230,14 +230,20 @@ func (p *process) pack() []byte {
 func (p *process) container() (azblob.ContainerURL, error) {
 	endpoint := p.task.StorageEndpoint
 	guid     := p.task.Guid
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
+	container, err := url.Parse(endpoint)
 	if err != nil {
 		err = fmt.Errorf("Container URL would be malformed: %w", err)
 		return azblob.ContainerURL{}, err
 	}
+	container.Path = fmt.Sprintf("%s/%s", container.Path, guid)
 
-	credentials := azblob.NewTokenCredential(p.task.Token, nil)
-	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
+	var credentials azblob.Credential
+	if p.task.Token == "" {
+		credentials = azblob.NewAnonymousCredential()
+	} else {
+		credentials = azblob.NewTokenCredential(p.task.Token, nil)
+	}
+	pipeline := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
 	return azblob.NewContainerURL(*container, pipeline), nil
 }
 

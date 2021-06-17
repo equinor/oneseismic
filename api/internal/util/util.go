@@ -110,7 +110,12 @@ func FetchManifest(
 	token string,
 	containerURL *url.URL,
 ) ([]byte, error) {
-	credentials := azblob.NewTokenCredential(token, nil)
+	var credentials azblob.Credential
+	if token == "" {
+		credentials = azblob.NewAnonymousCredential()
+	} else {
+		credentials = azblob.NewTokenCredential(token, nil)
+	}
 	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
 	container   := azblob.NewContainerURL(*containerURL, pipeline)
 	blob        := container.NewBlobURL("manifest.json")
@@ -198,7 +203,7 @@ func GetManifest(
 	endpoint string,
 	guid     string,
 ) (*message.Manifest, error) {
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
+	container, err := WithSASToken(ctx, fmt.Sprintf("%s/%s", endpoint, guid))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return nil, err
@@ -258,7 +263,12 @@ func ListCubes(
 	endpoint *url.URL, // typically https://<account>.blob.core.windows.net
 	token    string,
 ) ([]string, error) {
-	credentials := azblob.NewTokenCredential(token, nil)
+	var credentials azblob.Credential
+	if token == "" {
+		credentials = azblob.NewAnonymousCredential()
+	} else {
+		credentials = azblob.NewTokenCredential(token, nil)
+	}
 	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
 	storageacc  := azblob.NewServiceURL(*endpoint, pipeline)
 
@@ -278,4 +288,28 @@ func ListCubes(
 		marker = xs.NextMarker
 	}
 	return cubes, nil
+}
+
+func WithSASToken(ctx *gin.Context, endpoint string) (*url.URL, error) {
+	ep, err := url.Parse(endpoint)
+
+	if err != nil {
+		return nil, err
+	}
+
+	query := ctx.Request.URL.Query()
+
+	sasParams := []string{
+	    "sv", "st", "se", "sp", "sr", "ss", "sip", "spr", "srt", "sig",
+	}
+
+	q := ep.Query()
+	for _, key := range sasParams {
+		for _, value := range query[key] {
+			q.Set(key, value)
+		}
+	}
+	ep.RawQuery = q.Encode()
+
+	return ep, nil
 }
