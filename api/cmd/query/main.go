@@ -226,7 +226,8 @@ func main() {
 
 	graphql := app.Group("/graphql")
 	graphql.Use(util.GeneratePID)
-	graphql.GET("", gql.Get)
+	graphql.GET( "", gql.Get)
+	graphql.POST("", gql.Post)
 
 	results := app.Group("/result")
 	results.Use(auth.ResultAuth(&keyring))

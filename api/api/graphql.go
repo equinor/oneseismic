@@ -376,12 +376,40 @@ func (g *gql) Get(ctx *gin.Context) {
 	// TODO: parse the ?variables=... to this map
 	//variables := ctx.Query("variables")
 	variables := make(map[string]interface{})
+	ctx.JSON(200, g.execQuery(ctx, query, opName, variables))
+}
 
+func (g *gql) Post(ctx *gin.Context) {
+	type body struct {
+		Query         string                 `json:"query"`
+		OperationName string                 `json:"operationName"`
+		Variables     map[string]interface{} `json:"variables"`
+	}
+	b := body {}
+	err := ctx.BindJSON(&b)
+	if err != nil {
+		log.Printf("pid=%s %v", ctx.GetString("pid"), err)
+		return
+	}
+
+	ctx.JSON(200, g.execQuery(
+		ctx,
+		b.Query,
+		b.OperationName,
+		b.Variables,
+	))
+}
+
+func (g *gql) execQuery(
+	ctx    *gin.Context,
+	query  string,
+	opName string,
+	variables map[string]interface{},
+) *graphql.Response {
 	keys := map[string]string {
 		"pid": ctx.GetString("pid"),
 		"Authorization": ctx.GetHeader("Authorization"),
 	}
 	c := context.WithValue(ctx, "keys", keys)
-	res := g.schema.Exec(c, query, opName, variables)
-	ctx.JSON(200, res)
+	return g.schema.Exec(c, query, opName, variables)
 }
