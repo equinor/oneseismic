@@ -1,4 +1,5 @@
 azure-storage-blob
+gql
 hypothesis
 msal
 numpy

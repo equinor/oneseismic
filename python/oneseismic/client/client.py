@@ -5,6 +5,9 @@ import requests
 import msgpack
 import time
 import xarray
+import gql
+
+from gql.transport.requests import RequestsHTTPTransport
 
 class assembler:
     """Base for the assembler
@@ -155,6 +158,13 @@ class cube:
         self.guid = guid
         self._shape = None
         self._ijk = None
+        transport = RequestsHTTPTransport(
+            url = self.session.base_url + '/graphql',
+        )
+        self.gclient = gql.Client(
+            transport = transport,
+            fetch_schema_from_transport = True,
+        )
 
     @property
     def shape(self):
@@ -209,14 +219,28 @@ class cube:
 
         slice : numpy.ndarray
         """
-        resource = f"query/{self.guid}/slice/{dim}/{lineno}"
-        # TODO: derive labels from query, header, or manifest
+
+        query = f'''
+        query {{
+            cube(id: "{self.guid}") {{
+                slice(kind: {dim}, id: {lineno}) {{
+                    url
+                    key
+                }}
+            }}
+        }}
+        '''
+
+        headers = self.session.tokens.headers()
+        proc = gschedule(
+            self.gclient,
+            headers,
+            self.session.base_url,
+            query,
+        )
+        # TODO: derive labels from query or result
         labels = ['inline', 'crossline', 'time']
         name = f'{labels.pop(dim)} {lineno}'
-        proc = schedule(
-            session = self.session,
-            resource = resource,
-        )
         proc.assembler = assembler_slice(self, dimlabels = labels, name = name)
         return proc
 
@@ -231,17 +255,28 @@ class cube:
         curtain : numpy.ndarray
         """
 
-        resource = f'query/{self.guid}/curtain'
-        body = {
-            'intersections': intersections
-        }
-        import json
-        proc = schedule(
-            session = self.session,
-            resource = resource,
-            data = json.dumps(body),
+        # Rendering intersections in the fstring works because the python list
+        # *happens* to be formatted the same way as the graphql
+        # list-of-list-of-ints. Simple enough for this demo, but this should be
+        # significantly different with a new gql (the python library) version
+        # and more a more sophisticated schema.
+        query = f'''
+        query {{
+            cube(id: "{self.guid}") {{
+                curtain(coords: {intersections}) {{
+                    url
+                    key
+                }}
+            }}
+        }}
+        '''
+        headers = self.session.tokens.headers()
+        proc = gschedule(
+            self.gclient,
+            headers,
+            self.session.base_url,
+            query,
         )
-
         proc.assembler = assembler_curtain(self)
         return proc
 
@@ -392,6 +427,32 @@ class process:
         """
         return self.withcompression(kind = 'gz')
 
+def gschedule(client, headers, base_url, query):
+    """Schedule a job with GraphQL
+
+    This is the graphql version of schedule(), which eventually will become
+    schedule().
+    """
+    q = gql.gql(query)
+    client.transport.headers = headers
+    res = client.execute(q)
+
+    for promise in res['cube'].values():
+        url = promise['url']
+        key = promise['key']
+
+    auth = f'Bearer {key}'
+    pid = url.split('/')[-1]
+    session = http_session(base_url)
+    session.headers.update({'Authorization': auth})
+
+    return process(
+        session = session,
+        pid = pid,
+        status_url = f'{url}/status',
+        result_url = url,
+    )
+
 def schedule(session, resource, data = None):
     """Start a server-side process.
 
@@ -418,16 +479,24 @@ def schedule(session, resource, data = None):
     r = session.get(resource, data = data)
 
     body = r.json()
-    auth = 'Bearer {}'.format(body['authorization'])
+    print('QUERY: ', resource)
+    print('BODY: ', body)
+
+    try:
+        body = body['data']['cube']['slice']
+    except KeyError:
+        body = body['data']['cube']['curtain']
+
+    auth = 'Bearer {}'.format(body['key'])
     s = http_session(session.base_url)
     s.headers.update({'Authorization': auth})
 
-    pid = body['location'].split('/')[-1]
+    pid = body['url'].split('/')[-1]
     return process(
         session = s,
         pid = pid,
-        status_url = body['status'],
-        result_url = body['location'],
+        status_url = body['url'] + '/status',
+        result_url = body['url'],
     )
 
 class http_session(requests.Session):
