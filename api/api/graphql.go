@@ -35,6 +35,37 @@ type promise struct {
 	key string
 }
 
+func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
+	keys := ctx.Value("keys").(map[string]string)
+	pid  := keys["pid"]
+	auth := keys["Authorization"]
+
+	endpoint, err := url.Parse(r.endpoint)
+	if err != nil {
+		log.Printf("pid=%s %v", pid, err)
+		return []graphql.ID{}, err
+	}
+
+	cubes, err := util.WithOnbehalfAndRetry(
+		r.tokens,
+		auth,
+		func (tok string) (interface{}, error) {
+			return util.ListCubes(ctx, endpoint, tok)
+		},
+	)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return []graphql.ID{}, err
+	}
+
+	guids := cubes.([]string)
+	list := make([]graphql.ID, len(guids))
+	for i, id := range guids {
+		list[i] = graphql.ID(id)
+	}
+	return list, nil
+}
+
 func (s *resolver) MakeSliceTask(
 	pid       string,
 	token     string,
@@ -338,6 +369,7 @@ func MakeGraphQL(
 ) *gql {
 	schema := `
 type Query {
+    cubes: [ID!]!
     cube(id: ID!): Cube!
 }
 
