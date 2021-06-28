@@ -1,7 +1,7 @@
 import argparse
 
+from .client import cli
 from .client import http_session
-from .client import ls
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -19,5 +19,6 @@ def main(argv):
     session = http_session.fromconfig()
     if args.url is not None:
         session.base_url = args.url
-    for cube in ls(session):
+
+    for cube in cli(session).cubes:
         print(cube)

@@ -668,7 +668,13 @@ def ls(session):
     --------
     oneseismic.client.cube
     """
-    return session.get('query').json()['links'].keys()
+    query = '''{
+        cubes
+    }
+    '''
+    q = gql.gql(query)
+    res = session.execute(q)
+    return res['cubes']
 
 class cubes(collections.abc.Mapping):
     """Dict-like interface to cubes in the oneseismic subscription
@@ -717,7 +723,7 @@ class cubes(collections.abc.Mapping):
 
         This is intended for internal use.
         """
-        self.cache = ls(self.session)
+        self.cache = ls(self.gclient)
 
     @property
     def guids(self):
