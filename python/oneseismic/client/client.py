@@ -188,11 +188,17 @@ class cube:
         if self._ijk is not None:
             return self._ijk
 
-        resource = f'query/{self.guid}'
-        r = self.session.get(resource)
-        self._ijk = [
-            [x for x in dim['keys']] for dim in r.json()['dimensions']
-        ]
+        query = f'''
+        {{
+            cube(id: "{self.guid}") {{
+                linenumbers
+            }}
+        }}
+        '''
+        q = gql.gql(query)
+        res = self.gclient.execute(q)
+        # TODO: should this be copied out of the gql structure?
+        self._ijk = res['cube']['linenumbers']
         return self._ijk
 
     def slice(self, dim, lineno):

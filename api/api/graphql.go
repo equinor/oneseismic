@@ -145,6 +145,33 @@ func (c *cube) Id() graphql.ID {
 	return c.id
 }
 
+func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
+	keys := ctx.Value("keys").(map[string]string)
+	pid  := keys["pid"]
+	auth := keys["Authorization"]
+	m, err := getManifest(
+		ctx,
+		c.root.tokens,
+		c.root.endpoint,
+		string(c.id),
+		auth,
+	)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return nil, err
+	}
+
+	dims := make([][]int32, len(m.Dimensions))
+	for i, major := range m.Dimensions {
+		d := make([]int32, len(major))
+		for k, v := range major {
+			d[k] = int32(v)
+		}
+		dims[i] = d
+	}
+	return dims, nil
+}
+
 type sliceargs struct {
 	Kind int32
 	Id   int32
@@ -375,6 +402,8 @@ type Query {
 
 type Cube {
     id: ID!
+
+    linenumbers: [[Int!]!]!
 
     slice(kind: Int!, id: Int!): Promise!
 	curtain(coords: [[Int!]!]!): Promise!
