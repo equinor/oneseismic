@@ -190,9 +190,6 @@ func main() {
 			DB: 0,
 		},
 	)
-	basic := api.MakeBasicEndpoint(&keyring, opts.storageURL, cmdable, tokens)
-	slice := api.MakeSlice(&keyring, opts.storageURL, cmdable, tokens)
-	curtain := api.MakeCurtain(&keyring, opts.storageURL, cmdable, tokens)
 	gql := api.MakeGraphQL(&keyring, opts.storageURL, cmdable, tokens)
 	result := api.Result {
 		Timeout: time.Second * 15,
@@ -214,16 +211,6 @@ func main() {
 
 	app := gin.Default()
 	
-	validate := auth.ValidateJWT(openidcfg.Jwks, openidcfg.Issuer, opts.audience)
-	queries := app.Group("/query")
-	queries.Use(validate)
-	queries.Use(util.GeneratePID)
-	queries.Use(util.QueryLogger)
-	queries.GET("/",      basic.List)
-	queries.GET("/:guid", basic.Entry)
-	queries.GET("/:guid/slice/:dimension/:lineno", slice.Get)
-	queries.GET("/:guid/curtain", curtain.Get)
-
 	graphql := app.Group("/graphql")
 	graphql.Use(util.GeneratePID)
 	graphql.GET( "", gql.Get)

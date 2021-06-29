@@ -153,18 +153,12 @@ class cube:
     Constructing a cube object does not trigger any http calls as all properties
     are fetched lazily.
     """
-    def __init__(self, guid, session):
+    def __init__(self, guid, session, gclient):
         self.session = session
         self.guid = guid
         self._shape = None
         self._ijk = None
-        transport = RequestsHTTPTransport(
-            url = self.session.base_url + '/graphql',
-        )
-        self.gclient = gql.Client(
-            transport = transport,
-            fetch_schema_from_transport = True,
-        )
+        self.gclient = gclient
 
     @property
     def shape(self):
@@ -194,11 +188,17 @@ class cube:
         if self._ijk is not None:
             return self._ijk
 
-        resource = f'query/{self.guid}'
-        r = self.session.get(resource)
-        self._ijk = [
-            [x for x in dim['keys']] for dim in r.json()['dimensions']
-        ]
+        query = f'''
+        {{
+            cube(id: "{self.guid}") {{
+                linenumbers
+            }}
+        }}
+        '''
+        q = gql.gql(query)
+        res = self.gclient.execute(q)
+        # TODO: should this be copied out of the gql structure?
+        self._ijk = res['cube']['linenumbers']
         return self._ijk
 
     def slice(self, dim, lineno):
@@ -231,10 +231,8 @@ class cube:
         }}
         '''
 
-        headers = self.session.tokens.headers()
         proc = gschedule(
             self.gclient,
-            headers,
             self.session.base_url,
             query,
         )
@@ -270,10 +268,8 @@ class cube:
             }}
         }}
         '''
-        headers = self.session.tokens.headers()
         proc = gschedule(
             self.gclient,
-            headers,
             self.session.base_url,
             query,
         )
@@ -427,14 +423,13 @@ class process:
         """
         return self.withcompression(kind = 'gz')
 
-def gschedule(client, headers, base_url, query):
+def gschedule(client, base_url, query):
     """Schedule a job with GraphQL
 
     This is the graphql version of schedule(), which eventually will become
     schedule().
     """
     q = gql.gql(query)
-    client.transport.headers = headers
     res = client.execute(q)
 
     for promise in res['cube'].values():
@@ -498,6 +493,19 @@ def schedule(session, resource, data = None):
         status_url = body['url'] + '/status',
         result_url = body['url'],
     )
+
+class graphclient(gql.Client):
+    def __init__(self, tokens = None, *args, **kwargs):
+        self.tokens = tokens
+        super().__init__(*args, **kwargs)
+
+    def execute(self, query, *args, **kwargs):
+        if self.tokens is not None:
+            if self.transport.headers is None:
+                self.transport.headers = self.tokens.headers()
+            else:
+                self.transport.headers.update(self.tokens.headers())
+        return super().execute(query, *args, **kwargs)
 
 class http_session(requests.Session):
     """
@@ -666,7 +674,13 @@ def ls(session):
     --------
     oneseismic.client.cube
     """
-    return session.get('query').json()['links'].keys()
+    query = '''{
+        cubes
+    }
+    '''
+    q = gql.gql(query)
+    res = session.execute(q)
+    return res['cubes']
 
 class cubes(collections.abc.Mapping):
     """Dict-like interface to cubes in the oneseismic subscription
@@ -677,12 +691,27 @@ class cubes(collections.abc.Mapping):
     """
     def __init__(self, session):
         self.session = session
+        transport = RequestsHTTPTransport(
+            url = self.session.base_url + '/graphql',
+        )
+
+        tokens = None
+        try:
+            tokens = self.session.tokens
+        except AttributeError:
+            pass
+
+        self.gclient = graphclient(
+            tokens = tokens,
+            transport = transport,
+            fetch_schema_from_transport = True,
+        )
         self.cache = None
 
     def __getitem__(self, guid):
         if guid not in self.guids:
             raise KeyError(guid)
-        return cube(guid, self.session)
+        return cube(guid, self.session, self.gclient)
 
     def __iter__(self):
         yield from self.guids
@@ -700,7 +729,7 @@ class cubes(collections.abc.Mapping):
 
         This is intended for internal use.
         """
-        self.cache = ls(self.session)
+        self.cache = ls(self.gclient)
 
     @property
     def guids(self):

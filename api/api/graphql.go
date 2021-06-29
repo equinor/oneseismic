@@ -35,6 +35,37 @@ type promise struct {
 	key string
 }
 
+func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
+	keys := ctx.Value("keys").(map[string]string)
+	pid  := keys["pid"]
+	auth := keys["Authorization"]
+
+	endpoint, err := url.Parse(r.endpoint)
+	if err != nil {
+		log.Printf("pid=%s %v", pid, err)
+		return []graphql.ID{}, err
+	}
+
+	cubes, err := util.WithOnbehalfAndRetry(
+		r.tokens,
+		auth,
+		func (tok string) (interface{}, error) {
+			return util.ListCubes(ctx, endpoint, tok)
+		},
+	)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return []graphql.ID{}, err
+	}
+
+	guids := cubes.([]string)
+	list := make([]graphql.ID, len(guids))
+	for i, id := range guids {
+		list[i] = graphql.ID(id)
+	}
+	return list, nil
+}
+
 func (s *resolver) MakeSliceTask(
 	pid       string,
 	token     string,
@@ -112,6 +143,33 @@ func (r *resolver) Cube(
 
 func (c *cube) Id() graphql.ID {
 	return c.id
+}
+
+func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
+	keys := ctx.Value("keys").(map[string]string)
+	pid  := keys["pid"]
+	auth := keys["Authorization"]
+	m, err := getManifest(
+		ctx,
+		c.root.tokens,
+		c.root.endpoint,
+		string(c.id),
+		auth,
+	)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return nil, err
+	}
+
+	dims := make([][]int32, len(m.Dimensions))
+	for i, major := range m.Dimensions {
+		d := make([]int32, len(major))
+		for k, v := range major {
+			d[k] = int32(v)
+		}
+		dims[i] = d
+	}
+	return dims, nil
 }
 
 type sliceargs struct {
@@ -338,11 +396,14 @@ func MakeGraphQL(
 ) *gql {
 	schema := `
 type Query {
+    cubes: [ID!]!
     cube(id: ID!): Cube!
 }
 
 type Cube {
     id: ID!
+
+    linenumbers: [[Int!]!]!
 
     slice(kind: Int!, id: Int!): Promise!
 	curtain(coords: [[Int!]!]!): Promise!
