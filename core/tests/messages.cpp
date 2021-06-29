@@ -95,7 +95,7 @@ TEST_CASE("unpacking query with missing field fails") {
             const auto doc = fmt::format("{{\n{}\n}}", fmt::join(parts, ",\n"));
             const auto fst = doc.data();
             const auto lst = doc.data() + doc.size();
-            one::basic_query query;
+            one::slice_query query;
             CHECK_THROWS(query.unpack(fst, lst));
         }
 

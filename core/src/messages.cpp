@@ -7,6 +7,56 @@
 
 namespace one {
 
+/*
+ * The go API server only sends plain-text messages as they're already tiny,
+ * and contains no binary data. JSON is picked due to library support slightly
+ * easier to pack/unpack, and far easier to inspect and debug.
+ *
+ * The Packable CRTP/mixin automates the generation of pack/unpack functions.
+ */
+template< typename T >
+std::string Packable< T >::pack() const noexcept (false) {
+    const auto& self = static_cast< const T& >(*this);
+    return nlohmann::json(self).dump();
+}
+
+template< typename T >
+void Packable< T >::unpack(const char* fst, const char* lst) noexcept (false) {
+    const auto doc = nlohmann::json::parse(fst, lst);
+    auto& self = static_cast< T& >(*this);
+    self = doc.get< T >();
+}
+
+template< typename T >
+std::string MsgPackable< T >::pack() const noexcept (false) {
+    const auto& self = static_cast< const T& >(*this);
+    const auto doc = nlohmann::json(self);
+    const auto msg = nlohmann::json::to_msgpack(doc);
+    return std::string(msg.begin(), msg.end());
+}
+
+template< typename T >
+void MsgPackable< T >::unpack(const char* fst, const char* lst) noexcept (false) {
+    auto& self = static_cast< T& >(*this);
+    self = nlohmann::json::from_msgpack(fst, lst).get< T >();
+}
+
+/*
+ * Explicitly instantiate classes with the packable interface, in order to
+ * generate the pack()/unpack() code. The functions are defined and
+ * instantiated here in order to avoid leaking nlohmann/json into the public
+ * interface, which would require go (and other dependencies) to be aware of
+ * it.
+ */
+template class Packable< process_header >;
+template class Packable< slice_query >;
+template class Packable< slice_task >;
+template class Packable< curtain_query >;
+template class Packable< curtain_task >;
+
+template class MsgPackable< slice_tiles >;
+template class MsgPackable< curtain_traces >;
+
 void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
     assert(query.shape_cube.size() == query.shape.size());
     doc["pid"]              = query.pid;
@@ -206,85 +256,6 @@ void to_json(nlohmann::json& doc, const curtain_traces& traces) noexcept (false)
 
 void from_json(const nlohmann::json& doc, curtain_traces& traces) noexcept (false) {
     doc.at("traces").get_to(traces.traces);
-}
-
-/*
- * The go API server only sends plain-text messages as they're already tiny,
- * and contains no binary data. JSON is picked due to library support slightly
- * easier to pack/unpack, and far easier to inspect and debug.
- */
-void basic_query::unpack(const char* fst, const char* lst) noexcept (false) {
-    const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< basic_query >();
-}
-
-std::string basic_query::pack() const {
-    return nlohmann::json(*this).dump();
-}
-
-void process_header::unpack(const char* fst, const char* lst) noexcept (false) {
-    const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< process_header >();
-}
-
-std::string process_header::pack() const {
-    return nlohmann::json(*this).dump();
-}
-
-std::string slice_query::pack() const {
-    return nlohmann::json(*this).dump();
-}
-
-void slice_query::unpack(const char* fst, const char* lst) noexcept (false) {
-    const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< slice_query >();
-}
-
-std::string slice_task::pack() const {
-    return nlohmann::json(*this).dump();
-}
-
-void slice_task::unpack(const char* fst, const char* lst) noexcept (false) {
-    const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< slice_task >();
-}
-
-void slice_tiles::unpack(const char* fst, const char* lst) noexcept (false) {
-    *this = nlohmann::json::from_msgpack(fst, lst).get< slice_tiles >();
-}
-
-std::string slice_tiles::pack() const {
-    const auto doc = nlohmann::json(*this);
-    const auto msg = nlohmann::json::to_msgpack(doc);
-    return std::string(msg.begin(), msg.end());
-}
-
-void curtain_query::unpack(const char* fst, const char* lst) noexcept (false) {
-    const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< curtain_query >();
-}
-
-std::string curtain_query::pack() const {
-    return nlohmann::json(*this).dump();
-}
-
-void curtain_task::unpack(const char* fst, const char* lst) noexcept (false) {
-    const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< curtain_task >();
-}
-
-std::string curtain_task::pack() const {
-    return nlohmann::json(*this).dump();
-}
-
-void curtain_traces::unpack(const char* fst, const char* lst) noexcept (false) {
-    *this = nlohmann::json::from_msgpack(fst, lst).get< curtain_traces >();
-}
-
-std::string curtain_traces::pack() const {
-    const auto doc = nlohmann::json(*this);
-    const auto msg = nlohmann::json::to_msgpack(doc);
-    return std::string(msg.begin(), msg.end());
 }
 
 }

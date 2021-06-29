@@ -7,6 +7,18 @@
 
 namespace one {
 
+template < typename T >
+struct Packable {
+    std::string pack() const noexcept (false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+template < typename T >
+struct MsgPackable {
+    std::string pack() const noexcept (false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
 class bad_message : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
@@ -26,9 +38,6 @@ struct basic_query {
     std::vector< int > shape;
     std::vector< int > shape_cube;
     std::string        function;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct basic_task {
@@ -50,9 +59,6 @@ struct basic_task {
     std::vector< int > shape;
     std::vector< int > shape_cube;
     std::string        function;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 /*
@@ -66,35 +72,26 @@ struct basic_task {
  * The contents and order of the shape and index depend on the request type and
  * parameters.
  */
-struct process_header {
+struct process_header : Packable< process_header > {
     std::string        pid;
     int                ntasks;
     std::vector< int > shape;
     std::vector< std::vector< int > > index;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
-struct slice_query : public basic_query {
+struct slice_query : public basic_query, Packable< slice_query > {
     int dim;
     int lineno;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
-struct curtain_query : public basic_query {
+struct curtain_query : public basic_query, Packable< curtain_query > {
     std::vector< int > dim0s;
     std::vector< int > dim1s;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 /*
  */
-struct slice_task : public basic_task {
+struct slice_task : public basic_task, Packable< slice_task > {
     slice_task() = default;
     explicit slice_task(const slice_query& q) :
         basic_task(q),
@@ -104,9 +101,6 @@ struct slice_task : public basic_task {
     int dim;
     int lineno;
     std::vector< std::vector< int > > ids;
-
-    std::string pack() const noexcept (false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct tile {
@@ -118,15 +112,12 @@ struct tile {
     std::vector< float > v;
 };
 
-struct slice_tiles {
+struct slice_tiles : public MsgPackable< slice_tiles > {
     /*
      * The shape of the slice itself
      */
     std::vector< int > shape;
     std::vector< tile > tiles;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct single {
@@ -139,13 +130,9 @@ struct single {
     std::vector< std::array< int, 2 > > coordinates;
 };
 
-struct curtain_task : public basic_task {
+struct curtain_task : public basic_task, Packable< curtain_task > {
     using basic_task::basic_task;
-
     std::vector< single > ids;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct trace {
@@ -153,11 +140,8 @@ struct trace {
     std::vector< float > v;
 };
 
-struct curtain_traces {
+struct curtain_traces : public MsgPackable< curtain_traces > {
     std::vector< trace > traces;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 }
