@@ -11,28 +11,41 @@ class bad_message : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-
 /*
- * The basic message, and the fields that *all* tasks share. The only reason
- * for inheritance to even play here is just to make the implementation a lot
- * shorter.
- *
- * The load() function is *not* in exception safe, and will modify
- * member-by-member in-place. That means the moment load() is called, the
- * instance should be considered unspecified in case an exception is thrown.
- *
- * load takes a range of bytes, rather than being explicit here on the encoding
- * of the message. This should make all other code more robust should when the
- * message body itself changes (different protocols, added fields etc), as only
- * the load() internals must be changed.
- *
- * This is the message that's sent by the api/ when scheduling work
+ * The *query messages are parsing utilities for the input messages built from
+ * the graphql queries. They help build a corresponding *task which is fed to
+ * the workers, and should contain all the information the workers need to do
+ * their job.
  */
-struct common_task {
+struct basic_query {
     std::string        pid;
     std::string        token;
     std::string        guid;
     std::string        manifest;
+    std::string        storage_endpoint;
+    std::vector< int > shape;
+    std::vector< int > shape_cube;
+    std::string        function;
+
+    std::string pack() const noexcept(false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+struct basic_task {
+    basic_task() = default;
+    explicit basic_task(const basic_query& q) :
+        pid              (q.pid),
+        token            (q.token),
+        guid             (q.guid),
+        storage_endpoint (q.storage_endpoint),
+        shape            (q.shape),
+        shape_cube       (q.shape_cube),
+        function         (q.function)
+    {}
+
+    std::string        pid;
+    std::string        token;
+    std::string        guid;
     std::string        storage_endpoint;
     std::vector< int > shape;
     std::vector< int > shape_cube;
@@ -63,10 +76,7 @@ struct process_header {
     void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
-struct slice_task : public common_task {
-    slice_task() = default;
-    explicit slice_task(const common_task& t) : common_task(t) {}
-
+struct slice_query : public basic_query {
     int dim;
     int lineno;
 
@@ -74,10 +84,7 @@ struct slice_task : public common_task {
     void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
-struct curtain_task : public common_task {
-    curtain_task() = default;
-    explicit curtain_task(const common_task& t) : common_task(t) {}
-
+struct curtain_query : public basic_query {
     std::vector< int > dim0s;
     std::vector< int > dim1s;
 
@@ -87,10 +94,15 @@ struct curtain_task : public common_task {
 
 /*
  */
-struct slice_fetch : public slice_task {
-    slice_fetch() = default;
-    explicit slice_fetch(const slice_task& t) : slice_task(t) {}
+struct slice_task : public basic_task {
+    slice_task() = default;
+    explicit slice_task(const slice_query& q) :
+        basic_task(q),
+        dim(q.dim)
+    {}
 
+    int dim;
+    int lineno;
     std::vector< std::vector< int > > ids;
 
     std::string pack() const noexcept (false);
@@ -127,9 +139,8 @@ struct single {
     std::vector< std::array< int, 2 > > coordinates;
 };
 
-struct curtain_fetch : public curtain_task {
-    curtain_fetch() = default;
-    explicit curtain_fetch(const curtain_task& t) : curtain_task(t) {}
+struct curtain_task : public basic_task {
+    using basic_task::basic_task;
 
     std::vector< single > ids;
 

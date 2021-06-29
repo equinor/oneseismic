@@ -21,7 +21,7 @@ one::FID< 3 > id3(const Seq& seq) noexcept (false) {
     };
 }
 
-one::gvt< 3 > gvt3(const one::common_task& task) {
+one::gvt< 3 > gvt3(const one::basic_task& task) {
     assert(task.shape[0] > 0);
     assert(task.shape[1] > 0);
     assert(task.shape[2] > 0);
@@ -48,7 +48,7 @@ public:
     std::string pack() override;
 
 private:
-    one::slice_fetch input;
+    one::slice_task  input;
     one::slice_tiles output;
 
     one::dimension< 3 > dim = one::dimension< 3 >(0);
@@ -64,7 +64,7 @@ public:
     std::string pack() override;
 
 private:
-    one::curtain_fetch  input;
+    one::curtain_task   input;
     one::curtain_traces output;
     one::gvt< 3 >       gvt;
     std::vector< int >  traceindex;

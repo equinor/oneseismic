@@ -7,23 +7,44 @@
 
 namespace one {
 
-void to_json(nlohmann::json& doc, const common_task& task) noexcept (false) {
+void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
+    assert(query.shape_cube.size() == query.shape.size());
+    doc["pid"]              = query.pid;
+    doc["token"]            = query.token;
+    doc["guid"]             = query.guid;
+    doc["manifest"]         = query.manifest;
+    doc["storage_endpoint"] = query.storage_endpoint;
+    doc["shape"]            = query.shape;
+    doc["shape-cube"]       = query.shape_cube;
+    doc["function"]         = query.function;
+}
+
+void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
+    doc.at("pid")             .get_to(query.pid);
+    doc.at("token")           .get_to(query.token);
+    doc.at("guid")            .get_to(query.guid);
+    doc.at("manifest")        .get_to(query.manifest);
+    doc.at("storage_endpoint").get_to(query.storage_endpoint);
+    doc.at("shape")           .get_to(query.shape);
+    doc.at("shape-cube")      .get_to(query.shape_cube);
+    doc.at("function")        .get_to(query.function);
+}
+
+void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
     assert(task.shape_cube.size() == task.shape.size());
     doc["pid"]              = task.pid;
     doc["token"]            = task.token;
     doc["guid"]             = task.guid;
-    doc["manifest"]         = task.manifest;
     doc["storage_endpoint"] = task.storage_endpoint;
     doc["shape"]            = task.shape;
     doc["shape-cube"]       = task.shape_cube;
     doc["function"]         = task.function;
 }
 
-void from_json(const nlohmann::json& doc, common_task& task) noexcept (false) {
+void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
     doc.at("pid")             .get_to(task.pid);
     doc.at("token")           .get_to(task.token);
     doc.at("guid")            .get_to(task.guid);
-    doc.at("manifest")        .get_to(task.manifest);
     doc.at("storage_endpoint").get_to(task.storage_endpoint);
     doc.at("shape")           .get_to(task.shape);
     doc.at("shape-cube")      .get_to(task.shape_cube);
@@ -44,56 +65,60 @@ void from_json(const nlohmann::json& doc, process_header& head) noexcept (false)
     doc.at("index") .get_to(head.index);
 }
 
-void to_json(nlohmann::json& doc, const slice_task& task) noexcept (false) {
-    to_json(doc, static_cast< const common_task& >(task));
+void to_json(nlohmann::json& doc, const slice_query& query) noexcept (false) {
+    to_json(doc, static_cast< const basic_query& >(query));
     doc["function"] = "slice";
     auto& params = doc["params"];
-    params["dim"]    = task.dim;
-    params["lineno"] = task.lineno;
+    params["dim"]    = query.dim;
+    params["lineno"] = query.lineno;
+}
+
+void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
+    from_json(doc, static_cast< basic_query& >(query));
+
+    if (query.function != "slice") {
+        const auto msg = "expected task 'slice', got {}";
+        throw bad_message(fmt::format(msg, query.function));
+    }
+
+    const auto& params = doc.at("params");
+    params.at("dim")   .get_to(query.dim);
+    params.at("lineno").get_to(query.lineno);
+}
+
+void to_json(nlohmann::json& doc, const curtain_query& query) noexcept (false) {
+    to_json(doc, static_cast< const basic_query& >(query));
+    doc["function"] = "curtain";
+    auto& params = doc["params"];
+    params["dim0s"] = query.dim0s;
+    params["dim1s"] = query.dim1s;
+}
+
+void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false) {
+    from_json(doc, static_cast< basic_query& >(query));
+
+    if (query.function != "curtain") {
+        const auto msg = "expected query 'curtain', got {}";
+        throw bad_message(fmt::format(msg, query.function));
+    }
+
+    const auto& params = doc.at("params");
+    params.at("dim0s").get_to(query.dim0s);
+    params.at("dim1s").get_to(query.dim1s);
+}
+
+void to_json(nlohmann::json& doc, const slice_task& task) noexcept (false) {
+    to_json(doc, static_cast< const basic_task& >(task));
+    doc["dim"]    = task.dim;
+    doc["lineno"] = task.lineno;
+    doc["ids"]    = task.ids;
 }
 
 void from_json(const nlohmann::json& doc, slice_task& task) noexcept (false) {
-    from_json(doc, static_cast< common_task& >(task));
-
-    if (task.function != "slice") {
-        const auto msg = "expected task 'slice', got {}";
-        throw bad_message(fmt::format(msg, task.function));
-    }
-
-    const auto& params = doc.at("params");
-    params.at("dim")   .get_to(task.dim);
-    params.at("lineno").get_to(task.lineno);
-}
-
-void to_json(nlohmann::json& doc, const curtain_task& task) noexcept (false) {
-    to_json(doc, static_cast< const common_task& >(task));
-    doc["function"] = "curtain";
-    auto& params = doc["params"];
-    params["dim0s"] = task.dim0s;
-    params["dim1s"] = task.dim1s;
-}
-
-void from_json(const nlohmann::json& doc, curtain_task& task) noexcept (false) {
-    from_json(doc, static_cast< common_task& >(task));
-
-    if (task.function != "curtain") {
-        const auto msg = "expected task 'curtain', got {}";
-        throw bad_message(fmt::format(msg, task.function));
-    }
-
-    const auto& params = doc.at("params");
-    params.at("dim0s").get_to(task.dim0s);
-    params.at("dim1s").get_to(task.dim1s);
-}
-
-void to_json(nlohmann::json& doc, const slice_fetch& task) noexcept (false) {
-    to_json(doc, static_cast< const slice_task& >(task));
-    doc["ids"]        = task.ids;
-}
-
-void from_json(const nlohmann::json& doc, slice_fetch& task) noexcept (false) {
-    from_json(doc, static_cast< slice_task& >(task));
-    doc.at("ids")       .get_to(task.ids);
+    from_json(doc, static_cast< basic_task& >(task));
+    doc.at("dim")   .get_to(task.dim);
+    doc.at("lineno").get_to(task.lineno);
+    doc.at("ids")   .get_to(task.ids);
 
     if (task.ids.empty()) {
         /*
@@ -155,13 +180,13 @@ void from_json(const nlohmann::json& doc, single& single) noexcept (false) {
     doc.at("coordinates").get_to(single.coordinates);
 }
 
-void to_json(nlohmann::json& doc, const curtain_fetch& curtain) noexcept (false) {
-    to_json(doc, static_cast< const curtain_task& >(curtain));
+void to_json(nlohmann::json& doc, const curtain_task& curtain) noexcept (false) {
+    to_json(doc, static_cast< const basic_task& >(curtain));
     doc["ids"] = curtain.ids;
 }
 
-void from_json(const nlohmann::json& doc, curtain_fetch& curtain) noexcept (false) {
-    from_json(doc, static_cast< curtain_task& >(curtain));
+void from_json(const nlohmann::json& doc, curtain_task& curtain) noexcept (false) {
+    from_json(doc, static_cast< basic_task& >(curtain));
     doc.at("ids").get_to(curtain.ids);
 }
 
@@ -188,12 +213,12 @@ void from_json(const nlohmann::json& doc, curtain_traces& traces) noexcept (fals
  * and contains no binary data. JSON is picked due to library support slightly
  * easier to pack/unpack, and far easier to inspect and debug.
  */
-void common_task::unpack(const char* fst, const char* lst) noexcept (false) {
+void basic_query::unpack(const char* fst, const char* lst) noexcept (false) {
     const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< common_task >();
+    *this = doc.get< basic_query >();
 }
 
-std::string common_task::pack() const {
+std::string basic_query::pack() const {
     return nlohmann::json(*this).dump();
 }
 
@@ -206,22 +231,22 @@ std::string process_header::pack() const {
     return nlohmann::json(*this).dump();
 }
 
-void slice_task::unpack(const char* fst, const char* lst) noexcept (false) {
+std::string slice_query::pack() const {
+    return nlohmann::json(*this).dump();
+}
+
+void slice_query::unpack(const char* fst, const char* lst) noexcept (false) {
     const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< slice_task >();
+    *this = doc.get< slice_query >();
 }
 
 std::string slice_task::pack() const {
     return nlohmann::json(*this).dump();
 }
 
-void slice_fetch::unpack(const char* fst, const char* lst) noexcept (false) {
+void slice_task::unpack(const char* fst, const char* lst) noexcept (false) {
     const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< slice_fetch >();
-}
-
-std::string slice_fetch::pack() const {
-    return nlohmann::json(*this).dump();
+    *this = doc.get< slice_task >();
 }
 
 void slice_tiles::unpack(const char* fst, const char* lst) noexcept (false) {
@@ -234,12 +259,12 @@ std::string slice_tiles::pack() const {
     return std::string(msg.begin(), msg.end());
 }
 
-void curtain_fetch::unpack(const char* fst, const char* lst) noexcept (false) {
+void curtain_query::unpack(const char* fst, const char* lst) noexcept (false) {
     const auto doc = nlohmann::json::parse(fst, lst);
-    *this = doc.get< curtain_fetch >();
+    *this = doc.get< curtain_query >();
 }
 
-std::string curtain_fetch::pack() const {
+std::string curtain_query::pack() const {
     return nlohmann::json(*this).dump();
 }
 
