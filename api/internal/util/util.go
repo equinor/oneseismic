@@ -179,54 +179,6 @@ func ParseManifest(doc []byte) (*message.Manifest, error) {
 	return m.Unpack(doc)
 }
 
-/*
- * GetManifest is the gin-aware combination of fetch, parse, and abort-on-error
- * for manifests. Outside of test purposes it should be sufficient to call
- * this.
- *
- * Notes
- * -----
- * This is as close as you get to middleware, without actually being
- * implemented as such. It's a plain function because it relies on the endpoint
- * & guid parameter. The endpoint can certainly be embedded as it is (for now)
- * static per invocation, but the guid needs to be parsed from the parameters.
- * This too can be moved into middleware, but at the cost of obscuring control
- * flow. It's not a too reasonable refactoring however.
- */
-func GetManifest(
-	ctx      *gin.Context,
-	tokens   auth.Tokens,
-	endpoint string,
-	guid     string,
-) (*message.Manifest, error) {
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
-	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return nil, err
-	}
-
-	authorization := ctx.GetHeader("Authorization")
-	manifest, err := WithOnbehalfAndRetry(
-		tokens,
-		authorization,
-		func (tok string) (interface{}, error) {
-			return FetchManifest(ctx, tok, container)
-		},
-	)
-	if err != nil {
-		auth.AbortContextFromToken(ctx, err)
-		return nil, err
-	}
-
-	m, err := ParseManifest(manifest.([]byte))
-	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-		return nil, err
-	}
-
-	return m, nil
-}
-
 // This function is pure automation
 //
 // So checking if a token is valid, has the right permissions, not-yet-expired
