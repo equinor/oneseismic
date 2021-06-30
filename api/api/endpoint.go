@@ -36,7 +36,7 @@ func (be *BasicEndpoint) MakeTask(
 	pid       string,
 	guid      string,
 	token     string,
-	manifest  []byte,
+	manifest  interface{},
 	shape     []int32,
 	shapecube []int32,
 ) *message.Task {
@@ -45,7 +45,7 @@ func (be *BasicEndpoint) MakeTask(
 		Token:           token,
 		Guid:            guid,
 		StorageEndpoint: be.endpoint,
-		Manifest:        string(manifest),
+		Manifest:        manifest,
 		Shape:           shape,
 		ShapeCube:       shapecube,
 	}

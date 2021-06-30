@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -28,7 +29,7 @@ type resolver struct {
 type cube struct {
 	id       graphql.ID
 	root     *resolver
-	manifest *message.Manifest
+	manifest map[string]interface{}
 }
 type promise struct {
 	url string
@@ -69,7 +70,7 @@ func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 func (s *resolver) MakeSliceTask(
 	pid       string,
 	token     string,
-	manifest  []byte,
+	manifest  interface{},
 	shape     []int32,
 	shapecube []int32,
 	guid      string,
@@ -96,7 +97,7 @@ func (c *resolver) MakeCurtainTask(
 	pid       string,
 	guid      string,
 	token     string,
-	manifest  []byte,
+	manifest  interface{},
 	shape     []int32,
 	shapecube []int32,
 	params    *message.CurtainParams,
@@ -122,13 +123,19 @@ func (r *resolver) Cube(
 	pid  := keys["pid"]
 	auth := keys["Authorization"]
 
-	manifest, err := getManifest(
+	doc, err := getManifest(
 		ctx,
 		r.tokens,
 		r.endpoint,
 		string(args.Id),
 		auth,
 	)
+	if err != nil {
+		log.Printf("pid=%s %v", pid, err)
+		return nil, err
+	}
+
+	manifest, err := manifestAsMap(doc)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err
@@ -161,8 +168,17 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 		return nil, err
 	}
 
-	dims := make([][]int32, len(m.Dimensions))
-	for i, major := range m.Dimensions {
+	manifest, err := util.ParseManifest(m)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		// TODO: should probably not leak internal parse error
+		// but instead some custom "internal error message"
+		return nil, err
+	}
+
+	dimensions := manifest.Dimensions
+	dims := make([][]int32, len(dimensions))
+	for i, major := range dimensions {
 		d := make([]int32, len(major))
 		for k, v := range major {
 			d[k] = int32(v)
@@ -189,7 +205,7 @@ func getManifest(
 	endpoint string,
 	guid     string,
 	auth     string,
-) (*message.Manifest, error) {
+) ([]byte, error) {
 	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
 	if err != nil {
 		return nil, err
@@ -215,11 +231,12 @@ func getManifest(
 		return nil, err
 	}
 
-	m, err := util.ParseManifest(manifest.([]byte))
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	return manifest.([]byte), nil
+}
+
+func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
+	err = json.Unmarshal(doc, &m)
+	return
 }
 
 func (c *cube) Slice(
@@ -250,20 +267,16 @@ func (c *cube) Slice(
 		return nil, err
 	}
 
-	packedmanifest, err := c.manifest.Pack()
-	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
-	}
-
-	cubeshape := make([]int32, 0, len(c.manifest.Dimensions))
-	for i := 0; i < len(c.manifest.Dimensions); i++ {
-		cubeshape = append(cubeshape, int32(len(c.manifest.Dimensions[i])))
+	dimensions := c.manifest["dimensions"].([]interface{})
+	cubeshape := make([]int32, 0, len(dimensions))
+	for i := 0; i < len(dimensions); i++ {
+		dim := dimensions[i].([]interface {})
+		cubeshape = append(cubeshape, int32(len(dim)))
 	}
 	msg := c.root.MakeSliceTask(
 		pid,
 		token,
-		packedmanifest,
+		c.manifest,
 		[]int32{ 64, 64, 64 },
 		cubeshape,
 		string(c.id),
@@ -330,21 +343,17 @@ func (c *cube) Curtain(
 		return nil, err
 	}
 
-	packedmanifest, err := c.manifest.Pack()
-	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
-	}
-
-	cubeshape := make([]int32, 0, len(c.manifest.Dimensions))
-	for i := 0; i < len(c.manifest.Dimensions); i++ {
-		cubeshape = append(cubeshape, int32(len(c.manifest.Dimensions[i])))
+	dimensions := c.manifest["dimensions"].([]interface{})
+	cubeshape := make([]int32, 0, len(dimensions))
+	for i := 0; i < len(dimensions); i++ {
+		dim := dimensions[i].([]interface {})
+		cubeshape = append(cubeshape, int32(len(dim)))
 	}
 	msg := c.root.MakeCurtainTask(
 		pid,
 		string(c.id),
 		token,
-		packedmanifest,
+		c.manifest,
 		[]int32{ 64, 64, 64 },
 		cubeshape,
 		toCurtainParams(args.Coords),

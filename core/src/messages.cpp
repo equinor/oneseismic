@@ -57,6 +57,14 @@ template class Packable< curtain_task >;
 template class MsgPackable< slice_tiles >;
 template class MsgPackable< curtain_traces >;
 
+void to_json(nlohmann::json& doc, const manifestdoc& m) noexcept (false) {
+    doc["dimensions"] = m.dimensions;
+}
+
+void from_json(const nlohmann::json& doc, manifestdoc& m) noexcept (false) {
+    doc.at("dimensions").get_to(m.dimensions);
+}
+
 void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
     assert(query.shape_cube.size() == query.shape.size());
     doc["pid"]              = query.pid;

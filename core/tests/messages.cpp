@@ -45,6 +45,10 @@ bool operator == (const one::slice_task& lhs, const one::slice_task& rhs) {
     ;
 }
 
+bool operator == (const one::manifestdoc& lhs, const one::manifestdoc& rhs) {
+    return lhs.dimensions == rhs.dimensions;
+}
+
 }
 
 TEST_CASE("well-formed slice-query is unpacked correctly") {
@@ -53,7 +57,7 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
         "token": "on-behalf-of-token",
         "guid": "object-id",
         "storage_endpoint": "https://storage.com",
-        "manifest": "{}",
+        "manifest": { "dimensions": [] },
         "shape": [64, 64, 64],
         "shape-cube": [128, 128, 128],
         "function": "slice",
@@ -68,7 +72,7 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
     CHECK(query.pid   == "some-pid");
     CHECK(query.token == "on-behalf-of-token");
     CHECK(query.guid  == "object-id");
-    CHECK(query.manifest == "{}");
+    CHECK(query.manifest == one::manifestdoc {});
     CHECK(query.storage_endpoint == "https://storage.com");
     CHECK_THAT(query.shape,      Equals(std::vector< int >{ 64,  64,  64}));
     CHECK_THAT(query.shape_cube, Equals(std::vector< int >{128, 128, 128}));
@@ -81,7 +85,7 @@ TEST_CASE("unpacking query with missing field fails") {
         R"("pid": "some-pid")",
         R"("token": "on-behalf-of-token")",
         R"("guid": "object-id")",
-        R"("manifest": "{}")",
+        R"("manifest": { "dimensions": [] })",
         R"("storage_endpoint": "http://storage.com")",
         R"("shape": [64, 64, 64])",
         R"("function": "slice")",
@@ -107,7 +111,7 @@ TEST_CASE("unpacking message with wrong function tag fails") {
         "pid": "some-pid",
         "token": "on-behalf-of-token",
         "guid": "object-id",
-        "manifest": "{}",
+        "manifest": { "dimensions": [] },
         "storage_endpoint": "https://storage.com",
         "shape": [64, 64, 64],
         "function": "broken",
@@ -126,7 +130,7 @@ TEST_CASE("slice-query can round trip packing") {
     query.pid = "pid";
     query.token = "token";
     query.guid = "guid";
-    query.manifest = "{}";
+    query.manifest = one::manifestdoc {};
     query.storage_endpoint = "https://storage.com";
     query.shape = { 64, 64, 64 };
     query.shape_cube = { 128, 128, 128 };
@@ -146,7 +150,7 @@ TEST_CASE("slice-query sets function to 'slice'") {
     query.pid = "pid";
     query.token = "token";
     query.guid = "guid";
-    query.manifest = "{}";
+    query.manifest = one::manifestdoc {};
     query.storage_endpoint = "https://storage.com";
     query.shape = { 64, 64, 64 };
     query.shape_cube = { 128, 128, 128 };

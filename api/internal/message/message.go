@@ -20,7 +20,7 @@ type Task struct {
 	Pid             string       `json:"pid"`
 	Token           string       `json:"token"`
 	Guid            string       `json:"guid"`
-	Manifest        string       `json:"manifest"`
+	Manifest        interface {} `json:"manifest"`
 	StorageEndpoint string       `json:"storage_endpoint"`
 	Shape           []int32      `json:"shape"`
 	ShapeCube       []int32      `json:"shape-cube"`

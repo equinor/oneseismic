@@ -14,12 +14,12 @@
 namespace {
 
 one::gvt< 3 > geometry(
-        const nlohmann::json& dimensions,
+        const one::manifestdoc& manifest,
         const nlohmann::json& shape) noexcept (false) {
     return one::gvt< 3 > {
-        { dimensions[0].size(),
-          dimensions[1].size(),
-          dimensions[2].size(), },
+        { manifest.dimensions[0].size(),
+          manifest.dimensions[1].size(),
+          manifest.dimensions[2].size(), },
         { shape[0].get< std::size_t >(),
           shape[1].get< std::size_t >(),
           shape[2].get< std::size_t >(), }
@@ -90,7 +90,7 @@ struct schedule_maker {
      *
      * The Output type should have a pack() method that returns a std::string
      */
-    Output build(const Input&, const nlohmann::json&) noexcept (false);
+    Output build(const Input&) noexcept (false);
 
     /*
      * Make a header. This function requires deep knowledge of the shape and
@@ -105,7 +105,7 @@ struct schedule_maker {
      * pre-allocate and build metadata to make sense of data as it is streamed.
      */
     one::process_header
-    header(const Input&, const nlohmann::json&, int ntasks) noexcept (false);
+    header(const Input&, int ntasks) noexcept (false);
 
     /*
      * Partition partitions an Output in-place and pack()s it into blobs of
@@ -165,12 +165,11 @@ schedule_maker< Input, Output >::schedule(
 noexcept (false) {
     Input in;
     in.unpack(doc, doc + len);
-    const auto manifest = nlohmann::json::parse(in.manifest);
-    auto fetch = this->build(in, manifest);
+    auto fetch = this->build(in);
     auto sched = this->partition(fetch, task_size);
 
     const auto ntasks = int(sched.size());
-    const auto head   = this->header(in, manifest, ntasks);
+    const auto head   = this->header(in, ntasks);
     sched.push_back(head.pack());
     return sched;
 }
@@ -178,17 +177,16 @@ noexcept (false) {
 template <>
 one::slice_task
 schedule_maker< one::slice_query, one::slice_task >::build(
-    const one::slice_query& query,
-    const nlohmann::json& manifest)
+    const one::slice_query& query)
 {
     auto task = one::slice_task(query);
 
-    const auto& manifest_dimensions = manifest["dimensions"];
-    if (!(0 <= query.dim && query.dim < manifest_dimensions.size())) {
+    const auto& dimensions = query.manifest.dimensions;
+    if (!(0 <= query.dim && query.dim < dimensions.size())) {
         const auto msg = fmt::format(
             "param.dimension (= {}) not in [0, {})",
             query.dim,
-            manifest_dimensions.size()
+            dimensions.size()
         );
         throw one::not_found(msg);
     }
@@ -198,7 +196,7 @@ schedule_maker< one::slice_query, one::slice_task >::build(
      * faster to not make vector, but rather parse-and-compare individual
      * integers?
      */
-    const auto index = manifest_dimensions[query.dim].get< std::vector< int > >();
+    const auto& index = dimensions[query.dim];
     const auto itr = std::find(index.begin(), index.end(), query.lineno);
     if (itr == index.end()) {
         const auto msg = "line (= {}) not found in index";
@@ -206,10 +204,10 @@ schedule_maker< one::slice_query, one::slice_task >::build(
     }
 
     const auto pin = std::distance(index.begin(), itr);
-    auto gvt = geometry(manifest_dimensions, query.shape);
+    auto gvt = geometry(query.manifest, query.shape);
 
     // TODO: name loop
-    for (const auto& dimension : manifest_dimensions)
+    for (const auto& dimension : dimensions)
         task.shape_cube.push_back(dimension.size());
 
     const auto to_vec = [](const auto& x) {
@@ -229,11 +227,10 @@ template <>
 one::process_header
 schedule_maker< one::slice_query, one::slice_task >::header(
     const one::slice_query& query,
-    const nlohmann::json& manifest,
     int ntasks
 ) noexcept (false) {
-    const auto& mdims = manifest["dimensions"];
-    const auto gvt  = geometry(mdims, query.shape);
+    const auto& mdims = query.manifest.dimensions;
+    const auto gvt  = geometry(query.manifest, query.shape);
     const auto dim  = gvt.mkdim(query.dim);
     const auto gvt2 = gvt.squeeze(dim);
     const auto fs2  = gvt2.fragment_shape();
@@ -291,8 +288,7 @@ noexcept (false) {
 template <>
 one::curtain_task
 schedule_maker< one::curtain_query, one::curtain_task >::build(
-    const one::curtain_query& query,
-    const nlohmann::json& manifest)
+    const one::curtain_query& query)
 {
     const auto less = [](const auto& lhs, const auto& rhs) noexcept (true) {
         return std::lexicographical_compare(
@@ -309,11 +305,11 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
     auto task = one::curtain_task(query);
     auto dim0s = query.dim0s;
     auto dim1s = query.dim1s;
-    to_cartesian_inplace(manifest["dimensions"][0], dim0s);
-    to_cartesian_inplace(manifest["dimensions"][1], dim1s);
+    to_cartesian_inplace(query.manifest.dimensions[0], dim0s);
+    to_cartesian_inplace(query.manifest.dimensions[1], dim1s);
     auto& ids = task.ids;
 
-    auto gvt = geometry(manifest["dimensions"], query.shape);
+    auto gvt = geometry(query.manifest, query.shape);
     const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
     const auto zheight = gvt.fragment_shape()[2];
 
@@ -386,16 +382,15 @@ template <>
 one::process_header
 schedule_maker< one::curtain_query, one::curtain_task >::header(
     const one::curtain_query& query,
-    const nlohmann::json& manifest,
     int ntasks
 ) noexcept (false) {
-    const auto& mdims = manifest["dimensions"];
+    const auto& mdims = query.manifest.dimensions;
 
     one::process_header head;
     head.pid    = query.pid;
     head.ntasks = ntasks;
 
-    const auto gvt  = geometry(mdims, query.shape);
+    const auto gvt  = geometry(query.manifest, query.shape);
     const auto zpad = gvt.nsamples_padded(gvt.mkdim(gvt.ndims - 1));
     head.shape = {
         int(query.dim0s.size()),

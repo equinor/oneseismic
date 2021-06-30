@@ -23,6 +23,10 @@ class bad_message : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+struct manifestdoc {
+    std::vector< std::vector< int > > dimensions;
+};
+
 /*
  * The *query messages are parsing utilities for the input messages built from
  * the graphql queries. They help build a corresponding *task which is fed to
@@ -33,7 +37,7 @@ struct basic_query {
     std::string        pid;
     std::string        token;
     std::string        guid;
-    std::string        manifest;
+    manifestdoc        manifest;
     std::string        storage_endpoint;
     std::vector< int > shape;
     std::vector< int > shape_cube;
