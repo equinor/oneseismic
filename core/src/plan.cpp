@@ -13,16 +13,17 @@
 
 namespace {
 
-one::gvt< 3 > geometry(
-        const one::manifestdoc& manifest,
-        const nlohmann::json& shape) noexcept (false) {
+one::gvt< 3 > geometry(const one::basic_query& query) noexcept (false) {
+    const auto& dimensions = query.manifest.dimensions;
+    const auto& shape = query.shape;
+
     return one::gvt< 3 > {
-        { manifest.dimensions[0].size(),
-          manifest.dimensions[1].size(),
-          manifest.dimensions[2].size(), },
-        { shape[0].get< std::size_t >(),
-          shape[1].get< std::size_t >(),
-          shape[2].get< std::size_t >(), }
+        { dimensions[0].size(),
+          dimensions[1].size(),
+          dimensions[2].size(), },
+        { std::size_t(shape[0]),
+          std::size_t(shape[1]),
+          std::size_t(shape[2]), }
     };
 }
 
@@ -204,7 +205,7 @@ schedule_maker< one::slice_query, one::slice_task >::build(
     }
 
     const auto pin = std::distance(index.begin(), itr);
-    auto gvt = geometry(query.manifest, query.shape);
+    auto gvt = geometry(query);
 
     // TODO: name loop
     for (const auto& dimension : dimensions)
@@ -230,7 +231,7 @@ schedule_maker< one::slice_query, one::slice_task >::header(
     int ntasks
 ) noexcept (false) {
     const auto& mdims = query.manifest.dimensions;
-    const auto gvt  = geometry(query.manifest, query.shape);
+    const auto gvt  = geometry(query);
     const auto dim  = gvt.mkdim(query.dim);
     const auto gvt2 = gvt.squeeze(dim);
     const auto fs2  = gvt2.fragment_shape();
@@ -309,7 +310,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
     to_cartesian_inplace(query.manifest.dimensions[1], dim1s);
     auto& ids = task.ids;
 
-    auto gvt = geometry(query.manifest, query.shape);
+    auto gvt = geometry(query);
     const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
     const auto zheight = gvt.fragment_shape()[2];
 
@@ -390,7 +391,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::header(
     head.pid    = query.pid;
     head.ntasks = ntasks;
 
-    const auto gvt  = geometry(query.manifest, query.shape);
+    const auto gvt  = geometry(query);
     const auto zpad = gvt.nsamples_padded(gvt.mkdim(gvt.ndims - 1));
     head.shape = {
         int(query.dim0s.size()),
