@@ -182,22 +182,24 @@ schedule_maker< one::slice_query, one::slice_task >::build(
 {
     auto task = one::slice_task(query);
 
-    const auto& dimensions = query.manifest.dimensions;
-    if (!(0 <= query.dim && query.dim < dimensions.size())) {
-        const auto msg = fmt::format(
-            "param.dimension (= {}) not in [0, {})",
-            query.dim,
-            dimensions.size()
-        );
-        throw one::not_found(msg);
-    }
+    const auto& index = [](const auto& query) {
+        try {
+            return query.manifest.dimensions.at(query.dim);
+        } catch (std::out_of_range&) {
+            const auto msg = fmt::format(
+                "args.dim (= {}) not in [0, {})",
+                query.dim,
+                query.manifest.dimensions.size()
+            );
+            throw one::not_found(msg);
+        }
+    }(query);
 
     /*
      * TODO:
      * faster to not make vector, but rather parse-and-compare individual
      * integers?
      */
-    const auto& index = dimensions[query.dim];
     const auto itr = std::find(index.begin(), index.end(), query.lineno);
     if (itr == index.end()) {
         const auto msg = "line (= {}) not found in index";
