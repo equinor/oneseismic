@@ -195,11 +195,6 @@ schedule_maker< one::slice_query, one::slice_task >::build(
         }
     }(query);
 
-    /*
-     * TODO:
-     * faster to not make vector, but rather parse-and-compare individual
-     * integers?
-     */
     const auto itr = std::find(index.begin(), index.end(), query.lineno);
     if (itr == index.end()) {
         const auto msg = "line (= {}) not found in index";
