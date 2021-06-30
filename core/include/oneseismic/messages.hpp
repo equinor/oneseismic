@@ -23,6 +23,10 @@ class bad_message : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+class bad_value : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 struct manifestdoc {
     std::vector< std::vector< int > > dimensions;
 };

@@ -141,14 +141,6 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
     params.at("lineno").get_to(query.lineno);
 }
 
-void to_json(nlohmann::json& doc, const curtain_query& query) noexcept (false) {
-    to_json(doc, static_cast< const basic_query& >(query));
-    doc["function"] = "curtain";
-    auto& params = doc["params"];
-    params["dim0s"] = query.dim0s;
-    params["dim1s"] = query.dim1s;
-}
-
 void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false) {
     from_json(doc, static_cast< basic_query& >(query));
 
@@ -158,8 +150,20 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
     }
 
     const auto& params = doc.at("params");
-    params.at("dim0s").get_to(query.dim0s);
-    params.at("dim1s").get_to(query.dim1s);
+
+    std::vector< std::vector< int > > coords;
+    params.at("coords").get_to(coords);
+    query.dim0s.reserve(coords.size());
+    query.dim1s.reserve(coords.size());
+
+    try {
+        for (const auto& pair : coords) {
+            query.dim0s.push_back(pair.at(0));
+            query.dim1s.push_back(pair.at(1));
+        }
+    } catch (std::out_of_range&) {
+        throw bad_value("bad coord arg; expected list-of-pairs");
+    }
 }
 
 void to_json(nlohmann::json& doc, const slice_task& task) noexcept (false) {

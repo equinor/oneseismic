@@ -4,7 +4,6 @@ import (
 	"github.com/go-redis/redis/v8"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
-	"github.com/equinor/oneseismic/api/internal/message"
 )
 
 type BasicEndpoint struct {
@@ -29,22 +28,5 @@ func MakeBasicEndpoint(
 		 * constructed directly by the caller.
 		 */
 		sched:   newScheduler(storage),
-	}
-}
-
-func (be *BasicEndpoint) MakeTask(
-	pid       string,
-	guid      string,
-	token     string,
-	manifest  interface{},
-	shape     []int32,
-) *message.Task {
-	return &message.Task {
-		Pid:             pid,
-		Token:           token,
-		Guid:            guid,
-		StorageEndpoint: be.endpoint,
-		Manifest:        manifest,
-		Shape:           shape,
 	}
 }

@@ -67,50 +67,6 @@ func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 	return list, nil
 }
 
-func (s *resolver) MakeSliceTask(
-	pid       string,
-	token     string,
-	manifest  interface{},
-	shape     []int32,
-	guid      string,
-	dim       int,
-	lineno    int,
-) *message.Task {
-	task := s.BasicEndpoint.MakeTask(
-		pid,
-		guid,
-		token,
-		manifest,
-		shape,
-	)
-	task.Function = "slice"
-	task.Params   = &message.SliceParams {
-		Dim:    dim,
-		Lineno: lineno,
-	}
-	return task
-}
-
-func (c *resolver) MakeCurtainTask(
-	pid       string,
-	guid      string,
-	token     string,
-	manifest  interface{},
-	shape     []int32,
-	params    *message.CurtainParams,
-) *message.Task {
-	task := c.BasicEndpoint.MakeTask(
-		pid,
-		guid,
-		token,
-		manifest,
-		shape,
-	)
-	task.Function = "curtain"
-	task.Params   = params
-	return task
-}
-
 func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
@@ -185,8 +141,8 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 }
 
 type sliceargs struct {
-	Kind int32
-	Id   int32
+	Kind int32 `json:"dim"`
+	Id   int32 `json:"lineno"`
 }
 
 /*
@@ -263,23 +219,23 @@ func (c *cube) Slice(
 		return nil, err
 	}
 
-	msg := c.root.MakeSliceTask(
-		pid,
-		token,
-		c.manifest,
-		[]int32{ 64, 64, 64 },
-		string(c.id),
-		int(args.Kind),
-		int(args.Id),
-	)
-
-	key, err := c.root.keyring.Sign(pid)
+	msg := message.Task {
+		Pid:             pid,
+		Token:           token,
+		Guid:            string(c.id),
+		Manifest:        c.manifest,
+		StorageEndpoint: c.root.endpoint,
+		Shape:           []int32{ 64, 64, 64 },
+		Function:        "slice",
+		Params:          args,
+	}
+	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
 	}
 
-	query, err := c.root.sched.MakeQuery(msg)
+	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
@@ -303,20 +259,9 @@ func (c *cube) Slice(
 	}, nil
 }
 
-func toCurtainParams(coords [][]int32) *message.CurtainParams {
-	// TODO: sanity check etc
-	xs := make([]int, len(coords))
-	ys := make([]int, len(coords))
-	for i, xy := range coords {
-		xs[i] = int(xy[0])
-		ys[i] = int(xy[1])
-	}
-	return &message.CurtainParams{ Dim0s: xs, Dim1s: ys }
-}
-
 func (c *cube) Curtain(
 	ctx    context.Context,
-	args   struct { Coords [][]int32 },
+	args   struct { Coords [][]int32 `json:"coords"` },
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
@@ -332,22 +277,23 @@ func (c *cube) Curtain(
 		return nil, err
 	}
 
-	msg := c.root.MakeCurtainTask(
-		pid,
-		string(c.id),
-		token,
-		c.manifest,
-		[]int32{ 64, 64, 64 },
-		toCurtainParams(args.Coords),
-	)
-
-	key, err := c.root.keyring.Sign(pid)
+	msg := message.Task {
+		Pid:             pid,
+		Token:           token,
+		Guid:            string(c.id),
+		Manifest:        c.manifest,
+		StorageEndpoint: c.root.endpoint,
+		Shape:           []int32{ 64, 64, 64 },
+		Function:        "curtain",
+		Params:          args,
+	}
+	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
 	}
 
-	query, err := c.root.sched.MakeQuery(msg)
+	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
