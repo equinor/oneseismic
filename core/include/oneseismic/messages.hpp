@@ -40,7 +40,6 @@ struct basic_query {
     manifestdoc        manifest;
     std::string        storage_endpoint;
     std::vector< int > shape;
-    std::vector< int > shape_cube;
     std::string        function;
 };
 
@@ -52,9 +51,12 @@ struct basic_task {
         guid             (q.guid),
         storage_endpoint (q.storage_endpoint),
         shape            (q.shape),
-        shape_cube       (q.shape_cube),
         function         (q.function)
-    {}
+    {
+        this->shape_cube.reserve(q.manifest.dimensions.size());
+        for (const auto& d : q.manifest.dimensions)
+            this->shape_cube.push_back(d.size());
+    }
 
     std::string        pid;
     std::string        token;

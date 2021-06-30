@@ -207,10 +207,6 @@ schedule_maker< one::slice_query, one::slice_task >::build(
     const auto pin = std::distance(index.begin(), itr);
     auto gvt = geometry(query);
 
-    // TODO: name loop
-    for (const auto& dimension : dimensions)
-        task.shape_cube.push_back(dimension.size());
-
     const auto to_vec = [](const auto& x) {
         return std::vector< int > { int(x[0]), int(x[1]), int(x[2]) };
     };

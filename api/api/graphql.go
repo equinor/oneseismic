@@ -72,7 +72,6 @@ func (s *resolver) MakeSliceTask(
 	token     string,
 	manifest  interface{},
 	shape     []int32,
-	shapecube []int32,
 	guid      string,
 	dim       int,
 	lineno    int,
@@ -83,7 +82,6 @@ func (s *resolver) MakeSliceTask(
 		token,
 		manifest,
 		shape,
-		shapecube,
 	)
 	task.Function = "slice"
 	task.Params   = &message.SliceParams {
@@ -99,7 +97,6 @@ func (c *resolver) MakeCurtainTask(
 	token     string,
 	manifest  interface{},
 	shape     []int32,
-	shapecube []int32,
 	params    *message.CurtainParams,
 ) *message.Task {
 	task := c.BasicEndpoint.MakeTask(
@@ -108,7 +105,6 @@ func (c *resolver) MakeCurtainTask(
 		token,
 		manifest,
 		shape,
-		shapecube,
 	)
 	task.Function = "curtain"
 	task.Params   = params
@@ -267,18 +263,11 @@ func (c *cube) Slice(
 		return nil, err
 	}
 
-	dimensions := c.manifest["dimensions"].([]interface{})
-	cubeshape := make([]int32, 0, len(dimensions))
-	for i := 0; i < len(dimensions); i++ {
-		dim := dimensions[i].([]interface {})
-		cubeshape = append(cubeshape, int32(len(dim)))
-	}
 	msg := c.root.MakeSliceTask(
 		pid,
 		token,
 		c.manifest,
 		[]int32{ 64, 64, 64 },
-		cubeshape,
 		string(c.id),
 		int(args.Kind),
 		int(args.Id),
@@ -343,19 +332,12 @@ func (c *cube) Curtain(
 		return nil, err
 	}
 
-	dimensions := c.manifest["dimensions"].([]interface{})
-	cubeshape := make([]int32, 0, len(dimensions))
-	for i := 0; i < len(dimensions); i++ {
-		dim := dimensions[i].([]interface {})
-		cubeshape = append(cubeshape, int32(len(dim)))
-	}
 	msg := c.root.MakeCurtainTask(
 		pid,
 		string(c.id),
 		token,
 		c.manifest,
 		[]int32{ 64, 64, 64 },
-		cubeshape,
 		toCurtainParams(args.Coords),
 	)
 

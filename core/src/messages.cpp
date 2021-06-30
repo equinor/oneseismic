@@ -66,14 +66,12 @@ void from_json(const nlohmann::json& doc, manifestdoc& m) noexcept (false) {
 }
 
 void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
-    assert(query.shape_cube.size() == query.shape.size());
     doc["pid"]              = query.pid;
     doc["token"]            = query.token;
     doc["guid"]             = query.guid;
     doc["manifest"]         = query.manifest;
     doc["storage_endpoint"] = query.storage_endpoint;
     doc["shape"]            = query.shape;
-    doc["shape-cube"]       = query.shape_cube;
     doc["function"]         = query.function;
 }
 
@@ -84,12 +82,10 @@ void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
     doc.at("manifest")        .get_to(query.manifest);
     doc.at("storage_endpoint").get_to(query.storage_endpoint);
     doc.at("shape")           .get_to(query.shape);
-    doc.at("shape-cube")      .get_to(query.shape_cube);
     doc.at("function")        .get_to(query.function);
 }
 
 void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
-    assert(task.shape_cube.size() == task.shape.size());
     doc["pid"]              = task.pid;
     doc["token"]            = task.token;
     doc["guid"]             = task.guid;
@@ -97,6 +93,7 @@ void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
     doc["shape"]            = task.shape;
     doc["shape-cube"]       = task.shape_cube;
     doc["function"]         = task.function;
+    assert(task.shape_cube.size() == task.shape.size());
 }
 
 void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {

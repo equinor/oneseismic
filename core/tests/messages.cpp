@@ -32,7 +32,6 @@ bool operator == (const one::basic_task& lhs, const one::basic_task& rhs) {
         && lhs.guid             == rhs.guid
         && lhs.storage_endpoint == rhs.storage_endpoint
         && lhs.shape            == rhs.shape
-        && lhs.shape_cube       == rhs.shape_cube
         && lhs.function         == rhs.function
     ;
 }
@@ -59,7 +58,6 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
         "storage_endpoint": "https://storage.com",
         "manifest": { "dimensions": [] },
         "shape": [64, 64, 64],
-        "shape-cube": [128, 128, 128],
         "function": "slice",
         "params": {
             "dim": 0,
@@ -75,7 +73,6 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
     CHECK(query.manifest == one::manifestdoc {});
     CHECK(query.storage_endpoint == "https://storage.com");
     CHECK_THAT(query.shape,      Equals(std::vector< int >{ 64,  64,  64}));
-    CHECK_THAT(query.shape_cube, Equals(std::vector< int >{128, 128, 128}));
     CHECK(query.dim == 0);
     CHECK(query.lineno == 10);
 }
@@ -133,7 +130,6 @@ TEST_CASE("slice-query can round trip packing") {
     query.manifest = one::manifestdoc {};
     query.storage_endpoint = "https://storage.com";
     query.shape = { 64, 64, 64 };
-    query.shape_cube = { 128, 128, 128 };
     query.function = "slice";
     query.dim = 1;
     query.lineno = 2;
@@ -153,7 +149,6 @@ TEST_CASE("slice-query sets function to 'slice'") {
     query.manifest = one::manifestdoc {};
     query.storage_endpoint = "https://storage.com";
     query.shape = { 64, 64, 64 };
-    query.shape_cube = { 128, 128, 128 };
     query.function = "garbage";
     query.dim = 1;
     query.lineno = 2;
@@ -171,7 +166,7 @@ TEST_CASE("slice-task can round trip packing") {
     task.guid = "guid";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
-    task.shape_cube = { 128, 128, 128 };
+    task.shape_cube = { 512, 512, 512 };
     task.function = "slice";
     task.dim = 1;
     task.lineno = 2;
