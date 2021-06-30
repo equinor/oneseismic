@@ -308,7 +308,6 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
 
     auto gvt = geometry(query);
     const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
-    const auto zheight = gvt.fragment_shape()[2];
 
     /*
      * Guess the number of coordinates per fragment. A reasonable assumption is
