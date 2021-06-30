@@ -123,9 +123,9 @@ void from_json(const nlohmann::json& doc, process_header& head) noexcept (false)
 void to_json(nlohmann::json& doc, const slice_query& query) noexcept (false) {
     to_json(doc, static_cast< const basic_query& >(query));
     doc["function"] = "slice";
-    auto& params = doc["params"];
-    params["dim"]    = query.dim;
-    params["lineno"] = query.lineno;
+    auto& args = doc["args"];
+    args["dim"]    = query.dim;
+    args["lineno"] = query.lineno;
 }
 
 void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
@@ -136,9 +136,9 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
         throw bad_message(fmt::format(msg, query.function));
     }
 
-    const auto& params = doc.at("params");
-    params.at("dim")   .get_to(query.dim);
-    params.at("lineno").get_to(query.lineno);
+    const auto& args = doc.at("args");
+    args.at("dim")   .get_to(query.dim);
+    args.at("lineno").get_to(query.lineno);
 }
 
 void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false) {
@@ -149,10 +149,10 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
         throw bad_message(fmt::format(msg, query.function));
     }
 
-    const auto& params = doc.at("params");
+    const auto& args = doc.at("args");
 
     std::vector< std::vector< int > > coords;
-    params.at("coords").get_to(coords);
+    args.at("coords").get_to(coords);
     query.dim0s.reserve(coords.size());
     query.dim1s.reserve(coords.size());
 

@@ -12,11 +12,11 @@ type Message interface {
 }
 
 /*
- * Corresponds to common_task and derivatives in oneseismic/messages.hpp. This
+ * Corresponds to basic_query and derivatives in oneseismic/messages.hpp. This
  * is the process prototype that groups request parameters, request metadata,
  * authorization etc. into a single message.
  */
-type Task struct {
+type Query struct {
 	Pid             string       `json:"pid"`
 	Token           string       `json:"token"`
 	Guid            string       `json:"guid"`
@@ -24,7 +24,30 @@ type Task struct {
 	StorageEndpoint string       `json:"storage_endpoint"`
 	Shape           []int32      `json:"shape"`
 	Function        string       `json:"function"`
-	Params          interface {} `json:"params"`
+	Args            interface {} `json:"args"`
+}
+
+func (msg *Query) Pack() ([]byte, error) {
+	return json.Marshal(msg)
+}
+
+func (msg *Query) Unpack(doc []byte) (*Query, error) {
+	return msg, json.Unmarshal(doc, msg)
+}
+
+/*
+ * Corresponds to basic_task and derivatives in oneseismic/messages.hpp, and
+ * is read from the worker nodes when performing a task, which combined makes
+ * up a process.
+ */
+type Task struct {
+	Pid             string       `json:"pid"`
+	Token           string       `json:"token"`
+	Guid            string       `json:"guid"`
+	StorageEndpoint string       `json:"storage_endpoint"`
+	Shape           []int32      `json:"shape"`
+	ShapeCube       []int32      `json:"shape-cube"`
+	Function        string       `json:"function"`
 }
 
 func (msg *Task) Pack() ([]byte, error) {

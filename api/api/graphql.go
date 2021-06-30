@@ -44,7 +44,7 @@ func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 	endpoint, err := url.Parse(r.endpoint)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
-		return []graphql.ID{}, err
+		return nil, err
 	}
 
 	cubes, err := util.WithOnbehalfAndRetry(
@@ -56,7 +56,7 @@ func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 	)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return []graphql.ID{}, err
+		return nil, err
 	}
 
 	guids := cubes.([]string)
@@ -219,7 +219,7 @@ func (c *cube) Slice(
 		return nil, err
 	}
 
-	msg := message.Task {
+	msg := message.Query {
 		Pid:             pid,
 		Token:           token,
 		Guid:            string(c.id),
@@ -227,7 +227,7 @@ func (c *cube) Slice(
 		StorageEndpoint: c.root.endpoint,
 		Shape:           []int32{ 64, 64, 64 },
 		Function:        "slice",
-		Params:          args,
+		Args:            args,
 	}
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
@@ -277,7 +277,7 @@ func (c *cube) Curtain(
 		return nil, err
 	}
 
-	msg := message.Task {
+	msg := message.Query {
 		Pid:             pid,
 		Token:           token,
 		Guid:            string(c.id),
@@ -285,7 +285,7 @@ func (c *cube) Curtain(
 		StorageEndpoint: c.root.endpoint,
 		Shape:           []int32{ 64, 64, 64 },
 		Function:        "curtain",
-		Params:          args,
+		Args:            args,
 	}
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {

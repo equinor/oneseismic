@@ -59,7 +59,7 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
         "manifest": { "dimensions": [] },
         "shape": [64, 64, 64],
         "function": "slice",
-        "params": {
+        "args": {
             "dim": 0,
             "lineno": 10
         }
@@ -112,7 +112,7 @@ TEST_CASE("unpacking message with wrong function tag fails") {
         "storage_endpoint": "https://storage.com",
         "shape": [64, 64, 64],
         "function": "broken",
-        "params": {
+        "args": {
             "dim": 0,
             "lineno": 10
         }
