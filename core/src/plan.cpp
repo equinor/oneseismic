@@ -182,34 +182,14 @@ schedule_maker< one::slice_query, one::slice_task >::build(
 {
     auto task = one::slice_task(query);
 
-    const auto& index = [](const auto& query) {
-        try {
-            return query.manifest.dimensions.at(query.dim);
-        } catch (std::out_of_range&) {
-            const auto msg = fmt::format(
-                "args.dim (= {}) not in [0, {})",
-                query.dim,
-                query.manifest.dimensions.size()
-            );
-            throw one::not_found(msg);
-        }
-    }(query);
-
-    const auto itr = std::find(index.begin(), index.end(), query.lineno);
-    if (itr == index.end()) {
-        const auto msg = "line (= {}) not found in index";
-        throw one::not_found(fmt::format(msg, query.lineno));
-    }
-
-    const auto pin = std::distance(index.begin(), itr);
     auto gvt = geometry(query);
 
     const auto to_vec = [](const auto& x) {
         return std::vector< int > { int(x[0]), int(x[1]), int(x[2]) };
     };
 
-    task.lineno = pin % gvt.fragment_shape()[query.dim];
-    const auto ids = gvt.slice(gvt.mkdim(query.dim), pin);
+    task.lineno = query.idx % gvt.fragment_shape()[query.dim];
+    const auto ids = gvt.slice(gvt.mkdim(query.dim), query.idx);
     // TODO: name loop
     for (const auto& id : ids)
         task.ids.push_back(to_vec(id));

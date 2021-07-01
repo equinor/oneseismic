@@ -140,11 +140,6 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 	return dims, nil
 }
 
-type sliceargs struct {
-	Kind int32 `json:"dim"`
-	Id   int32 `json:"lineno"`
-}
-
 /*
  * This is the util.GetManifest function, but tuned for graphql and with
  * gin-specifics removed. Its purpose is to make for a quick migration to a
@@ -191,8 +186,42 @@ func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
 	return
 }
 
-func (c *cube) Slice(
-	ctx context.Context,
+type sliceargs struct {
+	Kind string `json:"kind"`
+	Dim  int32  `json:"dim"`
+	Val  int32  `json:"val"`
+}
+
+func (c *cube) SliceByLineno(
+	ctx  context.Context,
+	args struct {
+		Dim    int32
+		Lineno int32
+	},
+) (*promise, error) {
+	return c.basicSlice(ctx, sliceargs {
+		Kind: "lineno",
+		Dim: args.Dim,
+		Val: args.Lineno,
+	})
+}
+
+func (c *cube) SliceByIndex(
+	ctx  context.Context,
+	args struct {
+		Dim   int32
+		Index int32
+	},
+) (*promise, error) {
+	return c.basicSlice(ctx, sliceargs {
+		Kind: "index",
+		Dim: args.Dim,
+		Val: args.Index,
+	})
+}
+
+func (c *cube) basicSlice(
+	ctx  context.Context,
 	args sliceargs,
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
@@ -342,8 +371,9 @@ type Cube {
 
     linenumbers: [[Int!]!]!
 
-    slice(kind: Int!, id: Int!): Promise!
-	curtain(coords: [[Int!]!]!): Promise!
+    sliceByLineno(dim: Int!, lineno: Int!): Promise!
+    sliceByIndex(dim: Int!, index: Int!): Promise!
+    curtain(coords: [[Int!]!]!): Promise!
 }
 
 type Promise {

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 
 #include <fmt/format.h>
@@ -120,14 +121,6 @@ void from_json(const nlohmann::json& doc, process_header& head) noexcept (false)
     doc.at("index") .get_to(head.index);
 }
 
-void to_json(nlohmann::json& doc, const slice_query& query) noexcept (false) {
-    to_json(doc, static_cast< const basic_query& >(query));
-    doc["function"] = "slice";
-    auto& args = doc["args"];
-    args["dim"]    = query.dim;
-    args["lineno"] = query.lineno;
-}
-
 void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
     from_json(doc, static_cast< basic_query& >(query));
 
@@ -136,9 +129,33 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
         throw bad_message(fmt::format(msg, query.function));
     }
 
+    const auto& dimensions = query.manifest.dimensions;
     const auto& args = doc.at("args");
-    args.at("dim")   .get_to(query.dim);
-    args.at("lineno").get_to(query.lineno);
+
+    args.at("dim").get_to(query.dim);
+    if (!(0 <= query.dim && query.dim < dimensions.size())) {
+        const auto msg = fmt::format(
+            "args.dim (= {}) not in [0, {})",
+            query.dim,
+            dimensions.size()
+        );
+        throw not_found(msg);
+    }
+
+    const std::string& kind = args.at("kind");
+    const int val = args.at("val");
+    if (kind == "index") {
+        query.idx = val;
+    }
+    else if (kind == "lineno") {
+        const auto& index = dimensions[query.dim];
+        const auto itr = std::find(index.begin(), index.end(), val);
+        if (itr == index.end()) {
+            const auto msg = "line (= {}) not found in index";
+            throw not_found(fmt::format(msg, val));
+        }
+        query.idx = std::distance(index.begin(), itr);
+    }
 }
 
 void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false) {

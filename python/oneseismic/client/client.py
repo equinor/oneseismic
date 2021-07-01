@@ -223,7 +223,7 @@ class cube:
         query = f'''
         query {{
             cube(id: "{self.guid}") {{
-                slice(kind: {dim}, id: {lineno}) {{
+                sliceByLineno(dim: {dim}, lineno: {lineno}) {{
                     url
                     key
                 }}

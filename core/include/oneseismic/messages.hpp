@@ -95,7 +95,7 @@ struct process_header : Packable< process_header > {
 
 struct slice_query : public basic_query, Packable< slice_query > {
     int dim;
-    int lineno;
+    int idx;
 };
 
 struct curtain_query : public basic_query, Packable< curtain_query > {

@@ -10,22 +10,6 @@ using namespace Catch::Matchers;
 
 namespace {
 
-bool operator == (const one::basic_query& lhs, const one::basic_query& rhs) {
-    return lhs.token            == rhs.token
-        && lhs.guid             == rhs.guid
-        && lhs.storage_endpoint == rhs.storage_endpoint
-        && lhs.shape            == rhs.shape
-        && lhs.function         == rhs.function
-    ;
-}
-
-bool operator == (const one::slice_query& lhs, const one::slice_query& rhs) {
-    return static_cast< const one::basic_query& >(lhs) == rhs
-        && lhs.dim    == rhs.dim
-        && lhs.lineno == rhs.lineno
-    ;
-}
-
 bool operator == (const one::basic_task& lhs, const one::basic_task& rhs) {
     return lhs.pid              == rhs.pid
         && lhs.token            == rhs.token
@@ -56,12 +40,13 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
         "token": "on-behalf-of-token",
         "guid": "object-id",
         "storage_endpoint": "https://storage.com",
-        "manifest": { "dimensions": [] },
+        "manifest": { "dimensions": [[10]] },
         "shape": [64, 64, 64],
         "function": "slice",
         "args": {
+            "kind": "lineno",
             "dim": 0,
-            "lineno": 10
+            "val": 10
         }
     })";
 
@@ -70,11 +55,11 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
     CHECK(query.pid   == "some-pid");
     CHECK(query.token == "on-behalf-of-token");
     CHECK(query.guid  == "object-id");
-    CHECK(query.manifest == one::manifestdoc {});
+    CHECK(query.manifest == one::manifestdoc { { {10} } });
     CHECK(query.storage_endpoint == "https://storage.com");
     CHECK_THAT(query.shape,      Equals(std::vector< int >{ 64,  64,  64}));
     CHECK(query.dim == 0);
-    CHECK(query.lineno == 10);
+    CHECK(query.lineno == 0);
 }
 
 TEST_CASE("unpacking query with missing field fails") {
@@ -82,7 +67,7 @@ TEST_CASE("unpacking query with missing field fails") {
         R"("pid": "some-pid")",
         R"("token": "on-behalf-of-token")",
         R"("guid": "object-id")",
-        R"("manifest": { "dimensions": [] })",
+        R"("manifest": { "dimensions": [[]] })",
         R"("storage_endpoint": "http://storage.com")",
         R"("shape": [64, 64, 64])",
         R"("function": "slice")",
@@ -108,7 +93,7 @@ TEST_CASE("unpacking message with wrong function tag fails") {
         "pid": "some-pid",
         "token": "on-behalf-of-token",
         "guid": "object-id",
-        "manifest": { "dimensions": [] },
+        "manifest": { "dimensions": [[]] },
         "storage_endpoint": "https://storage.com",
         "shape": [64, 64, 64],
         "function": "broken",
@@ -120,43 +105,6 @@ TEST_CASE("unpacking message with wrong function tag fails") {
 
     one::slice_query query;
     CHECK_THROWS(query.unpack(doc, doc + sizeof(doc)));
-}
-
-TEST_CASE("slice-query can round trip packing") {
-    one::slice_query query;
-    query.pid = "pid";
-    query.token = "token";
-    query.guid = "guid";
-    query.manifest = one::manifestdoc {};
-    query.storage_endpoint = "https://storage.com";
-    query.shape = { 64, 64, 64 };
-    query.function = "slice";
-    query.dim = 1;
-    query.lineno = 2;
-
-    const auto packed = query.pack();
-    one::slice_query unpacked;
-    unpacked.unpack(packed.data(), packed.data() + packed.size());
-
-    CHECK(query == unpacked);
-}
-
-TEST_CASE("slice-query sets function to 'slice'") {
-    one::slice_query query;
-    query.pid = "pid";
-    query.token = "token";
-    query.guid = "guid";
-    query.manifest = one::manifestdoc {};
-    query.storage_endpoint = "https://storage.com";
-    query.shape = { 64, 64, 64 };
-    query.function = "garbage";
-    query.dim = 1;
-    query.lineno = 2;
-
-    const auto packed = query.pack();
-    one::slice_query unpacked;
-    unpacked.unpack(packed.data(), packed.data() + packed.size());
-    CHECK(unpacked.function == "slice");
 }
 
 TEST_CASE("slice-task can round trip packing") {
