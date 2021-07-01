@@ -113,7 +113,7 @@ struct slice_task : public basic_task, Packable< slice_task > {
     {}
 
     int dim;
-    int lineno;
+    int idx;
     std::vector< std::vector< int > > ids;
 };
 

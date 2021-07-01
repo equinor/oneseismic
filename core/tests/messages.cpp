@@ -22,9 +22,9 @@ bool operator == (const one::basic_task& lhs, const one::basic_task& rhs) {
 
 bool operator == (const one::slice_task& lhs, const one::slice_task& rhs) {
     return static_cast< const one::basic_task& >(lhs) == rhs
-        && lhs.dim    == rhs.dim
-        && lhs.lineno == rhs.lineno
-        && lhs.ids    == rhs.ids
+        && lhs.dim == rhs.dim
+        && lhs.idx == rhs.idx
+        && lhs.ids == rhs.ids
     ;
 }
 
@@ -59,7 +59,7 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
     CHECK(query.storage_endpoint == "https://storage.com");
     CHECK_THAT(query.shape,      Equals(std::vector< int >{ 64,  64,  64}));
     CHECK(query.dim == 0);
-    CHECK(query.lineno == 0);
+    CHECK(query.idx == 0);
 }
 
 TEST_CASE("unpacking query with missing field fails") {
@@ -117,7 +117,7 @@ TEST_CASE("slice-task can round trip packing") {
     task.shape_cube = { 512, 512, 512 };
     task.function = "slice";
     task.dim = 1;
-    task.lineno = 2;
+    task.idx = 2;
     task.ids = {
         { 0, 1, 2 },
         { 3, 4, 5 },

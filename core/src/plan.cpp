@@ -188,7 +188,7 @@ schedule_maker< one::slice_query, one::slice_task >::build(
         return std::vector< int > { int(x[0]), int(x[1]), int(x[2]) };
     };
 
-    task.lineno = query.idx % gvt.fragment_shape()[query.dim];
+    task.idx = query.idx % gvt.fragment_shape()[query.dim];
     const auto ids = gvt.slice(gvt.mkdim(query.dim), query.idx);
     // TODO: name loop
     for (const auto& id : ids)

@@ -16,8 +16,8 @@ one::slice_task default_slice_task() {
     input.shape      = { 64, 64, 64 };
     input.shape_cube = { 720, 860, 251 };
 
-    input.dim    = 0;
-    input.lineno = 0;
+    input.dim = 0;
+    input.idx = 0;
     return input;
 }
 
@@ -84,8 +84,8 @@ T unpack(const std::string& s) {
  */
 TEST_CASE("Slices extracted from chunks matches hand-extracted slice") {
     auto input = default_slice_task();
-    input.dim    = 1;
-    input.lineno = 1;
+    input.dim = 1;
+    input.idx = 1;
     input.ids = {
         { 0, 0, 0 },
         { 0, 0, 1 },

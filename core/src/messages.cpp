@@ -185,16 +185,16 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
 
 void to_json(nlohmann::json& doc, const slice_task& task) noexcept (false) {
     to_json(doc, static_cast< const basic_task& >(task));
-    doc["dim"]    = task.dim;
-    doc["lineno"] = task.lineno;
-    doc["ids"]    = task.ids;
+    doc["dim"] = task.dim;
+    doc["idx"] = task.idx;
+    doc["ids"] = task.ids;
 }
 
 void from_json(const nlohmann::json& doc, slice_task& task) noexcept (false) {
     from_json(doc, static_cast< basic_task& >(task));
-    doc.at("dim")   .get_to(task.dim);
-    doc.at("lineno").get_to(task.lineno);
-    doc.at("ids")   .get_to(task.ids);
+    doc.at("dim").get_to(task.dim);
+    doc.at("idx").get_to(task.idx);
+    doc.at("ids").get_to(task.ids);
 
     if (task.ids.empty()) {
         /*
