@@ -136,7 +136,17 @@ def localfs_from_args(path):
     if path is None:
         path = Path()
     path = Path(path)
-    return localfs(path)
+
+    # localfs('file.sgy') => '.'
+    # localfs('dir1/file.sgy') => 'dir1'
+    # localfs('dir1') => 'dir1'
+    #
+    # inputs tend to be files and output tend to be directories, but both input
+    # and output can use the localfs_from_args helper.
+    if path.is_file():
+        return localfs(path.parent)
+    else:
+        return localfs(path)
 
 def get_blob_path(url):
     """
