@@ -5,11 +5,9 @@
 #include <string>
 #include <vector>
 
-namespace one {
+#include <oneseismic/messages.hpp>
 
-struct not_found : public std::out_of_range {
-    using std::out_of_range::out_of_range;
-};
+namespace one {
 
 std::vector< std::string >
 mkschedule(const char* doc, int len, int task_size) noexcept (false);
