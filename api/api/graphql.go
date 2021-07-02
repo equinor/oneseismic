@@ -104,40 +104,55 @@ func (c *cube) Id() graphql.ID {
 	return c.id
 }
 
-func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
-	m, err := getManifest(
-		ctx,
-		c.root.tokens,
-		c.root.endpoint,
-		string(c.id),
-		auth,
-	)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+func asSliceInt32(root interface{}) ([]int32, error) {
+	xs, ok := root.([]interface{})
+	if !ok {
+		return nil, errors.New("as([]int32) root was not []interface{}")
 	}
-
-	manifest, err := util.ParseManifest(m)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		// TODO: should probably not leak internal parse error
-		// but instead some custom "internal error message"
-		return nil, err
-	}
-
-	dimensions := manifest.Dimensions
-	dims := make([][]int32, len(dimensions))
-	for i, major := range dimensions {
-		d := make([]int32, len(major))
-		for k, v := range major {
-			d[k] = int32(v)
+	out := make([]int32, len(xs))
+	for i, x := range xs {
+		elem, ok := x.(float64)
+		if !ok {
+			return nil, errors.New("as([]int32) root[i] was not float64")
 		}
-		dims[i] = d
+		out[i] = int32(elem)
 	}
-	return dims, nil
+	return out, nil
+}
+
+func asSliceSliceInt32(root interface{}) ([][]int32, error) {
+	xs, ok := root.([]interface{})
+	if !ok {
+		return nil, errors.New("as([][]int32) root was not []interface{}")
+	}
+	out := make([][]int32, len(xs))
+	for i, x := range xs {
+		y, err := asSliceInt32(x)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = y
+	}
+	return out, nil
+}
+
+func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
+	doc, ok := c.manifest["dimensions"]
+	if !ok {
+		keys := ctx.Value("keys").(map[string]string)
+		pid  := keys["pid"]
+		log.Printf(
+			"pid=%s %s/manifest.json broken; no dimensions",
+			pid,
+			string(c.id),
+		)
+		return nil, errors.New("internal error; bad document")
+	}
+	linenos, err := asSliceSliceInt32(doc)
+	if err != nil {
+		return nil, errors.New("internal error; bad document")
+	}
+	return linenos, nil
 }
 
 /*
