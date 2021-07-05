@@ -31,7 +31,7 @@ type cppscheduler struct {
 	storage  redis.Cmdable
 }
 
-type Query struct {
+type QueryPlan struct {
 	header []byte
 	plan   [][]byte
 }
@@ -56,8 +56,8 @@ func (qe *QueryError) Status() int {
  * for now.
  */
 type scheduler interface {
-	MakeQuery(*message.Task) (*Query, error)
-	Schedule(context.Context, string, *Query) error
+	MakeQuery(*message.Query) (*QueryPlan, error)
+	Schedule(context.Context, string, *QueryPlan) error
 }
 
 func newScheduler(storage redis.Cmdable) scheduler {
@@ -67,7 +67,7 @@ func newScheduler(storage redis.Cmdable) scheduler {
 	}
 }
 
-func (sched *cppscheduler) MakeQuery(msg *message.Task) (*Query, error) {
+func (sched *cppscheduler) MakeQuery(msg *message.Query) (*QueryPlan, error) {
 	task, err := msg.Pack()
 	if err != nil {
 		return nil, fmt.Errorf("pack error: %w", err)
@@ -96,7 +96,7 @@ func (sched *cppscheduler) MakeQuery(msg *message.Task) (*Query, error) {
 		this += uintptr(size)
 	}
 
-	return &Query {
+	return &QueryPlan {
 		header: result[0],
 		plan:   result[1:],
 	}, nil
@@ -105,7 +105,7 @@ func (sched *cppscheduler) MakeQuery(msg *message.Task) (*Query, error) {
 func (sched *cppscheduler) Schedule(
 	ctx  context.Context,
 	pid  string,
-	plan *Query,
+	plan *QueryPlan,
 ) error {
 	/*
 	 * TODO: This mixes I/O with parsing and building the plan. This could very

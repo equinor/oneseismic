@@ -6,8 +6,8 @@
 
 using namespace Catch::Matchers;
 
-one::slice_fetch default_slice_fetch() {
-    one::slice_fetch input;
+one::slice_task default_slice_task() {
+    one::slice_task input;
     input.pid   = "some-pid";
     input.token = "some-token";
     input.guid  = "some-guid";
@@ -16,13 +16,13 @@ one::slice_fetch default_slice_fetch() {
     input.shape      = { 64, 64, 64 };
     input.shape_cube = { 720, 860, 251 };
 
-    input.dim    = 0;
-    input.lineno = 0;
+    input.dim = 0;
+    input.idx = 0;
     return input;
 }
 
 TEST_CASE("slice.fragments generates the right IDs from a task") {
-    auto input = default_slice_fetch();
+    auto input = default_slice_task();
     auto slice = one::proc::make("slice");
 
     SECTION("None when ids are empty") {
@@ -83,9 +83,9 @@ T unpack(const std::string& s) {
  * shape combinations etc.
  */
 TEST_CASE("Slices extracted from chunks matches hand-extracted slice") {
-    auto input = default_slice_fetch();
-    input.dim    = 1;
-    input.lineno = 1;
+    auto input = default_slice_task();
+    input.dim = 1;
+    input.idx = 1;
     input.ids = {
         { 0, 0, 0 },
         { 0, 0, 1 },
@@ -121,7 +121,7 @@ TEST_CASE("Slices extracted from chunks matches hand-extracted slice") {
 }
 
 TEST_CASE("slice.add is not sensitive to order") {
-    auto input = default_slice_fetch();
+    auto input = default_slice_task();
     input.ids = {
         { 0, 0, 0 },
         { 0, 0, 1 },
@@ -154,8 +154,8 @@ TEST_CASE("slice.add is not sensitive to order") {
     CHECK_THAT(unpacked.tiles.at(1).v, Equals(expected[1]));
 }
 
-one::curtain_fetch default_curtain_fetch() {
-    one::curtain_fetch input;
+one::curtain_task default_curtain_task() {
+    one::curtain_task input;
     input.pid   = "some-pid";
     input.token = "some-token";
     input.guid  = "some-guid";
@@ -168,7 +168,7 @@ one::curtain_fetch default_curtain_fetch() {
 }
 
 TEST_CASE("curtain.fragments generates the right IDs from a task") {
-    auto input = default_curtain_fetch();
+    auto input = default_curtain_task();
     auto slice = one::proc::make("curtain");
 
     SECTION("None when ids are empty") {
@@ -244,7 +244,7 @@ TEST_CASE("Curtains extracted from chunks matches hand-extracted curtain") {
      * by observing add(). The interface might need some tuning to make it
      * easier to test it without so much ceremony.
      */
-    auto input = default_curtain_fetch();
+    auto input = default_curtain_task();
     input.ids = {
         one::single { {0, 0, 0}, { {2, 1}, {2, 2} } },
         one::single { {0, 0, 1}, { {2, 1}, {2, 2} } },

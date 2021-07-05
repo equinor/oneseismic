@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -28,7 +29,7 @@ type resolver struct {
 type cube struct {
 	id       graphql.ID
 	root     *resolver
-	manifest *message.Manifest
+	manifest map[string]interface{}
 }
 type promise struct {
 	url string
@@ -43,7 +44,7 @@ func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 	endpoint, err := url.Parse(r.endpoint)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
-		return []graphql.ID{}, err
+		return nil, err
 	}
 
 	cubes, err := util.WithOnbehalfAndRetry(
@@ -55,7 +56,7 @@ func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 	)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return []graphql.ID{}, err
+		return nil, err
 	}
 
 	guids := cubes.([]string)
@@ -66,54 +67,6 @@ func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 	return list, nil
 }
 
-func (s *resolver) MakeSliceTask(
-	pid       string,
-	token     string,
-	manifest  []byte,
-	shape     []int32,
-	shapecube []int32,
-	guid      string,
-	dim       int,
-	lineno    int,
-) *message.Task {
-	task := s.BasicEndpoint.MakeTask(
-		pid,
-		guid,
-		token,
-		manifest,
-		shape,
-		shapecube,
-	)
-	task.Function = "slice"
-	task.Params   = &message.SliceParams {
-		Dim:    dim,
-		Lineno: lineno,
-	}
-	return task
-}
-
-func (c *resolver) MakeCurtainTask(
-	pid       string,
-	guid      string,
-	token     string,
-	manifest  []byte,
-	shape     []int32,
-	shapecube []int32,
-	params    *message.CurtainParams,
-) *message.Task {
-	task := c.BasicEndpoint.MakeTask(
-		pid,
-		guid,
-		token,
-		manifest,
-		shape,
-		shapecube,
-	)
-	task.Function = "curtain"
-	task.Params   = params
-	return task
-}
-
 func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
@@ -122,13 +75,19 @@ func (r *resolver) Cube(
 	pid  := keys["pid"]
 	auth := keys["Authorization"]
 
-	manifest, err := getManifest(
+	doc, err := getManifest(
 		ctx,
 		r.tokens,
 		r.endpoint,
 		string(args.Id),
 		auth,
 	)
+	if err != nil {
+		log.Printf("pid=%s %v", pid, err)
+		return nil, err
+	}
+
+	manifest, err := manifestAsMap(doc)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err
@@ -145,36 +104,55 @@ func (c *cube) Id() graphql.ID {
 	return c.id
 }
 
-func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
-	m, err := getManifest(
-		ctx,
-		c.root.tokens,
-		c.root.endpoint,
-		string(c.id),
-		auth,
-	)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+func asSliceInt32(root interface{}) ([]int32, error) {
+	xs, ok := root.([]interface{})
+	if !ok {
+		return nil, errors.New("as([]int32) root was not []interface{}")
 	}
-
-	dims := make([][]int32, len(m.Dimensions))
-	for i, major := range m.Dimensions {
-		d := make([]int32, len(major))
-		for k, v := range major {
-			d[k] = int32(v)
+	out := make([]int32, len(xs))
+	for i, x := range xs {
+		elem, ok := x.(float64)
+		if !ok {
+			return nil, errors.New("as([]int32) root[i] was not float64")
 		}
-		dims[i] = d
+		out[i] = int32(elem)
 	}
-	return dims, nil
+	return out, nil
 }
 
-type sliceargs struct {
-	Kind int32
-	Id   int32
+func asSliceSliceInt32(root interface{}) ([][]int32, error) {
+	xs, ok := root.([]interface{})
+	if !ok {
+		return nil, errors.New("as([][]int32) root was not []interface{}")
+	}
+	out := make([][]int32, len(xs))
+	for i, x := range xs {
+		y, err := asSliceInt32(x)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = y
+	}
+	return out, nil
+}
+
+func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
+	doc, ok := c.manifest["dimensions"]
+	if !ok {
+		keys := ctx.Value("keys").(map[string]string)
+		pid  := keys["pid"]
+		log.Printf(
+			"pid=%s %s/manifest.json broken; no dimensions",
+			pid,
+			string(c.id),
+		)
+		return nil, errors.New("internal error; bad document")
+	}
+	linenos, err := asSliceSliceInt32(doc)
+	if err != nil {
+		return nil, errors.New("internal error; bad document")
+	}
+	return linenos, nil
 }
 
 /*
@@ -189,7 +167,7 @@ func getManifest(
 	endpoint string,
 	guid     string,
 	auth     string,
-) (*message.Manifest, error) {
+) ([]byte, error) {
 	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
 	if err != nil {
 		return nil, err
@@ -215,15 +193,50 @@ func getManifest(
 		return nil, err
 	}
 
-	m, err := util.ParseManifest(manifest.([]byte))
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	return manifest.([]byte), nil
 }
 
-func (c *cube) Slice(
-	ctx context.Context,
+func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
+	err = json.Unmarshal(doc, &m)
+	return
+}
+
+type sliceargs struct {
+	Kind string `json:"kind"`
+	Dim  int32  `json:"dim"`
+	Val  int32  `json:"val"`
+}
+
+func (c *cube) SliceByLineno(
+	ctx  context.Context,
+	args struct {
+		Dim    int32
+		Lineno int32
+	},
+) (*promise, error) {
+	return c.basicSlice(ctx, sliceargs {
+		Kind: "lineno",
+		Dim: args.Dim,
+		Val: args.Lineno,
+	})
+}
+
+func (c *cube) SliceByIndex(
+	ctx  context.Context,
+	args struct {
+		Dim   int32
+		Index int32
+	},
+) (*promise, error) {
+	return c.basicSlice(ctx, sliceargs {
+		Kind: "index",
+		Dim: args.Dim,
+		Val: args.Index,
+	})
+}
+
+func (c *cube) basicSlice(
+	ctx  context.Context,
 	args sliceargs,
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
@@ -250,34 +263,23 @@ func (c *cube) Slice(
 		return nil, err
 	}
 
-	packedmanifest, err := c.manifest.Pack()
-	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
+	msg := message.Query {
+		Pid:             pid,
+		Token:           token,
+		Guid:            string(c.id),
+		Manifest:        c.manifest,
+		StorageEndpoint: c.root.endpoint,
+		Shape:           []int32{ 64, 64, 64 },
+		Function:        "slice",
+		Args:            args,
 	}
-
-	cubeshape := make([]int32, 0, len(c.manifest.Dimensions))
-	for i := 0; i < len(c.manifest.Dimensions); i++ {
-		cubeshape = append(cubeshape, int32(len(c.manifest.Dimensions[i])))
-	}
-	msg := c.root.MakeSliceTask(
-		pid,
-		token,
-		packedmanifest,
-		[]int32{ 64, 64, 64 },
-		cubeshape,
-		string(c.id),
-		int(args.Kind),
-		int(args.Id),
-	)
-
-	key, err := c.root.keyring.Sign(pid)
+	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
 	}
 
-	query, err := c.root.sched.MakeQuery(msg)
+	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
@@ -301,20 +303,9 @@ func (c *cube) Slice(
 	}, nil
 }
 
-func toCurtainParams(coords [][]int32) *message.CurtainParams {
-	// TODO: sanity check etc
-	xs := make([]int, len(coords))
-	ys := make([]int, len(coords))
-	for i, xy := range coords {
-		xs[i] = int(xy[0])
-		ys[i] = int(xy[1])
-	}
-	return &message.CurtainParams{ Dim0s: xs, Dim1s: ys }
-}
-
 func (c *cube) Curtain(
 	ctx    context.Context,
-	args   struct { Coords [][]int32 },
+	args   struct { Coords [][]int32 `json:"coords"` },
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
@@ -330,33 +321,23 @@ func (c *cube) Curtain(
 		return nil, err
 	}
 
-	packedmanifest, err := c.manifest.Pack()
-	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
+	msg := message.Query {
+		Pid:             pid,
+		Token:           token,
+		Guid:            string(c.id),
+		Manifest:        c.manifest,
+		StorageEndpoint: c.root.endpoint,
+		Shape:           []int32{ 64, 64, 64 },
+		Function:        "curtain",
+		Args:            args,
 	}
-
-	cubeshape := make([]int32, 0, len(c.manifest.Dimensions))
-	for i := 0; i < len(c.manifest.Dimensions); i++ {
-		cubeshape = append(cubeshape, int32(len(c.manifest.Dimensions[i])))
-	}
-	msg := c.root.MakeCurtainTask(
-		pid,
-		string(c.id),
-		token,
-		packedmanifest,
-		[]int32{ 64, 64, 64 },
-		cubeshape,
-		toCurtainParams(args.Coords),
-	)
-
-	key, err := c.root.keyring.Sign(pid)
+	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
 	}
 
-	query, err := c.root.sched.MakeQuery(msg)
+	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, err
@@ -405,8 +386,9 @@ type Cube {
 
     linenumbers: [[Int!]!]!
 
-    slice(kind: Int!, id: Int!): Promise!
-	curtain(coords: [[Int!]!]!): Promise!
+    sliceByLineno(dim: Int!, lineno: Int!): Promise!
+    sliceByIndex(dim: Int!, index: Int!): Promise!
+    curtain(coords: [[Int!]!]!): Promise!
 }
 
 type Promise {

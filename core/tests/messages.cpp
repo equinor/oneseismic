@@ -10,8 +10,9 @@ using namespace Catch::Matchers;
 
 namespace {
 
-bool operator == (const one::common_task& lhs, const one::common_task& rhs) {
-    return lhs.token            == rhs.token
+bool operator == (const one::basic_task& lhs, const one::basic_task& rhs) {
+    return lhs.pid              == rhs.pid
+        && lhs.token            == rhs.token
         && lhs.guid             == rhs.guid
         && lhs.storage_endpoint == rhs.storage_endpoint
         && lhs.shape            == rhs.shape
@@ -20,49 +21,53 @@ bool operator == (const one::common_task& lhs, const one::common_task& rhs) {
 }
 
 bool operator == (const one::slice_task& lhs, const one::slice_task& rhs) {
-    return static_cast< const one::common_task& >(lhs) == rhs
-        && lhs.dim    == rhs.dim
-        && lhs.lineno == rhs.lineno
+    return static_cast< const one::basic_task& >(lhs) == rhs
+        && lhs.dim == rhs.dim
+        && lhs.idx == rhs.idx
+        && lhs.ids == rhs.ids
     ;
 }
 
+bool operator == (const one::manifestdoc& lhs, const one::manifestdoc& rhs) {
+    return lhs.dimensions == rhs.dimensions;
 }
 
-TEST_CASE("well-formed slice-task is unpacked correctly") {
+}
+
+TEST_CASE("well-formed slice-query is unpacked correctly") {
     const auto doc = R"({
         "pid": "some-pid",
         "token": "on-behalf-of-token",
         "guid": "object-id",
         "storage_endpoint": "https://storage.com",
-        "manifest": "{}",
+        "manifest": { "dimensions": [[10]] },
         "shape": [64, 64, 64],
-        "shape-cube": [128, 128, 128],
         "function": "slice",
-        "params": {
+        "args": {
+            "kind": "lineno",
             "dim": 0,
-            "lineno": 10
+            "val": 10
         }
     })";
 
-    one::slice_task task;
-    task.unpack(doc, doc + std::strlen(doc));
-    CHECK(task.pid   == "some-pid");
-    CHECK(task.token == "on-behalf-of-token");
-    CHECK(task.guid  == "object-id");
-    CHECK(task.manifest == "{}");
-    CHECK(task.storage_endpoint == "https://storage.com");
-    CHECK_THAT(task.shape,      Equals(std::vector< int >{ 64,  64,  64}));
-    CHECK_THAT(task.shape_cube, Equals(std::vector< int >{128, 128, 128}));
-    CHECK(task.dim == 0);
-    CHECK(task.lineno == 10);
+    one::slice_query query;
+    query.unpack(doc, doc + std::strlen(doc));
+    CHECK(query.pid   == "some-pid");
+    CHECK(query.token == "on-behalf-of-token");
+    CHECK(query.guid  == "object-id");
+    CHECK(query.manifest == one::manifestdoc { { {10} } });
+    CHECK(query.storage_endpoint == "https://storage.com");
+    CHECK_THAT(query.shape,      Equals(std::vector< int >{ 64,  64,  64}));
+    CHECK(query.dim == 0);
+    CHECK(query.idx == 0);
 }
 
-TEST_CASE("unpacking task with missing field fails") {
+TEST_CASE("unpacking query with missing field fails") {
     const auto entries = std::vector< std::string > {
         R"("pid": "some-pid")",
         R"("token": "on-behalf-of-token")",
         R"("guid": "object-id")",
-        R"("manifest": "{}")",
+        R"("manifest": { "dimensions": [[]] })",
         R"("storage_endpoint": "http://storage.com")",
         R"("shape": [64, 64, 64])",
         R"("function": "slice")",
@@ -76,8 +81,8 @@ TEST_CASE("unpacking task with missing field fails") {
             const auto doc = fmt::format("{{\n{}\n}}", fmt::join(parts, ",\n"));
             const auto fst = doc.data();
             const auto lst = doc.data() + doc.size();
-            one::common_task task;
-            CHECK_THROWS(task.unpack(fst, lst));
+            one::slice_query query;
+            CHECK_THROWS(query.unpack(fst, lst));
         }
 
     }
@@ -88,18 +93,18 @@ TEST_CASE("unpacking message with wrong function tag fails") {
         "pid": "some-pid",
         "token": "on-behalf-of-token",
         "guid": "object-id",
-        "manifest": "{}",
+        "manifest": { "dimensions": [[]] },
         "storage_endpoint": "https://storage.com",
         "shape": [64, 64, 64],
         "function": "broken",
-        "params": {
+        "args": {
             "dim": 0,
             "lineno": 10
         }
     })";
 
-    one::slice_task task;
-    CHECK_THROWS(task.unpack(doc, doc + sizeof(doc)));
+    one::slice_query query;
+    CHECK_THROWS(query.unpack(doc, doc + sizeof(doc)));
 }
 
 TEST_CASE("slice-task can round trip packing") {
@@ -107,59 +112,20 @@ TEST_CASE("slice-task can round trip packing") {
     task.pid = "pid";
     task.token = "token";
     task.guid = "guid";
-    task.manifest = "{}";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
-    task.shape_cube = { 128, 128, 128 };
+    task.shape_cube = { 512, 512, 512 };
     task.function = "slice";
     task.dim = 1;
-    task.lineno = 2;
-
-    const auto packed = task.pack();
-    one::slice_task unpacked;
-    unpacked.unpack(packed.data(), packed.data() + packed.size());
-
-    CHECK(task == unpacked);
-}
-
-TEST_CASE("slice-task sets function to 'slice'") {
-    one::slice_task task;
-    task.pid = "pid";
-    task.token = "token";
-    task.guid = "guid";
-    task.manifest = "{}";
-    task.storage_endpoint = "https://storage.com";
-    task.shape = { 64, 64, 64 };
-    task.shape_cube = { 128, 128, 128 };
-    task.function = "garbage";
-    task.dim = 1;
-    task.lineno = 2;
-
-    const auto packed = task.pack();
-    one::slice_task unpacked;
-    unpacked.unpack(packed.data(), packed.data() + packed.size());
-    CHECK(unpacked.function == "slice");
-}
-
-TEST_CASE("slice-fetch can round trip packing") {
-    one::slice_fetch task;
-    task.pid = "pid";
-    task.token = "token";
-    task.guid = "guid";
-    task.manifest = "{}";
-    task.storage_endpoint = "https://storage.com";
-    task.shape = { 64, 64, 64 };
-    task.shape_cube = { 128, 128, 128 };
-    task.function = "slice";
-    task.dim = 1;
-    task.lineno = 2;
+    task.idx = 2;
     task.ids = {
         { 0, 1, 2 },
         { 3, 4, 5 },
     };
 
     const auto packed = task.pack();
-    one::slice_fetch unpacked;
+    INFO(packed);
+    one::slice_task unpacked;
     unpacked.unpack(packed.data(), packed.data() + packed.size());
 
     CHECK(task == unpacked);

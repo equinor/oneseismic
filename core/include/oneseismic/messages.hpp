@@ -7,39 +7,72 @@
 
 namespace one {
 
+template < typename T >
+struct Packable {
+    std::string pack() const noexcept (false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
+template < typename T >
+struct MsgPackable {
+    std::string pack() const noexcept (false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
+};
+
 class bad_message : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+class bad_value : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+struct not_found : public std::out_of_range {
+    using std::out_of_range::out_of_range;
+};
+
+struct manifestdoc {
+    std::vector< std::vector< int > > dimensions;
+};
 
 /*
- * The basic message, and the fields that *all* tasks share. The only reason
- * for inheritance to even play here is just to make the implementation a lot
- * shorter.
- *
- * The load() function is *not* in exception safe, and will modify
- * member-by-member in-place. That means the moment load() is called, the
- * instance should be considered unspecified in case an exception is thrown.
- *
- * load takes a range of bytes, rather than being explicit here on the encoding
- * of the message. This should make all other code more robust should when the
- * message body itself changes (different protocols, added fields etc), as only
- * the load() internals must be changed.
- *
- * This is the message that's sent by the api/ when scheduling work
+ * The *query messages are parsing utilities for the input messages built from
+ * the graphql queries. They help build a corresponding *task which is fed to
+ * the workers, and should contain all the information the workers need to do
+ * their job.
  */
-struct common_task {
+struct basic_query {
     std::string        pid;
     std::string        token;
     std::string        guid;
-    std::string        manifest;
+    manifestdoc        manifest;
+    std::string        storage_endpoint;
+    std::vector< int > shape;
+    std::string        function;
+};
+
+struct basic_task {
+    basic_task() = default;
+    explicit basic_task(const basic_query& q) :
+        pid              (q.pid),
+        token            (q.token),
+        guid             (q.guid),
+        storage_endpoint (q.storage_endpoint),
+        shape            (q.shape),
+        function         (q.function)
+    {
+        this->shape_cube.reserve(q.manifest.dimensions.size());
+        for (const auto& d : q.manifest.dimensions)
+            this->shape_cube.push_back(d.size());
+    }
+
+    std::string        pid;
+    std::string        token;
+    std::string        guid;
     std::string        storage_endpoint;
     std::vector< int > shape;
     std::vector< int > shape_cube;
     std::string        function;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 /*
@@ -53,48 +86,35 @@ struct common_task {
  * The contents and order of the shape and index depend on the request type and
  * parameters.
  */
-struct process_header {
+struct process_header : Packable< process_header > {
     std::string        pid;
     int                ntasks;
     std::vector< int > shape;
     std::vector< std::vector< int > > index;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
-struct slice_task : public common_task {
-    slice_task() = default;
-    explicit slice_task(const common_task& t) : common_task(t) {}
-
+struct slice_query : public basic_query, Packable< slice_query > {
     int dim;
-    int lineno;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
+    int idx;
 };
 
-struct curtain_task : public common_task {
-    curtain_task() = default;
-    explicit curtain_task(const common_task& t) : common_task(t) {}
-
+struct curtain_query : public basic_query, Packable< curtain_query > {
     std::vector< int > dim0s;
     std::vector< int > dim1s;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 /*
  */
-struct slice_fetch : public slice_task {
-    slice_fetch() = default;
-    explicit slice_fetch(const slice_task& t) : slice_task(t) {}
+struct slice_task : public basic_task, Packable< slice_task > {
+    slice_task() = default;
+    explicit slice_task(const slice_query& q) :
+        basic_task(q),
+        dim(q.dim)
+    {}
 
+    int dim;
+    int idx;
     std::vector< std::vector< int > > ids;
-
-    std::string pack() const noexcept (false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct tile {
@@ -106,15 +126,12 @@ struct tile {
     std::vector< float > v;
 };
 
-struct slice_tiles {
+struct slice_tiles : public MsgPackable< slice_tiles > {
     /*
      * The shape of the slice itself
      */
     std::vector< int > shape;
     std::vector< tile > tiles;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct single {
@@ -127,14 +144,9 @@ struct single {
     std::vector< std::array< int, 2 > > coordinates;
 };
 
-struct curtain_fetch : public curtain_task {
-    curtain_fetch() = default;
-    explicit curtain_fetch(const curtain_task& t) : curtain_task(t) {}
-
+struct curtain_task : public basic_task, Packable< curtain_task > {
+    using basic_task::basic_task;
     std::vector< single > ids;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct trace {
@@ -142,11 +154,8 @@ struct trace {
     std::vector< float > v;
 };
 
-struct curtain_traces {
+struct curtain_traces : public MsgPackable< curtain_traces > {
     std::vector< trace > traces;
-
-    std::string pack() const noexcept(false);
-    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 }
