@@ -57,8 +57,7 @@ class fileset:
     Right now, oneseismic is not mature enough to properly handle "holes" in
     the volumes, and require explicit padding.  The fileset class is aware of
     this and will generate padding fragments when necessary. This may change in
-    the future and should not be relied on. However, uploading programs should
-    be written so it they are oblivious to this.
+    the future and should not be relied on.
     """
     def __init__(self, key1s, key2s, key3s, fragment_shape):
         mkfile = lambda: np.zeros(shape = fragment_shape, dtype = np.float32)
