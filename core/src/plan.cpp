@@ -14,7 +14,7 @@
 namespace {
 
 one::gvt< 3 > geometry(const one::basic_query& query) noexcept (false) {
-    const auto& dimensions = query.manifest.dimensions;
+    const auto& dimensions = query.manifest.line_numbers;
     const auto& shape = query.shape;
 
     return one::gvt< 3 > {
@@ -203,7 +203,7 @@ schedule_maker< one::slice_query, one::slice_task >::header(
     const one::slice_query& query,
     int ntasks
 ) noexcept (false) {
-    const auto& mdims = query.manifest.dimensions;
+    const auto& mdims = query.manifest.line_numbers;
     const auto gvt  = geometry(query);
     const auto dim  = gvt.mkdim(query.dim);
     const auto gvt2 = gvt.squeeze(dim);
@@ -279,8 +279,8 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
     auto task = one::curtain_task(query);
     auto dim0s = query.dim0s;
     auto dim1s = query.dim1s;
-    to_cartesian_inplace(query.manifest.dimensions[0], dim0s);
-    to_cartesian_inplace(query.manifest.dimensions[1], dim1s);
+    to_cartesian_inplace(query.manifest.line_numbers[0], dim0s);
+    to_cartesian_inplace(query.manifest.line_numbers[1], dim1s);
     auto& ids = task.ids;
 
     auto gvt = geometry(query);
@@ -357,7 +357,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::header(
     const one::curtain_query& query,
     int ntasks
 ) noexcept (false) {
-    const auto& mdims = query.manifest.dimensions;
+    const auto& mdims = query.manifest.line_numbers;
 
     one::process_header head;
     head.pid    = query.pid;

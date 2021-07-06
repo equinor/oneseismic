@@ -137,7 +137,7 @@ func asSliceSliceInt32(root interface{}) ([][]int32, error) {
 }
 
 func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
-	doc, ok := c.manifest["dimensions"]
+	doc, ok := c.manifest["line-numbers"]
 	if !ok {
 		keys := ctx.Value("keys").(map[string]string)
 		pid  := keys["pid"]

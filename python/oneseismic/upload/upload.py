@@ -194,6 +194,10 @@ def upload(manifest, fragment_shape, src, filesys):
     key3s = manifest['dimensions'][2]
     guid  = manifest['guid']
 
+    key1s.sort()
+    key2s.sort()
+    key3s.sort()
+
     # Seek past the textual headers and the binary header
     src.seek(int(manifest['byteoffset-first-trace']), io.SEEK_CUR)
 
@@ -237,6 +241,28 @@ def upload(manifest, fragment_shape, src, filesys):
             print('uploading', name)
             with filesys.open(name, mode = 'wb') as f:
                 f.write(fragment)
+
+    manifest = {
+        'format-version': 1,
+        'guid': guid,
+        'data': [
+            {
+                'file-extension': 'f32',
+                'filters': [],
+                'shapes': [list(fragment_shape)],
+                'prefix': 'src',
+                'resolution': 'source',
+            },
+        ],
+        'attributes': [
+        ],
+        'line-numbers': [
+            key1s,
+            key2s,
+            key3s,
+        ],
+        'line-labels': ['inline', 'crossline', 'depth'],
+    }
 
     with filesys.open('manifest.json', mode = 'wb') as f:
         f.write(json.dumps(manifest).encode())

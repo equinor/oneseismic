@@ -58,12 +58,57 @@ template class Packable< curtain_task >;
 template class MsgPackable< slice_tiles >;
 template class MsgPackable< curtain_traces >;
 
-void to_json(nlohmann::json& doc, const manifestdoc& m) noexcept (false) {
-    doc["dimensions"] = m.dimensions;
+void from_json(const nlohmann::json& doc, volumedesc& v) noexcept (false) {
+    doc.at("prefix")        .get_to(v.prefix);
+    doc.at("file-extension").get_to(v.ext);
+    doc.at("shapes")        .get_to(v.shapes);
+}
+
+void to_json(nlohmann::json& doc, const volumedesc& v) noexcept (false) {
+    doc["prefix"]         = v.prefix;
+    doc["file-extension"] = v.ext;
+    doc["partitioning"]   = v.shapes;
+}
+
+void from_json(const nlohmann::json& doc, attributedesc& a) noexcept (false) {
+    doc.at("prefix")        .get_to(a.prefix);
+    doc.at("file-extension").get_to(a.ext);
+    doc.at("type")          .get_to(a.type);
+    doc.at("layout")        .get_to(a.layout);
+    doc.at("labels")        .get_to(a.labels);
+    doc.at("shapes")        .get_to(a.shapes);
+}
+
+void to_json(nlohmann::json& doc, const attributedesc& a) noexcept (false) {
+    doc["prefix"]         = a.prefix;
+    doc["file-extension"] = a.ext;
+    doc["type"]           = a.type;
+    doc["layout"]         = a.layout;
+    doc["labels"]         = a.labels;
+    doc["shapes"]         = a.shapes;
 }
 
 void from_json(const nlohmann::json& doc, manifestdoc& m) noexcept (false) {
-    doc.at("dimensions").get_to(m.dimensions);
+    if (doc.at("format-version") != 1) {
+        const auto msg = fmt::format(
+            "expected format-version {}, was {}",
+            1,
+            int(doc.at("format-version"))
+        );
+        throw bad_message(msg);
+    }
+
+    doc.at("line-numbers").get_to(m.line_numbers);
+    doc.at("line-labels") .get_to(m.line_labels);
+    doc.at("data")        .get_to(m.vol);
+    doc.at("attributes")  .get_to(m.attr);
+}
+
+void to_json(nlohmann::json& doc, const manifestdoc& m) noexcept (false) {
+    doc["line-numbers"] = m.line_numbers;
+    doc["line-labels"]  = m.line_labels;
+    doc["data"]         = m.vol;
+    doc["attributes"]   = m.attr;
 }
 
 void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
@@ -129,15 +174,15 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
         throw bad_message(fmt::format(msg, query.function));
     }
 
-    const auto& dimensions = query.manifest.dimensions;
+    const auto& lines = query.manifest.line_numbers;
     const auto& args = doc.at("args");
 
     args.at("dim").get_to(query.dim);
-    if (!(0 <= query.dim && query.dim < dimensions.size())) {
+    if (!(0 <= query.dim && query.dim < lines.size())) {
         const auto msg = fmt::format(
             "args.dim (= {}) not in [0, {})",
             query.dim,
-            dimensions.size()
+            lines.size()
         );
         throw not_found(msg);
     }
@@ -148,7 +193,7 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
         query.idx = val;
     }
     else if (kind == "lineno") {
-        const auto& index = dimensions[query.dim];
+        const auto& index = lines[query.dim];
         const auto itr = std::find(index.begin(), index.end(), val);
         if (itr == index.end()) {
             const auto msg = "line (= {}) not found in index";

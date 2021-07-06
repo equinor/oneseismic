@@ -31,8 +31,26 @@ struct not_found : public std::out_of_range {
     using std::out_of_range::out_of_range;
 };
 
+struct volumedesc {
+    std::string prefix; /* e.g. src/, attributes/ */
+    std::string ext;    /* file-extension */
+    std::vector< std::vector< int > > shapes;
+};
+
+struct attributedesc {
+    std::string prefix; /* e.g. src/, attributes/ */
+    std::string ext;    /* file-extension */
+    std::string type;   /* e.g. cdp, utm */
+    std::string layout; /* e.g. tiled */
+    std::vector< std::string > labels;
+    std::vector< std::vector< int > > shapes;
+};
+
 struct manifestdoc {
-    std::vector< std::vector< int > > dimensions;
+    std::vector< volumedesc >           vol;
+    std::vector< attributedesc >        attr;
+    std::vector< std::vector< int > >   line_numbers;
+    std::vector< std::string >          line_labels;
 };
 
 /*
@@ -61,8 +79,8 @@ struct basic_task {
         shape            (q.shape),
         function         (q.function)
     {
-        this->shape_cube.reserve(q.manifest.dimensions.size());
-        for (const auto& d : q.manifest.dimensions)
+        this->shape_cube.reserve(q.manifest.line_numbers.size());
+        for (const auto& d : q.manifest.line_numbers)
             this->shape_cube.push_back(d.size());
     }
 

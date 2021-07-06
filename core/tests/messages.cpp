@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstring>
 #include <string>
 
@@ -28,8 +29,41 @@ bool operator == (const one::slice_task& lhs, const one::slice_task& rhs) {
     ;
 }
 
+bool operator == (const one::volumedesc& lhs, const one::volumedesc& rhs) {
+    return lhs.prefix == rhs.prefix
+        && lhs.ext    == rhs.ext
+        && lhs.shapes == rhs.shapes
+    ;
+}
+
+bool operator == (const one::attributedesc& lhs, const one::attributedesc& rhs) {
+    return lhs.prefix       == rhs.prefix
+        && lhs.ext          == rhs.ext
+        && lhs.type         == rhs.type
+        && lhs.layout       == rhs.layout
+        && lhs.labels       == rhs.labels
+        && lhs.shapes       == rhs.shapes
+    ;
+}
+
+
 bool operator == (const one::manifestdoc& lhs, const one::manifestdoc& rhs) {
-    return lhs.dimensions == rhs.dimensions;
+    /*
+     * Silly hack to make the vector operator == find the (unnamed) operator ==
+     * defined here.
+     */
+    const auto eq = [](const auto& l, const auto& r) {
+        return l == r;
+    };
+
+    if (!std::equal(lhs.vol.begin(), lhs.vol.end(), rhs.vol.begin(), eq))
+        return false;
+    if (!std::equal(lhs.attr.begin(), lhs.attr.end(), rhs.attr.begin(), eq))
+        return false;
+
+    return lhs.line_numbers == rhs.line_numbers
+        && lhs.line_labels  == rhs.line_labels
+    ;
 }
 
 }
@@ -40,7 +74,20 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
         "token": "on-behalf-of-token",
         "guid": "object-id",
         "storage_endpoint": "https://storage.com",
-        "manifest": { "dimensions": [[10]] },
+        "manifest": {
+            "format-version": 1,
+            "data": [
+                {
+                    "file-extension": "f32",
+                    "shapes": [[1]],
+                    "prefix": "prefix",
+                    "resolution": "source"
+                }
+            ],
+            "attributes": [],
+            "line-numbers": [[10]],
+            "line-labels": ["dim-0"]
+        },
         "shape": [64, 64, 64],
         "function": "slice",
         "args": {
@@ -50,12 +97,22 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
         }
     })";
 
+    one::volumedesc vol;
+    vol.prefix = "prefix";
+    vol.ext = "f32";
+    vol.shapes = { { 1 } };
+
+    one::manifestdoc manifest;
+    manifest.vol.push_back(vol);
+    manifest.line_numbers = { { 10 } };
+    manifest.line_labels = { "dim-0" };
+
     one::slice_query query;
     query.unpack(doc, doc + std::strlen(doc));
     CHECK(query.pid   == "some-pid");
     CHECK(query.token == "on-behalf-of-token");
     CHECK(query.guid  == "object-id");
-    CHECK(query.manifest == one::manifestdoc { { {10} } });
+    CHECK(query.manifest == manifest);
     CHECK(query.storage_endpoint == "https://storage.com");
     CHECK_THAT(query.shape,      Equals(std::vector< int >{ 64,  64,  64}));
     CHECK(query.dim == 0);
