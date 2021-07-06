@@ -71,6 +71,9 @@ type process struct {
 /*
  * Automation - return the pid=, proc= log line prefix to make log formatting
  * less noisy.
+ *
+ * This is the only function allowed to call on a process if exec() returns an
+ * error.
  */
 func (p *process) logpid() string {
 	return fmt.Sprintf("pid=%s, part=%s", p.pid, p.part)
@@ -109,14 +112,14 @@ func exec(msg [][]byte) (*process, error) {
 	defer C.free(unsafe.Pointer(kind))
 	proc.cpp = C.newproc(kind);
 	if proc.cpp == nil {
-		msg := "%s unnable to new() proc of kind %s"
-		return nil, fmt.Errorf(msg, proc.logpid(), proc.task.Function)
+		msg := "%s unable to new() proc of kind %s"
+		return proc, fmt.Errorf(msg, proc.logpid(), proc.task.Function)
 	}
 	buffer := unsafe.Pointer(&proc.rawtask[0])
 	length := C.int(len(proc.rawtask))
 	ok := C.init(proc.cpp, buffer, length)
 	if !ok {
-		return nil, proc.c_error()
+		return proc, proc.c_error()
 	}
 	return proc, nil
 }
