@@ -67,7 +67,7 @@ void from_json(const nlohmann::json& doc, volumedesc& v) noexcept (false) {
 void to_json(nlohmann::json& doc, const volumedesc& v) noexcept (false) {
     doc["prefix"]         = v.prefix;
     doc["file-extension"] = v.ext;
-    doc["partitioning"]   = v.shapes;
+    doc["shapes"]         = v.shapes;
 }
 
 void from_json(const nlohmann::json& doc, attributedesc& a) noexcept (false) {
