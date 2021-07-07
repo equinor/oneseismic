@@ -269,7 +269,6 @@ func (c *cube) basicSlice(
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
-		Shape:           []int32{ 64, 64, 64 },
 		Function:        "slice",
 		Args:            args,
 	}
@@ -327,7 +326,6 @@ func (c *cube) Curtain(
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
-		Shape:           []int32{ 64, 64, 64 },
 		Function:        "curtain",
 		Args:            args,
 	}

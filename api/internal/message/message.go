@@ -22,7 +22,6 @@ type Query struct {
 	Guid            string       `json:"guid"`
 	Manifest        interface {} `json:"manifest"`
 	StorageEndpoint string       `json:"storage_endpoint"`
-	Shape           []int32      `json:"shape"`
 	Function        string       `json:"function"`
 	Args            interface {} `json:"args"`
 }

@@ -108,7 +108,6 @@ void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
     doc["guid"]             = query.guid;
     doc["manifest"]         = query.manifest;
     doc["storage_endpoint"] = query.storage_endpoint;
-    doc["shape"]            = query.shape;
     doc["function"]         = query.function;
 }
 
@@ -118,7 +117,6 @@ void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
     doc.at("guid")            .get_to(query.guid);
     doc.at("manifest")        .get_to(query.manifest);
     doc.at("storage_endpoint").get_to(query.storage_endpoint);
-    doc.at("shape")           .get_to(query.shape);
     doc.at("function")        .get_to(query.function);
 }
 

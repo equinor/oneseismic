@@ -69,8 +69,26 @@ struct basic_query {
     std::string        guid;
     manifestdoc        manifest;
     std::string        storage_endpoint;
-    std::vector< int > shape;
     std::string        function;
+
+    const std::vector< int >& shape() const noexcept (false) {
+        /*
+         * When support is in place, users (and oneseismic itself, really) can
+         * hint at what shape would be better for a particular query, but at
+         * the end of the day it has to query a fragment set that's available.
+         * The optimal cell size very much depends on the type of query, so
+         * specific *_query objects might want to implement specific logic for
+         * the shape() function. Now, it is probably sufficient to pick the
+         * first (and usually only) shape.
+         *
+         * The use of at() is deliberate to detect badly-formatted manifests.
+         */
+        try {
+            return this->manifest.vol.at(0).shapes.at(0);
+        } catch (std::out_of_range&) {
+            throw bad_document("Missing data or shape field");
+        }
+    }
 };
 
 struct basic_task {
@@ -80,7 +98,7 @@ struct basic_task {
         token            (q.token),
         guid             (q.guid),
         storage_endpoint (q.storage_endpoint),
-        shape            (q.shape),
+        shape            (q.shape()),
         function         (q.function)
     {
         this->shape_cube.reserve(q.manifest.line_numbers.size());

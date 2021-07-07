@@ -13,9 +13,9 @@
 
 namespace {
 
-one::gvt< 3 > geometry(const one::basic_query& query) noexcept (false) {
+one::gvt< 3 > geometry( const one::basic_query& query) noexcept (false) {
     const auto& dimensions = query.manifest.line_numbers;
-    const auto& shape = query.shape;
+    const auto& shape = query.shape();
 
     return one::gvt< 3 > {
         { dimensions[0].size(),
