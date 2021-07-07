@@ -261,7 +261,7 @@ def upload(manifest, fragment_shape, src, filesys):
             key2s,
             key3s,
         ],
-        'line-labels': ['inline', 'crossline', 'depth'],
+        'line-labels': ['inline', 'crossline', 'time'],
     }
 
     with filesys.open('manifest.json', mode = 'wb') as f:
