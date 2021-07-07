@@ -385,6 +385,21 @@ namespace one {
 std::vector< std::string >
 mkschedule(const char* doc, int len, int task_size) noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
+    /*
+     * Right now, only format-version: 1 is supported, but checking the format
+     * version allow for multiple document versions to be supported as storage
+     * migrates between the representation. Dispatch here to different
+     * query-builder routines, depending on the format version.
+     */
+    if (document.at("format-version") != 1) {
+        const auto msg = fmt::format(
+            "unsupported format-version; expected {}, was {}",
+            1,
+            int(doc.at("format-version"))
+        );
+        throw bad_document(msg);
+    }
+
     const std::string function = document["function"];
     if (function == "slice") {
         auto slice = schedule_maker< slice_query, slice_task >{};
