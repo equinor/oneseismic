@@ -89,15 +89,6 @@ void to_json(nlohmann::json& doc, const attributedesc& a) noexcept (false) {
 }
 
 void from_json(const nlohmann::json& doc, manifestdoc& m) noexcept (false) {
-    if (doc.at("format-version") != 1) {
-        const auto msg = fmt::format(
-            "expected format-version {}, was {}",
-            1,
-            int(doc.at("format-version"))
-        );
-        throw bad_message(msg);
-    }
-
     doc.at("line-numbers").get_to(m.line_numbers);
     doc.at("line-labels") .get_to(m.line_labels);
     doc.at("data")        .get_to(m.vol);
