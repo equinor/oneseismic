@@ -391,7 +391,8 @@ mkschedule(const char* doc, int len, int task_size) noexcept (false) {
      * migrates between the representation. Dispatch here to different
      * query-builder routines, depending on the format version.
      */
-    if (document.at("format-version") != 1) {
+    const auto& manifest = document.at("manifest");
+    if (manifest.at("format-version") != 1) {
         const auto msg = fmt::format(
             "unsupported format-version; expected {}, was {}",
             1,
@@ -400,7 +401,7 @@ mkschedule(const char* doc, int len, int task_size) noexcept (false) {
         throw bad_document(msg);
     }
 
-    const std::string function = document["function"];
+    const std::string function = document.at("function");
     if (function == "slice") {
         auto slice = schedule_maker< slice_query, slice_task >{};
         return slice.schedule(doc, len, task_size);
