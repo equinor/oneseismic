@@ -38,14 +38,15 @@ func (msg *Query) Unpack(doc []byte) (*Query, error) {
  * Corresponds to basic_task and derivatives in oneseismic/messages.hpp, and
  * is read from the worker nodes when performing a task, which combined makes
  * up a process.
+
+ * Only the useful (to go) fields are parsed - the actual document has more
+ * fields.
  */
 type Task struct {
 	Pid             string       `json:"pid"`
 	Token           string       `json:"token"`
 	Guid            string       `json:"guid"`
 	StorageEndpoint string       `json:"storage_endpoint"`
-	Shape           []int32      `json:"shape"`
-	ShapeCube       []int32      `json:"shape-cube"`
 	Function        string       `json:"function"`
 }
 
