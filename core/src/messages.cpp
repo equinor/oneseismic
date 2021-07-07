@@ -125,6 +125,8 @@ void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
     doc["token"]            = task.token;
     doc["guid"]             = task.guid;
     doc["storage_endpoint"] = task.storage_endpoint;
+    doc["prefix"]           = task.prefix;
+    doc["ext"]              = task.ext;
     doc["shape"]            = task.shape;
     doc["shape-cube"]       = task.shape_cube;
     doc["function"]         = task.function;
@@ -136,6 +138,8 @@ void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
     doc.at("token")           .get_to(task.token);
     doc.at("guid")            .get_to(task.guid);
     doc.at("storage_endpoint").get_to(task.storage_endpoint);
+    doc.at("prefix")          .get_to(task.prefix);
+    doc.at("ext")             .get_to(task.ext);
     doc.at("shape")           .get_to(task.shape);
     doc.at("shape-cube")      .get_to(task.shape_cube);
     doc.at("function")        .get_to(task.function);

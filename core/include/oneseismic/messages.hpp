@@ -97,6 +97,8 @@ struct basic_task {
         pid              (q.pid),
         token            (q.token),
         guid             (q.guid),
+        prefix           (q.manifest.vol.at(0).prefix),
+        ext              (q.manifest.vol.at(0).ext),
         storage_endpoint (q.storage_endpoint),
         shape            (q.shape()),
         function         (q.function)
@@ -110,6 +112,8 @@ struct basic_task {
     std::string        token;
     std::string        guid;
     std::string        storage_endpoint;
+    std::string        prefix;
+    std::string        ext;
     std::vector< int > shape;
     std::vector< int > shape_cube;
     std::string        function;
