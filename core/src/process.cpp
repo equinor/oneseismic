@@ -115,6 +115,8 @@ const std::string& proc::fragments() const {
     return this->frags;
 }
 
+namespace {
+
 void slice::init(const char* msg, int len) {
     this->clear();
     this->input.unpack(msg, msg + len);
@@ -241,6 +243,8 @@ void curtain::add(int key, const char* chunk, int len) {
 
 std::string curtain::pack() {
     return this->output.pack();
+}
+
 }
 
 }
