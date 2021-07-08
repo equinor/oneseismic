@@ -3,7 +3,6 @@
 
 #include <array>
 #include <cassert>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -530,5 +529,7 @@ class gvt {
 };
 
 }
+
+#include <oneseismic/geometry.impl.hpp>
 
 #endif //ONESEISMIC_GEOMETRY_HPP

@@ -1,7 +1,9 @@
+#ifndef ONESEISMIC_GEOMETRY_IMPL_HPP
+#define ONESEISMIC_GEOMETRY_IMPL_HPP
+
 #include <algorithm>
 #include <cassert>
 #include <functional>
-#include <iostream>
 #include <numeric>
 #include <vector>
 
@@ -444,14 +446,6 @@ const noexcept (true) {
     return one::squeeze(d, *this);
 }
 
-template class gvt< 3 >;
-template class gvt< 2 >;
-template class CS < 3 >;
-template class CS < 2 >;
-template class FS < 3 >;
-template class FID < 3 >;
-template class FID < 2 >;
-template class basic_tuple< FID< 3 >, 3 >;
-template class basic_tuple< FS < 3 >, 3 >;
-
 }
+
+#endif //ONESEISMIC_GEOMETRY_IMPL_HPP
