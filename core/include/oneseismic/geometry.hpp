@@ -470,7 +470,7 @@ class gvt {
          * *fragment*, not the line.
          */
         std::vector< FID< ND > >
-        slice(Dimension dim, std::size_t n) noexcept (false);
+        slice(Dimension dim, std::size_t n) const noexcept (false);
 
         /*
          * The slice layout for putting a single fragment into a cube

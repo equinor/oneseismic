@@ -303,7 +303,7 @@ void cartesian_product(
 
 template < std::size_t ND >
 std::vector< FID< ND > >
-gvt< ND >::slice(Dimension dim, std::size_t no) noexcept (false) {
+gvt< ND >::slice(Dimension dim, std::size_t no) const noexcept (false) {
     /*
      * A fairly straight-forward (although a bit slower than it had to) way of
      * getting the fragment IDs that slice a cube. Not quite as fast as it
