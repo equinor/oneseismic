@@ -124,16 +124,12 @@ void slice::init(const char* msg, int len) {
 
     const auto g3 = gvt3(this->input);
     const auto& fragment_shape = g3.fragment_shape();
-    const auto& cube_shape     = g3.cube_shape();
 
     this->set_prefix(this->input);
     this->dim = g3.mkdim(this->input.dim);
     this->idx = this->input.idx;
     this->layout = fragment_shape.slice_stride(this->dim);
-    this->gvt = one::gvt< 2 >(
-        cube_shape.squeeze(this->dim),
-        fragment_shape.squeeze(this->dim)
-    );
+    this->gvt = g3.squeeze(this->dim);
 
     const auto& cs = this->gvt.cube_shape();
     this->output.shape.assign(cs.begin(), cs.end());
