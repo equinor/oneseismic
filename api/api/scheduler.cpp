@@ -17,24 +17,9 @@ char* copy(char* dst, const T& x) noexcept (true) {
 
 }
 
-plan mkschedule(const char* doc, int len, int task_size) {
+plan mkschedule(const char* doc, int len, int task_size) try {
     plan p {};
-    std::vector< std::string > packed;
-    try {
-        packed = one::mkschedule(doc, len, task_size);
-    } catch (one::not_found& e) {
-        p.status_code = 404;
-        auto* err = new char[std::strlen(e.what()) + 1];
-        std::strcpy(err, e.what());
-        p.err = err;
-        return p;
-    } catch (std::exception& e) {
-        p.status_code = 500;
-        auto* err = new char[std::strlen(e.what()) + 1];
-        std::strcpy(err, e.what());
-        p.err = err;
-        return p;
-    }
+    const auto packed = one::mkschedule(doc, len, task_size);
 
     const auto flat_tasksize = std::accumulate(
         packed.begin(),
@@ -58,6 +43,13 @@ plan mkschedule(const char* doc, int len, int task_size) {
         dst = copy(dst, packed[i]);
     }
 
+    return p;
+} catch (std::exception& e) {
+    plan p {};
+    p.status_code = 500;
+    auto* err = new char[std::strlen(e.what()) + 1];
+    std::strcpy(err, e.what());
+    p.err = err;
     return p;
 }
 
