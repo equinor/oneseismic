@@ -40,6 +40,12 @@ int task_count(int jobs, int task_size) {
     return x;
 }
 
+std::string& append(std::string& list, const std::string& elem) {
+    list.append(elem);
+    list.push_back('\0');
+    return list;
+}
+
 /*
  * Scheduling
  * ----------
@@ -114,22 +120,27 @@ struct schedule_maker {
      * called 'ids'. This is a name lookup - should the member be named
      * something else or accessed in a different way then you must implement a
      * custom partition().
+     *
+     * This function shall return \0-separated packed tasks. The last task
+     * shall be terminated with a \0, so that partition.count() can be
+     * implemented as std::count(begin, end, '\0'). While it is a slightly
+     * surprising interface (the most straight-forward would be
+     * vector-of-string), it makes processing the set-of-tasks slightly easier,
+     * saves a few allocations, and signals that the output is a bag of bytes.
      */
-    std::vector< std::string >
-    partition(Output&, int task_size) noexcept (false);
+    std::string partition(Output&, int task_size) noexcept (false);
 
     /*
      * Make a schedule() - calls build(), header(), and partition() in
      * sequence. The output vector should always have the header() as the
      * *last* element.
      */
-    std::vector< std::string >
+    std::string
     schedule(const char* doc, int len, int task_size) noexcept (false);
 };
 
 template < typename Input, typename Output >
-std::vector< std::string >
-schedule_maker< Input, Output >::partition(
+std::string schedule_maker< Input, Output >::partition(
         Output& output,
         int task_size
 ) noexcept (false) {
@@ -141,25 +152,29 @@ schedule_maker< Input, Output >::partition(
     const auto ids = output.ids;
     const auto ntasks = task_count(ids.size(), task_size);
 
+    // rough guess that all tasks are less or maybe approx 12kb, to reduce the
+    // number of reallocs happening
+    constexpr const auto approximated_task_size = 12000;
+    std::string partitioned;
+    partitioned.reserve(ntasks * approximated_task_size);
+
     using std::begin;
     using std::end;
     auto fst = begin(ids);
     auto lst = end(ids);
 
-    std::vector< std::string > xs;
     for (int i = 0; i < ntasks; ++i) {
         const auto last = std::min(fst + task_size, lst);
         output.ids.assign(fst, last);
         std::advance(fst, last - fst);
-        xs.push_back(output.pack());
+        append(partitioned, output.pack());
     }
 
-    return xs;
+    return partitioned;
 }
 
 template < typename Input, typename Output >
-std::vector< std::string >
-schedule_maker< Input, Output >::schedule(
+std::string schedule_maker< Input, Output >::schedule(
         const char* doc,
         int len,
         int task_size)
@@ -169,9 +184,9 @@ noexcept (false) {
     auto fetch = this->build(in);
     auto sched = this->partition(fetch, task_size);
 
-    const auto ntasks = int(sched.size());
+    const auto ntasks = int(std::count(sched.begin(), sched.end(), '\0'));
     const auto head   = this->header(in, ntasks);
-    sched.push_back(head.pack());
+    append(sched, head.pack());
     return sched;
 }
 
@@ -382,7 +397,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::header(
 
 namespace one {
 
-std::vector< std::string >
+std::string
 mkschedule(const char* doc, int len, int task_size) noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
     /*

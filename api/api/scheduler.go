@@ -96,9 +96,10 @@ func (sched *cppscheduler) MakeQuery(query *message.Query) (*QueryPlan, error) {
 		this += uintptr(size)
 	}
 
+	headerindex := len(result) - 1
 	return &QueryPlan {
-		header: result[0],
-		plan:   result[1:],
+		header: result[headerindex],
+		plan:   result[:headerindex],
 	}, nil
 }
 

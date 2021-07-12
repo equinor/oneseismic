@@ -9,8 +9,11 @@
 
 namespace one {
 
-std::vector< std::string >
-mkschedule(const char* doc, int len, int task_size) noexcept (false);
+std::string mkschedule(
+    const char* doc,
+    int len,
+    int task_size)
+noexcept (false);
 
 }
 
