@@ -11,13 +11,15 @@
 #include <oneseismic/messages.hpp>
 #include <oneseismic/plan.hpp>
 
+namespace one {
+
 namespace {
 
-one::gvt< 3 > geometry( const one::basic_query& query) noexcept (false) {
+gvt< 3 > geometry(const basic_query& query) noexcept (false) {
     const auto& dimensions = query.manifest.line_numbers;
     const auto& shape = query.shape();
 
-    return one::gvt< 3 > {
+    return gvt< 3 > {
         { dimensions[0].size(),
           dimensions[1].size(),
           dimensions[2].size(), },
@@ -27,8 +29,8 @@ one::gvt< 3 > geometry( const one::basic_query& query) noexcept (false) {
     };
 }
 
-one::gvt< 3 > geometry(const one::basic_task& task) noexcept (true) {
-    return one::gvt< 3 > {
+gvt< 3 > geometry(const basic_task& task) noexcept (true) {
+    return gvt< 3 > {
         {
             std::size_t(task.shape_cube[0]),
             std::size_t(task.shape_cube[1]),
@@ -126,7 +128,7 @@ struct schedule_maker {
      * process header should provide enough information for clients to properly
      * pre-allocate and build metadata to make sense of data as it is streamed.
      */
-    one::process_header
+    process_header
     header(const Input&, int ntasks) noexcept (false);
 
     /*
@@ -254,12 +256,10 @@ void append_vector_ids(
 }
 
 template <>
-std::vector< one::slice_task >
-schedule_maker< one::slice_query, one::slice_task >::build(
-    const one::slice_query& query)
-{
-    auto task = one::slice_task(query);
-    std::vector< one::slice_task > tasks;
+std::vector< slice_task >
+schedule_maker< slice_query, slice_task >::build(const slice_query& query) {
+    auto task = slice_task(query);
+    std::vector< slice_task > tasks;
     tasks.reserve(query.attributes.size() + 1);
 
     const auto gvt = geometry(query);
@@ -278,7 +278,7 @@ schedule_maker< one::slice_query, one::slice_task >::build(
         if (itr == query.manifest.attr.end())
             continue;
 
-        auto task = one::slice_task(query, *itr);
+        auto task = slice_task(query, *itr);
         const auto gvt3 = geometry(task);
         /*
          * Attributes are really 2D volumes (depth = 1), but stored as 3D
@@ -299,9 +299,9 @@ schedule_maker< one::slice_query, one::slice_task >::build(
 }
 
 template <>
-one::process_header
-schedule_maker< one::slice_query, one::slice_task >::header(
-    const one::slice_query& query,
+process_header
+schedule_maker< slice_query, slice_task >::header(
+    const slice_query& query,
     int ntasks
 ) noexcept (false) {
     const auto& mdims = query.manifest.line_numbers;
@@ -310,7 +310,7 @@ schedule_maker< one::slice_query, one::slice_task >::header(
     const auto gvt2 = gvt.squeeze(dim);
     const auto fs2  = gvt2.fragment_shape();
 
-    one::process_header head;
+    process_header head;
     head.pid        = query.pid;
     head.ntasks     = ntasks;
     head.attributes = query.attributes;
@@ -353,7 +353,7 @@ noexcept (false) {
         const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
         if (*itr != x) {
             const auto msg = fmt::format("lineno {} not in index");
-            throw one::not_found(msg);
+            throw not_found(msg);
         }
         return std::distance(labels.begin(), itr);
     };
@@ -362,9 +362,9 @@ noexcept (false) {
 }
 
 template <>
-std::vector< one::curtain_task >
-schedule_maker< one::curtain_query, one::curtain_task >::build(
-    const one::curtain_query& query)
+std::vector< curtain_task >
+schedule_maker< curtain_query, curtain_task >::build(
+    const curtain_query& query)
 {
     const auto less = [](const auto& lhs, const auto& rhs) noexcept (true) {
         return std::lexicographical_compare(
@@ -378,7 +378,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
         return std::equal(lhs.begin(), lhs.end(), rhs.begin());
     };
 
-    std::vector< one::curtain_task > tasks;
+    std::vector< curtain_task > tasks;
     tasks.emplace_back(query);
     auto& task = tasks.back();
     auto dim0s = query.dim0s;
@@ -415,7 +415,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
      * The bins are lexicographically sorted.
      */
     for (int i = 0; i < int(dim0s.size()); ++i) {
-        auto top_point = one::CP< 3 > {
+        auto top_point = CP< 3 > {
             std::size_t(dim0s[i]),
             std::size_t(dim1s[i]),
             std::size_t(0),
@@ -424,7 +424,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
 
         auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
         if (itr == ids.end() or (not equal(itr->id, fid))) {
-            one::single top;
+            single top;
             top.id.assign(fid.begin(), fid.end());
             top.coordinates.reserve(approx_coordinates_per_fragment);
             itr = ids.insert(itr, zfrags, top);
@@ -438,7 +438,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
      * ids.
      */
     for (int i = 0; i < int(dim0s.size()); ++i) {
-        const auto cp = one::CP< 3 > {
+        const auto cp = CP< 3 > {
             std::size_t(dim0s[i]),
             std::size_t(dim1s[i]),
             std::size_t(0),
@@ -456,14 +456,14 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
 }
 
 template <>
-one::process_header
-schedule_maker< one::curtain_query, one::curtain_task >::header(
-    const one::curtain_query& query,
+process_header
+schedule_maker< curtain_query, curtain_task >::header(
+    const curtain_query& query,
     int ntasks
 ) noexcept (false) {
     const auto& mdims = query.manifest.line_numbers;
 
-    one::process_header head;
+    process_header head;
     head.pid        = query.pid;
     head.ntasks     = ntasks;
     head.attributes = query.attributes;
@@ -484,8 +484,6 @@ schedule_maker< one::curtain_query, one::curtain_task >::header(
 }
 
 }
-
-namespace one {
 
 std::string
 mkschedule(const char* doc, int len, int task_size) noexcept (false) {
