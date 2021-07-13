@@ -225,8 +225,9 @@ schedule_maker< one::slice_query, one::slice_task >::header(
     const auto fs2  = gvt2.fragment_shape();
 
     one::process_header head;
-    head.pid    = query.pid;
-    head.ntasks = ntasks;
+    head.pid        = query.pid;
+    head.ntasks     = ntasks;
+    head.attributes = query.attributes;
 
     /*
      * The shape of a slice are the dimensions of the survey squeezed in that
@@ -375,8 +376,9 @@ schedule_maker< one::curtain_query, one::curtain_task >::header(
     const auto& mdims = query.manifest.line_numbers;
 
     one::process_header head;
-    head.pid    = query.pid;
-    head.ntasks = ntasks;
+    head.pid        = query.pid;
+    head.ntasks     = ntasks;
+    head.attributes = query.attributes;
 
     const auto gvt  = geometry(query);
     const auto zpad = gvt.nsamples_padded(gvt.mkdim(gvt.ndims - 1));

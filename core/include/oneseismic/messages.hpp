@@ -64,12 +64,13 @@ struct manifestdoc {
  * their job.
  */
 struct basic_query {
-    std::string        pid;
-    std::string        token;
-    std::string        guid;
-    manifestdoc        manifest;
-    std::string        storage_endpoint;
-    std::string        function;
+    std::string                 pid;
+    std::string                 token;
+    std::string                 guid;
+    manifestdoc                 manifest;
+    std::string                 storage_endpoint;
+    std::string                 function;
+    std::vector< std::string >  attributes;
 
     const std::vector< int >& shape() const noexcept (false) {
         /*
@@ -101,7 +102,8 @@ struct basic_task {
         ext              (q.manifest.vol.at(0).ext),
         storage_endpoint (q.storage_endpoint),
         shape            (q.shape()),
-        function         (q.function)
+        function         (q.function),
+        attribute        ("data")
     {
         this->shape_cube.reserve(q.manifest.line_numbers.size());
         for (const auto& d : q.manifest.line_numbers)
@@ -117,6 +119,7 @@ struct basic_task {
     std::vector< int > shape;
     std::vector< int > shape_cube;
     std::string        function;
+    std::string        attribute;
 };
 
 /*
@@ -131,10 +134,11 @@ struct basic_task {
  * parameters.
  */
 struct process_header : Packable< process_header > {
-    std::string        pid;
-    int                ntasks;
-    std::vector< int > shape;
-    std::vector< std::vector< int > > index;
+    std::string                         pid;
+    int                                 ntasks;
+    std::vector< int >                  shape;
+    std::vector< std::vector< int > >   index;
+    std::vector< std::string >          attributes;
 };
 
 struct slice_query : public basic_query, Packable< slice_query > {
