@@ -27,6 +27,21 @@ one::gvt< 3 > geometry( const one::basic_query& query) noexcept (false) {
     };
 }
 
+one::gvt< 3 > geometry(const one::basic_task& task) noexcept (true) {
+    return one::gvt< 3 > {
+        {
+            std::size_t(task.shape_cube[0]),
+            std::size_t(task.shape_cube[1]),
+            std::size_t(task.shape_cube[2]),
+        },
+        {
+            std::size_t(task.shape[0]),
+            std::size_t(task.shape[1]),
+            std::size_t(task.shape[2]),
+        }
+    };
+}
+
 int task_count(int jobs, int task_size) {
     /*
      * Return the number of task-size'd tasks needed to process all jobs
@@ -97,7 +112,7 @@ struct schedule_maker {
      *
      * The Output type should have a pack() method that returns a std::string
      */
-    Output build(const Input&) noexcept (false);
+    std::vector< Output > build(const Input&) noexcept (false);
 
     /*
      * Make a header. This function requires deep knowledge of the shape and
@@ -128,7 +143,7 @@ struct schedule_maker {
      * vector-of-string), it makes processing the set-of-tasks slightly easier,
      * saves a few allocations, and signals that the output is a bag of bytes.
      */
-    std::string partition(Output&, int task_size) noexcept (false);
+    std::string partition(std::vector< Output >&, int task_size) noexcept (false);
 
     /*
      * Make a schedule() - calls build(), header(), and partition() in
@@ -139,35 +154,45 @@ struct schedule_maker {
     schedule(const char* doc, int len, int task_size) noexcept (false);
 };
 
+template< typename Outputs >
+int count_tasks(const Outputs& outputs, int task_size) noexcept (true) {
+    const auto add = [task_size](auto acc, const auto& elem) noexcept (true) {
+        return acc + task_count(elem.ids.size(), task_size);
+    };
+    return std::accumulate(outputs.begin(), outputs.end(), 0, add);
+}
+
 template < typename Input, typename Output >
 std::string schedule_maker< Input, Output >::partition(
-        Output& output,
-        int task_size
+    std::vector< Output >& outputs,
+    int task_size
 ) noexcept (false) {
     if (task_size < 1) {
         const auto msg = fmt::format("task_size (= {}) < 1", task_size);
         throw std::logic_error(msg);
     }
 
-    const auto ids = output.ids;
-    const auto ntasks = task_count(ids.size(), task_size);
-
-    // rough guess that all tasks are less or maybe approx 12kb, to reduce the
+    // rough guess that all tasks are less or approx 12kb, to reduce the
     // number of reallocs happening
-    constexpr const auto approximated_task_size = 12000;
+    constexpr const auto estimated_task_size = 12000;
     std::string partitioned;
-    partitioned.reserve(ntasks * approximated_task_size);
+    partitioned.reserve(count_tasks(outputs, task_size) * estimated_task_size);
 
-    using std::begin;
-    using std::end;
-    auto fst = begin(ids);
-    auto lst = end(ids);
+    for (auto& output : outputs) {
+        const auto ids = output.ids;
+        const auto ntasks = task_count(ids.size(), task_size);
 
-    for (int i = 0; i < ntasks; ++i) {
-        const auto last = std::min(fst + task_size, lst);
-        output.ids.assign(fst, last);
-        std::advance(fst, last - fst);
-        append(partitioned, output.pack());
+        using std::begin;
+        using std::end;
+        auto fst = begin(ids);
+        auto lst = end(ids);
+
+        for (int i = 0; i < ntasks; ++i) {
+            const auto last = std::min(fst + task_size, lst);
+            output.ids.assign(fst, last);
+            std::advance(fst, last - fst);
+            append(partitioned, output.pack());
+        }
     }
 
     return partitioned;
@@ -190,26 +215,87 @@ noexcept (false) {
     return sched;
 }
 
+template < typename Seq, typename T = int >
+std::vector< T > to_vec(const Seq& s) {
+    using std::begin;
+    using std::end;
+
+    auto convert = [](const auto x) noexcept (noexcept(T(x))) {
+        return T(x);
+    };
+
+    std::vector< T > xs(s.size());
+    std::transform(begin(s), end(s), begin(xs), convert);
+    return xs;
+}
+
+template < typename Query >
+auto find_desc(const Query& query, const std::string& attr)
+-> decltype(query.manifest.attr.begin()) {
+    return std::find_if(
+        query.manifest.attr.begin(),
+        query.manifest.attr.end(),
+        [&attr](const auto& desc) noexcept {
+            return desc.type == attr;
+        }
+    );
+}
+
+template < typename Seq >
+void append_vector_ids(
+    std::vector< std::vector< int > >& dst,
+    const Seq& src)
+{
+    using std::begin;
+    using std::end;
+    using dst_type = decltype(*begin(src));
+    auto append = std::back_inserter(dst);
+    std::transform(begin(src), end(src), append, to_vec< dst_type >);
+}
+
 template <>
-one::slice_task
+std::vector< one::slice_task >
 schedule_maker< one::slice_query, one::slice_task >::build(
     const one::slice_query& query)
 {
     auto task = one::slice_task(query);
+    std::vector< one::slice_task > tasks;
+    tasks.reserve(query.attributes.size() + 1);
 
-    auto gvt = geometry(query);
+    const auto gvt = geometry(query);
+    const auto dim = gvt.mkdim(query.dim);
+    task.idx = gvt.fragment_shape().index(dim, query.idx);
+    const auto ids = gvt.slice(dim, query.idx);
+    append_vector_ids(task.ids, ids);
+    tasks.push_back(task);
 
-    const auto to_vec = [](const auto& x) {
-        return std::vector< int > { int(x[0]), int(x[1]), int(x[2]) };
-    };
+    for (const auto& attr : query.attributes) {
+        /*
+         * It's perfectly common for queries to request attributes that aren't
+         * recorded for a survey - in this case, silently drop it
+         */
+        auto itr = find_desc(query, attr);
+        if (itr == query.manifest.attr.end())
+            continue;
 
-    task.idx = query.idx % gvt.fragment_shape()[query.dim];
-    const auto ids = gvt.slice(gvt.mkdim(query.dim), query.idx);
-    // TODO: name loop
-    for (const auto& id : ids)
-        task.ids.push_back(to_vec(id));
+        auto task = one::slice_task(query, *itr);
+        const auto gvt3 = geometry(task);
+        /*
+         * Attributes are really 2D volumes (depth = 1), but stored as 3D
+         * volumes to make querying them trivial. However, when requesting
+         * attributes for z-slices, the index will almost always not be 0 (the
+         * only valid z-index in the attributes surface), but this applies only
+         * for queries where dim = z. Modulus moves the index back into the
+         * grid, and is a no-op for any index a valid dimension.
+         */
+        const auto idx = query.idx % gvt3.cube_shape()[dim];
+        task.idx = gvt3.fragment_shape().index(dim, idx);
+        const auto ids = gvt3.slice(dim, idx);
+        append_vector_ids(task.ids, ids);
+        tasks.push_back(task);
+    }
 
-    return task;
+    return tasks;
 }
 
 template <>
@@ -276,7 +362,7 @@ noexcept (false) {
 }
 
 template <>
-one::curtain_task
+std::vector< one::curtain_task >
 schedule_maker< one::curtain_query, one::curtain_task >::build(
     const one::curtain_query& query)
 {
@@ -292,7 +378,9 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
         return std::equal(lhs.begin(), lhs.end(), rhs.begin());
     };
 
-    auto task = one::curtain_task(query);
+    std::vector< one::curtain_task > tasks;
+    tasks.emplace_back(query);
+    auto& task = tasks.back();
     auto dim0s = query.dim0s;
     auto dim1s = query.dim1s;
     to_cartesian_inplace(query.manifest.line_numbers[0], dim0s);
@@ -364,7 +452,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
         }
     }
 
-    return task;
+    return tasks;
 }
 
 template <>
