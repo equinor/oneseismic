@@ -307,6 +307,7 @@ template< std::size_t ND >
 struct CS : public basic_tuple< CS< ND >, ND > {
     using base_type = basic_tuple< CS, ND >;
     using base_type::base_type;
+    using Dimension = dimension< ND >;
 
     std::size_t to_offset(CP< ND >)  const noexcept (true);
     std::size_t to_offset(FID< ND >) const noexcept (true);
@@ -323,8 +324,36 @@ template< std::size_t ND >
 struct FS : public basic_tuple< FS< ND >, ND > {
     using base_type = basic_tuple< FS, ND >;
     using base_type::base_type;
+    using Dimension = dimension< ND >;
 
     std::size_t to_offset(FP< ND >) const noexcept (true);
+    /*
+     * Find the fragment-local dimension index that the global index
+     * intersects. This is similar to to_offset, but for planes. This function
+     * helps map from the global slice index (the query) to the local slice
+     * index (used in extraction).
+     *
+     * Example:
+     * Consider a 4x6x8 cube shape, made up of 2x3x4 fragments, and the index
+     * 3.
+     *
+     * if dim = 0, the fragments are intersected at index 1
+     * if dim = 1, the fragments are intersected at index 0
+     * if dim = 2, the fragments are intersected at index 3
+     *
+     *
+     * Effectively, queries to gvt goes:
+     *
+     *     sliceByIndex(dim: D, index: N)
+     *
+     * But downstream, when individual fragments are fetched, the extraction
+     * goes:
+     *
+     *     getSlice(dim: D, index: local(N))
+     *
+     * and index() provides this local() function.
+     */
+    std::size_t index(Dimension, std::size_t) const noexcept (true);
     std::size_t slice_samples(dimension< ND >) const noexcept (true);
     slice_layout slice_stride(dimension< ND >) const noexcept (false);
     FS< ND - 1 > squeeze(dimension< ND >) const noexcept (true);

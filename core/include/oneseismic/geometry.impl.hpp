@@ -408,6 +408,12 @@ const noexcept (true) {
 }
 
 template < std::size_t ND >
+std::size_t FS< ND >::index(dimension< ND > d, std::size_t idx)
+const noexcept (true) {
+    return idx % (*this)[d];
+}
+
+template < std::size_t ND >
 slice_layout FS< ND >::slice_stride(dimension< ND > d)
 const noexcept (false) {
     slice_layout s;
