@@ -121,6 +121,7 @@ void slice::init(const char* msg, int len) {
     this->clear();
     this->input.unpack(msg, msg + len);
     this->output.tiles.resize(this->input.ids.size());
+    this->output.attr = this->input.attribute;
 
     const auto g3 = gvt3(this->input);
     const auto& fragment_shape = g3.fragment_shape();

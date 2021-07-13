@@ -200,6 +200,7 @@ struct slice_tiles : public MsgPackable< slice_tiles > {
     /*
      * The shape of the slice itself
      */
+    std::string attr;
     std::vector< int > shape;
     std::vector< tile > tiles;
 };

@@ -68,6 +68,8 @@ class assembler_slice(assembler):
 
         result = np.zeros((dims0 * dims1), dtype = np.single)
         for bundle in unpacked[1]:
+            if bundle.get('attribute') != 'data':
+                continue
             for tile in bundle['tiles']:
                 layout = tile
                 dst = layout['initial-skip']
