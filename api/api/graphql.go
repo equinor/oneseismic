@@ -36,6 +36,10 @@ type promise struct {
 	key string
 }
 
+type opts struct {
+	Attributes *[]string `json:"attributes"`
+}
+
 func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
@@ -212,13 +216,18 @@ func (c *cube) SliceByLineno(
 	args struct {
 		Dim    int32
 		Lineno int32
+		Opts   *opts
 	},
 ) (*promise, error) {
-	return c.basicSlice(ctx, sliceargs {
-		Kind: "lineno",
-		Dim: args.Dim,
-		Val: args.Lineno,
-	})
+	return c.basicSlice(
+		ctx,
+		sliceargs {
+			Kind: "lineno",
+			Dim: args.Dim,
+			Val: args.Lineno,
+		},
+		args.Opts,
+	)
 }
 
 func (c *cube) SliceByIndex(
@@ -226,18 +235,24 @@ func (c *cube) SliceByIndex(
 	args struct {
 		Dim   int32
 		Index int32
+		Opts   *opts
 	},
 ) (*promise, error) {
-	return c.basicSlice(ctx, sliceargs {
-		Kind: "index",
-		Dim: args.Dim,
-		Val: args.Index,
-	})
+	return c.basicSlice(
+		ctx,
+		sliceargs {
+			Kind: "index",
+			Dim: args.Dim,
+			Val: args.Index,
+		},
+		args.Opts,
+	)
 }
 
 func (c *cube) basicSlice(
 	ctx  context.Context,
 	args sliceargs,
+	opts *opts,
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
@@ -271,6 +286,7 @@ func (c *cube) basicSlice(
 		StorageEndpoint: c.root.endpoint,
 		Function:        "slice",
 		Args:            args,
+		Opts:            opts,
 	}
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
@@ -379,13 +395,23 @@ type Query {
     cube(id: ID!): Cube!
 }
 
+enum Attribute {
+    cdp
+    cdpx
+    cdpy
+}
+
+input Opts {
+    attributes: [Attribute!]
+}
+
 type Cube {
     id: ID!
 
     linenumbers: [[Int!]!]!
 
-    sliceByLineno(dim: Int!, lineno: Int!): Promise!
-    sliceByIndex(dim: Int!, index: Int!): Promise!
+    sliceByLineno(dim: Int!, lineno: Int!, opts: Opts): Promise!
+    sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise!
     curtain(coords: [[Int!]!]!): Promise!
 }
 

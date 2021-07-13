@@ -63,6 +63,29 @@ std::string& append(std::string& list, const std::string& elem) {
     return list;
 }
 
+template < typename Query >
+std::vector< std::string > normalized_attributes(const Query& q) {
+    std::vector< std::string > attrs;
+    attrs.reserve(q.attributes.size() * 2);
+
+    for (const auto& attr : q.attributes) {
+        if (attr == "cdp") {
+            attrs.push_back("cdpx");
+            attrs.push_back("cdpy");
+        } else {
+            attrs.push_back(attr);
+        }
+    };
+
+    std::sort(attrs.begin(), attrs.end());
+    attrs.erase(
+        std::unique(attrs.begin(), attrs.end()),
+        attrs.end()
+    );
+
+    return attrs;
+}
+
 /*
  * Scheduling
  * ----------
@@ -208,6 +231,7 @@ std::string schedule_maker< Input, Output >::schedule(
 noexcept (false) {
     Input in;
     in.unpack(doc, doc + len);
+    in.attributes = normalized_attributes(in);
     auto fetch = this->build(in);
     auto sched = this->partition(fetch, task_size);
 

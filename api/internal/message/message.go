@@ -24,6 +24,7 @@ type Query struct {
 	StorageEndpoint string       `json:"storage_endpoint"`
 	Function        string       `json:"function"`
 	Args            interface {} `json:"args"`
+	Opts            interface {} `json:"opts"`
 }
 
 func (msg *Query) Pack() ([]byte, error) {
