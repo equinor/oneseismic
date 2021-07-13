@@ -110,6 +110,23 @@ struct basic_task {
             this->shape_cube.push_back(d.size());
     }
 
+    basic_task(const basic_query& q, const attributedesc& attr) :
+        pid              (q.pid),
+        token            (q.token),
+        guid             (q.guid),
+        prefix           (attr.prefix),
+        ext              (attr.ext),
+        storage_endpoint (q.storage_endpoint),
+        shape            (attr.shapes.at(0)),
+        function         (q.function),
+        attribute        (attr.type)
+    {
+        this->shape_cube.reserve(q.manifest.line_numbers.size());
+        for (const auto& d : q.manifest.line_numbers)
+            this->shape_cube.push_back(d.size());
+        this->shape_cube.back() = 1;
+    }
+
     std::string        pid;
     std::string        token;
     std::string        guid;
@@ -157,6 +174,11 @@ struct slice_task : public basic_task, Packable< slice_task > {
     slice_task() = default;
     explicit slice_task(const slice_query& q) :
         basic_task(q),
+        dim(q.dim)
+    {}
+
+    slice_task(const slice_query& q, const attributedesc& attr) :
+        basic_task(q, attr),
         dim(q.dim)
     {}
 
