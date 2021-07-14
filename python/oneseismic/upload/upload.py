@@ -87,6 +87,21 @@ class fileset:
         self.traceno = 0
         self.limits = {}
 
+    def manifest_entry(self):
+        """Return manifest key and entry
+
+        Return the key and entry to insert into the manifest. The fileset knows
+        how to issue a good entry. This should be implemented in derived
+        classes, as the entry is surely different.
+        """
+        return 'data', {
+            'file-extension': self.ext,
+            'filters': [],
+            'shapes': [list(self.shape)],
+            'prefix': self.prefix,
+            'resolution': 'source',
+        }
+
     def commit(self, key1):
         """
         Commit a "lane", yielding all completed. This function assumes that the
@@ -200,6 +215,7 @@ class fileset:
 
 class cdpset(fileset):
     def __init__(self, word, key, *args, **kwargs):
+        self.type = f'{key}'
         self.word = word
         super().__init__(*args, **kwargs)
 
@@ -215,6 +231,17 @@ class cdpset(fileset):
             return [cdp * scale]
         else:
             return [cdp / -scale]
+
+    def manifest_entry(self):
+        return 'attributes', {
+            # the type must match exactly with the prefix in storage
+            'type': f'cdp{self.type}',
+            'layout': 'tiled',
+            'file-extension': self.ext,
+            'labels': [f'cdp self.type}'.upper()],
+            'shapes': [self.shape],
+            'prefix': self.prefix,
+        },
 
 def upload(manifest, shape, src, filesys):
     """Upload volume to oneseismic
@@ -310,40 +337,15 @@ def upload(manifest, shape, src, filesys):
     manifest = {
         'format-version': 1,
         'guid': guid,
-        'data': [
-            {
-                'file-extension': 'f32',
-                'filters': [],
-                'shapes': [list(shape)],
-                'prefix': 'src',
-                'resolution': 'source',
-            },
-        ],
-        'attributes': [
-            {
-                'type': 'cdpx',
-                'layout': 'tiled',
-                'file-extension': 'f32',
-                'labels': ['CDP X'],
-                'shapes': [[512, 512, 1]],
-                'prefix': 'attributes/cdpx',
-            },
-            {
-                'type': 'cdpy',
-                'layout': 'tiled',
-                'file-extension': 'f32',
-                'labels': ['CDP Y'],
-                'shapes': [[512, 512, 1]],
-                'prefix': 'attributes/cdpy',
-            },
-        ],
-        'line-numbers': [
-            key1s,
-            key2s,
-            key3s,
-        ],
+        'data': [],
+        'attributes': [],
+        'line-numbers': [key1s, key2s, key3s],
         'line-labels': ['inline', 'crossline', 'time'],
     }
+
+    for fset in files:
+        key, entry = fset.manifest_entry()
+        manifest[key].append(entry)
 
     with filesys.open('manifest.json', mode = 'wb') as f:
         f.write(json.dumps(manifest).encode())
