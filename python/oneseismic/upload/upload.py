@@ -257,12 +257,8 @@ def upload(manifest, shape, src, filesys):
     trace = np.array(1, dtype = dtype)
     fmt = manifest['format']
 
-    files = fileset(key1s, key2s, key3s, shape, prefix = 'src')
-    files.setlimits(manifest['key1-last-trace'])
-    shapeident = '-'.join(map(str, shape))
-    prefix = f'src/{shapeident}'
-
-    attrs = [
+    files = [fileset(key1s, key2s, key3s, shape, prefix = 'src')]
+    files.extend([
         cdpset(
             segyio.su.cdpx,
             'x',
@@ -281,9 +277,10 @@ def upload(manifest, shape, src, filesys):
             shape = (512, 512, 1),
             prefix = 'attributes/cdpy',
         ),
-    ]
-    for attr in attrs:
-        attr.setlimits(meta['key1-last-trace'])
+    ])
+
+    for fset in files:
+        fset.setlimits(manifest['key1-last-trace'])
 
     filesys.mkdir(guid)
     filesys.cd(guid)
@@ -298,21 +295,13 @@ def upload(manifest, shape, src, filesys):
 
         key1 = header[word1]
         key2 = header[word2]
-        files.put(key1, key2, trace)
-        for attr in attrs:
-            attr.put(key1, key2, trace)
+        for fset in files:
+            fset.put(key1, key2, trace)
 
-        for ident, fragment in files.commit(key1):
-            ident = '-'.join(map(str, ident))
-            name = f'{prefix}/{ident}.f32'
-            print('uploading', name)
-            with filesys.open(name, mode = 'wb') as f:
-                f.write(fragment)
-
-        for attr in attrs:
-            for ident, block in attr.commit(key1):
+        for fset in files:
+            for ident, block in fset.commit(key1):
                 ident = '-'.join(map(str, ident))
-                name = f'{attr.prefix}/{ident}.{attr.ext}'
+                name = f'{fset.prefix}/{ident}.{fset.ext}'
                 print('uploading', name)
 
                 with filesys.open(name, mode = 'wb') as f:
