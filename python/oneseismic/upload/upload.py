@@ -5,6 +5,7 @@ import math
 import numpy as np
 import segyio
 import segyio._segyio
+import pathlib
 
 from segyio.tools import native
 
@@ -59,13 +60,17 @@ class fileset:
     this and will generate padding fragments when necessary. This may change in
     the future and should not be relied on.
     """
-    def __init__(self, key1s, key2s, key3s, fragment_shape):
+    def __init__(self, key1s, key2s, key3s, fragment_shape, prefix):
         mkfile = lambda: np.zeros(shape = fragment_shape, dtype = np.float32)
         # fileset is built on the files dict, which is a mapping from (i,j,k)
         # fragment IDs to arrays. When a new fragment is accessed, a full
         # zero-cube will be created, so there is no need to keep track of what
         # needs padding.
         self.files = collections.defaultdict(mkfile)
+        shapestr = '-'.join(map(str, fragment_shape))
+        # normalize, e.g. remove repeated slashes, make all forward slash etc
+        self.prefix = (pathlib.PurePath(prefix) / shapestr).as_posix()
+        self.ext = 'f32'
 
         # map line-numbers to the fragment ID
         self.key1s = {k: i // fragment_shape[0] for i, k in enumerate(key1s)}
@@ -127,6 +132,21 @@ class fileset:
 
         self.traceno += 1
 
+    def extract(self, trace):
+        """Extract interesting data from a trace
+
+        This function should be overriden or specialised if you need something
+        other than the trace data (samples). For example, when using this for
+        extracting attributes, it should read (and scale) the appropriate
+        header word.
+
+        extract() returns an array_like, i.e. scalar values must be wrapped in
+        a list.
+
+        extracted : array_like
+        """
+        return trace['samples']
+
     def put(self, key1, key2, trace):
         """Put a trace
 
@@ -151,7 +171,8 @@ class fileset:
         i = self.off1s[key1]
         j = self.off2s[key2]
 
-        for index3, tr in enumerate(splitarray(trace, self.fragment_shape[2])):
+        values = self.extract(trace)
+        for index3, tr in enumerate(splitarray(values, self.fragment_shape[2])):
             fragment = self.files[(index1, index2, index3)]
             fragment[i, j, :len(tr)] = tr
 
@@ -175,6 +196,25 @@ class fileset:
             limits[x] = max(int(v), limits[x])
 
         self.limits.update(limits)
+
+
+class cdpset(fileset):
+    def __init__(self, word, key, *args, **kwargs):
+        self.word = word
+        super().__init__(*args, **kwargs)
+
+    def extract(self, trace):
+        header = segyio.field.Field(buf = trace['header'], kind = 'trace')
+        scale = header[segyio.su.scalco]
+        # SEG-Y specifies that a scaling of 0 should be interpreted as identity
+        if scale == 0:
+            scale = 1
+
+        cdp = header[self.word]
+        if scale > 0:
+            return [cdp * scale]
+        else:
+            return [cdp / -scale]
 
 def upload(manifest, fragment_shape, src, filesys):
     """Upload volume to oneseismic
@@ -216,10 +256,33 @@ def upload(manifest, fragment_shape, src, filesys):
     trace = np.array(1, dtype = dtype)
     fmt = manifest['format']
 
-    files = fileset(key1s, key2s, key3s, fragment_shape)
+    files = fileset(key1s, key2s, key3s, fragment_shape, prefix = 'src')
     files.setlimits(manifest['key1-last-trace'])
     shapeident = '-'.join(map(str, fragment_shape))
     prefix = f'src/{shapeident}'
+
+    attrs = [
+        cdpset(
+            segyio.su.cdpx,
+            'x',
+            key1s,
+            key2s,
+            {1},
+            fragment_shape = (512, 512, 1),
+            prefix = 'attributes/cdpx',
+        ),
+        cdpset(
+            segyio.su.cdpy,
+            'y',
+            key1s,
+            key2s,
+            {1},
+            fragment_shape = (512, 512, 1),
+            prefix = 'attributes/cdpy',
+        ),
+    ]
+    for attr in attrs:
+        attr.setlimits(meta['key1-last-trace'])
 
     filesys.mkdir(guid)
     filesys.cd(guid)
@@ -234,13 +297,25 @@ def upload(manifest, fragment_shape, src, filesys):
 
         key1 = header[word1]
         key2 = header[word2]
-        files.put(key1, key2, data)
+        files.put(key1, key2, trace)
+        for attr in attrs:
+            attr.put(key1, key2, trace)
+
         for ident, fragment in files.commit(key1):
             ident = '-'.join(map(str, ident))
             name = f'{prefix}/{ident}.f32'
             print('uploading', name)
             with filesys.open(name, mode = 'wb') as f:
                 f.write(fragment)
+
+        for attr in attrs:
+            for ident, block in attr.commit(key1):
+                ident = '-'.join(map(str, ident))
+                name = f'{attr.prefix}/{ident}.{attr.ext}'
+                print('uploading', name)
+
+                with filesys.open(name, mode = 'wb') as f:
+                    f.write(block)
 
     manifest = {
         'format-version': 1,
@@ -255,6 +330,22 @@ def upload(manifest, fragment_shape, src, filesys):
             },
         ],
         'attributes': [
+            {
+                'type': 'cdpx',
+                'layout': 'tiled',
+                'file-extension': 'f32',
+                'labels': ['CDP X'],
+                'shapes': [[512, 512, 1]],
+                'prefix': 'attributes/cdpx',
+            },
+            {
+                'type': 'cdpy',
+                'layout': 'tiled',
+                'file-extension': 'f32',
+                'labels': ['CDP Y'],
+                'shapes': [[512, 512, 1]],
+                'prefix': 'attributes/cdpy',
+            },
         ],
         'line-numbers': [
             key1s,
