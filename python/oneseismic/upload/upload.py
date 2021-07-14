@@ -51,7 +51,7 @@ class fileset:
     key1s : list of int
     key2s : list of int
     key3s : list of int
-    fragment_shape : tuple of int
+    shape : tuple of int
 
     Notes
     -----
@@ -60,30 +60,30 @@ class fileset:
     this and will generate padding fragments when necessary. This may change in
     the future and should not be relied on.
     """
-    def __init__(self, key1s, key2s, key3s, fragment_shape, prefix):
-        mkfile = lambda: np.zeros(shape = fragment_shape, dtype = np.float32)
+    def __init__(self, key1s, key2s, key3s, shape, prefix):
+        mkfile = lambda: np.zeros(shape = shape, dtype = np.float32)
         # fileset is built on the files dict, which is a mapping from (i,j,k)
         # fragment IDs to arrays. When a new fragment is accessed, a full
         # zero-cube will be created, so there is no need to keep track of what
         # needs padding.
         self.files = collections.defaultdict(mkfile)
-        shapestr = '-'.join(map(str, fragment_shape))
+        shapestr = '-'.join(map(str, shape))
         # normalize, e.g. remove repeated slashes, make all forward slash etc
         self.prefix = (pathlib.PurePath(prefix) / shapestr).as_posix()
         self.ext = 'f32'
 
         # map line-numbers to the fragment ID
-        self.key1s = {k: i // fragment_shape[0] for i, k in enumerate(key1s)}
-        self.key2s = {k: i // fragment_shape[1] for i, k in enumerate(key2s)}
+        self.key1s = {k: i // shape[0] for i, k in enumerate(key1s)}
+        self.key2s = {k: i // shape[1] for i, k in enumerate(key2s)}
 
         # map line-numbers to its index/offset/position in the fragment
-        self.off1s = {k: i %  fragment_shape[0] for i, k in enumerate(key1s)}
-        self.off2s = {k: i %  fragment_shape[1] for i, k in enumerate(key2s)}
+        self.off1s = {k: i % shape[0] for i, k in enumerate(key1s)}
+        self.off2s = {k: i % shape[1] for i, k in enumerate(key2s)}
 
         # samples/depth is implicitly indexed when read, so store how many
         # fragments there are in height
-        self.zsections = math.ceil(len(key3s) / fragment_shape[2])
-        self.fragment_shape = fragment_shape
+        self.zsections = math.ceil(len(key3s) / shape[2])
+        self.shape = shape
         self.traceno = 0
         self.limits = {}
 
@@ -172,7 +172,7 @@ class fileset:
         j = self.off2s[key2]
 
         values = self.extract(trace)
-        for index3, tr in enumerate(splitarray(values, self.fragment_shape[2])):
+        for index3, tr in enumerate(splitarray(values, self.shape[2])):
             fragment = self.files[(index1, index2, index3)]
             fragment[i, j, :len(tr)] = tr
 
@@ -216,14 +216,15 @@ class cdpset(fileset):
         else:
             return [cdp / -scale]
 
-def upload(manifest, fragment_shape, src, filesys):
+def upload(manifest, shape, src, filesys):
     """Upload volume to oneseismic
 
     Parameters
     ----------
     manifest : dict
         The parsed output of the scan program
-    fragment_shape : tuple of int
+    shape : tuple of int
+        The shape of the fragment, typically (64, 64, 64) (adds up to 1mb)
     src : io.BaseIO
     blob : azure.storage.blob.BlobServiceClient
     """
@@ -256,9 +257,9 @@ def upload(manifest, fragment_shape, src, filesys):
     trace = np.array(1, dtype = dtype)
     fmt = manifest['format']
 
-    files = fileset(key1s, key2s, key3s, fragment_shape, prefix = 'src')
+    files = fileset(key1s, key2s, key3s, shape, prefix = 'src')
     files.setlimits(manifest['key1-last-trace'])
-    shapeident = '-'.join(map(str, fragment_shape))
+    shapeident = '-'.join(map(str, shape))
     prefix = f'src/{shapeident}'
 
     attrs = [
@@ -268,7 +269,7 @@ def upload(manifest, fragment_shape, src, filesys):
             key1s,
             key2s,
             {1},
-            fragment_shape = (512, 512, 1),
+            shape = (512, 512, 1),
             prefix = 'attributes/cdpx',
         ),
         cdpset(
@@ -277,7 +278,7 @@ def upload(manifest, fragment_shape, src, filesys):
             key1s,
             key2s,
             {1},
-            fragment_shape = (512, 512, 1),
+            shape = (512, 512, 1),
             prefix = 'attributes/cdpy',
         ),
     ]
@@ -324,7 +325,7 @@ def upload(manifest, fragment_shape, src, filesys):
             {
                 'file-extension': 'f32',
                 'filters': [],
-                'shapes': [list(fragment_shape)],
+                'shapes': [list(shape)],
                 'prefix': 'src',
                 'resolution': 'source',
             },
