@@ -11,19 +11,36 @@
 #include <oneseismic/messages.hpp>
 #include <oneseismic/plan.hpp>
 
+namespace one {
+
 namespace {
 
-one::gvt< 3 > geometry(const one::basic_query& query) noexcept (false) {
+gvt< 3 > geometry(const basic_query& query) noexcept (false) {
     const auto& dimensions = query.manifest.line_numbers;
-    const auto& shape = query.shape;
+    const auto& shape = query.shape();
 
-    return one::gvt< 3 > {
+    return gvt< 3 > {
         { dimensions[0].size(),
           dimensions[1].size(),
           dimensions[2].size(), },
         { std::size_t(shape[0]),
           std::size_t(shape[1]),
           std::size_t(shape[2]), }
+    };
+}
+
+gvt< 3 > geometry(const basic_task& task) noexcept (true) {
+    return gvt< 3 > {
+        {
+            std::size_t(task.shape_cube[0]),
+            std::size_t(task.shape_cube[1]),
+            std::size_t(task.shape_cube[2]),
+        },
+        {
+            std::size_t(task.shape[0]),
+            std::size_t(task.shape[1]),
+            std::size_t(task.shape[2]),
+        }
     };
 }
 
@@ -38,6 +55,35 @@ int task_count(int jobs, int task_size) {
         throw std::runtime_error(msg);
     }
     return x;
+}
+
+std::string& append(std::string& list, const std::string& elem) {
+    list.append(elem);
+    list.push_back('\0');
+    return list;
+}
+
+template < typename Query >
+std::vector< std::string > normalized_attributes(const Query& q) {
+    std::vector< std::string > attrs;
+    attrs.reserve(q.attributes.size() * 2);
+
+    for (const auto& attr : q.attributes) {
+        if (attr == "cdp") {
+            attrs.push_back("cdpx");
+            attrs.push_back("cdpy");
+        } else {
+            attrs.push_back(attr);
+        }
+    };
+
+    std::sort(attrs.begin(), attrs.end());
+    attrs.erase(
+        std::unique(attrs.begin(), attrs.end()),
+        attrs.end()
+    );
+
+    return attrs;
 }
 
 /*
@@ -91,7 +137,7 @@ struct schedule_maker {
      *
      * The Output type should have a pack() method that returns a std::string
      */
-    Output build(const Input&) noexcept (false);
+    std::vector< Output > build(const Input&) noexcept (false);
 
     /*
      * Make a header. This function requires deep knowledge of the shape and
@@ -105,7 +151,7 @@ struct schedule_maker {
      * process header should provide enough information for clients to properly
      * pre-allocate and build metadata to make sense of data as it is streamed.
      */
-    one::process_header
+    process_header
     header(const Input&, int ntasks) noexcept (false);
 
     /*
@@ -114,93 +160,172 @@ struct schedule_maker {
      * called 'ids'. This is a name lookup - should the member be named
      * something else or accessed in a different way then you must implement a
      * custom partition().
+     *
+     * This function shall return \0-separated packed tasks. The last task
+     * shall be terminated with a \0, so that partition.count() can be
+     * implemented as std::count(begin, end, '\0'). While it is a slightly
+     * surprising interface (the most straight-forward would be
+     * vector-of-string), it makes processing the set-of-tasks slightly easier,
+     * saves a few allocations, and signals that the output is a bag of bytes.
      */
-    std::vector< std::string >
-    partition(Output&, int task_size) noexcept (false);
+    std::string partition(std::vector< Output >&, int task_size) noexcept (false);
 
     /*
      * Make a schedule() - calls build(), header(), and partition() in
      * sequence. The output vector should always have the header() as the
      * *last* element.
      */
-    std::vector< std::string >
+    std::string
     schedule(const char* doc, int len, int task_size) noexcept (false);
 };
 
+template< typename Outputs >
+int count_tasks(const Outputs& outputs, int task_size) noexcept (true) {
+    const auto add = [task_size](auto acc, const auto& elem) noexcept (true) {
+        return acc + task_count(elem.ids.size(), task_size);
+    };
+    return std::accumulate(outputs.begin(), outputs.end(), 0, add);
+}
+
 template < typename Input, typename Output >
-std::vector< std::string >
-schedule_maker< Input, Output >::partition(
-        Output& output,
-        int task_size
+std::string schedule_maker< Input, Output >::partition(
+    std::vector< Output >& outputs,
+    int task_size
 ) noexcept (false) {
     if (task_size < 1) {
         const auto msg = fmt::format("task_size (= {}) < 1", task_size);
         throw std::logic_error(msg);
     }
 
-    const auto ids = output.ids;
-    const auto ntasks = task_count(ids.size(), task_size);
+    // rough guess that all tasks are less or approx 12kb, to reduce the
+    // number of reallocs happening
+    constexpr const auto estimated_task_size = 12000;
+    std::string partitioned;
+    partitioned.reserve(count_tasks(outputs, task_size) * estimated_task_size);
 
-    using std::begin;
-    using std::end;
-    auto fst = begin(ids);
-    auto lst = end(ids);
+    for (auto& output : outputs) {
+        const auto ids = output.ids;
+        const auto ntasks = task_count(ids.size(), task_size);
 
-    std::vector< std::string > xs;
-    for (int i = 0; i < ntasks; ++i) {
-        const auto last = std::min(fst + task_size, lst);
-        output.ids.assign(fst, last);
-        std::advance(fst, last - fst);
-        xs.push_back(output.pack());
+        using std::begin;
+        using std::end;
+        auto fst = begin(ids);
+        auto lst = end(ids);
+
+        for (int i = 0; i < ntasks; ++i) {
+            const auto last = std::min(fst + task_size, lst);
+            output.ids.assign(fst, last);
+            std::advance(fst, last - fst);
+            append(partitioned, output.pack());
+        }
     }
 
-    return xs;
+    return partitioned;
 }
 
 template < typename Input, typename Output >
-std::vector< std::string >
-schedule_maker< Input, Output >::schedule(
+std::string schedule_maker< Input, Output >::schedule(
         const char* doc,
         int len,
         int task_size)
 noexcept (false) {
     Input in;
     in.unpack(doc, doc + len);
+    in.attributes = normalized_attributes(in);
     auto fetch = this->build(in);
     auto sched = this->partition(fetch, task_size);
 
-    const auto ntasks = int(sched.size());
+    const auto ntasks = int(std::count(sched.begin(), sched.end(), '\0'));
     const auto head   = this->header(in, ntasks);
-    sched.push_back(head.pack());
+    append(sched, head.pack());
     return sched;
 }
 
-template <>
-one::slice_task
-schedule_maker< one::slice_query, one::slice_task >::build(
-    const one::slice_query& query)
-{
-    auto task = one::slice_task(query);
+template < typename Seq, typename T = int >
+std::vector< T > to_vec(const Seq& s) {
+    using std::begin;
+    using std::end;
 
-    auto gvt = geometry(query);
-
-    const auto to_vec = [](const auto& x) {
-        return std::vector< int > { int(x[0]), int(x[1]), int(x[2]) };
+    auto convert = [](const auto x) noexcept (noexcept(T(x))) {
+        return T(x);
     };
 
-    task.idx = query.idx % gvt.fragment_shape()[query.dim];
-    const auto ids = gvt.slice(gvt.mkdim(query.dim), query.idx);
-    // TODO: name loop
-    for (const auto& id : ids)
-        task.ids.push_back(to_vec(id));
+    std::vector< T > xs(s.size());
+    std::transform(begin(s), end(s), begin(xs), convert);
+    return xs;
+}
 
-    return task;
+template < typename Query >
+auto find_desc(const Query& query, const std::string& attr)
+-> decltype(query.manifest.attr.begin()) {
+    return std::find_if(
+        query.manifest.attr.begin(),
+        query.manifest.attr.end(),
+        [&attr](const auto& desc) noexcept {
+            return desc.type == attr;
+        }
+    );
+}
+
+template < typename Seq >
+void append_vector_ids(
+    std::vector< std::vector< int > >& dst,
+    const Seq& src)
+{
+    using std::begin;
+    using std::end;
+    using dst_type = decltype(*begin(src));
+    auto append = std::back_inserter(dst);
+    std::transform(begin(src), end(src), append, to_vec< dst_type >);
 }
 
 template <>
-one::process_header
-schedule_maker< one::slice_query, one::slice_task >::header(
-    const one::slice_query& query,
+std::vector< slice_task >
+schedule_maker< slice_query, slice_task >::build(const slice_query& query) {
+    auto task = slice_task(query);
+    std::vector< slice_task > tasks;
+    tasks.reserve(query.attributes.size() + 1);
+
+    const auto gvt = geometry(query);
+    const auto dim = gvt.mkdim(query.dim);
+    task.idx = gvt.fragment_shape().index(dim, query.idx);
+    const auto ids = gvt.slice(dim, query.idx);
+    append_vector_ids(task.ids, ids);
+    tasks.push_back(task);
+
+    for (const auto& attr : query.attributes) {
+        /*
+         * It's perfectly common for queries to request attributes that aren't
+         * recorded for a survey - in this case, silently drop it
+         */
+        auto itr = find_desc(query, attr);
+        if (itr == query.manifest.attr.end())
+            continue;
+
+        auto task = slice_task(query, *itr);
+        const auto gvt3 = geometry(task);
+        /*
+         * Attributes are really 2D volumes (depth = 1), but stored as 3D
+         * volumes to make querying them trivial. However, when requesting
+         * attributes for z-slices, the index will almost always not be 0 (the
+         * only valid z-index in the attributes surface), but this applies only
+         * for queries where dim = z. Modulus moves the index back into the
+         * grid, and is a no-op for any index a valid dimension.
+         */
+        const auto idx = query.idx % gvt3.cube_shape()[dim];
+        task.idx = gvt3.fragment_shape().index(dim, idx);
+        const auto ids = gvt3.slice(dim, idx);
+        append_vector_ids(task.ids, ids);
+        tasks.push_back(task);
+    }
+
+    return tasks;
+}
+
+template <>
+process_header
+schedule_maker< slice_query, slice_task >::header(
+    const slice_query& query,
     int ntasks
 ) noexcept (false) {
     const auto& mdims = query.manifest.line_numbers;
@@ -209,9 +334,10 @@ schedule_maker< one::slice_query, one::slice_task >::header(
     const auto gvt2 = gvt.squeeze(dim);
     const auto fs2  = gvt2.fragment_shape();
 
-    one::process_header head;
-    head.pid    = query.pid;
-    head.ntasks = ntasks;
+    process_header head;
+    head.pid        = query.pid;
+    head.ntasks     = ntasks;
+    head.attributes = query.attributes;
 
     /*
      * The shape of a slice are the dimensions of the survey squeezed in that
@@ -251,7 +377,7 @@ noexcept (false) {
         const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
         if (*itr != x) {
             const auto msg = fmt::format("lineno {} not in index");
-            throw one::not_found(msg);
+            throw not_found(msg);
         }
         return std::distance(labels.begin(), itr);
     };
@@ -260,9 +386,9 @@ noexcept (false) {
 }
 
 template <>
-one::curtain_task
-schedule_maker< one::curtain_query, one::curtain_task >::build(
-    const one::curtain_query& query)
+std::vector< curtain_task >
+schedule_maker< curtain_query, curtain_task >::build(
+    const curtain_query& query)
 {
     const auto less = [](const auto& lhs, const auto& rhs) noexcept (true) {
         return std::lexicographical_compare(
@@ -276,7 +402,9 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
         return std::equal(lhs.begin(), lhs.end(), rhs.begin());
     };
 
-    auto task = one::curtain_task(query);
+    std::vector< curtain_task > tasks;
+    tasks.emplace_back(query);
+    auto& task = tasks.back();
     auto dim0s = query.dim0s;
     auto dim1s = query.dim1s;
     to_cartesian_inplace(query.manifest.line_numbers[0], dim0s);
@@ -311,7 +439,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
      * The bins are lexicographically sorted.
      */
     for (int i = 0; i < int(dim0s.size()); ++i) {
-        auto top_point = one::CP< 3 > {
+        auto top_point = CP< 3 > {
             std::size_t(dim0s[i]),
             std::size_t(dim1s[i]),
             std::size_t(0),
@@ -320,7 +448,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
 
         auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
         if (itr == ids.end() or (not equal(itr->id, fid))) {
-            one::single top;
+            single top;
             top.id.assign(fid.begin(), fid.end());
             top.coordinates.reserve(approx_coordinates_per_fragment);
             itr = ids.insert(itr, zfrags, top);
@@ -334,7 +462,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
      * ids.
      */
     for (int i = 0; i < int(dim0s.size()); ++i) {
-        const auto cp = one::CP< 3 > {
+        const auto cp = CP< 3 > {
             std::size_t(dim0s[i]),
             std::size_t(dim1s[i]),
             std::size_t(0),
@@ -348,20 +476,21 @@ schedule_maker< one::curtain_query, one::curtain_task >::build(
         }
     }
 
-    return task;
+    return tasks;
 }
 
 template <>
-one::process_header
-schedule_maker< one::curtain_query, one::curtain_task >::header(
-    const one::curtain_query& query,
+process_header
+schedule_maker< curtain_query, curtain_task >::header(
+    const curtain_query& query,
     int ntasks
 ) noexcept (false) {
     const auto& mdims = query.manifest.line_numbers;
 
-    one::process_header head;
-    head.pid    = query.pid;
-    head.ntasks = ntasks;
+    process_header head;
+    head.pid        = query.pid;
+    head.ntasks     = ntasks;
+    head.attributes = query.attributes;
 
     const auto gvt  = geometry(query);
     const auto zpad = gvt.nsamples_padded(gvt.mkdim(gvt.ndims - 1));
@@ -380,9 +509,7 @@ schedule_maker< one::curtain_query, one::curtain_task >::header(
 
 }
 
-namespace one {
-
-std::vector< std::string >
+std::string
 mkschedule(const char* doc, int len, int task_size) noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
     /*

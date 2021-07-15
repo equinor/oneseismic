@@ -35,7 +35,6 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_library(oneseismic
     src/base64.cpp
-    src/geometry.cpp
     src/messages.cpp
     src/plan.cpp
     src/process.cpp

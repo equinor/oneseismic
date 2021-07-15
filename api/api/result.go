@@ -51,6 +51,7 @@ func resultFromProcessHeader(
 		Bundles: head.Ntasks,
 		Shape:   head.Shape,
 		Index:   head.Index,
+		Attrs:   head.Attrs,
 	}
 }
 

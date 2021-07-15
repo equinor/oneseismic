@@ -88,7 +88,6 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
             "line-numbers": [[10]],
             "line-labels": ["dim-0"]
         },
-        "shape": [64, 64, 64],
         "function": "slice",
         "args": {
             "kind": "lineno",
@@ -114,7 +113,6 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
     CHECK(query.guid  == "object-id");
     CHECK(query.manifest == manifest);
     CHECK(query.storage_endpoint == "https://storage.com");
-    CHECK_THAT(query.shape,      Equals(std::vector< int >{ 64,  64,  64}));
     CHECK(query.dim == 0);
     CHECK(query.idx == 0);
 }

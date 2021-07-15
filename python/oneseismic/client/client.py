@@ -68,6 +68,8 @@ class assembler_slice(assembler):
 
         result = np.zeros((dims0 * dims1), dtype = np.single)
         for bundle in unpacked[1]:
+            if bundle.get('attribute') != 'data':
+                continue
             for tile in bundle['tiles']:
                 layout = tile
                 dst = layout['initial-skip']
@@ -84,12 +86,52 @@ class assembler_slice(assembler):
     def xarray(self, unpacked):
         index = unpacked[0]['index']
         a = self.numpy(unpacked)
+        shape = unpacked[0]['shape']
+
+        dims0 = len(index[0])
+        dims1 = len(index[1])
+
+        attrs = {}
+        for attr in unpacked[0]['attributes']:
+            dtype = 'f4'
+            if self.name.startswith('time'):
+                attrlabels = self.dims
+                attrshape = [dims0, dims1]
+            else:
+                attrlabels = self.dims[0]
+                attrshape = [dims0]
+            attrs[attr] = np.zeros(np.prod(attrshape), dtype = dtype).ravel()
+
+        for bundle in unpacked[1]:
+            if bundle['attribute'] not in attrs:
+                continue
+
+            result = attrs[bundle['attribute']]
+            for tile in bundle['tiles']:
+                layout = tile
+                dst = layout['initial-skip']
+                chunk_size = layout['chunk-size']
+                src = 0
+                v = tile['v']
+                for _ in range(layout['iterations']):
+                    result[dst : dst + chunk_size] = v[src : src + chunk_size]
+                    src += layout['substride']
+                    dst += layout['superstride']
+
         # TODO: add units for time/depth
+        coords = {
+            self.dims[0]: index[0],
+            self.dims[1]: index[1],
+        }
+
+        for k, v in attrs.items():
+            coords[k] = (attrlabels, v.reshape(attrshape))
+
         return xarray.DataArray(
             data   = a,
             dims   = self.dims,
             name   = self.name,
-            coords = index,
+            coords = coords,
         )
 
 class assembler_curtain(assembler):

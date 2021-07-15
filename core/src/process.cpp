@@ -81,16 +81,29 @@ std::unique_ptr< proc > proc::make(const std::string& kind) noexcept (false) {
         return nullptr;
 }
 
-void proc::set_fragment_shape(const std::string& shape) noexcept (false) {
-    this->prefix = "src/" + shape + "/";
+void proc::set_prefix(const basic_task& task) noexcept (false) {
+    fmt::format_to(
+        std::back_inserter(this->prefix),
+        "{}/{}/",
+        task.prefix,
+        fmt::join(task.shape, "-")
+    );
 }
 
-void proc::add_fragment(const std::string& id) noexcept (false) {
+void proc::add_fragment(
+        const std::string& id,
+        const std::string& ext)
+noexcept (false) {
     if (not this->frags.empty())
         this->frags.push_back(';');
 
     this->frags += this->prefix;
     this->frags += id;
+
+    if (not ext.empty()) {
+        this->frags += '.';
+        this->frags += ext;
+    }
 }
 
 void proc::clear() noexcept (true) {
@@ -102,29 +115,30 @@ const std::string& proc::fragments() const {
     return this->frags;
 }
 
+namespace {
+
 void slice::init(const char* msg, int len) {
     this->clear();
     this->input.unpack(msg, msg + len);
     this->output.tiles.resize(this->input.ids.size());
+    this->output.attr = this->input.attribute;
 
     const auto g3 = gvt3(this->input);
     const auto& fragment_shape = g3.fragment_shape();
-    const auto& cube_shape     = g3.cube_shape();
 
-    this->set_fragment_shape(fmt::format("{}", fmt::join(fragment_shape, "-")));
+    this->set_prefix(this->input);
     this->dim = g3.mkdim(this->input.dim);
     this->idx = this->input.idx;
     this->layout = fragment_shape.slice_stride(this->dim);
-    this->gvt = one::gvt< 2 >(
-        cube_shape.squeeze(this->dim),
-        fragment_shape.squeeze(this->dim)
-    );
+    this->gvt = g3.squeeze(this->dim);
 
     const auto& cs = this->gvt.cube_shape();
     this->output.shape.assign(cs.begin(), cs.end());
 
-    for (const auto& id : this->input.ids)
-        this->add_fragment(fmt::format("{}.f32", fmt::join(id, "-")));
+    for (const auto& id : this->input.ids) {
+        const auto name = fmt::format("{}", fmt::join(id, "-"));
+        this->add_fragment(name, this->input.ext);
+    }
 }
 
 void slice::add(int key, const char* chunk, int len) {
@@ -155,14 +169,14 @@ void curtain::init(const char* msg, int len) {
     this->clear();
     this->input.unpack(msg, msg + len);
     this->gvt = gvt3(this->input);
-    this->set_fragment_shape(
-        fmt::format("{}", fmt::join(this->gvt.fragment_shape(), "-"))
-    );
+    this->set_prefix(this->input);
 
     const auto& ids = this->input.ids;
 
-    for (const auto& single : ids)
-        this->add_fragment(fmt::format("{}.f32", fmt::join(single.id, "-")));
+    for (const auto& single : ids) {
+        const auto name = fmt::format("{}", fmt::join(single.id, "-"));
+        this->add_fragment(name, this->input.ext);
+    }
 
     /*
      * The curtain call uses an auxillary table to figure out where to write
@@ -226,6 +240,8 @@ void curtain::add(int key, const char* chunk, int len) {
 
 std::string curtain::pack() {
     return this->output.pack();
+}
+
 }
 
 }

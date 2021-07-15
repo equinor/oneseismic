@@ -1,7 +1,9 @@
+#ifndef ONESEISMIC_GEOMETRY_IMPL_HPP
+#define ONESEISMIC_GEOMETRY_IMPL_HPP
+
 #include <algorithm>
 #include <cassert>
 #include <functional>
-#include <iostream>
 #include <numeric>
 #include <vector>
 
@@ -301,7 +303,7 @@ void cartesian_product(
 
 template < std::size_t ND >
 std::vector< FID< ND > >
-gvt< ND >::slice(Dimension dim, std::size_t no) noexcept (false) {
+gvt< ND >::slice(Dimension dim, std::size_t no) const noexcept (false) {
     /*
      * A fairly straight-forward (although a bit slower than it had to) way of
      * getting the fragment IDs that slice a cube. Not quite as fast as it
@@ -406,6 +408,12 @@ const noexcept (true) {
 }
 
 template < std::size_t ND >
+std::size_t FS< ND >::index(dimension< ND > d, std::size_t idx)
+const noexcept (true) {
+    return idx % (*this)[d];
+}
+
+template < std::size_t ND >
 slice_layout FS< ND >::slice_stride(dimension< ND > d)
 const noexcept (false) {
     slice_layout s;
@@ -444,14 +452,6 @@ const noexcept (true) {
     return one::squeeze(d, *this);
 }
 
-template class gvt< 3 >;
-template class gvt< 2 >;
-template class CS < 3 >;
-template class CS < 2 >;
-template class FS < 3 >;
-template class FID < 3 >;
-template class FID < 2 >;
-template class basic_tuple< FID< 3 >, 3 >;
-template class basic_tuple< FS < 3 >, 3 >;
-
 }
+
+#endif //ONESEISMIC_GEOMETRY_IMPL_HPP

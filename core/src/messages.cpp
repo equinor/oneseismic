@@ -108,8 +108,8 @@ void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
     doc["guid"]             = query.guid;
     doc["manifest"]         = query.manifest;
     doc["storage_endpoint"] = query.storage_endpoint;
-    doc["shape"]            = query.shape;
     doc["function"]         = query.function;
+    doc["attributes"]       = query.attributes;
 }
 
 void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
@@ -118,8 +118,16 @@ void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
     doc.at("guid")            .get_to(query.guid);
     doc.at("manifest")        .get_to(query.manifest);
     doc.at("storage_endpoint").get_to(query.storage_endpoint);
-    doc.at("shape")           .get_to(query.shape);
     doc.at("function")        .get_to(query.function);
+
+    const auto optsitr = doc.find("opts");
+    if (optsitr == doc.end()) return;
+
+    const auto& opts = *optsitr;
+
+    const auto attr = opts.find("attributes");
+    if (attr != opts.end())
+        attr->get_to(query.attributes);
 }
 
 void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
@@ -127,9 +135,12 @@ void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
     doc["token"]            = task.token;
     doc["guid"]             = task.guid;
     doc["storage_endpoint"] = task.storage_endpoint;
+    doc["prefix"]           = task.prefix;
+    doc["ext"]              = task.ext;
     doc["shape"]            = task.shape;
     doc["shape-cube"]       = task.shape_cube;
     doc["function"]         = task.function;
+    doc["attribute"]        = task.attribute;
     assert(task.shape_cube.size() == task.shape.size());
 }
 
@@ -138,23 +149,28 @@ void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
     doc.at("token")           .get_to(task.token);
     doc.at("guid")            .get_to(task.guid);
     doc.at("storage_endpoint").get_to(task.storage_endpoint);
+    doc.at("prefix")          .get_to(task.prefix);
+    doc.at("ext")             .get_to(task.ext);
     doc.at("shape")           .get_to(task.shape);
     doc.at("shape-cube")      .get_to(task.shape_cube);
     doc.at("function")        .get_to(task.function);
+    doc.at("attribute")       .get_to(task.attribute);
 }
 
 void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
-    doc["pid"]    = head.pid;
-    doc["ntasks"] = head.ntasks;
-    doc["shape"]  = head.shape;
-    doc["index"]  = head.index;
+    doc["pid"]          = head.pid;
+    doc["ntasks"]       = head.ntasks;
+    doc["shape"]        = head.shape;
+    doc["index"]        = head.index;
+    doc["attributes"]   = head.attributes;
 }
 
 void from_json(const nlohmann::json& doc, process_header& head) noexcept (false) {
-    doc.at("pid")   .get_to(head.pid);
-    doc.at("ntasks").get_to(head.ntasks);
-    doc.at("shape") .get_to(head.shape);
-    doc.at("index") .get_to(head.index);
+    doc.at("pid")       .get_to(head.pid);
+    doc.at("ntasks")    .get_to(head.ntasks);
+    doc.at("shape")     .get_to(head.shape);
+    doc.at("index")     .get_to(head.index);
+    doc.at("attributes").get_to(head.attributes);
 }
 
 void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
@@ -273,13 +289,15 @@ void from_json(const nlohmann::json& doc, tile& tile) noexcept (false) {
 }
 
 void to_json(nlohmann::json& doc, const slice_tiles& tiles) noexcept (false) {
-    doc["shape"] = tiles.shape;
-    doc["tiles"] = tiles.tiles;
+    doc["attribute"]  = tiles.attr;
+    doc["shape"]      = tiles.shape;
+    doc["tiles"]      = tiles.tiles;
 }
 
 void from_json(const nlohmann::json& doc, slice_tiles& tiles) noexcept (false) {
-    doc.at("shape").get_to(tiles.shape);
-    doc.at("tiles").get_to(tiles.tiles);
+    doc.at("attribute").get_to(tiles.attr);
+    doc.at("shape")    .get_to(tiles.shape);
+    doc.at("tiles")    .get_to(tiles.tiles);
 }
 
 void to_json(nlohmann::json& doc, const single& single) noexcept (false) {

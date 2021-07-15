@@ -1,7 +1,6 @@
 #include <memory>
 #include <string>
 
-#include <oneseismic/geometry.hpp>
 #include <oneseismic/messages.hpp>
 #include <oneseismic/process.hpp>
 

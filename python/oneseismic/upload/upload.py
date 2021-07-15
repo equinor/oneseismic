@@ -5,6 +5,7 @@ import math
 import numpy as np
 import segyio
 import segyio._segyio
+import pathlib
 
 from segyio.tools import native
 
@@ -50,7 +51,7 @@ class fileset:
     key1s : list of int
     key2s : list of int
     key3s : list of int
-    fragment_shape : tuple of int
+    shape : tuple of int
 
     Notes
     -----
@@ -59,28 +60,47 @@ class fileset:
     this and will generate padding fragments when necessary. This may change in
     the future and should not be relied on.
     """
-    def __init__(self, key1s, key2s, key3s, fragment_shape):
-        mkfile = lambda: np.zeros(shape = fragment_shape, dtype = np.float32)
+    def __init__(self, key1s, key2s, key3s, shape, prefix):
+        mkfile = lambda: np.zeros(shape = shape, dtype = np.float32)
         # fileset is built on the files dict, which is a mapping from (i,j,k)
         # fragment IDs to arrays. When a new fragment is accessed, a full
         # zero-cube will be created, so there is no need to keep track of what
         # needs padding.
         self.files = collections.defaultdict(mkfile)
+        shapestr = '-'.join(map(str, shape))
+        # normalize, e.g. remove repeated slashes, make all forward slash etc
+        self.prefix = (pathlib.PurePath(prefix) / shapestr).as_posix()
+        self.ext = 'f32'
 
         # map line-numbers to the fragment ID
-        self.key1s = {k: i // fragment_shape[0] for i, k in enumerate(key1s)}
-        self.key2s = {k: i // fragment_shape[1] for i, k in enumerate(key2s)}
+        self.key1s = {k: i // shape[0] for i, k in enumerate(key1s)}
+        self.key2s = {k: i // shape[1] for i, k in enumerate(key2s)}
 
         # map line-numbers to its index/offset/position in the fragment
-        self.off1s = {k: i %  fragment_shape[0] for i, k in enumerate(key1s)}
-        self.off2s = {k: i %  fragment_shape[1] for i, k in enumerate(key2s)}
+        self.off1s = {k: i % shape[0] for i, k in enumerate(key1s)}
+        self.off2s = {k: i % shape[1] for i, k in enumerate(key2s)}
 
         # samples/depth is implicitly indexed when read, so store how many
         # fragments there are in height
-        self.zsections = math.ceil(len(key3s) / fragment_shape[2])
-        self.fragment_shape = fragment_shape
+        self.zsections = math.ceil(len(key3s) / shape[2])
+        self.shape = shape
         self.traceno = 0
         self.limits = {}
+
+    def manifest_entry(self):
+        """Return manifest key and entry
+
+        Return the key and entry to insert into the manifest. The fileset knows
+        how to issue a good entry. This should be implemented in derived
+        classes, as the entry is surely different.
+        """
+        return 'data', {
+            'file-extension': self.ext,
+            'filters': [],
+            'shapes': [list(self.shape)],
+            'prefix': self.prefix,
+            'resolution': 'source',
+        }
 
     def commit(self, key1):
         """
@@ -127,6 +147,21 @@ class fileset:
 
         self.traceno += 1
 
+    def extract(self, trace):
+        """Extract interesting data from a trace
+
+        This function should be overriden or specialised if you need something
+        other than the trace data (samples). For example, when using this for
+        extracting attributes, it should read (and scale) the appropriate
+        header word.
+
+        extract() returns an array_like, i.e. scalar values must be wrapped in
+        a list.
+
+        extracted : array_like
+        """
+        return trace['samples']
+
     def put(self, key1, key2, trace):
         """Put a trace
 
@@ -151,7 +186,8 @@ class fileset:
         i = self.off1s[key1]
         j = self.off2s[key2]
 
-        for index3, tr in enumerate(splitarray(trace, self.fragment_shape[2])):
+        values = self.extract(trace)
+        for index3, tr in enumerate(splitarray(values, self.shape[2])):
             fragment = self.files[(index1, index2, index3)]
             fragment[i, j, :len(tr)] = tr
 
@@ -176,14 +212,46 @@ class fileset:
 
         self.limits.update(limits)
 
-def upload(manifest, fragment_shape, src, filesys):
+
+class cdpset(fileset):
+    def __init__(self, word, key, *args, **kwargs):
+        self.type = f'{key}'
+        self.word = word
+        super().__init__(*args, **kwargs)
+
+    def extract(self, trace):
+        header = segyio.field.Field(buf = trace['header'], kind = 'trace')
+        scale = header[segyio.su.scalco]
+        # SEG-Y specifies that a scaling of 0 should be interpreted as identity
+        if scale == 0:
+            scale = 1
+
+        cdp = header[self.word]
+        if scale > 0:
+            return [cdp * scale]
+        else:
+            return [cdp / -scale]
+
+    def manifest_entry(self):
+        return 'attributes', {
+            # the type must match exactly with the prefix in storage
+            'type': f'cdp{self.type}',
+            'layout': 'tiled',
+            'file-extension': self.ext,
+            'labels': [f'cdp self.type}'.upper()],
+            'shapes': [self.shape],
+            'prefix': self.prefix,
+        },
+
+def upload(manifest, shape, src, filesys):
     """Upload volume to oneseismic
 
     Parameters
     ----------
     manifest : dict
         The parsed output of the scan program
-    fragment_shape : tuple of int
+    shape : tuple of int
+        The shape of the fragment, typically (64, 64, 64) (adds up to 1mb)
     src : io.BaseIO
     blob : azure.storage.blob.BlobServiceClient
     """
@@ -216,10 +284,30 @@ def upload(manifest, fragment_shape, src, filesys):
     trace = np.array(1, dtype = dtype)
     fmt = manifest['format']
 
-    files = fileset(key1s, key2s, key3s, fragment_shape)
-    files.setlimits(manifest['key1-last-trace'])
-    shapeident = '-'.join(map(str, fragment_shape))
-    prefix = f'src/{shapeident}'
+    files = [fileset(key1s, key2s, key3s, shape, prefix = 'src')]
+    files.extend([
+        cdpset(
+            segyio.su.cdpx,
+            'x',
+            key1s,
+            key2s,
+            {1},
+            shape = (512, 512, 1),
+            prefix = 'attributes/cdpx',
+        ),
+        cdpset(
+            segyio.su.cdpy,
+            'y',
+            key1s,
+            key2s,
+            {1},
+            shape = (512, 512, 1),
+            prefix = 'attributes/cdpy',
+        ),
+    ])
+
+    for fset in files:
+        fset.setlimits(manifest['key1-last-trace'])
 
     filesys.mkdir(guid)
     filesys.cd(guid)
@@ -234,35 +322,30 @@ def upload(manifest, fragment_shape, src, filesys):
 
         key1 = header[word1]
         key2 = header[word2]
-        files.put(key1, key2, data)
-        for ident, fragment in files.commit(key1):
-            ident = '-'.join(map(str, ident))
-            name = f'{prefix}/{ident}.f32'
-            print('uploading', name)
-            with filesys.open(name, mode = 'wb') as f:
-                f.write(fragment)
+        for fset in files:
+            fset.put(key1, key2, trace)
+
+        for fset in files:
+            for ident, block in fset.commit(key1):
+                ident = '-'.join(map(str, ident))
+                name = f'{fset.prefix}/{ident}.{fset.ext}'
+                print('uploading', name)
+
+                with filesys.open(name, mode = 'wb') as f:
+                    f.write(block)
 
     manifest = {
         'format-version': 1,
         'guid': guid,
-        'data': [
-            {
-                'file-extension': 'f32',
-                'filters': [],
-                'shapes': [list(fragment_shape)],
-                'prefix': 'src',
-                'resolution': 'source',
-            },
-        ],
-        'attributes': [
-        ],
-        'line-numbers': [
-            key1s,
-            key2s,
-            key3s,
-        ],
-        'line-labels': ['inline', 'crossline', 'depth'],
+        'data': [],
+        'attributes': [],
+        'line-numbers': [key1s, key2s, key3s],
+        'line-labels': ['inline', 'crossline', 'time'],
     }
+
+    for fset in files:
+        key, entry = fset.manifest_entry()
+        manifest[key].append(entry)
 
     with filesys.open('manifest.json', mode = 'wb') as f:
         f.write(json.dumps(manifest).encode())

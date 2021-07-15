@@ -89,6 +89,14 @@ SCENARIO( "Converting between global and local coordinates" ) {
     }
 }
 
+TEST_CASE("Global slice indices are mapped to fragment-local indices") {
+    const auto fs = one::FS< 3 > { 2, 3, 4 };
+    using Dim = one::FS< 3 >::Dimension;
+    CHECK(fs.index(Dim(0), 3) == 1);
+    CHECK(fs.index(Dim(1), 3) == 0);
+    CHECK(fs.index(Dim(2), 3) == 3);
+}
+
 TEST_CASE("Squeezing gvt") {
     const auto original = one::gvt< 3 >(
         one::CS< 3 >(6, 9, 18),

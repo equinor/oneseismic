@@ -67,15 +67,15 @@ func newScheduler(storage redis.Cmdable) scheduler {
 	}
 }
 
-func (sched *cppscheduler) MakeQuery(msg *message.Query) (*QueryPlan, error) {
-	task, err := msg.Pack()
+func (sched *cppscheduler) MakeQuery(query *message.Query) (*QueryPlan, error) {
+	msg, err := query.Pack()
 	if err != nil {
 		return nil, fmt.Errorf("pack error: %w", err)
 	}
 	// TODO: exhaustive error check including those from C++ exceptions
 	csched := C.mkschedule(
-		(*C.char)(unsafe.Pointer(&task[0])),
-		C.int(len(task)),
+		(*C.char)(unsafe.Pointer(&msg[0])),
+		C.int(len(msg)),
 		C.int(sched.tasksize),
 	)
 	defer C.cleanup(&csched)
@@ -96,9 +96,10 @@ func (sched *cppscheduler) MakeQuery(msg *message.Query) (*QueryPlan, error) {
 		this += uintptr(size)
 	}
 
+	headerindex := len(result) - 1
 	return &QueryPlan {
-		header: result[0],
-		plan:   result[1:],
+		header: result[headerindex],
+		plan:   result[:headerindex],
 	}, nil
 }
 

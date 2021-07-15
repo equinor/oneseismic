@@ -22,9 +22,9 @@ type Query struct {
 	Guid            string       `json:"guid"`
 	Manifest        interface {} `json:"manifest"`
 	StorageEndpoint string       `json:"storage_endpoint"`
-	Shape           []int32      `json:"shape"`
 	Function        string       `json:"function"`
 	Args            interface {} `json:"args"`
+	Opts            interface {} `json:"opts"`
 }
 
 func (msg *Query) Pack() ([]byte, error) {
@@ -39,14 +39,15 @@ func (msg *Query) Unpack(doc []byte) (*Query, error) {
  * Corresponds to basic_task and derivatives in oneseismic/messages.hpp, and
  * is read from the worker nodes when performing a task, which combined makes
  * up a process.
+
+ * Only the useful (to go) fields are parsed - the actual document has more
+ * fields.
  */
 type Task struct {
 	Pid             string       `json:"pid"`
 	Token           string       `json:"token"`
 	Guid            string       `json:"guid"`
 	StorageEndpoint string       `json:"storage_endpoint"`
-	Shape           []int32      `json:"shape"`
-	ShapeCube       []int32      `json:"shape-cube"`
 	Function        string       `json:"function"`
 }
 
@@ -130,6 +131,12 @@ type ProcessHeader struct {
 	 * language-specific index like in xarray in python.
 	 */
 	Index [][]int `json:"index"`
+	/*
+	 * The attributes included in the request, such as cdpx, cdpy, cdpm etc.
+	 * Getting attributes is just another task, but this is a parsing hint for
+	 * the assembler.
+	 */
+	Attrs []string `json:"attributes"`
 }
 
 func (m *ProcessHeader) Pack() ([]byte, error) {
@@ -149,6 +156,7 @@ type ResultHeader struct {
 	Bundles int
 	Shape   []int
 	Index   [][]int
+	Attrs   []string
 }
 
 /*
@@ -163,13 +171,14 @@ func (rh *ResultHeader) Pack() ([]byte, error) {
 	if err := enc.EncodeArrayLen(2); err != nil {
 		return nil, err
 	}
-	if err := enc.EncodeMapLen(3); err != nil {
+	if err := enc.EncodeMapLen(4); err != nil {
 		return nil, err
 	}
 	err := enc.EncodeMulti(
-		"bundles", rh.Bundles,
-		"shape",   rh.Shape,
-		"index",   rh.Index,
+		"bundles",    rh.Bundles,
+		"shape",      rh.Shape,
+		"index",      rh.Index,
+		"attributes", rh.Attrs,
 	)
 	if err != nil {
 		return nil, err

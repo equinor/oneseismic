@@ -64,13 +64,32 @@ struct manifestdoc {
  * their job.
  */
 struct basic_query {
-    std::string        pid;
-    std::string        token;
-    std::string        guid;
-    manifestdoc        manifest;
-    std::string        storage_endpoint;
-    std::vector< int > shape;
-    std::string        function;
+    std::string                 pid;
+    std::string                 token;
+    std::string                 guid;
+    manifestdoc                 manifest;
+    std::string                 storage_endpoint;
+    std::string                 function;
+    std::vector< std::string >  attributes;
+
+    const std::vector< int >& shape() const noexcept (false) {
+        /*
+         * When support is in place, users (and oneseismic itself, really) can
+         * hint at what shape would be better for a particular query, but at
+         * the end of the day it has to query a fragment set that's available.
+         * The optimal cell size very much depends on the type of query, so
+         * specific *_query objects might want to implement specific logic for
+         * the shape() function. Now, it is probably sufficient to pick the
+         * first (and usually only) shape.
+         *
+         * The use of at() is deliberate to detect badly-formatted manifests.
+         */
+        try {
+            return this->manifest.vol.at(0).shapes.at(0);
+        } catch (std::out_of_range&) {
+            throw bad_document("Missing data or shape field");
+        }
+    }
 };
 
 struct basic_task {
@@ -79,22 +98,45 @@ struct basic_task {
         pid              (q.pid),
         token            (q.token),
         guid             (q.guid),
+        prefix           (q.manifest.vol.at(0).prefix),
+        ext              (q.manifest.vol.at(0).ext),
         storage_endpoint (q.storage_endpoint),
-        shape            (q.shape),
-        function         (q.function)
+        shape            (q.shape()),
+        function         (q.function),
+        attribute        ("data")
     {
         this->shape_cube.reserve(q.manifest.line_numbers.size());
         for (const auto& d : q.manifest.line_numbers)
             this->shape_cube.push_back(d.size());
     }
 
+    basic_task(const basic_query& q, const attributedesc& attr) :
+        pid              (q.pid),
+        token            (q.token),
+        guid             (q.guid),
+        prefix           (attr.prefix),
+        ext              (attr.ext),
+        storage_endpoint (q.storage_endpoint),
+        shape            (attr.shapes.at(0)),
+        function         (q.function),
+        attribute        (attr.type)
+    {
+        this->shape_cube.reserve(q.manifest.line_numbers.size());
+        for (const auto& d : q.manifest.line_numbers)
+            this->shape_cube.push_back(d.size());
+        this->shape_cube.back() = 1;
+    }
+
     std::string        pid;
     std::string        token;
     std::string        guid;
     std::string        storage_endpoint;
+    std::string        prefix;
+    std::string        ext;
     std::vector< int > shape;
     std::vector< int > shape_cube;
     std::string        function;
+    std::string        attribute;
 };
 
 /*
@@ -109,10 +151,11 @@ struct basic_task {
  * parameters.
  */
 struct process_header : Packable< process_header > {
-    std::string        pid;
-    int                ntasks;
-    std::vector< int > shape;
-    std::vector< std::vector< int > > index;
+    std::string                         pid;
+    int                                 ntasks;
+    std::vector< int >                  shape;
+    std::vector< std::vector< int > >   index;
+    std::vector< std::string >          attributes;
 };
 
 struct slice_query : public basic_query, Packable< slice_query > {
@@ -134,6 +177,11 @@ struct slice_task : public basic_task, Packable< slice_task > {
         dim(q.dim)
     {}
 
+    slice_task(const slice_query& q, const attributedesc& attr) :
+        basic_task(q, attr),
+        dim(q.dim)
+    {}
+
     int dim;
     int idx;
     std::vector< std::vector< int > > ids;
@@ -152,6 +200,7 @@ struct slice_tiles : public MsgPackable< slice_tiles > {
     /*
      * The shape of the slice itself
      */
+    std::string attr;
     std::vector< int > shape;
     std::vector< tile > tiles;
 };
