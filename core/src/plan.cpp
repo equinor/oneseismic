@@ -1,10 +1,12 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include <fmt/format.h>
+#include <msgpack.hpp>
 #include <nlohmann/json.hpp>
 
 #include <oneseismic/geometry.hpp>
@@ -213,6 +215,30 @@ taskset schedule_maker< Input, Output >::partition(
     return partitioned;
 }
 
+std::string pack_with_envelope(const process_header& head) {
+    /*
+     * The response message format is designed in such as way that the clients
+     * can choose to buffer and parse the message in one go, or stream it. This
+     * means that the message *as a whole* must be valid msgpack message, and
+     * not just a by-convention concatenation of independent messages.
+     *
+     * The whole response as msgpack looks like this:
+     * [header, [part1, part2, part3, ...]]
+     *
+     * which in bytes looks like:
+     * array(2) header array(n) part1 part2 part3
+     *
+     * where "space" means concatenation, and array(k) is array type tag and
+     * length. This functions add these array tags around the header.
+     */
+    std::stringstream buffer;
+    msgpack::packer< decltype(buffer) > packer(buffer);
+    packer.pack_array(2);
+    buffer << head.pack();
+    packer.pack_array(head.nbundles);
+    return buffer.str();
+}
+
 template < typename Input, typename Output >
 taskset schedule_maker< Input, Output >::schedule(
         const char* doc,
@@ -227,7 +253,7 @@ noexcept (false) {
 
     const auto ntasks = int(sched.count());
     const auto head   = this->header(in, ntasks);
-    sched.append(head.pack());
+    sched.append(pack_with_envelope(head));
     return sched;
 }
 

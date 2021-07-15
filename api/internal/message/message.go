@@ -146,5 +146,8 @@ func (m *ProcessHeader) Pack() ([]byte, error) {
 
 func (m *ProcessHeader) Unpack(doc []byte) (*ProcessHeader, error) {
 	m.RawHeader = doc
-	return m, msgpack.Unmarshal(doc, m)
+	// Skip the first byte (the envelope), which should always be array-len = 2
+	// but would make the msgpack object incomplete. We only care about the map
+	// that follows immediately after
+	return m, msgpack.Unmarshal(doc[1:], m)
 }
