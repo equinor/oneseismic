@@ -144,17 +144,27 @@ struct basic_task {
  * describes the number of tasks the process has been split into and advices
  * the client on how to parse the response.
  *
- * The process header is written from a point of awareness of the shape of the
- * survey, so the shape tuple is the shape of the response *with padding*.
+ * The index is context sensitive, and the content depends on the structure
+ * queried - for example, for a slice(dim: 0) it is the crossline numbers and
+ * time/depth interval.
  *
- * The contents and order of the shape and index depend on the request type and
- * parameters.
+ * The index is laid out linearly, fortran style, and the first ndims items are
+ * the dimensions. Conceptually it works like this:
+ *
+ * {
+ *  ndims: 2
+ *  index: [3 5 [n1 n2 n3] [m1 m2 m3 m4 m5]]
+ * }
+ *
+ * While it makes the structure slightly less intuitive, it makes parsing and
+ * serializing a lot simpler in many (otherwise clumsy) cases.
+ *
  */
 struct process_header : MsgPackable< process_header > {
     std::string                         pid;
     int                                 nbundles;
-    std::vector< int >                  shape;
-    std::vector< std::vector< int > >   index;
+    int                                 ndims;
+    std::vector< int >                  index;
     std::vector< std::string >          attributes;
 };
 

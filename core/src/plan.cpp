@@ -345,24 +345,12 @@ schedule_maker< slice_query, slice_task >::header(
     int ntasks
 ) noexcept (false) {
     const auto& mdims = query.manifest.line_numbers;
-    const auto gvt  = geometry(query);
-    const auto dim  = gvt.mkdim(query.dim);
-    const auto gvt2 = gvt.squeeze(dim);
-    const auto fs2  = gvt2.fragment_shape();
 
     process_header head;
     head.pid        = query.pid;
     head.nbundles   = ntasks;
+    head.ndims      = mdims.size() - 1;
     head.attributes = query.attributes;
-
-    /*
-     * The shape of a slice are the dimensions of the survey squeezed in that
-     * dimension.
-     */
-    for (std::size_t i = 0; i < fs2.size(); ++i) {
-        const auto dim = gvt2.mkdim(i);
-        head.shape.push_back(gvt2.nsamples(dim));
-    }
 
     /*
      * Build the index from the line numbers for the directions !=
@@ -370,7 +358,11 @@ schedule_maker< slice_query, slice_task >::header(
      */
     for (std::size_t i = 0; i < mdims.size(); ++i) {
         if (i == query.dim) continue;
-        head.index.push_back(mdims[i]);
+        head.index.push_back(mdims[i].size());
+    }
+    for (std::size_t i = 0; i < mdims.size(); ++i) {
+        if (i == query.dim) continue;
+        head.index.insert(head.index.end(), mdims[i].begin(), mdims[i].end());
     }
     return head;
 }
@@ -383,9 +375,8 @@ schedule_maker< slice_query, slice_task >::header(
  * used for lookup directly. From oneseismic's point of view, the grid labels
  * are forgotten after this function is called.
  */
-void to_cartesian_inplace(
-    const std::vector< int >& labels,
-    std::vector< int >& xs)
+template < typename Itr >
+Itr to_cartesian_inplace(const std::vector< int >& labels, Itr fst, Itr lst)
 noexcept (false) {
     assert(std::is_sorted(labels.begin(), labels.end()));
 
@@ -398,7 +389,13 @@ noexcept (false) {
         return std::distance(labels.begin(), itr);
     };
 
-    std::transform(xs.begin(), xs.end(), xs.begin(), indexof);
+    return std::transform(fst, lst, fst, indexof);
+}
+
+std::vector< int >::iterator
+to_cartesian_inplace( const std::vector< int >& labels, std::vector< int >& xs)
+noexcept (false) {
+    return to_cartesian_inplace(labels, xs.begin(), xs.end());
 }
 
 template <>
@@ -506,20 +503,23 @@ schedule_maker< curtain_query, curtain_task >::header(
     process_header head;
     head.pid        = query.pid;
     head.nbundles   = ntasks;
+    head.ndims      = mdims.size();
     head.attributes = query.attributes;
 
-    const auto gvt  = geometry(query);
-    const auto zpad = gvt.nsamples_padded(gvt.mkdim(gvt.ndims - 1));
-    head.shape = {
-        int(query.dim0s.size()),
-        int(zpad),
-    };
+    auto& index = head.index;
 
-    head.index.push_back(query.dim0s);
-    head.index.push_back(query.dim1s);
-    head.index.push_back(mdims.back());
-    to_cartesian_inplace(mdims[0], head.index[0]);
-    to_cartesian_inplace(mdims[1], head.index[1]);
+    index.push_back(query.dim0s .size());
+    index.push_back(query.dim1s .size());
+    index.push_back(mdims.back().size());
+
+    index.insert(index.end(), query.dim0s .begin(), query.dim0s .end());
+    index.insert(index.end(), query.dim1s .begin(), query.dim1s .end());
+    index.insert(index.end(), mdims.back().begin(), mdims.back().end());
+
+    auto itr = index.begin() + mdims.size();
+    itr = to_cartesian_inplace(mdims[0], itr, itr + query.dim0s.size());
+    itr = to_cartesian_inplace(mdims[1], itr, itr + query.dim1s.size());
+
     return head;
 }
 
