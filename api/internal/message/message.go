@@ -70,17 +70,6 @@ func (m *Manifest) Unpack(doc []byte) (*Manifest, error) {
 	return m, json.Unmarshal(doc, m)
 }
 
-
-type SliceParams struct {
-	Dim    int `json:"dim"`
-	Lineno int `json:"lineno"`
-}
-
-type CurtainParams struct {
-	Dim0s []int `json:"dim0s"`
-	Dim1s []int `json:"dim1s"`
-}
-
 type DimensionDescription struct {
 	Dimension int   `json:"dimension"`
 	Size      int   `json:"size"`
