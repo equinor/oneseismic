@@ -99,44 +99,11 @@ func (m *DimensionDescription) Pack() ([]byte, error) {
  */
 type ProcessHeader struct {
 	/*
-	 * The pid for this process. It is usually redundant from the api/result
-	 * perspective since the document itself will be stored (namespaced) with
-	 * the pid as key, but having it easily available is quite useful for other
-	 * parts of the system. Additionally, it can be used to sanity check data
-	 * and request parameters.
-	 */
-	Pid string    `msgpack:"pid"`
-	/*
 	 * The number of separate parts this is broken into, where each part can be
 	 * handled by a separate worker. This is the number of "bundles"
 	 * (parts-of-results) the client will receive.
 	 */
 	Ntasks int    `msgpack:"nbundles"`
-	/*
-	 * The shape of the result *with padding*. It shall always hold that
-	 * shape[n] >= len(index[n]) and len(shape) == len(index). This is an
-	 * advice to clients that they can use to pre-allocate buffers - a buffer
-	 * of size product(shape...) will hold the full response.
-	 */
-	Shape []int   `msgpack:"shape"`
-	/*
-	 * The index, i.e. the ordered set of keys for each dimension. This is only
-	 * a (useful) suggestion for assembly, and data can be written in any
-	 * order.
-	 *
-	 * While assembly must be aware that bundles may show up in any order,
-	 * having a "map" (in the treasure map sense) of what shape and keys to
-	 * expect is quite useful for pre-allocation, and stuff like building a
-	 * language-specific index like in xarray in python.
-	 */
-	Index [][]int `msgpack:"index"`
-	/*
-	 * The attributes included in the request, such as cdpx, cdpy, cdpm etc.
-	 * Getting attributes is just another task, but this is a parsing hint for
-	 * the assembler.
-	 */
-	Attrs []string `msgpack:"attributes"`
-
 	RawHeader []byte
 }
 
