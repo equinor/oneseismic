@@ -326,7 +326,7 @@ schedule_maker< slice_query, slice_task >::header(
 
     process_header head;
     head.pid        = query.pid;
-    head.ntasks     = ntasks;
+    head.nbundles   = ntasks;
     head.attributes = query.attributes;
 
     /*
@@ -479,7 +479,7 @@ schedule_maker< curtain_query, curtain_task >::header(
 
     process_header head;
     head.pid        = query.pid;
-    head.ntasks     = ntasks;
+    head.nbundles   = ntasks;
     head.attributes = query.attributes;
 
     const auto gvt  = geometry(query);

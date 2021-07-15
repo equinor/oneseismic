@@ -1,7 +1,6 @@
 package message
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -106,20 +105,20 @@ type ProcessHeader struct {
 	 * parts of the system. Additionally, it can be used to sanity check data
 	 * and request parameters.
 	 */
-	Pid string    `json:"pid"`
+	Pid string    `msgpack:"pid"`
 	/*
 	 * The number of separate parts this is broken into, where each part can be
 	 * handled by a separate worker. This is the number of "bundles"
 	 * (parts-of-results) the client will receive.
 	 */
-	Ntasks int    `json:"ntasks"`
+	Ntasks int    `msgpack:"nbundles"`
 	/*
 	 * The shape of the result *with padding*. It shall always hold that
 	 * shape[n] >= len(index[n]) and len(shape) == len(index). This is an
 	 * advice to clients that they can use to pre-allocate buffers - a buffer
 	 * of size product(shape...) will hold the full response.
 	 */
-	Shape []int   `json:"shape"`
+	Shape []int   `msgpack:"shape"`
 	/*
 	 * The index, i.e. the ordered set of keys for each dimension. This is only
 	 * a (useful) suggestion for assembly, and data can be written in any
@@ -130,61 +129,22 @@ type ProcessHeader struct {
 	 * expect is quite useful for pre-allocation, and stuff like building a
 	 * language-specific index like in xarray in python.
 	 */
-	Index [][]int `json:"index"`
+	Index [][]int `msgpack:"index"`
 	/*
 	 * The attributes included in the request, such as cdpx, cdpy, cdpm etc.
 	 * Getting attributes is just another task, but this is a parsing hint for
 	 * the assembler.
 	 */
-	Attrs []string `json:"attributes"`
+	Attrs []string `msgpack:"attributes"`
+
+	RawHeader []byte
 }
 
 func (m *ProcessHeader) Pack() ([]byte, error) {
-	return json.Marshal(m)
+	return msgpack.Marshal(m);
 }
 
 func (m *ProcessHeader) Unpack(doc []byte) (*ProcessHeader, error) {
-	return m, json.Unmarshal(doc, m)
-}
-
-/*
- * The header written as the first part of the end-user result, and meant to be
- * decoded by the clients. Since this is client-facing it has much higher
- * stability requirements than most messages in oneseismic.
- */
-type ResultHeader struct {
-	Bundles int
-	Shape   []int
-	Index   [][]int
-	Attrs   []string
-}
-
-/*
- * Pack the result header. Please note that the result of Pack() is *not* a
- * valid msgpack message - it assumes that the caller will add Bundles elements
- * after to complete the array.
- */
-func (rh *ResultHeader) Pack() ([]byte, error) {
-	var b bytes.Buffer
-	enc := msgpack.NewEncoder(&b)
-
-	if err := enc.EncodeArrayLen(2); err != nil {
-		return nil, err
-	}
-	if err := enc.EncodeMapLen(4); err != nil {
-		return nil, err
-	}
-	err := enc.EncodeMulti(
-		"bundles",    rh.Bundles,
-		"shape",      rh.Shape,
-		"index",      rh.Index,
-		"attributes", rh.Attrs,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := enc.EncodeArrayLen(rh.Bundles); err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
+	m.RawHeader = doc
+	return m, msgpack.Unmarshal(doc, m)
 }

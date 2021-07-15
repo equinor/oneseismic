@@ -49,12 +49,12 @@ void MsgPackable< T >::unpack(const char* fst, const char* lst) noexcept (false)
  * interface, which would require go (and other dependencies) to be aware of
  * it.
  */
-template class Packable< process_header >;
 template class Packable< slice_query >;
 template class Packable< slice_task >;
 template class Packable< curtain_query >;
 template class Packable< curtain_task >;
 
+template class MsgPackable< process_header >;
 template class MsgPackable< slice_tiles >;
 template class MsgPackable< curtain_traces >;
 
@@ -159,7 +159,7 @@ void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
     doc["pid"]          = head.pid;
-    doc["ntasks"]       = head.ntasks;
+    doc["nbundles"]     = head.nbundles;
     doc["shape"]        = head.shape;
     doc["index"]        = head.index;
     doc["attributes"]   = head.attributes;
@@ -167,7 +167,7 @@ void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
 
 void from_json(const nlohmann::json& doc, process_header& head) noexcept (false) {
     doc.at("pid")       .get_to(head.pid);
-    doc.at("ntasks")    .get_to(head.ntasks);
+    doc.at("nbundles")  .get_to(head.nbundles);
     doc.at("shape")     .get_to(head.shape);
     doc.at("index")     .get_to(head.index);
     doc.at("attributes").get_to(head.attributes);

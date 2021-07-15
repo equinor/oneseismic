@@ -150,9 +150,9 @@ struct basic_task {
  * The contents and order of the shape and index depend on the request type and
  * parameters.
  */
-struct process_header : Packable< process_header > {
+struct process_header : MsgPackable< process_header > {
     std::string                         pid;
-    int                                 ntasks;
+    int                                 nbundles;
     std::vector< int >                  shape;
     std::vector< std::vector< int > >   index;
     std::vector< std::string >          attributes;

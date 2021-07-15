@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/go-redis/redis/v8"
 	"github.com/gin-gonic/gin"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Result struct {
@@ -44,15 +46,13 @@ func parseProcessHeader(doc []byte) (*message.ProcessHeader, error) {
 	return ph, nil
 }
 
-func resultFromProcessHeader(
-	head *message.ProcessHeader,
-) *message.ResultHeader {
-	return &message.ResultHeader {
-		Bundles: head.Ntasks,
-		Shape:   head.Shape,
-		Index:   head.Index,
-		Attrs:   head.Attrs,
-	}
+func wrap(head* message.ProcessHeader) []byte {
+	var b bytes.Buffer
+	enc := msgpack.NewEncoder(&b)
+	enc.EncodeArrayLen(2)
+	b.Write(head.RawHeader)
+	enc.EncodeArrayLen(head.Ntasks)
+	return b.Bytes()
 }
 
 func collectResult(
@@ -68,13 +68,7 @@ func collectResult(
 	// and that the transfer is completed.
 	defer close(tiles)
 
-	rh := resultFromProcessHeader(head)
-	rhpacked, err := rh.Pack()
-	if err != nil {
-		failure <- err
-		return
-	}
-	tiles <- rhpacked
+	tiles <- wrap(head)
 
 	streamCursor := "0"
 	count := 0
