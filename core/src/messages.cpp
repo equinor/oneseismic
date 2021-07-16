@@ -357,13 +357,11 @@ void from_json(const nlohmann::json& doc, tile& tile) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const slice_tiles& tiles) noexcept (false) {
     doc["attribute"]  = tiles.attr;
-    doc["shape"]      = tiles.shape;
     doc["tiles"]      = tiles.tiles;
 }
 
 void from_json(const nlohmann::json& doc, slice_tiles& tiles) noexcept (false) {
     doc.at("attribute").get_to(tiles.attr);
-    doc.at("shape")    .get_to(tiles.shape);
     doc.at("tiles")    .get_to(tiles.tiles);
 }
 

@@ -207,11 +207,7 @@ struct tile {
 };
 
 struct slice_tiles {
-    /*
-     * The shape of the slice itself
-     */
     std::string attr;
-    std::vector< int > shape;
     std::vector< tile > tiles;
 
     std::string pack()   const noexcept (false);

@@ -132,9 +132,6 @@ void slice::init(const char* msg, int len) {
     this->layout = fragment_shape.slice_stride(this->dim);
     this->gvt = g3.squeeze(this->dim);
 
-    const auto& cs = this->gvt.cube_shape();
-    this->output.shape.assign(cs.begin(), cs.end());
-
     for (const auto& id : this->input.ids) {
         const auto name = fmt::format("{}", fmt::join(id, "-"));
         this->add_fragment(name, this->input.ext);
