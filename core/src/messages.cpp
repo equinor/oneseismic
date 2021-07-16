@@ -2,6 +2,7 @@
 #include <string>
 
 #include <fmt/format.h>
+#include <msgpack.hpp>
 #include <nlohmann/json.hpp>
 
 #include <oneseismic/messages.hpp>
@@ -55,8 +56,74 @@ template class Packable< curtain_query >;
 template class Packable< curtain_task >;
 
 template class MsgPackable< process_header >;
-template class MsgPackable< slice_tiles >;
 template class MsgPackable< curtain_traces >;
+
+std::string slice_tiles::pack() const noexcept (false) {
+    msgpack::sbuffer buffer;
+    msgpack::packer< decltype(buffer) > packer(buffer);
+
+    /*
+     * Pack the slice tiles as a tuple, which maps to the msgpack array, since
+     * types are onto the value itself, not on the enclosing structure.
+     *
+     * This means consumers of the message must know the order of fields to
+     * make sense of the message, but the space savings (and slightly lower
+     * complexity of parsing) makes it worth it (compared to maps, this
+     * typically reduces message size by half, which means 50% less network
+     * traffic to users).
+     */
+    packer.pack_array(2);
+    packer.pack(this->attr);
+    packer.pack_array(tiles.size());
+    for (const auto& tile : this->tiles) {
+        packer.pack_array(6);
+        packer.pack(tile.iterations);
+        packer.pack(tile.chunk_size);
+        packer.pack(tile.initial_skip);
+        packer.pack(tile.superstride);
+        packer.pack(tile.substride);
+        packer.pack(tile.v);
+    }
+
+    return std::string(buffer.data(), buffer.size());
+}
+
+void slice_tiles::unpack(const char* fst, const char* lst) noexcept (false) {
+    /*
+     * Unpack is a bit rough, but is only used for testing purposes
+     */
+    const auto ensurearray = [](const auto& o) noexcept (false) {
+        if (o.type != msgpack::v2::type::ARRAY) {
+            const auto msg = fmt::format("expected array, was {}", o.type);
+            throw std::logic_error(msg);
+        }
+    };
+
+    const auto result = msgpack::unpack(fst, std::distance(fst, lst));
+    const auto& obj = result.get();
+
+    ensurearray(obj);
+    auto root  = obj.via.array.ptr;
+    this->attr = root[0].as< std::string >();
+
+    ensurearray(root[1]);
+    const auto ntiles = root[1].via.array.size;
+    const auto* tiles = root[1].via.array.ptr;
+
+    this->tiles.clear();
+    for (int i = 0; i < ntiles; ++i) {
+        ensurearray(tiles[i]);
+        auto ptile = tiles[i].via.array.ptr;
+        tile t;
+        t.iterations    = ptile[0].as< int >();
+        t.chunk_size    = ptile[1].as< int >();
+        t.initial_skip  = ptile[2].as< int >();
+        t.superstride   = ptile[3].as< int >();
+        t.substride     = ptile[4].as< int >();
+        t.v             = ptile[5].as< std::vector< float > >();
+        this->tiles.push_back(std::move(t));
+    }
+}
 
 void from_json(const nlohmann::json& doc, volumedesc& v) noexcept (false) {
     doc.at("prefix")        .get_to(v.prefix);

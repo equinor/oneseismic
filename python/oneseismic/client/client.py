@@ -68,18 +68,25 @@ class assembler_slice(assembler):
 
         result = np.zeros(shape, dtype = np.single).ravel()
         for bundle in unpacked[1]:
-            if bundle.get('attribute') != 'data':
+            attribute = bundle[0]
+            tiles = bundle[1]
+
+            if attribute != 'data':
                 continue
-            for tile in bundle['tiles']:
-                layout = tile
-                dst = layout['initial-skip']
-                chunk_size = layout['chunk-size']
+
+            for tile in tiles:
+                iterations   = tile[0]
+                chunk_size   = tile[1]
+                initial_skip = tile[2]
+                superstride  = tile[3]
+                substride    = tile[4]
+                v            = tile[5]
                 src = 0
-                v = tile['v']
-                for _ in range(layout['iterations']):
+                dst = initial_skip
+                for _ in range(iterations):
                     result[dst : dst + chunk_size] = v[src : src + chunk_size]
-                    src += layout['substride']
-                    dst += layout['superstride']
+                    dst += superstride
+                    src += substride
 
         return result.reshape(shape)
 
@@ -104,20 +111,26 @@ class assembler_slice(assembler):
             attrs[attr] = np.zeros(np.prod(attrshape), dtype = dtype).ravel()
 
         for bundle in unpacked[1]:
-            if bundle['attribute'] not in attrs:
+            attribute = bundle[0]
+            tiles = bundle[1]
+
+            if attribute not in attrs:
                 continue
 
-            result = attrs[bundle['attribute']]
-            for tile in bundle['tiles']:
-                layout = tile
-                dst = layout['initial-skip']
-                chunk_size = layout['chunk-size']
+            result = attrs[attribute]
+            for tile in tiles:
+                iterations   = tile[0]
+                chunk_size   = tile[1]
+                initial_skip = tile[2]
+                superstride  = tile[3]
+                substride    = tile[4]
+                v            = tile[5]
                 src = 0
-                v = tile['v']
-                for _ in range(layout['iterations']):
+                dst = initial_skip
+                for _ in range(iterations):
                     result[dst : dst + chunk_size] = v[src : src + chunk_size]
-                    src += layout['substride']
-                    dst += layout['superstride']
+                    dst += superstride
+                    src += substride
 
         # TODO: add units for time/depth
         coords = {
