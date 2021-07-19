@@ -238,7 +238,7 @@ class cdpset(fileset):
             'type': f'cdp{self.type}',
             'layout': 'tiled',
             'file-extension': self.ext,
-            'labels': [f'cdp self.type}'.upper()],
+            'labels': [f'cdp {self.type}'.upper()],
             'shapes': [self.shape],
             'prefix': self.prefix,
         },
