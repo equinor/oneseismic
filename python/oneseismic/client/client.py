@@ -168,40 +168,36 @@ class assembler_curtain(assembler):
         shape = index[:ndims]
         index = [dim for dim in splitindex(ndims, index)]
 
-        # pre-compute where to put traces based on the dim0/dim1 coordinates
-        # note that the index is made up of zero-indexed coordinates in the volume,
-        # not the actual line numbers
-        xyindex = { (x, y): i for i, (x, y) in enumerate(zip(index[0], index[1])) }
-
-        # allocate the result. The shape can be slightly larger than dims0 * dimsz
-        # since the traces can be padded at the end. By allocating space for the
-        # padded traces we can just put floats directly into the array
         xs = np.zeros(shape = shape[1:], dtype = np.single)
-
         for bundle in unpacked[1]:
-            for part in bundle['traces']:
-                x, y, z = part['coordinates']
-                v = part['v']
-                # the source may be longer than the target, since the source is
-                # padded. Numpy doesn't automatically truncate if the
-                # right-hand-side of the assignment is larger than the left, so
-                # manually truncate the source at the padding boundary
-                dst = xs[xyindex[(x, y)], z:z+len(v)]
-                dst[:] = v[:dst.shape[-1]]
+            ntraces = bundle[0]
+            major   = bundle[1]
+            minor   = bundle[2]
+            values  = bundle[3]
+            values  = np.asarray(values)
+            for i in range(ntraces):
+                ifst = major[i*2]
+                ilst = major[i*2 + 1]
+                zfst = minor[i*2]
+                zlst = minor[i*2 + 1]
+
+                dst = xs[ifst:ilst, zfst:zlst]
+                v = values[:dst.size].reshape(dst.shape)
+                values = values[v.size:]
+                dst[:] = v[:]
 
         return xs
 
     def xarray(self, unpacked):
         a = self.numpy(unpacked)
-        ijk = self.sourcecube.ijk
 
         header = unpacked[0]
         index = header['index']
         ndims = header['ndims']
         index = [dim for dim in splitindex(ndims, index)]
 
-        xs = [ijk[0][x] for x in index[0]]
-        ys = [ijk[1][x] for x in index[1]]
+        xs = index[0]
+        ys = index[1]
         zs = index[2]
         da = xarray.DataArray(
             data = a,

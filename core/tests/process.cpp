@@ -186,6 +186,7 @@ TEST_CASE("curtain.fragments generates the right IDs from a task") {
         input.ids = {
             one::single {
                 { 1, 1, 1 },  /* fragment-id */
+                0,
                 { { 0, 0 } }, /* local (x,y) in fragment */
             },
         };
@@ -200,10 +201,12 @@ TEST_CASE("curtain.fragments generates the right IDs from a task") {
         input.ids = {
             one::single {
                 { 0, 1, 2 },
+                0,
                 { { 0, 0 } },
             },
             one::single {
                 { 2, 1, 1 },
+                1,
                 { { 0, 0 } },
             },
         };
@@ -220,10 +223,12 @@ TEST_CASE("curtain.fragments generates the right IDs from a task") {
         input.ids = {
             one::single {
                 { 0, 1, 2 },
+                0,
                 {},
             },
             one::single {
                 { 2, 1, 1 },
+                1,
                 { { 0, 0 }, { 1, 1 } },
             },
         };
@@ -250,10 +255,10 @@ TEST_CASE("Curtains extracted from chunks matches hand-extracted curtain") {
      */
     auto input = default_curtain_task();
     input.ids = {
-        one::single { {0, 0, 0}, { {2, 1}, {2, 2} } },
-        one::single { {0, 0, 1}, { {2, 1}, {2, 2} } },
-        one::single { {0, 1, 0}, { {0, 0} } },
-        one::single { {0, 1, 1}, { {0, 0} } },
+        one::single { {0, 0, 0}, 0, { {2, 1}, {2, 2} } },
+        one::single { {0, 0, 1}, 1, { {2, 1}, {2, 2} } },
+        one::single { {0, 1, 0}, 2, { {0, 0} } },
+        one::single { {0, 1, 1}, 3, { {0, 0} } },
     };
     input.shape      = { 3, 3, 3 };
     input.shape_cube = { 5, 5, 5 };
@@ -262,7 +267,7 @@ TEST_CASE("Curtains extracted from chunks matches hand-extracted curtain") {
     auto slice = one::proc::make("curtain");
     slice->init(msg.data(), msg.size());
 
-    auto expected = std::vector< one::trace >();
+    auto expected = one::curtain_bundle();
     for (int i = 0; i < int(input.ids.size()); ++i) {
         const auto blob = GENERATE(
             take(1,
@@ -275,28 +280,29 @@ TEST_CASE("Curtains extracted from chunks matches hand-extracted curtain") {
         );
 
         const auto& single = input.ids[i];
+        expected.size += 1;
+        expected.major.push_back(single.offset);
+        expected.major.push_back(single.offset + single.coordinates.size());
+        expected.minor.push_back(3 * single.id[2]);
+        expected.minor.push_back(3 * (single.id[2] + 1));
+        if (expected.minor.back() > input.shape_cube[2])
+            expected.minor.back() = input.shape_cube[2];
+
         for (auto& coord : single.coordinates) {
-            one::trace t;
-            t.coordinates = {
-                single.id[0] * 3 + coord[0],
-                single.id[1] * 3 + coord[1],
-                single.id[2] * 3,
-            };
-            auto itr = blob.begin() + coord[0] * 3 * 3 + coord[1] * 3;
-            t.v.assign(itr, itr + 3);
-            expected.push_back(t);
+            auto fst = blob.begin() + coord[0] * 3 * 3 + coord[1] * 3;
+            auto lst = fst + 2;
+            lst += (single.id[2] != 1);
+            expected.values.insert(expected.values.end(), fst, lst);
         }
     }
 
     auto packed = slice->pack();
-    auto output = unpack< one::curtain_traces >(slice->pack());
+    auto output = unpack< decltype(expected) >(slice->pack());
 
-    REQUIRE(expected.size() == output.traces.size());
-    for (int i = 0; i < int(expected.size()); ++i) {
-        const auto& trace = output.traces.at(i);
-        CHECK_THAT(expected[i].coordinates, Equals(trace.coordinates));
-        CHECK_THAT(expected[i].v, Equals(trace.v));
-    }
+    CHECK(output.size == expected.size);
+    CHECK_THAT(output.major,  Equals(expected.major));
+    CHECK_THAT(output.minor,  Equals(expected.minor));
+    CHECK_THAT(output.values, Equals(expected.values));
 }
 
 TEST_CASE("All process kinds can be constructed") {

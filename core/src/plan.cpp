@@ -464,6 +464,7 @@ schedule_maker< curtain_query, curtain_task >::build(
             single top;
             top.id.assign(fid.begin(), fid.end());
             top.coordinates.reserve(approx_coordinates_per_fragment);
+            top.offset = i;
             itr = ids.insert(itr, zfrags, top);
             for (int z = 0; z < zfrags; ++z, ++itr)
                 itr->id[2] = z;
@@ -515,10 +516,6 @@ schedule_maker< curtain_query, curtain_task >::header(
     index.insert(index.end(), query.dim0s .begin(), query.dim0s .end());
     index.insert(index.end(), query.dim1s .begin(), query.dim1s .end());
     index.insert(index.end(), mdims.back().begin(), mdims.back().end());
-
-    auto itr = index.begin() + mdims.size();
-    itr = to_cartesian_inplace(mdims[0], itr, itr + query.dim0s.size());
-    itr = to_cartesian_inplace(mdims[1], itr, itr + query.dim1s.size());
 
     return head;
 }
