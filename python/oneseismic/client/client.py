@@ -62,66 +62,80 @@ class assembler_slice(assembler):
         self.name = name
 
     def numpy(self, unpacked):
-        index = unpacked[0]['index']
-        dims0 = len(index[0])
-        dims1 = len(index[1])
+        header = unpacked[0]
+        ndims = header['ndims']
+        shape = header['index'][:ndims]
 
-        result = np.zeros((dims0 * dims1), dtype = np.single)
+        result = np.zeros(shape, dtype = np.single).ravel()
         for bundle in unpacked[1]:
-            if bundle.get('attribute') != 'data':
-                continue
-            for tile in bundle['tiles']:
-                layout = tile
-                dst = layout['initial-skip']
-                chunk_size = layout['chunk-size']
-                src = 0
-                v = tile['v']
-                for _ in range(layout['iterations']):
-                    result[dst : dst + chunk_size] = v[src : src + chunk_size]
-                    src += layout['substride']
-                    dst += layout['superstride']
+            attribute = bundle[0]
+            tiles = bundle[1]
 
-        return result.reshape((dims0, dims1))
+            if attribute != 'data':
+                continue
+
+            for tile in tiles:
+                iterations   = tile[0]
+                chunk_size   = tile[1]
+                initial_skip = tile[2]
+                superstride  = tile[3]
+                substride    = tile[4]
+                v            = tile[5]
+                src = 0
+                dst = initial_skip
+                for _ in range(iterations):
+                    result[dst : dst + chunk_size] = v[src : src + chunk_size]
+                    dst += superstride
+                    src += substride
+
+        return result.reshape(shape)
 
     def xarray(self, unpacked):
-        index = unpacked[0]['index']
         a = self.numpy(unpacked)
-        shape = unpacked[0]['shape']
 
-        dims0 = len(index[0])
-        dims1 = len(index[1])
+        header = unpacked[0]
+        ndims = header['ndims']
+        index = header['index']
+        shape = index[:ndims]
 
         attrs = {}
         for attr in unpacked[0]['attributes']:
             dtype = 'f4'
             if self.name.startswith('time'):
                 attrlabels = self.dims
-                attrshape = [dims0, dims1]
+                attrshape = shape[:len(attrlabels)]
             else:
                 attrlabels = self.dims[0]
-                attrshape = [dims0]
+                attrshape = index[:len(attrlabels)]
+
             attrs[attr] = np.zeros(np.prod(attrshape), dtype = dtype).ravel()
 
         for bundle in unpacked[1]:
-            if bundle['attribute'] not in attrs:
+            attribute = bundle[0]
+            tiles = bundle[1]
+
+            if attribute not in attrs:
                 continue
 
-            result = attrs[bundle['attribute']]
-            for tile in bundle['tiles']:
-                layout = tile
-                dst = layout['initial-skip']
-                chunk_size = layout['chunk-size']
+            result = attrs[attribute]
+            for tile in tiles:
+                iterations   = tile[0]
+                chunk_size   = tile[1]
+                initial_skip = tile[2]
+                superstride  = tile[3]
+                substride    = tile[4]
+                v            = tile[5]
                 src = 0
-                v = tile['v']
-                for _ in range(layout['iterations']):
+                dst = initial_skip
+                for _ in range(iterations):
                     result[dst : dst + chunk_size] = v[src : src + chunk_size]
-                    src += layout['substride']
-                    dst += layout['superstride']
+                    dst += superstride
+                    src += substride
 
         # TODO: add units for time/depth
         coords = {
-            self.dims[0]: index[0],
-            self.dims[1]: index[1],
+            self.dims[0]: index[ndims:][:shape[0]],
+            self.dims[1]: index[ndims:][shape[0]:]
         }
 
         for k, v in attrs.items():
@@ -134,6 +148,13 @@ class assembler_slice(assembler):
             coords = coords,
         )
 
+def splitindex(ndims, index):
+    shape = index[:ndims]
+    index = index[ndims:]
+    for k in shape:
+        yield index[:k]
+        index = index[k:]
+
 class assembler_curtain(assembler):
     kind = 'curtain'
 
@@ -142,38 +163,41 @@ class assembler_curtain(assembler):
         # server should be richer, to more easily allocate and construct a curtain
         # object
         header = unpacked[0]
-        shape = header['shape']
+        ndims = header['ndims']
         index = header['index']
-        dims0 = len(index[0])
-        dimsz = len(index[2])
+        shape = index[:ndims]
+        index = [dim for dim in splitindex(ndims, index)]
 
-        # pre-compute where to put traces based on the dim0/dim1 coordinates
-        # note that the index is made up of zero-indexed coordinates in the volume,
-        # not the actual line numbers
-        xyindex = { (x, y): i for i, (x, y) in enumerate(zip(index[0], index[1])) }
-
-        # allocate the result. The shape can be slightly larger than dims0 * dimsz
-        # since the traces can be padded at the end. By allocating space for the
-        # padded traces we can just put floats directly into the array
-        xs = np.zeros(shape = shape, dtype = np.single)
-
+        xs = np.zeros(shape = shape[1:], dtype = np.single)
         for bundle in unpacked[1]:
-            for part in bundle['traces']:
-                x, y, z = part['coordinates']
-                v = part['v']
-                xs[xyindex[(x, y)], z:z+len(v)] = v[:]
+            ntraces = bundle[0]
+            major   = bundle[1]
+            minor   = bundle[2]
+            values  = bundle[3]
+            values  = np.asarray(values)
+            for i in range(ntraces):
+                ifst = major[i*2]
+                ilst = major[i*2 + 1]
+                zfst = minor[i*2]
+                zlst = minor[i*2 + 1]
 
-        return xs[:dims0, :dimsz]
+                dst = xs[ifst:ilst, zfst:zlst]
+                v = values[:dst.size].reshape(dst.shape)
+                values = values[v.size:]
+                dst[:] = v[:]
+
+        return xs
 
     def xarray(self, unpacked):
-        index = unpacked[0]['index']
         a = self.numpy(unpacked)
-        ijk = self.sourcecube.ijk
 
-        xs = [ijk[0][x] for x in index[0]]
-        ys = [ijk[1][x] for x in index[1]]
-        # TODO: address this inconsistency - zs is in 'real' sample offsets,
-        # while xs/ys are cube indexed
+        header = unpacked[0]
+        index = header['index']
+        ndims = header['ndims']
+        index = [dim for dim in splitindex(ndims, index)]
+
+        xs = index[0]
+        ys = index[1]
         zs = index[2]
         da = xarray.DataArray(
             data = a,

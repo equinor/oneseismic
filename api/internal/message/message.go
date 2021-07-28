@@ -1,7 +1,6 @@
 package message
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -71,17 +70,6 @@ func (m *Manifest) Unpack(doc []byte) (*Manifest, error) {
 	return m, json.Unmarshal(doc, m)
 }
 
-
-type SliceParams struct {
-	Dim    int `json:"dim"`
-	Lineno int `json:"lineno"`
-}
-
-type CurtainParams struct {
-	Dim0s []int `json:"dim0s"`
-	Dim1s []int `json:"dim1s"`
-}
-
 type DimensionDescription struct {
 	Dimension int   `json:"dimension"`
 	Size      int   `json:"size"`
@@ -100,91 +88,22 @@ func (m *DimensionDescription) Pack() ([]byte, error) {
  */
 type ProcessHeader struct {
 	/*
-	 * The pid for this process. It is usually redundant from the api/result
-	 * perspective since the document itself will be stored (namespaced) with
-	 * the pid as key, but having it easily available is quite useful for other
-	 * parts of the system. Additionally, it can be used to sanity check data
-	 * and request parameters.
-	 */
-	Pid string    `json:"pid"`
-	/*
 	 * The number of separate parts this is broken into, where each part can be
 	 * handled by a separate worker. This is the number of "bundles"
 	 * (parts-of-results) the client will receive.
 	 */
-	Ntasks int    `json:"ntasks"`
-	/*
-	 * The shape of the result *with padding*. It shall always hold that
-	 * shape[n] >= len(index[n]) and len(shape) == len(index). This is an
-	 * advice to clients that they can use to pre-allocate buffers - a buffer
-	 * of size product(shape...) will hold the full response.
-	 */
-	Shape []int   `json:"shape"`
-	/*
-	 * The index, i.e. the ordered set of keys for each dimension. This is only
-	 * a (useful) suggestion for assembly, and data can be written in any
-	 * order.
-	 *
-	 * While assembly must be aware that bundles may show up in any order,
-	 * having a "map" (in the treasure map sense) of what shape and keys to
-	 * expect is quite useful for pre-allocation, and stuff like building a
-	 * language-specific index like in xarray in python.
-	 */
-	Index [][]int `json:"index"`
-	/*
-	 * The attributes included in the request, such as cdpx, cdpy, cdpm etc.
-	 * Getting attributes is just another task, but this is a parsing hint for
-	 * the assembler.
-	 */
-	Attrs []string `json:"attributes"`
+	Ntasks int    `msgpack:"nbundles"`
+	RawHeader []byte
 }
 
 func (m *ProcessHeader) Pack() ([]byte, error) {
-	return json.Marshal(m)
+	return msgpack.Marshal(m);
 }
 
 func (m *ProcessHeader) Unpack(doc []byte) (*ProcessHeader, error) {
-	return m, json.Unmarshal(doc, m)
-}
-
-/*
- * The header written as the first part of the end-user result, and meant to be
- * decoded by the clients. Since this is client-facing it has much higher
- * stability requirements than most messages in oneseismic.
- */
-type ResultHeader struct {
-	Bundles int
-	Shape   []int
-	Index   [][]int
-	Attrs   []string
-}
-
-/*
- * Pack the result header. Please note that the result of Pack() is *not* a
- * valid msgpack message - it assumes that the caller will add Bundles elements
- * after to complete the array.
- */
-func (rh *ResultHeader) Pack() ([]byte, error) {
-	var b bytes.Buffer
-	enc := msgpack.NewEncoder(&b)
-
-	if err := enc.EncodeArrayLen(2); err != nil {
-		return nil, err
-	}
-	if err := enc.EncodeMapLen(4); err != nil {
-		return nil, err
-	}
-	err := enc.EncodeMulti(
-		"bundles",    rh.Bundles,
-		"shape",      rh.Shape,
-		"index",      rh.Index,
-		"attributes", rh.Attrs,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := enc.EncodeArrayLen(rh.Bundles); err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
+	m.RawHeader = doc
+	// Skip the first byte (the envelope), which should always be array-len = 2
+	// but would make the msgpack object incomplete. We only care about the map
+	// that follows immediately after
+	return m, msgpack.Unmarshal(doc[1:], m)
 }

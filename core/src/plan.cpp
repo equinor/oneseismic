@@ -1,10 +1,12 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include <fmt/format.h>
+#include <msgpack.hpp>
 #include <nlohmann/json.hpp>
 
 #include <oneseismic/geometry.hpp>
@@ -55,12 +57,6 @@ int task_count(int jobs, int task_size) {
         throw std::runtime_error(msg);
     }
     return x;
-}
-
-std::string& append(std::string& list, const std::string& elem) {
-    list.append(elem);
-    list.push_back('\0');
-    return list;
 }
 
 template < typename Query >
@@ -168,15 +164,14 @@ struct schedule_maker {
      * vector-of-string), it makes processing the set-of-tasks slightly easier,
      * saves a few allocations, and signals that the output is a bag of bytes.
      */
-    std::string partition(std::vector< Output >&, int task_size) noexcept (false);
+    taskset partition(std::vector< Output >&, int task_size) noexcept (false);
 
     /*
      * Make a schedule() - calls build(), header(), and partition() in
      * sequence. The output vector should always have the header() as the
      * *last* element.
      */
-    std::string
-    schedule(const char* doc, int len, int task_size) noexcept (false);
+    taskset schedule(const char* doc, int len, int task_size) noexcept (false);
 };
 
 template< typename Outputs >
@@ -188,7 +183,7 @@ int count_tasks(const Outputs& outputs, int task_size) noexcept (true) {
 }
 
 template < typename Input, typename Output >
-std::string schedule_maker< Input, Output >::partition(
+taskset schedule_maker< Input, Output >::partition(
     std::vector< Output >& outputs,
     int task_size
 ) noexcept (false) {
@@ -197,11 +192,8 @@ std::string schedule_maker< Input, Output >::partition(
         throw std::logic_error(msg);
     }
 
-    // rough guess that all tasks are less or approx 12kb, to reduce the
-    // number of reallocs happening
-    constexpr const auto estimated_task_size = 12000;
-    std::string partitioned;
-    partitioned.reserve(count_tasks(outputs, task_size) * estimated_task_size);
+    taskset partitioned;
+    partitioned.reserve(count_tasks(outputs, task_size));
 
     for (auto& output : outputs) {
         const auto ids = output.ids;
@@ -216,15 +208,39 @@ std::string schedule_maker< Input, Output >::partition(
             const auto last = std::min(fst + task_size, lst);
             output.ids.assign(fst, last);
             std::advance(fst, last - fst);
-            append(partitioned, output.pack());
+            partitioned.append(output.pack());
         }
     }
 
     return partitioned;
 }
 
+std::string pack_with_envelope(const process_header& head) {
+    /*
+     * The response message format is designed in such as way that the clients
+     * can choose to buffer and parse the message in one go, or stream it. This
+     * means that the message *as a whole* must be valid msgpack message, and
+     * not just a by-convention concatenation of independent messages.
+     *
+     * The whole response as msgpack looks like this:
+     * [header, [part1, part2, part3, ...]]
+     *
+     * which in bytes looks like:
+     * array(2) header array(n) part1 part2 part3
+     *
+     * where "space" means concatenation, and array(k) is array type tag and
+     * length. This functions add these array tags around the header.
+     */
+    std::stringstream buffer;
+    msgpack::packer< decltype(buffer) > packer(buffer);
+    packer.pack_array(2);
+    buffer << head.pack();
+    packer.pack_array(head.nbundles);
+    return buffer.str();
+}
+
 template < typename Input, typename Output >
-std::string schedule_maker< Input, Output >::schedule(
+taskset schedule_maker< Input, Output >::schedule(
         const char* doc,
         int len,
         int task_size)
@@ -235,9 +251,9 @@ noexcept (false) {
     auto fetch = this->build(in);
     auto sched = this->partition(fetch, task_size);
 
-    const auto ntasks = int(std::count(sched.begin(), sched.end(), '\0'));
+    const auto ntasks = int(sched.count());
     const auto head   = this->header(in, ntasks);
-    append(sched, head.pack());
+    sched.append(pack_with_envelope(head));
     return sched;
 }
 
@@ -329,24 +345,12 @@ schedule_maker< slice_query, slice_task >::header(
     int ntasks
 ) noexcept (false) {
     const auto& mdims = query.manifest.line_numbers;
-    const auto gvt  = geometry(query);
-    const auto dim  = gvt.mkdim(query.dim);
-    const auto gvt2 = gvt.squeeze(dim);
-    const auto fs2  = gvt2.fragment_shape();
 
     process_header head;
     head.pid        = query.pid;
-    head.ntasks     = ntasks;
+    head.nbundles   = ntasks;
+    head.ndims      = mdims.size() - 1;
     head.attributes = query.attributes;
-
-    /*
-     * The shape of a slice are the dimensions of the survey squeezed in that
-     * dimension.
-     */
-    for (std::size_t i = 0; i < fs2.size(); ++i) {
-        const auto dim = gvt2.mkdim(i);
-        head.shape.push_back(gvt2.nsamples(dim));
-    }
 
     /*
      * Build the index from the line numbers for the directions !=
@@ -354,7 +358,11 @@ schedule_maker< slice_query, slice_task >::header(
      */
     for (std::size_t i = 0; i < mdims.size(); ++i) {
         if (i == query.dim) continue;
-        head.index.push_back(mdims[i]);
+        head.index.push_back(mdims[i].size());
+    }
+    for (std::size_t i = 0; i < mdims.size(); ++i) {
+        if (i == query.dim) continue;
+        head.index.insert(head.index.end(), mdims[i].begin(), mdims[i].end());
     }
     return head;
 }
@@ -367,9 +375,8 @@ schedule_maker< slice_query, slice_task >::header(
  * used for lookup directly. From oneseismic's point of view, the grid labels
  * are forgotten after this function is called.
  */
-void to_cartesian_inplace(
-    const std::vector< int >& labels,
-    std::vector< int >& xs)
+template < typename Itr >
+Itr to_cartesian_inplace(const std::vector< int >& labels, Itr fst, Itr lst)
 noexcept (false) {
     assert(std::is_sorted(labels.begin(), labels.end()));
 
@@ -382,7 +389,13 @@ noexcept (false) {
         return std::distance(labels.begin(), itr);
     };
 
-    std::transform(xs.begin(), xs.end(), xs.begin(), indexof);
+    return std::transform(fst, lst, fst, indexof);
+}
+
+std::vector< int >::iterator
+to_cartesian_inplace( const std::vector< int >& labels, std::vector< int >& xs)
+noexcept (false) {
+    return to_cartesian_inplace(labels, xs.begin(), xs.end());
 }
 
 template <>
@@ -451,6 +464,7 @@ schedule_maker< curtain_query, curtain_task >::build(
             single top;
             top.id.assign(fid.begin(), fid.end());
             top.coordinates.reserve(approx_coordinates_per_fragment);
+            top.offset = i;
             itr = ids.insert(itr, zfrags, top);
             for (int z = 0; z < zfrags; ++z, ++itr)
                 itr->id[2] = z;
@@ -489,28 +503,26 @@ schedule_maker< curtain_query, curtain_task >::header(
 
     process_header head;
     head.pid        = query.pid;
-    head.ntasks     = ntasks;
+    head.nbundles   = ntasks;
+    head.ndims      = mdims.size();
     head.attributes = query.attributes;
 
-    const auto gvt  = geometry(query);
-    const auto zpad = gvt.nsamples_padded(gvt.mkdim(gvt.ndims - 1));
-    head.shape = {
-        int(query.dim0s.size()),
-        int(zpad),
-    };
+    auto& index = head.index;
 
-    head.index.push_back(query.dim0s);
-    head.index.push_back(query.dim1s);
-    head.index.push_back(mdims.back());
-    to_cartesian_inplace(mdims[0], head.index[0]);
-    to_cartesian_inplace(mdims[1], head.index[1]);
+    index.push_back(query.dim0s .size());
+    index.push_back(query.dim1s .size());
+    index.push_back(mdims.back().size());
+
+    index.insert(index.end(), query.dim0s .begin(), query.dim0s .end());
+    index.insert(index.end(), query.dim1s .begin(), query.dim1s .end());
+    index.insert(index.end(), mdims.back().begin(), mdims.back().end());
+
     return head;
 }
 
 }
 
-std::string
-mkschedule(const char* doc, int len, int task_size) noexcept (false) {
+taskset mkschedule(const char* doc, int len, int task_size) noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
     /*
      * Right now, only format-version: 1 is supported, but checking the format

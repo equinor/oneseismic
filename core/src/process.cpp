@@ -65,7 +65,7 @@ public:
 
 private:
     one::curtain_task   input;
-    one::curtain_traces output;
+    one::curtain_bundle output;
     one::gvt< 3 >       gvt;
     std::vector< int >  traceindex;
 };
@@ -132,9 +132,6 @@ void slice::init(const char* msg, int len) {
     this->layout = fragment_shape.slice_stride(this->dim);
     this->gvt = g3.squeeze(this->dim);
 
-    const auto& cs = this->gvt.cube_shape();
-    this->output.shape.assign(cs.begin(), cs.end());
-
     for (const auto& id : this->input.ids) {
         const auto name = fmt::format("{}", fmt::join(id, "-"));
         this->add_fragment(name, this->input.ext);
@@ -178,6 +175,19 @@ void curtain::init(const char* msg, int len) {
         this->add_fragment(name, this->input.ext);
     }
 
+    const auto zsize = [this](const auto& id) noexcept {
+        /*
+         * Compute the size, in floats, of a block of (sub)traces. A block is
+         * made up of all the trace segments in one (i,j,k) fragment, and maybe
+         * padded.
+         */
+        const auto zdim     = this->gvt.mkdim(gvt.ndims - 1);
+        const auto zheight  = this->gvt.fragment_shape()[zdim];
+        const auto fid      = id3(id.id);
+        const auto zreal    = zheight - this->gvt.padding(fid, zdim);
+        return zreal * id.coordinates.size();
+    };
+
     /*
      * The curtain call uses an auxillary table to figure out where to write
      * traces as they are extracted from fragments. This simplifies the
@@ -200,7 +210,7 @@ void curtain::init(const char* msg, int len) {
         ids.begin(),
         ids.end(),
         this->traceindex.begin() + 1,
-        [](const auto& x) { return x.coordinates.size(); }
+        zsize
     );
     std::partial_sum(
         this->traceindex.begin(),
@@ -208,33 +218,46 @@ void curtain::init(const char* msg, int len) {
         this->traceindex.begin()
     );
 
-    const auto ntraces = this->traceindex.back();
-    this->output.traces.resize(ntraces);
+    const auto csize = [](const auto& x) noexcept {
+        return x.coordinates.size();
+    };
+
+    this->output.size = ids.size();
+    this->output.major.reserve(this->output.size * 2);
+    this->output.minor.reserve(this->output.size * 2);
+    this->output.values.resize(this->traceindex.back());
+    const auto zdim    = this->gvt.mkdim(gvt.ndims - 1);
+    const auto zheight = this->gvt.fragment_shape()[zdim];
+    const auto zmax    = this->gvt.nsamples(zdim);
+    for (const auto& id : ids) {
+        const auto zfst = id.id[zdim] * zheight;
+        const auto zlst = std::min(zfst + zheight, zmax);
+        this->output.major.push_back(id.offset);
+        this->output.major.push_back(id.offset + csize(id));
+        this->output.minor.push_back(zfst);
+        this->output.minor.push_back(zlst);
+    }
 }
 
 void curtain::add(int key, const char* chunk, int len) {
     const auto& id = this->input.ids[key];
-    assert(
-           this->traceindex[key] + int(id.coordinates.size())
-        == this->traceindex[key + 1]
-    );
 
-    const auto* fchunk = reinterpret_cast< const float* >(chunk);
-    auto out = this->output.traces.begin() + this->traceindex[key];
     const auto fid = id3(id.id);
-    const auto zheight = this->gvt.fragment_shape()[2];
+    const auto zdim    = this->gvt.mkdim(gvt.ndims - 1);
+    const auto zpad    = this->gvt.padding(fid, zdim);
+    const auto zheight = this->gvt.fragment_shape()[zdim] - zpad;
 
+    auto* dst = this->output.values.data() +  this->traceindex[key];
     for (const auto& coord : id.coordinates) {
         const auto fp = one::FP< 3 > {
             std::size_t(coord[0]),
             std::size_t(coord[1]),
             std::size_t(0),
         };
-        const auto global = this->gvt.to_global(fid, fp);
-        out->coordinates.assign(global.begin(), global.end());
         const auto off = this->gvt.fragment_shape().to_offset(fp);
-        out->v.assign(fchunk + off, fchunk + off + zheight);
-        ++out;
+        const auto src = chunk + off * sizeof(float);
+        std::memcpy(dst, src, sizeof(float) * zheight);
+        dst += zheight;
     }
 }
 

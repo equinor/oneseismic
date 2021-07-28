@@ -2,6 +2,7 @@
 #include <string>
 
 #include <fmt/format.h>
+#include <msgpack.hpp>
 #include <nlohmann/json.hpp>
 
 #include <oneseismic/messages.hpp>
@@ -49,14 +50,108 @@ void MsgPackable< T >::unpack(const char* fst, const char* lst) noexcept (false)
  * interface, which would require go (and other dependencies) to be aware of
  * it.
  */
-template class Packable< process_header >;
 template class Packable< slice_query >;
 template class Packable< slice_task >;
 template class Packable< curtain_query >;
 template class Packable< curtain_task >;
 
-template class MsgPackable< slice_tiles >;
-template class MsgPackable< curtain_traces >;
+template class MsgPackable< process_header >;
+
+std::string slice_tiles::pack() const noexcept (false) {
+    msgpack::sbuffer buffer;
+    msgpack::packer< decltype(buffer) > packer(buffer);
+
+    /*
+     * Pack the slice tiles as a tuple, which maps to the msgpack array, since
+     * types are onto the value itself, not on the enclosing structure.
+     *
+     * This means consumers of the message must know the order of fields to
+     * make sense of the message, but the space savings (and slightly lower
+     * complexity of parsing) makes it worth it (compared to maps, this
+     * typically reduces message size by half, which means 50% less network
+     * traffic to users).
+     */
+    packer.pack_array(2);
+    packer.pack(this->attr);
+    packer.pack_array(tiles.size());
+    for (const auto& tile : this->tiles) {
+        packer.pack_array(6);
+        packer.pack(tile.iterations);
+        packer.pack(tile.chunk_size);
+        packer.pack(tile.initial_skip);
+        packer.pack(tile.superstride);
+        packer.pack(tile.substride);
+        packer.pack(tile.v);
+    }
+
+    return std::string(buffer.data(), buffer.size());
+}
+
+void ensurearray(const msgpack::v2::object& o) noexcept (false) {
+    if (o.type != msgpack::v2::type::ARRAY) {
+        const auto msg = fmt::format("expected array, was {}", o.type);
+        throw std::logic_error(msg);
+    }
+};
+
+void slice_tiles::unpack(const char* fst, const char* lst) noexcept (false) {
+    /*
+     * Unpack is a bit rough, but is only used for testing purposes
+     */
+
+    const auto result = msgpack::unpack(fst, std::distance(fst, lst));
+    const auto& obj = result.get();
+
+    ensurearray(obj);
+    auto root  = obj.via.array.ptr;
+    this->attr = root[0].as< std::string >();
+
+    ensurearray(root[1]);
+    const auto ntiles = root[1].via.array.size;
+    const auto* tiles = root[1].via.array.ptr;
+
+    this->tiles.clear();
+    for (int i = 0; i < ntiles; ++i) {
+        ensurearray(tiles[i]);
+        auto ptile = tiles[i].via.array.ptr;
+        tile t;
+        t.iterations    = ptile[0].as< int >();
+        t.chunk_size    = ptile[1].as< int >();
+        t.initial_skip  = ptile[2].as< int >();
+        t.superstride   = ptile[3].as< int >();
+        t.substride     = ptile[4].as< int >();
+        t.v             = ptile[5].as< std::vector< float > >();
+        this->tiles.push_back(std::move(t));
+    }
+}
+
+std::string curtain_bundle::pack() const noexcept (false) {
+    msgpack::sbuffer buffer;
+    msgpack::packer< decltype(buffer) > packer(buffer);
+
+    packer.pack_array(4);
+    packer.pack(size);
+    packer.pack(major);
+    packer.pack(minor);
+    packer.pack(values);
+    return std::string(buffer.data(), buffer.size());
+}
+
+void curtain_bundle::unpack(const char* fst, const char* lst)
+noexcept (false) {
+    const auto result = msgpack::unpack(fst, std::distance(fst, lst));
+    const auto& obj = result.get();
+    ensurearray(obj);
+
+    if (obj.via.array.size < 4)
+        throw bad_message("expected array of len 4");
+
+    obj.via.array.ptr[0] >> this->size;
+    obj.via.array.ptr[1] >> this->major;
+    obj.via.array.ptr[2] >> this->minor;
+    obj.via.array.ptr[3] >> this->values;
+}
+
 
 void from_json(const nlohmann::json& doc, volumedesc& v) noexcept (false) {
     doc.at("prefix")        .get_to(v.prefix);
@@ -159,16 +254,16 @@ void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
     doc["pid"]          = head.pid;
-    doc["ntasks"]       = head.ntasks;
-    doc["shape"]        = head.shape;
+    doc["nbundles"]     = head.nbundles;
+    doc["ndims"]        = head.ndims;
     doc["index"]        = head.index;
     doc["attributes"]   = head.attributes;
 }
 
 void from_json(const nlohmann::json& doc, process_header& head) noexcept (false) {
     doc.at("pid")       .get_to(head.pid);
-    doc.at("ntasks")    .get_to(head.ntasks);
-    doc.at("shape")     .get_to(head.shape);
+    doc.at("nbundles")  .get_to(head.nbundles);
+    doc.at("ndims")     .get_to(head.ndims);
     doc.at("index")     .get_to(head.index);
     doc.at("attributes").get_to(head.attributes);
 }
@@ -290,23 +385,23 @@ void from_json(const nlohmann::json& doc, tile& tile) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const slice_tiles& tiles) noexcept (false) {
     doc["attribute"]  = tiles.attr;
-    doc["shape"]      = tiles.shape;
     doc["tiles"]      = tiles.tiles;
 }
 
 void from_json(const nlohmann::json& doc, slice_tiles& tiles) noexcept (false) {
     doc.at("attribute").get_to(tiles.attr);
-    doc.at("shape")    .get_to(tiles.shape);
     doc.at("tiles")    .get_to(tiles.tiles);
 }
 
 void to_json(nlohmann::json& doc, const single& single) noexcept (false) {
     doc["id"]          = single.id;
+    doc["offset"]      = single.offset;
     doc["coordinates"] = single.coordinates;
 }
 
 void from_json(const nlohmann::json& doc, single& single) noexcept (false) {
     doc.at("id")         .get_to(single.id);
+    doc.at("offset")     .get_to(single.offset);
     doc.at("coordinates").get_to(single.coordinates);
 }
 
@@ -318,24 +413,6 @@ void to_json(nlohmann::json& doc, const curtain_task& curtain) noexcept (false) 
 void from_json(const nlohmann::json& doc, curtain_task& curtain) noexcept (false) {
     from_json(doc, static_cast< basic_task& >(curtain));
     doc.at("ids").get_to(curtain.ids);
-}
-
-void to_json(nlohmann::json& doc, const trace& trace) noexcept (false) {
-    doc["coordinates"] = trace.coordinates;
-    doc["v"]           = trace.v;
-}
-
-void from_json(const nlohmann::json& doc, trace& trace) noexcept (false) {
-    doc.at("coordinates").get_to(trace.coordinates);
-    doc.at("v")          .get_to(trace.v);
-}
-
-void to_json(nlohmann::json& doc, const curtain_traces& traces) noexcept (false) {
-    doc["traces"] = traces.traces;
-}
-
-void from_json(const nlohmann::json& doc, curtain_traces& traces) noexcept (false) {
-    doc.at("traces").get_to(traces.traces);
 }
 
 }

@@ -144,17 +144,27 @@ struct basic_task {
  * describes the number of tasks the process has been split into and advices
  * the client on how to parse the response.
  *
- * The process header is written from a point of awareness of the shape of the
- * survey, so the shape tuple is the shape of the response *with padding*.
+ * The index is context sensitive, and the content depends on the structure
+ * queried - for example, for a slice(dim: 0) it is the crossline numbers and
+ * time/depth interval.
  *
- * The contents and order of the shape and index depend on the request type and
- * parameters.
+ * The index is laid out linearly, fortran style, and the first ndims items are
+ * the dimensions. Conceptually it works like this:
+ *
+ * {
+ *  ndims: 2
+ *  index: [3 5 [n1 n2 n3] [m1 m2 m3 m4 m5]]
+ * }
+ *
+ * While it makes the structure slightly less intuitive, it makes parsing and
+ * serializing a lot simpler in many (otherwise clumsy) cases.
+ *
  */
-struct process_header : Packable< process_header > {
+struct process_header : MsgPackable< process_header > {
     std::string                         pid;
-    int                                 ntasks;
-    std::vector< int >                  shape;
-    std::vector< std::vector< int > >   index;
+    int                                 nbundles;
+    int                                 ndims;
+    std::vector< int >                  index;
     std::vector< std::string >          attributes;
 };
 
@@ -196,18 +206,25 @@ struct tile {
     std::vector< float > v;
 };
 
-struct slice_tiles : public MsgPackable< slice_tiles > {
-    /*
-     * The shape of the slice itself
-     */
+struct slice_tiles {
     std::string attr;
-    std::vector< int > shape;
     std::vector< tile > tiles;
+
+    std::string pack()   const noexcept (false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 struct single {
     /* id is a 3-tuple (i,j,k) that gives the fragment-ID */
     std::vector< int > id;
+
+    /*
+     * The offset is the index of this fragment in the lexicographically sorted
+     * set of fragments that make up a query. It is very useful for efficient
+     * extraction, and is just a mechanism for carrying the ordering of
+     * sub-tasks across boundaries, but carries no other semantics.
+     */
+    int offset;
     /*
      * coordinates is a 2-tuple (i', j') that gives the x/y position of the
      * trace. This is already a "local" coordinate a is 0-based.
@@ -220,13 +237,48 @@ struct curtain_task : public basic_task, Packable< curtain_task > {
     std::vector< single > ids;
 };
 
-struct trace {
-    std::vector< int > coordinates;
-    std::vector< float > v;
-};
+struct curtain_bundle {
+    /*
+     * This message describes correspond to traces all pulled from a single
+     * fragment [1], with a parallel-array layout.
+     *
+     * The curtain is an arbitrary collection of traces [(x1,y1), (x2,y2),
+     * ...], but every bundle of data holds only small pieces of the trace. An
+     * index is used to map segments onto the final result, but to reduce
+     * overhead it is compacted significantly.
+     *
+     * The index is composed of major and minor, and a simple algorithm to
+     * expand them; the majors serve as "keyframes", which correspond to
+     * (i,j,_) trace blocks in the lexicographically sorted request. The minors
+     * are "block-local" offsets. Put slightly differently - the major gives
+     * the fragment, the minors the trace segment *in* the fragment.
+     *
+     * Both the major and minor are laid out in [fst,lst) pairs; the length of
+     * either array is 2*size [2]. This is slightly redundant, but makes the
+     * structure much easier to use.
+     *
+     * The output is a 2-dimensional array with output-shape. In numpy syntax,
+     * extraction then becomes:
+     *
+     *    out[maj[i]:maj[i+1], min[i]:min[i+1]] = ...
+     *
+     * i.e. the major slices the 1st axis, the minor slices the 2nd axis.
+     *
+     * The parallel array layout is used because it fast and easy to pack and
+     * parse, and because it reduces the need for a dynamic and labelled
+     * structure. This is a detail that partially comes from using a statically
+     * typed language, but it makes for nice messages regardless.
+     *
+     * [1] conceptually, although multiple fragments may be merged
+     * [2] this might get changed to multiple shorter arrays
+     */
+    int size;
+    std::vector< int > major;
+    std::vector< int > minor;
+    std::vector< float > values;
 
-struct curtain_traces : public MsgPackable< curtain_traces > {
-    std::vector< trace > traces;
+    std::string pack() const noexcept (false);
+    void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
 }
