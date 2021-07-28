@@ -160,8 +160,15 @@ struct basic_task {
  * serializing a lot simpler in many (otherwise clumsy) cases.
  *
  */
+
+enum class functionid {
+    slice   = 1,
+    curtain = 2,
+};
+
 struct process_header : MsgPackable< process_header > {
     std::string                         pid;
+    functionid                          function;
     int                                 nbundles;
     int                                 ndims;
     std::vector< int >                  index;
