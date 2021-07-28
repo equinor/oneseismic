@@ -348,6 +348,7 @@ schedule_maker< slice_query, slice_task >::header(
 
     process_header head;
     head.pid        = query.pid;
+    head.function   = functionid::slice;
     head.nbundles   = ntasks;
     head.ndims      = mdims.size() - 1;
     head.attributes = query.attributes;
@@ -503,6 +504,7 @@ schedule_maker< curtain_query, curtain_task >::header(
 
     process_header head;
     head.pid        = query.pid;
+    head.function   = functionid::curtain;
     head.nbundles   = ntasks;
     head.ndims      = mdims.size();
     head.attributes = query.attributes;

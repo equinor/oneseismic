@@ -254,6 +254,7 @@ void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
     doc["pid"]          = head.pid;
+    doc["function"]     = head.function;
     doc["nbundles"]     = head.nbundles;
     doc["ndims"]        = head.ndims;
     doc["index"]        = head.index;
@@ -262,6 +263,7 @@ void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
 
 void from_json(const nlohmann::json& doc, process_header& head) noexcept (false) {
     doc.at("pid")       .get_to(head.pid);
+    doc.at("function")  .get_to(head.function);
     doc.at("nbundles")  .get_to(head.nbundles);
     doc.at("ndims")     .get_to(head.ndims);
     doc.at("index")     .get_to(head.index);
