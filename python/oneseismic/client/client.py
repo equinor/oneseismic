@@ -122,7 +122,7 @@ class assembler:
                 attrshape = shape[:len(attrlabels)]
             else:
                 attrlabels = self.dims[0]
-                attrshape = index[:len(attrlabels)]
+                attrshape = shape[0]
 
             attrs[attr] = np.zeros(np.prod(attrshape), dtype = dtype).ravel()
 
