@@ -57,6 +57,19 @@ template class Packable< curtain_task >;
 
 template class MsgPackable< process_header >;
 
+namespace {
+
+template < typename Packer, typename T >
+void packarray_bin(Packer& packer, const std::vector< T >& vec)
+noexcept (true) {
+    const auto vsize = vec.size() * sizeof(T);
+    const auto* body = reinterpret_cast< const char* >(vec.data());
+    packer.pack_bin(vsize);
+    packer.pack_bin_body(body, vsize);
+}
+
+}
+
 std::string slice_tiles::pack() const noexcept (false) {
     msgpack::sbuffer buffer;
     msgpack::packer< decltype(buffer) > packer(buffer);
@@ -81,7 +94,7 @@ std::string slice_tiles::pack() const noexcept (false) {
         packer.pack(tile.initial_skip);
         packer.pack(tile.superstride);
         packer.pack(tile.substride);
-        packer.pack(tile.v);
+        packarray_bin(packer, tile.v);
     }
 
     return std::string(buffer.data(), buffer.size());
@@ -120,7 +133,12 @@ void slice_tiles::unpack(const char* fst, const char* lst) noexcept (false) {
         t.initial_skip  = ptile[2].as< int >();
         t.superstride   = ptile[3].as< int >();
         t.substride     = ptile[4].as< int >();
-        t.v             = ptile[5].as< std::vector< float > >();
+
+        if (ptile[5].type != msgpack::v2::type::BIN)
+            throw bad_value("tile.v should be BIN");
+        auto tv = ptile[5].via.bin;
+        t.v.resize(tv.size / sizeof(float));
+        std::memcpy(t.v.data(), tv.ptr, tv.size);
         this->tiles.push_back(std::move(t));
     }
 }
@@ -134,7 +152,7 @@ std::string curtain_bundle::pack() const noexcept (false) {
     packer.pack(size);
     packer.pack(major);
     packer.pack(minor);
-    packer.pack(values);
+    packarray_bin(packer, this->values);
     return std::string(buffer.data(), buffer.size());
 }
 
@@ -151,7 +169,12 @@ noexcept (false) {
     obj.via.array.ptr[1] >> this->size;
     obj.via.array.ptr[2] >> this->major;
     obj.via.array.ptr[3] >> this->minor;
-    obj.via.array.ptr[4] >> this->values;
+
+    auto tv = obj.via.array.ptr[4];
+    if (tv.type != msgpack::v2::type::BIN)
+        throw bad_value("curtain.values should be BIN");
+    this->values.resize(tv.via.bin.size / sizeof(float));
+    std::memcpy(this->values.data(), tv.via.bin.ptr, tv.via.bin.size);
 }
 
 

@@ -97,6 +97,7 @@ class assembler:
                 superstride  = tile[3]
                 substride    = tile[4]
                 v            = tile[5]
+                v = np.frombuffer(v, dtype = 'f4')
                 src = 0
                 dst = initial_skip
                 for _ in range(iterations):
@@ -141,6 +142,7 @@ class assembler:
                 superstride  = tile[3]
                 substride    = tile[4]
                 v            = tile[5]
+                v = np.frombuffer(v, dtype = 'f4')
                 src = 0
                 dst = initial_skip
                 for _ in range(iterations):
@@ -184,7 +186,7 @@ class assembler:
             major   = bundle[2]
             minor   = bundle[3]
             values  = bundle[4]
-            values  = np.asarray(values)
+            values  = np.frombuffer(values, dtype = 'f4')
             for i in range(ntraces):
                 ifst = major[i*2]
                 ilst = major[i*2 + 1]
