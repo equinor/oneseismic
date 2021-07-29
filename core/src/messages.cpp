@@ -114,7 +114,8 @@ std::string curtain_bundle::pack() const noexcept (false) {
     msgpack::sbuffer buffer;
     msgpack::packer< decltype(buffer) > packer(buffer);
 
-    packer.pack_array(4);
+    packer.pack_array(5);
+    packer.pack(this->attr);
     packer.pack(size);
     packer.pack(major);
     packer.pack(minor);
@@ -128,13 +129,14 @@ noexcept (false) {
     const auto& obj = result.get();
     ensurearray(obj);
 
-    if (obj.via.array.size < 4)
-        throw bad_message("expected array of len 4");
+    if (obj.via.array.size < 5)
+        throw bad_message("expected array of len 5");
 
-    obj.via.array.ptr[0] >> this->size;
-    obj.via.array.ptr[1] >> this->major;
-    obj.via.array.ptr[2] >> this->minor;
-    obj.via.array.ptr[3] >> this->values;
+    obj.via.array.ptr[0] >> this->attr;
+    obj.via.array.ptr[1] >> this->size;
+    obj.via.array.ptr[2] >> this->major;
+    obj.via.array.ptr[3] >> this->minor;
+    obj.via.array.ptr[4] >> this->values;
 }
 
 

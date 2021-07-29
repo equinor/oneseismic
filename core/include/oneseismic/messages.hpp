@@ -279,6 +279,7 @@ struct curtain_bundle {
      * [1] conceptually, although multiple fragments may be merged
      * [2] this might get changed to multiple shorter arrays
      */
+    std::string attr;
     int size;
     std::vector< int > major;
     std::vector< int > minor;
