@@ -222,6 +222,7 @@ void curtain::init(const char* msg, int len) {
         return x.coordinates.size();
     };
 
+    this->output.attr = this->input.attribute;
     this->output.size = ids.size();
     this->output.major.reserve(this->output.size * 2);
     this->output.minor.reserve(this->output.size * 2);

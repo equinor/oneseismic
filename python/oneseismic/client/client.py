@@ -176,10 +176,14 @@ class assembler:
 
         xs = np.zeros(shape = shape[1:], dtype = np.single)
         for bundle in unpacked[1]:
-            ntraces = bundle[0]
-            major   = bundle[1]
-            minor   = bundle[2]
-            values  = bundle[3]
+            attribute = bundle[0]
+            if attribute != 'data':
+                continue
+
+            ntraces = bundle[1]
+            major   = bundle[2]
+            minor   = bundle[3]
+            values  = bundle[4]
             values  = np.asarray(values)
             for i in range(ntraces):
                 ifst = major[i*2]
