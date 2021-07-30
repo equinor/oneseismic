@@ -9,6 +9,8 @@ import gql
 
 from gql.transport.requests import RequestsHTTPTransport
 
+from .. import decoder
+
 def splitindex(ndims, index):
     shape = index[:ndims]
     index = index[ndims:]
@@ -18,6 +20,8 @@ def splitindex(ndims, index):
 
 class assembler:
     def __init__(self):
+        self.decoder = decoder.decoder()
+
         self.numpys = {
             1: self.npslice,
             2: self.npcurtain,
@@ -27,6 +31,26 @@ class assembler:
             1: self.xaslice,
             2: self.xacurtain,
         }
+
+    def decnumpy(self, stream):
+        self.decoder.reset()
+        self.decoder.buffer_and_process(stream)
+
+        head = self.decoder.header()
+        ndims = head.ndims
+        index = head.index
+        function = head.function
+
+        if function == decoder.functionid.slice:
+            a = np.zeros(shape = index[:ndims], dtype = 'f4')
+        elif function == decoder.functionid.curtain:
+            a = np.zeros(shape = index[1:ndims], dtype = 'f4')
+        else:
+            raise RuntimeError('Bad message; unknown function')
+
+        self.decoder.register_writer('data', a)
+        self.decoder.process()
+        return a
 
     def numpy(self, unpacked):
         """Assemble numpy array
@@ -317,8 +341,8 @@ class cube:
         # TODO: derive labels from query or result
         labels = ['inline', 'crossline', 'time']
         name = f'{labels.pop(dim)} {lineno}'
-        proc.assembler.dims = labels
-        proc.assembler.name = name
+        proc.decoder.dims = labels
+        proc.decoder.name = name
         return proc
 
     def curtain(self, intersections):
@@ -385,7 +409,7 @@ class process:
     def __init__(self, session, pid, status_url, result_url):
         self.session = session
         self.pid = pid
-        self.assembler = assembler()
+        self.decoder = assembler()
         self.status_url = status_url
         self.result_url = result_url
         self.done = False
@@ -450,8 +474,7 @@ class process:
         try:
             return self._cached_numpy
         except AttributeError:
-            raw = self.get()
-            self._cached_numpy = self.assembler.numpy(raw)
+            self._cached_numpy = self.decoder.decnumpy(self.get_raw())
             return self._cached_numpy
 
     def xarray(self):
@@ -459,7 +482,7 @@ class process:
             return self._cached_xarray
         except AttributeError:
             raw = self.get()
-            self._cached_xarray = self.assembler.xarray(raw)
+            self._cached_xarray = self.decoder.xarray(raw)
             return self._cached_xarray
 
     def withcompression(self, kind = 'gz'):
