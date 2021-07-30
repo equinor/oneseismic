@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.12)
 project(oneseismic LANGUAGES CXX)
 
 include(CheckIncludeFile)
@@ -6,12 +6,12 @@ include(CTest)
 include(GNUInstallDirs)
 include(TestBigEndian)
 
-option(BUILD_PYTHON  "Build Python library"                ON)
+option(BUILD_CORE      "Build the core library"      ON)
+option(BUILD_DECODER   "Build the decoder library"   ON)
 
-add_library(json INTERFACE)
-target_include_directories(json INTERFACE external/nlohmann)
-
-find_package(fmt        REQUIRED)
+if (BUILD_TESTING)
+    add_subdirectory(external/catch2)
+endif ()
 
 if (NOT MSVC)
     # assuming gcc-style options
@@ -32,26 +32,61 @@ endif ()
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_library(oneseismic
-    src/base64.cpp
-    src/messages.cpp
-    src/plan.cpp
-    src/process.cpp
-    src/decoder.cpp
-)
+add_library(oneseismic)
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-    PRIVATE
-        include
-        external/nlohmann
 )
-target_link_libraries(oneseismic
-    PUBLIC
-        fmt::fmt
-)
+
+# Some users will not want the full library (e.g. language bindings for the
+# decoder), so the sources and dependencies are guarded behind feature
+# toggles.
+if (BUILD_CORE)
+    add_library(json INTERFACE)
+    target_include_directories(json INTERFACE external/nlohmann)
+    find_package(fmt REQUIRED)
+
+    target_sources(oneseismic
+        PRIVATE
+            src/base64.cpp
+            src/messages.cpp
+            src/plan.cpp
+            src/process.cpp
+    )
+
+    target_include_directories(oneseismic
+        PRIVATE
+            include
+            external/nlohmann
+    )
+    target_link_libraries(oneseismic
+        PUBLIC
+            fmt::fmt
+    )
+
+    if (BUILD_TESTING)
+        add_executable(core-tests
+            tests/testsuite.cpp
+            tests/geometry.cpp
+            tests/messages.cpp
+            tests/process.cpp
+        )
+        target_link_libraries(core-tests
+            PRIVATE
+                catch2
+                oneseismic::oneseismic
+                fmt::fmt
+                json
+        )
+        add_test(NAME unit-tests COMMAND core-tests)
+    endif ()
+endif ()
+
+if (BUILD_DECODER)
+    target_sources(oneseismic PRIVATE src/decoder.cpp)
+endif ()
 
 install(
     TARGETS
@@ -84,25 +119,3 @@ export(
     NAMESPACE
         oneseismic::
 )
-set(ONESEISMIC_LIB_CMAKECONFIG_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE PATH "")
-
-if (NOT BUILD_TESTING)
-    return()
-endif ()
-
-add_subdirectory(external/catch2)
-
-add_executable(tests
-    tests/testsuite.cpp
-    tests/geometry.cpp
-    tests/messages.cpp
-    tests/process.cpp
-)
-target_link_libraries(tests
-    PRIVATE
-        catch2
-        oneseismic::oneseismic
-        fmt::fmt
-        json
-)
-add_test(NAME unit-tests COMMAND tests)
