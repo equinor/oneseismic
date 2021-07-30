@@ -1,5 +1,5 @@
 os: linux
-dist: bionic
+dist: focal
 sudo: required
 compiler: clang
 
@@ -37,13 +37,14 @@ install:
   - popd
 
 script:
-  - pushd python/
-  - pip install -r requirements-dev.txt
-  - python setup.py test
-  - popd
-
   - mkdir build
   - pushd build
   - cmake ../core -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
   - make
   - ctest --output-on-failure
+  - popd
+
+  - pushd python/
+  - pip install -r requirements-dev.txt
+  - python setup.py build_ext --inplace test -- -Doneseismic_DIR=../build/
+  - popd
