@@ -65,7 +65,6 @@ namespace one {
 
 namespace {
 
-[[nodiscard]]
 auto asarray(const msgpack::v2::object& obj)
 noexcept (false)
 -> decltype(obj.via.array)
@@ -76,7 +75,6 @@ noexcept (false)
     throw msgpack::v2::type_error();
 }
 
-[[nodiscard]]
 auto astuple(const msgpack::v2::object& obj, int len)
 noexcept (false)
 -> decltype(obj.via.array.ptr)
@@ -93,7 +91,6 @@ noexcept (false)
     return a.ptr;
 }
 
-[[nodiscard]]
 auto asbinarray(const msgpack::v2::object& obj)
 noexcept (false)
 -> decltype(obj.via.bin)
