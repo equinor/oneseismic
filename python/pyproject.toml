@@ -3,4 +3,20 @@ requires = [
     "setuptools >= 40",
     "scikit-build",
     "wheel",
+    "pybind11",
 ]
+
+[tool.cibuildwheel]
+before-all = [
+    "curl -L https://github.com/msgpack/msgpack-c/releases/download/cpp-3.3.0/msgpack-3.3.0.tar.gz -o msgpack-3.3.0.tar.gz",
+    "tar xf msgpack-3.3.0.tar.gz",
+]
+before-build = [
+    "cmake -S msgpack-3.3.0 -B msgpack-3.3.0/build -DMSGPACK_CXX_ONLY=ON -DMSGPACK_BUILD_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX=core/",
+    "cmake --build msgpack-3.3.0/build --target install --config Release",
+    "cmake -S core/ -B build/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_TESTING=OFF -DBUILD_CORE=OFF",
+    "cmake --build build/ -j 4 --target install --config Release",
+]
+
+[tool.cibuildwheel.macos]
+environment = { CXXFLAGS="-L/usr/local/lib" }
