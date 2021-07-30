@@ -44,7 +44,6 @@ target_include_directories(oneseismic
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
-        ${CURL_INCLUDE_DIRS}
     PRIVATE
         include
         external/nlohmann
