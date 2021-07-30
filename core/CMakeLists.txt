@@ -37,6 +37,7 @@ add_library(oneseismic
     src/messages.cpp
     src/plan.cpp
     src/process.cpp
+    src/decoder.cpp
 )
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
