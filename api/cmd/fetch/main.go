@@ -19,6 +19,7 @@ type opts struct {
 	stream     string
 	consumerid string
 	jobs       int
+	retries    int
 }
 
 func parseopts() opts {
@@ -69,6 +70,13 @@ func parseopts() opts {
 		"Allow N concurrent connections at once. Defaults to 10",
 		"N",
 	)
+	retries := getopt.IntLong(
+		"retries",
+		'r',
+		0,
+		"Max attempted retries when fetching from blobstore. Defaults to 0",
+		"N",
+	)
 	getopt.Parse()
 
 	if *help {
@@ -80,6 +88,7 @@ func parseopts() opts {
 		opts.consumerid = fmt.Sprintf("consumer:%s", util.MakePID())
 	}
 	opts.jobs = *jobs
+	opts.retries = *retries
 	return opts
 }
 
@@ -91,6 +100,7 @@ type task struct {
 func run(
 	storage redis.Cmdable,
 	njobs   int,
+	retries int,
 	process map[string]interface{},
 ) {
 	/*
@@ -137,7 +147,7 @@ func run(
 	 */
 	defer close(tasks)
 	for i := 0; i < njobs; i++ {
-		go fetch(proc.ctx, tasks, frags, errors)
+		go fetch(proc.ctx, retries, tasks, frags, errors)
 	}
 	fragments := proc.fragments()
 	go proc.gather(storage, len(fragments), frags, errors)
@@ -258,7 +268,7 @@ func main() {
 		for _, xmsg := range msgs {
 			for _, message := range xmsg.Messages {
 				// TODO: graceful shutdown and/or cancellation
-				run(storage, opts.jobs, message.Values)
+				run(storage, opts.jobs, opts.retries, message.Values)
 			}
 		}
 	}

@@ -26,7 +26,7 @@ func TestCancelledDownloadErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	blob := azblob.NewBlobURL(testurl(), testpipeline())
-	_, err := fetchblob(ctx, blob)
+	_, err := fetchblob(ctx, blob, 0)
 	if err == nil {
 		t.Errorf("expected fetchblob() to fail; err was nil")
 	}
@@ -53,7 +53,7 @@ func TestCancelledDownloadPostsOnErrorChannel(t *testing.T) {
 	// the message posted on the error channel, so keeping it open from the
 	// producer side means another layer covered in test.
 	// close(tasks)
-	fetch(ctx, tasks, fragments, errors)
+	fetch(ctx, 0, tasks, fragments, errors)
 
 	select {
 	case <-tasks:
