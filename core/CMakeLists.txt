@@ -12,7 +12,6 @@ add_library(json INTERFACE)
 target_include_directories(json INTERFACE external/nlohmann)
 
 find_package(fmt        REQUIRED)
-find_package(spdlog     REQUIRED)
 
 if (NOT MSVC)
     # assuming gcc-style options
