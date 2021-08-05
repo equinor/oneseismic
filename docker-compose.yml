@@ -8,6 +8,7 @@ services:
     command: [
         "oneseismic-fetch",
         "--redis",  "storage:6379",
+        "--retries",  "1",
     ]
     depends_on:
       - storage

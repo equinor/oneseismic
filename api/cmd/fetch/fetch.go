@@ -302,7 +302,7 @@ func (p *process) gather(
 /*
  * Synchronously fetch a blob from the blob store.
  */
-func fetchblob(ctx context.Context, blob azblob.BlobURL) ([]byte, error) {
+func fetchblob(ctx context.Context, blob azblob.BlobURL, maxRetries int) ([]byte, error) {
 	dl, err := blob.Download(
 		ctx,
 		0,
@@ -315,7 +315,7 @@ func fetchblob(ctx context.Context, blob azblob.BlobURL) ([]byte, error) {
 		return nil, err
 	}
 
-	body := dl.Body(azblob.RetryReaderOptions{})
+	body := dl.Body(azblob.RetryReaderOptions{MaxRetryRequests: maxRetries})
 	defer body.Close()
 	return ioutil.ReadAll(body)
 }
@@ -326,13 +326,14 @@ func fetchblob(ctx context.Context, blob azblob.BlobURL) ([]byte, error) {
  * channel is closed.
  */
 func fetch(
-	ctx       context.Context,
-	tasks     chan task,
-	fragments chan fragment,
-	errors    chan error,
+	ctx        context.Context,
+	maxRetries int,
+	tasks      chan task,
+	fragments  chan fragment,
+	errors     chan error,
 ) {
 	for task := range tasks {
-		chunk, err := fetchblob(ctx, task.blob)
+		chunk, err := fetchblob(ctx, task.blob, maxRetries)
 		if err != nil {
 			errors <- err
 			return
