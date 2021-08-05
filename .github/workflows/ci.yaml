@@ -7,12 +7,51 @@ on:
     branches: [master]
 
 jobs:
-  Integration_tests:
-    runs-on: ubuntu-latest
+  build:
+    name: Build and test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Run integration tests
+      - name: Install dependencies on windows
+        if: startsWith(matrix.os, 'windows')
         run: |
-          docker-compose -f docker-compose.yml -f docker-compose_tests.yml up --build --exit-code-from test
+            vcpkg install fmt:x64-windows
+            vcpkg install msgpack:x64-windows
+
+      - name: Install dependencies on ubuntu
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+            sudo apt-get install libfmt-dev
+            sudo apt-get install libmsgpack-dev
+
+      - name: Install dependencies on macos
+        if: startsWith(matrix.os, 'mac')
+        run: |
+            brew install fmt msgpack
+
+      - name: Configure
+        if: startsWith(matrix.os, 'windows')
+        run: >
+            cmake -S core/ -B build/
+            -DBUILD_TESTING=ON
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      - name: Configure
+        if: ${{ !startsWith(matrix.os, 'windows') }}
+        run: >
+            cmake -S core/ -B build/
+            -DBUILD_TESTING=ON
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile
+        run: cmake --build build/ --parallel --config Release
+
+      - name: Run tests
+        run: cmake -E chdir build/ ctest -C Release --output-on-failure
