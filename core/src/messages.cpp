@@ -25,8 +25,7 @@ std::string Packable< T >::pack() const noexcept (false) {
 template< typename T >
 void Packable< T >::unpack(const char* fst, const char* lst) noexcept (false) {
     const auto doc = nlohmann::json::parse(fst, lst);
-    auto& self = static_cast< T& >(*this);
-    self = doc.get< T >();
+    doc.get_to(static_cast< T& >(*this));
 }
 
 template< typename T >
@@ -42,20 +41,6 @@ void MsgPackable< T >::unpack(const char* fst, const char* lst) noexcept (false)
     auto& self = static_cast< T& >(*this);
     self = nlohmann::json::from_msgpack(fst, lst).get< T >();
 }
-
-/*
- * Explicitly instantiate classes with the packable interface, in order to
- * generate the pack()/unpack() code. The functions are defined and
- * instantiated here in order to avoid leaking nlohmann/json into the public
- * interface, which would require go (and other dependencies) to be aware of
- * it.
- */
-template struct Packable< slice_query >;
-template struct Packable< slice_task >;
-template struct Packable< curtain_query >;
-template struct Packable< curtain_task >;
-
-template struct MsgPackable< process_header >;
 
 std::string slice_tiles::pack() const noexcept (false) {
     msgpack::sbuffer buffer;
@@ -414,5 +399,19 @@ void from_json(const nlohmann::json& doc, curtain_task& curtain) noexcept (false
     from_json(doc, static_cast< basic_task& >(curtain));
     doc.at("ids").get_to(curtain.ids);
 }
+
+/*
+ * Explicitly instantiate classes with the packable interface, in order to
+ * generate the pack()/unpack() code. The functions are defined and
+ * instantiated here in order to avoid leaking nlohmann/json into the public
+ * interface, which would require go (and other dependencies) to be aware of
+ * it.
+ */
+template struct Packable< slice_query >;
+template struct Packable< slice_task >;
+template struct Packable< curtain_query >;
+template struct Packable< curtain_task >;
+
+template struct MsgPackable< process_header >;
 
 }
