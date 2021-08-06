@@ -50,12 +50,12 @@ void MsgPackable< T >::unpack(const char* fst, const char* lst) noexcept (false)
  * interface, which would require go (and other dependencies) to be aware of
  * it.
  */
-template class Packable< slice_query >;
-template class Packable< slice_task >;
-template class Packable< curtain_query >;
-template class Packable< curtain_task >;
+template struct Packable< slice_query >;
+template struct Packable< slice_task >;
+template struct Packable< curtain_query >;
+template struct Packable< curtain_task >;
 
-template class MsgPackable< process_header >;
+template struct MsgPackable< process_header >;
 
 std::string slice_tiles::pack() const noexcept (false) {
     msgpack::sbuffer buffer;
