@@ -257,20 +257,6 @@ noexcept (false) {
     return sched;
 }
 
-template < typename Seq, typename T = int >
-std::vector< T > to_vec(const Seq& s) {
-    using std::begin;
-    using std::end;
-
-    auto convert = [](const auto x) noexcept (noexcept(T(x))) {
-        return T(x);
-    };
-
-    std::vector< T > xs(s.size());
-    std::transform(begin(s), end(s), begin(xs), convert);
-    return xs;
-}
-
 template < typename Query >
 auto find_desc(const Query& query, const std::string& attr)
 -> decltype(query.manifest.attr.begin()) {
@@ -290,9 +276,19 @@ void append_vector_ids(
 {
     using std::begin;
     using std::end;
-    using dst_type = decltype(*begin(src));
+
+    const auto to_vec = [](const auto& s) noexcept (false) {
+        const auto convert = [](const auto x) noexcept (true) {
+            return int(x);
+        };
+
+        std::vector< int > xs(s.size());
+        std::transform(begin(s), end(s), begin(xs), convert);
+        return xs;
+    };
+
     auto append = std::back_inserter(dst);
-    std::transform(begin(src), end(src), append, to_vec< dst_type >);
+    std::transform(begin(src), end(src), append, to_vec);
 }
 
 template <>
