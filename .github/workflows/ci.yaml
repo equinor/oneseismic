@@ -57,7 +57,8 @@ jobs:
         run: cmake --build build/ --parallel --config Release
 
       - name: Run tests
-        run: cmake -E chdir build/ ctest -C Release --output-on-failure
+        working-directory: build
+        run: ctest -C Release --output-on-failure
 
       - name: Install python dependencies
         run: python -m pip install -r python/requirements-dev.txt
