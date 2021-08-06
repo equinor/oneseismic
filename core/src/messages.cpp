@@ -18,8 +18,8 @@ namespace one {
  */
 template< typename T >
 std::string Packable< T >::pack() const noexcept (false) {
-    const auto& self = static_cast< const T& >(*this);
-    return nlohmann::json(self).dump();
+    nlohmann::json j = static_cast< const T& >(*this);
+    return j.dump();
 }
 
 template< typename T >
