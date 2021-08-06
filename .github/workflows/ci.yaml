@@ -36,17 +36,14 @@ jobs:
         run: |
             brew install fmt msgpack
 
-      - name: Configure
+      - name: Configure Windows specifics
         if: startsWith(matrix.os, 'windows')
         run: >
             cmake -S core/ -B build/
-            -DBUILD_TESTING=ON
-            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
             -DVCPKG_TARGET_TRIPLET=x64-windows
 
       - name: Configure
-        if: ${{ !startsWith(matrix.os, 'windows') }}
         run: >
             cmake -S core/ -B build/
             -DBUILD_TESTING=ON
