@@ -32,7 +32,7 @@ template < template< std::size_t > typename S, std::size_t ND >
 S< ND - 1 > squeeze(const dimension< ND >& d, const S< ND >& s)
 noexcept (true) {
     S< ND - 1 > squeezed;
-    auto* f = squeezed.begin();
+    auto f = squeezed.begin();
 
     for (std::size_t i = 0; i < ND; ++i)
         if(i != d) *(f++) = s[i];
