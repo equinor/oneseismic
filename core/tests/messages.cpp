@@ -9,7 +9,7 @@
 
 using namespace Catch::Matchers;
 
-namespace {
+namespace one {
 
 bool operator == (const one::basic_task& lhs, const one::basic_task& rhs) {
     return lhs.pid              == rhs.pid
@@ -48,17 +48,10 @@ bool operator == (const one::attributedesc& lhs, const one::attributedesc& rhs) 
 
 
 bool operator == (const one::manifestdoc& lhs, const one::manifestdoc& rhs) {
-    /*
-     * Silly hack to make the vector operator == find the (unnamed) operator ==
-     * defined here.
-     */
-    const auto eq = [](const auto& l, const auto& r) {
-        return l == r;
-    };
 
-    if (!std::equal(lhs.vol.begin(), lhs.vol.end(), rhs.vol.begin(), eq))
+    if (!std::equal(lhs.vol.begin(), lhs.vol.end(), rhs.vol.begin()))
         return false;
-    if (!std::equal(lhs.attr.begin(), lhs.attr.end(), rhs.attr.begin(), eq))
+    if (!std::equal(lhs.attr.begin(), lhs.attr.end(), rhs.attr.begin()))
         return false;
 
     return lhs.line_numbers == rhs.line_numbers
