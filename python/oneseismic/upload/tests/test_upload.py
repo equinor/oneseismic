@@ -40,6 +40,22 @@ small_manifest = '''
 '''
 source = Path(__file__).resolve().parent / 'small.sgy'
 
+def test_upload_manifest_all_keys(tmp_path):
+    filesys = localfs(tmp_path)
+    fragment_shape = (4, 4, 4)
+    meta = json.loads(small_manifest)
+    guid = meta['guid']
+
+    with open(source, 'rb') as src:
+        upload(meta, fragment_shape, src, source, filesys)
+
+    with open(tmp_path / Path(f'{guid}/manifest.json')) as f:
+        manifest = json.load(f)
+
+    assert manifest['format-version']   == 1
+    assert manifest['guid']             == guid
+    assert manifest['line-numbers']     == meta['dimensions']
+
 def test_upload_proper_volume_expected_fragment_ids(tmp_path):
     filesys = localfs(tmp_path)
     fragment_shape = (4, 4, 4)
