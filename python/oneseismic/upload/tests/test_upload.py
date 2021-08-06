@@ -56,6 +56,7 @@ def test_upload_manifest_all_keys(tmp_path):
     assert manifest['upload-filename']  == 'small.sgy'
     assert manifest['guid']             == guid
     assert manifest['line-numbers']     == meta['dimensions']
+    assert manifest['line-labels']      == ['inline', 'crossline', 'time']
 
 def test_upload_proper_volume_expected_fragment_ids(tmp_path):
     filesys = localfs(tmp_path)

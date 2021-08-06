@@ -336,6 +336,13 @@ def upload(manifest, shape, src, origfname, filesys):
                 with filesys.open(name, mode = 'wb') as f:
                     f.write(block)
 
+    sampleinterval = key3s[1] - key3s[0]
+    if sampleinterval >= 500:
+        zdomain = 'time'
+    else:
+        zdomain = 'depth'
+    print(f'sample-interval is {sampleinterval}, guessing {zdomain} domain')
+
     fname = pathlib.Path(origfname).name
     manifest = {
         'format-version': 1,
@@ -344,7 +351,7 @@ def upload(manifest, shape, src, origfname, filesys):
         'data': [],
         'attributes': [],
         'line-numbers': [key1s, key2s, key3s],
-        'line-labels': ['inline', 'crossline', 'time'],
+        'line-labels': ['inline', 'crossline', zdomain],
     }
 
     for fset in files:
