@@ -40,12 +40,30 @@ small_manifest = '''
 '''
 source = Path(__file__).resolve().parent / 'small.sgy'
 
+def test_upload_manifest_all_keys(tmp_path):
+    filesys = localfs(tmp_path)
+    fragment_shape = (4, 4, 4)
+    meta = json.loads(small_manifest)
+    guid = meta['guid']
+
+    with open(source, 'rb') as src:
+        upload(meta, fragment_shape, src, source, filesys)
+
+    with open(tmp_path / Path(f'{guid}/manifest.json')) as f:
+        manifest = json.load(f)
+
+    assert manifest['format-version']   == 1
+    assert manifest['upload-filename']  == 'small.sgy'
+    assert manifest['guid']             == guid
+    assert manifest['line-numbers']     == meta['dimensions']
+    assert manifest['line-labels']      == ['inline', 'crossline', 'time']
+
 def test_upload_proper_volume_expected_fragment_ids(tmp_path):
     filesys = localfs(tmp_path)
     fragment_shape = (4, 4, 4)
     meta = json.loads(small_manifest)
     with open(source, 'rb') as src:
-        upload(meta, fragment_shape, src, filesys)
+        upload(meta, fragment_shape, src, source, filesys)
 
     expected = sorted([
         f'{i}-{j}-{k}.f32'
@@ -79,7 +97,7 @@ def test_upload_missing_leading_traces(tmp_path):
         key: trno - 3 for key, trno in meta['key1-last-trace'].items()
     }
     with open(cropped, 'rb') as src:
-        upload(meta, fragment_shape, src, filesys)
+        upload(meta, fragment_shape, src, cropped, filesys)
 
     expected = sorted([
         f'{i}-{j}-{k}.f32'
@@ -109,7 +127,7 @@ def test_upload_missing_trailing_traces(tmp_path):
     meta = json.loads(small_manifest)
     meta['key1-last-trace']['5'] = 21
     with open(cropped, 'rb') as src:
-        upload(meta, fragment_shape, src, filesys)
+        upload(meta, fragment_shape, src, cropped, filesys)
 
     expected = sorted([
         f'{i}-{j}-{k}.f32'
@@ -147,7 +165,7 @@ def test_upload_missing_interspersed_traces(tmp_path):
     fragment_shape = (4, 4, 4)
 
     with open(cropped, 'rb') as src:
-        upload(meta, fragment_shape, src, filesys)
+        upload(meta, fragment_shape, src, cropped, filesys)
 
     expected = sorted([
         f'{i}-{j}-{k}.f32'
@@ -187,7 +205,7 @@ def test_upload_scrambled_traces(tmp_path):
         fs = localfs(tmp_path)
         fs.mkdir('sorted')
         fs.cd('sorted')
-        upload(meta, fragment_shape, src, fs)
+        upload(meta, fragment_shape, src, source, fs)
 
     # the scrambled file must be re-scanned, because the new key1-last-trace is
     # non-deterministic
@@ -196,7 +214,7 @@ def test_upload_scrambled_traces(tmp_path):
 
     filesys = localfs(tmp_path)
     with open(scrambled, 'rb') as src:
-        upload(m, fragment_shape, src, filesys)
+        upload(m, fragment_shape, src, scrambled, filesys)
 
     guid = meta['guid']
     sorted_root   = tmp_path / Path(f'sorted/{meta["guid"]}/src/4-4-4')
