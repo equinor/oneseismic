@@ -17,6 +17,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
 
       - name: Install dependencies on windows
         if: startsWith(matrix.os, 'windows')
@@ -40,6 +41,7 @@ jobs:
         run: >
             cmake -S core/ -B build/
             -DBUILD_TESTING=ON
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
             -DVCPKG_TARGET_TRIPLET=x64-windows
 
@@ -49,9 +51,17 @@ jobs:
             cmake -S core/ -B build/
             -DBUILD_TESTING=ON
             -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 
       - name: Compile
         run: cmake --build build/ --parallel --config Release
 
       - name: Run tests
         run: cmake -E chdir build/ ctest -C Release --output-on-failure
+
+      - name: Install python dependencies
+        run: python -m pip install -r python/requirements-dev.txt
+
+      - name: Run python tests
+        working-directory: python
+        run: python setup.py test
