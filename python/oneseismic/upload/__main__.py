@@ -97,8 +97,9 @@ def main(argv):
         outputfs = localfs_from_args(args.dst)
 
     fragment_shape = (args.i, args.j, args.k)
+    fname = src
     with inputfs.open(src, 'rb') as src:
-        upload(meta, fragment_shape, src, outputfs)
+        upload(meta, fragment_shape, src, fname, outputfs)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

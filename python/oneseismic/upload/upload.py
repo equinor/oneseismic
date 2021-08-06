@@ -243,7 +243,7 @@ class cdpset(fileset):
             'prefix': self.prefix,
         },
 
-def upload(manifest, shape, src, filesys):
+def upload(manifest, shape, src, origfname, filesys):
     """Upload volume to oneseismic
 
     Parameters
@@ -253,6 +253,8 @@ def upload(manifest, shape, src, filesys):
     shape : tuple of int
         The shape of the fragment, typically (64, 64, 64) (adds up to 1mb)
     src : io.BaseIO
+    fname : Path or str
+        The original filename of the SEG-Y being ingested
     blob : azure.storage.blob.BlobServiceClient
     """
     word1 = manifest['key-words'][0]
@@ -334,8 +336,10 @@ def upload(manifest, shape, src, filesys):
                 with filesys.open(name, mode = 'wb') as f:
                     f.write(block)
 
+    fname = pathlib.Path(origfname).name
     manifest = {
         'format-version': 1,
+        'upload-filename': fname,
         'guid': guid,
         'data': [],
         'attributes': [],
