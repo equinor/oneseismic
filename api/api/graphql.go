@@ -280,7 +280,7 @@ func (c *cube) basicSlice(
 		// just-about to expire then the process will fail pretty soon anyway,
 		// so just give up.
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+		return nil, errors.New("internal error; bad token?")
 	}
 
 	msg := message.Query {
@@ -296,13 +296,13 @@ func (c *cube) basicSlice(
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+		return nil, nil
 	}
 
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+		return nil, errors.New("internal error")
 	}
 
 	go func () {
@@ -364,7 +364,7 @@ func (c *cube) basicCurtain(
 		// just-about to expire then the process will fail pretty soon anyway,
 		// so just give up.
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+		return nil, errors.New("internal error; bad token?")
 	}
 
 	msg := message.Query {
@@ -379,13 +379,13 @@ func (c *cube) basicCurtain(
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+		return nil, nil
 	}
 
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
+		return nil, errors.New("internal error")
 	}
 
 	go func () {
@@ -441,10 +441,10 @@ type Cube {
 
     linenumbers: [[Int!]!]!
 
-    sliceByLineno(dim: Int!, lineno: Int!, opts: Opts): Promise!
-    sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise!
-    curtainByLineno(coords: [[Int!]!]!): Promise!
-    curtainByIndex(coords: [[Int!]!]!): Promise!
+    sliceByLineno(dim: Int!, lineno: Int!, opts: Opts): Promise
+    sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise
+    curtainByLineno(coords: [[Int!]!]!): Promise
+    curtainByIndex(coords: [[Int!]!]!): Promise
 }
 
 type Promise {
