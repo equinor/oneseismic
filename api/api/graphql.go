@@ -37,7 +37,8 @@ type promise struct {
 }
 
 type opts struct {
-	Attributes *[]string `json:"attributes"`
+	Attributes       *[]string `json:"attributes"`
+	AllowMissingData *bool     `json:"allowMissingData"`
 }
 
 func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
@@ -249,6 +250,16 @@ func (c *cube) SliceByIndex(
 	)
 }
 
+func allowMissing(opts *opts) bool {
+	if (opts == nil) {
+		return false
+	}
+	if (opts.AllowMissingData == nil) {
+		return false
+	}
+	return *opts.AllowMissingData
+}
+
 func (c *cube) basicSlice(
 	ctx  context.Context,
 	args sliceargs,
@@ -291,7 +302,10 @@ func (c *cube) basicSlice(
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
+		if (allowMissing(opts)) {
+			return nil, nil
+		}
+		return nil, errors.New("Bad query")
 	}
 
 	key, err := c.root.keyring.Sign(pid)
@@ -348,7 +362,7 @@ func (c *cube) Curtain(
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
+		return nil, errors.New("Bad query")
 	}
 
 	key, err := c.root.keyring.Sign(pid)
@@ -403,6 +417,7 @@ enum Attribute {
 
 input Opts {
     attributes: [Attribute!]
+    allowMissingData: Boolean
 }
 
 type Cube {
