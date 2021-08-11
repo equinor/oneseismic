@@ -9,16 +9,48 @@ import gql
 
 from gql.transport.requests import RequestsHTTPTransport
 
+from .. import decoder
+
+def splitindex(ndims, index):
+    shape = index[:ndims]
+    index = index[ndims:]
+    for k in shape:
+        yield index[:k]
+        index = index[k:]
+
 class assembler:
-    """Base for the assembler
-    """
-    kind = 'untyped'
+    def __init__(self):
+        self.decoder = decoder.decoder()
 
-    def __init__(self, src):
-        self.sourcecube = src
+        self.numpys = {
+            1: self.npslice,
+            2: self.npcurtain,
+        }
 
-    def __repr__(self):
-        return self.kind
+        self.xarrays = {
+            1: self.xaslice,
+            2: self.xacurtain,
+        }
+
+    def decnumpy(self, stream):
+        self.decoder.reset()
+        self.decoder.buffer_and_process(stream)
+
+        head = self.decoder.header()
+        ndims = head.ndims
+        index = head.index
+        function = head.function
+
+        if function == decoder.functionid.slice:
+            a = np.zeros(shape = index[:ndims], dtype = 'f4')
+        elif function == decoder.functionid.curtain:
+            a = np.zeros(shape = index[1:ndims], dtype = 'f4')
+        else:
+            raise RuntimeError('Bad message; unknown function')
+
+        self.decoder.register_writer('data', a)
+        self.decoder.process()
+        return a
 
     def numpy(self, unpacked):
         """Assemble numpy array
@@ -34,7 +66,15 @@ class assembler:
         a : numpy.array
             The result as a numpy array
         """
-        raise NotImplementedError
+        header = unpacked[0]
+        function = header['function']
+
+        try:
+            fn = self.numpys[function]
+        except KeyError:
+            raise RuntimeError(f'bad message; unknown function {function}')
+
+        return fn(unpacked)
 
     def xarray(self, unpacked):
         """Assemble xarray
@@ -51,17 +91,17 @@ class assembler:
         xa : xarray.DataArray
             The result as an xarray
         """
-        raise NotImplementedError
+        header = unpacked[0]
+        function = header['function']
 
-class assembler_slice(assembler):
-    kind = 'slice'
+        try:
+            fn = self.xarrays[function]
+        except KeyError:
+            raise RuntimeError(f'bad message; unknown function {function}')
 
-    def __init__(self, sourcecube, dimlabels, name):
-        super().__init__(sourcecube)
-        self.dims = dimlabels
-        self.name = name
+        return fn(unpacked)
 
-    def numpy(self, unpacked):
+    def npslice(self, unpacked):
         header = unpacked[0]
         ndims = header['ndims']
         shape = header['index'][:ndims]
@@ -81,6 +121,7 @@ class assembler_slice(assembler):
                 superstride  = tile[3]
                 substride    = tile[4]
                 v            = tile[5]
+                v = np.frombuffer(v, dtype = 'f4')
                 src = 0
                 dst = initial_skip
                 for _ in range(iterations):
@@ -90,7 +131,7 @@ class assembler_slice(assembler):
 
         return result.reshape(shape)
 
-    def xarray(self, unpacked):
+    def xaslice(self, unpacked):
         a = self.numpy(unpacked)
 
         header = unpacked[0]
@@ -106,7 +147,7 @@ class assembler_slice(assembler):
                 attrshape = shape[:len(attrlabels)]
             else:
                 attrlabels = self.dims[0]
-                attrshape = index[:len(attrlabels)]
+                attrshape = shape[0]
 
             attrs[attr] = np.zeros(np.prod(attrshape), dtype = dtype).ravel()
 
@@ -125,6 +166,7 @@ class assembler_slice(assembler):
                 superstride  = tile[3]
                 substride    = tile[4]
                 v            = tile[5]
+                v = np.frombuffer(v, dtype = 'f4')
                 src = 0
                 dst = initial_skip
                 for _ in range(iterations):
@@ -148,17 +190,7 @@ class assembler_slice(assembler):
             coords = coords,
         )
 
-def splitindex(ndims, index):
-    shape = index[:ndims]
-    index = index[ndims:]
-    for k in shape:
-        yield index[:k]
-        index = index[k:]
-
-class assembler_curtain(assembler):
-    kind = 'curtain'
-
-    def numpy(self, unpacked):
+    def npcurtain(self, unpacked):
         # This function is very rough and does suggest that the message from the
         # server should be richer, to more easily allocate and construct a curtain
         # object
@@ -170,11 +202,15 @@ class assembler_curtain(assembler):
 
         xs = np.zeros(shape = shape[1:], dtype = np.single)
         for bundle in unpacked[1]:
-            ntraces = bundle[0]
-            major   = bundle[1]
-            minor   = bundle[2]
-            values  = bundle[3]
-            values  = np.asarray(values)
+            attribute = bundle[0]
+            if attribute != 'data':
+                continue
+
+            ntraces = bundle[1]
+            major   = bundle[2]
+            minor   = bundle[3]
+            values  = bundle[4]
+            values  = np.frombuffer(values, dtype = 'f4')
             for i in range(ntraces):
                 ifst = major[i*2]
                 ilst = major[i*2 + 1]
@@ -188,7 +224,7 @@ class assembler_curtain(assembler):
 
         return xs
 
-    def xarray(self, unpacked):
+    def xacurtain(self, unpacked):
         a = self.numpy(unpacked)
 
         header = unpacked[0]
@@ -305,7 +341,8 @@ class cube:
         # TODO: derive labels from query or result
         labels = ['inline', 'crossline', 'time']
         name = f'{labels.pop(dim)} {lineno}'
-        proc.assembler = assembler_slice(self, dimlabels = labels, name = name)
+        proc.decoder.dims = labels
+        proc.decoder.name = name
         return proc
 
     def curtain(self, intersections):
@@ -339,7 +376,6 @@ class cube:
             self.session.base_url,
             query,
         )
-        proc.assembler = assembler_curtain(self)
         return proc
 
 class process:
@@ -373,7 +409,7 @@ class process:
     def __init__(self, session, pid, status_url, result_url):
         self.session = session
         self.pid = pid
-        self.assembler = None
+        self.decoder = assembler()
         self.status_url = status_url
         self.result_url = result_url
         self.done = False
@@ -382,7 +418,6 @@ class process:
         return '\n\t'.join([
             'oneseismic.process',
                 f'pid: {self.pid}',
-                f'assembler: {repr(self.assembler)}'
         ])
 
     def status(self):
@@ -439,8 +474,7 @@ class process:
         try:
             return self._cached_numpy
         except AttributeError:
-            raw = self.get()
-            self._cached_numpy = self.assembler.numpy(raw)
+            self._cached_numpy = self.decoder.decnumpy(self.get_raw())
             return self._cached_numpy
 
     def xarray(self):
@@ -448,7 +482,7 @@ class process:
             return self._cached_xarray
         except AttributeError:
             raw = self.get()
-            self._cached_xarray = self.assembler.xarray(raw)
+            self._cached_xarray = self.decoder.xarray(raw)
             return self._cached_xarray
 
     def withcompression(self, kind = 'gz'):

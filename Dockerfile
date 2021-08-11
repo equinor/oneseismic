@@ -40,7 +40,6 @@ RUN cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_SHARED_LIBS=OFF \
     -DBUILD_TESTING=OFF \
-    -DBUILD_PYTHON=OFF \
     -DCMAKE_CXX_FLAGS=-DFMT_HEADER_ONLY=1 \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
     /src/core

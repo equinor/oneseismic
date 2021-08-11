@@ -42,6 +42,19 @@ void MsgPackable< T >::unpack(const char* fst, const char* lst) noexcept (false)
     self = nlohmann::json::from_msgpack(fst, lst).get< T >();
 }
 
+namespace {
+
+template < typename Packer, typename T >
+void packarray_bin(Packer& packer, const std::vector< T >& vec)
+noexcept (true) {
+    const auto vsize = vec.size() * sizeof(T);
+    const auto* body = reinterpret_cast< const char* >(vec.data());
+    packer.pack_bin(vsize);
+    packer.pack_bin_body(body, vsize);
+}
+
+}
+
 std::string slice_tiles::pack() const noexcept (false) {
     msgpack::sbuffer buffer;
     msgpack::packer< decltype(buffer) > packer(buffer);
@@ -66,7 +79,7 @@ std::string slice_tiles::pack() const noexcept (false) {
         packer.pack(tile.initial_skip);
         packer.pack(tile.superstride);
         packer.pack(tile.substride);
-        packer.pack(tile.v);
+        packarray_bin(packer, tile.v);
     }
 
     return std::string(buffer.data(), buffer.size());
@@ -105,7 +118,12 @@ void slice_tiles::unpack(const char* fst, const char* lst) noexcept (false) {
         t.initial_skip  = ptile[2].as< int >();
         t.superstride   = ptile[3].as< int >();
         t.substride     = ptile[4].as< int >();
-        t.v             = ptile[5].as< std::vector< float > >();
+
+        if (ptile[5].type != msgpack::v2::type::BIN)
+            throw bad_value("tile.v should be BIN");
+        auto tv = ptile[5].via.bin;
+        t.v.resize(tv.size / sizeof(float));
+        std::memcpy(t.v.data(), tv.ptr, tv.size);
         this->tiles.push_back(std::move(t));
     }
 }
@@ -114,11 +132,12 @@ std::string curtain_bundle::pack() const noexcept (false) {
     msgpack::sbuffer buffer;
     msgpack::packer< decltype(buffer) > packer(buffer);
 
-    packer.pack_array(4);
+    packer.pack_array(5);
+    packer.pack(this->attr);
     packer.pack(size);
     packer.pack(major);
     packer.pack(minor);
-    packer.pack(values);
+    packarray_bin(packer, this->values);
     return std::string(buffer.data(), buffer.size());
 }
 
@@ -128,13 +147,19 @@ noexcept (false) {
     const auto& obj = result.get();
     ensurearray(obj);
 
-    if (obj.via.array.size < 4)
-        throw bad_message("expected array of len 4");
+    if (obj.via.array.size < 5)
+        throw bad_message("expected array of len 5");
 
-    obj.via.array.ptr[0] >> this->size;
-    obj.via.array.ptr[1] >> this->major;
-    obj.via.array.ptr[2] >> this->minor;
-    obj.via.array.ptr[3] >> this->values;
+    obj.via.array.ptr[0] >> this->attr;
+    obj.via.array.ptr[1] >> this->size;
+    obj.via.array.ptr[2] >> this->major;
+    obj.via.array.ptr[3] >> this->minor;
+
+    auto tv = obj.via.array.ptr[4];
+    if (tv.type != msgpack::v2::type::BIN)
+        throw bad_value("curtain.values should be BIN");
+    this->values.resize(tv.via.bin.size / sizeof(float));
+    std::memcpy(this->values.data(), tv.via.bin.ptr, tv.via.bin.size);
 }
 
 
@@ -239,6 +264,7 @@ void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
     doc["pid"]          = head.pid;
+    doc["function"]     = head.function;
     doc["nbundles"]     = head.nbundles;
     doc["ndims"]        = head.ndims;
     doc["index"]        = head.index;
@@ -247,6 +273,7 @@ void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
 
 void from_json(const nlohmann::json& doc, process_header& head) noexcept (false) {
     doc.at("pid")       .get_to(head.pid);
+    doc.at("function")  .get_to(head.function);
     doc.at("nbundles")  .get_to(head.nbundles);
     doc.at("ndims")     .get_to(head.ndims);
     doc.at("index")     .get_to(head.index);

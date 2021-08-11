@@ -160,8 +160,15 @@ struct basic_task {
  * serializing a lot simpler in many (otherwise clumsy) cases.
  *
  */
+
+enum class functionid {
+    slice   = 1,
+    curtain = 2,
+};
+
 struct process_header : MsgPackable< process_header > {
     std::string                         pid;
+    functionid                          function;
     int                                 nbundles;
     int                                 ndims;
     std::vector< int >                  index;
@@ -272,6 +279,7 @@ struct curtain_bundle {
      * [1] conceptually, although multiple fragments may be merged
      * [2] this might get changed to multiple shorter arrays
      */
+    std::string attr;
     int size;
     std::vector< int > major;
     std::vector< int > minor;

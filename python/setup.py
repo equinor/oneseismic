@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 
-import setuptools
+import skbuild
 
 if __name__ == "__main__":
-    setuptools.setup()
+    skbuild.setup(
+        packages = [
+            'oneseismic',
+            'oneseismic.client',
+            'oneseismic.internal',
+            'oneseismic.login',
+            'oneseismic.scan',
+            'oneseismic.upload',
+        ],
+    )

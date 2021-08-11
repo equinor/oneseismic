@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
+        os: [ubuntu-latest, macOS-latest, windows-2016]
 
     steps:
       - uses: actions/checkout@v2
@@ -42,6 +42,8 @@ jobs:
             cmake -S core/ -B build/
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
             -DVCPKG_TARGET_TRIPLET=x64-windows
+            -G "Visual Studio 15 2017"
+            -A x64
 
       - name: Configure
         run: >
@@ -59,6 +61,26 @@ jobs:
 
       - name: Install python dependencies
         run: python -m pip install -r python/requirements-dev.txt
+
+      - name: Build python module
+        if: startsWith(matrix.os, 'windows')
+        working-directory: python
+        run: >
+            python setup.py
+            build_ext --inplace build
+            --
+            -Doneseismic_DIR="${{ github.workspace }}/build"
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      - name: Build python module
+        if: ${{ !startsWith(matrix.os, 'windows') }}
+        working-directory: python
+        run: >
+            python setup.py
+            build_ext --inplace build
+            --
+            -Doneseismic_DIR="${{ github.workspace }}/build"
 
       - name: Run python tests
         working-directory: python
