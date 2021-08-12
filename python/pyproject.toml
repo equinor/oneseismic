@@ -8,14 +8,52 @@ requires = [
 
 [tool.cibuildwheel]
 before-all = [
-    "curl -L https://github.com/msgpack/msgpack-c/releases/download/cpp-3.3.0/msgpack-3.3.0.tar.gz -o msgpack-3.3.0.tar.gz",
+    """curl \
+        -L https://github.com/msgpack/msgpack-c/releases/download/cpp-3.3.0/msgpack-3.3.0.tar.gz \
+        -o msgpack-3.3.0.tar.gz \
+    """,
     "tar xf msgpack-3.3.0.tar.gz",
+    """cmake \
+        -S msgpack-3.3.0  \
+        -B msgpack-3.3.0/build \
+        -DMSGPACK_CXX_ONLY=ON \
+        -DMSGPACK_BUILD_EXAMPLES=OFF \
+        -DCMAKE_INSTALL_PREFIX=core/ \
+    """,
+    """cmake \
+        --build msgpack-3.3.0/build \
+        --target install \
+        --config Release \
+    """,
 ]
+
+# To make sure that dependencies are built for the right arch (i686, amd64 etc)
+# then the host arch is added onto the build dir. This *must* be expanded by
+# cibuildwheel since the build host (runner) might be different than the target
+# emulated by the docker image. Ideally there would be a variable that holds
+# what's currently being compiled, but I've yet to find it.
+#
+# Since the command is issued through subprocess.run() then it runs on the
+# system native shell, which means all sorts of problems if that shell is
+# cmd.exe, since it doesn't understand substitution $(). On windows you change
+# the default shell by setting COMSPEC to either bash or powershell (or
+# something else that understands $()), but there is little to gain from
+# running cibuildwheel on a non-CI windows.
 before-build = [
-    "cmake -S msgpack-3.3.0 -B msgpack-3.3.0/build -DMSGPACK_CXX_ONLY=ON -DMSGPACK_BUILD_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX=core/",
-    "cmake --build msgpack-3.3.0/build --target install --config Release",
-    "cmake -S core/ -B build/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_TESTING=OFF -DBUILD_CORE=OFF",
-    "cmake --build build/ -j 4 --target install --config Release",
+    """cmake \
+        -S core/ \
+        -B "cibw-$(python -c 'import platform; print(platform.machine())')/" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_CORE=OFF \
+    """,
+    """cmake \
+        --build "cibw-$(python -c 'import platform; print(platform.machine())')/" \
+        --parallel \
+        --target install \
+        --config Release \
+    """,
 ]
 
 [tool.cibuildwheel.macos]
