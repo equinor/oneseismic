@@ -165,11 +165,11 @@ func (r *Result) Get(ctx *gin.Context) {
 		result = append(result, tile...)
 	}
 
-	err, ok := <-failure
-
-	if ok {
-		log.Printf("pid=%s, %s", pid, err)
+	select {
+	case err = <-failure:
 		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	default:
 	}
 
 	ctx.Data(http.StatusOK, "application/octet-stream", result)
