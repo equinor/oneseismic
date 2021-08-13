@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 project(oneseismic-python LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_VISIBILITY_PRESET "hidden")
 set(CMAKE_C_VISIBILITY_PRESET   "hidden")
 
@@ -29,6 +28,7 @@ find_package(oneseismic REQUIRED)
 find_package(fmt)
 
 add_library(decoder MODULE oneseismic/decoder.cpp)
+target_compile_features(decoder PUBLIC cxx_std_14)
 python_extension_module(decoder)
 target_link_libraries(decoder
     pybind11::headers

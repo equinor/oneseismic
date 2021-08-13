@@ -30,9 +30,8 @@ if (NOT MSVC)
     )
 endif ()
 
-set(CMAKE_CXX_STANDARD 17)
-
 add_library(oneseismic)
+target_compile_features(oneseismic PUBLIC cxx_std_17)
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
     PUBLIC
