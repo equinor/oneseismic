@@ -114,8 +114,8 @@ std::uint32_t net32(const char* net) noexcept (true) {
 std::uint16_t net16(const char* net) noexcept (true) {
     std::uint8_t data[sizeof(std::uint16_t)] = {};
     std::memcpy(&data, net, sizeof(data));
-    return ((std::uint16_t) data[1] << 8)
-         | ((std::uint16_t) data[0] << 0)
+    return ((std::uint16_t) data[0] << 8)
+         | ((std::uint16_t) data[1] << 0)
     ;
 }
 
