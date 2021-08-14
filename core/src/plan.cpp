@@ -364,37 +364,6 @@ schedule_maker< slice_query, slice_task >::header(
     return head;
 }
 
-/*
- * Compute the cartesian coordinate of the label/line numbers. This is
- * effectively a glorified indexof() in practice, although conceptually it
- * maps from a user-oriented grid to its internal representation. The cartesian
- * coordinates are taken at face value by the rest of the system, and can be
- * used for lookup directly. From oneseismic's point of view, the grid labels
- * are forgotten after this function is called.
- */
-template < typename Itr >
-Itr to_cartesian_inplace(const std::vector< int >& labels, Itr fst, Itr lst)
-noexcept (false) {
-    assert(std::is_sorted(labels.begin(), labels.end()));
-
-    auto indexof = [&labels](auto x) {
-        const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
-        if (*itr != x) {
-            const auto msg = fmt::format("lineno {} not in index");
-            throw not_found(msg);
-        }
-        return std::distance(labels.begin(), itr);
-    };
-
-    return std::transform(fst, lst, fst, indexof);
-}
-
-std::vector< int >::iterator
-to_cartesian_inplace( const std::vector< int >& labels, std::vector< int >& xs)
-noexcept (false) {
-    return to_cartesian_inplace(labels, xs.begin(), xs.end());
-}
-
 template <>
 std::vector< curtain_task >
 schedule_maker< curtain_query, curtain_task >::build(
@@ -414,12 +383,9 @@ schedule_maker< curtain_query, curtain_task >::build(
 
     std::vector< curtain_task > tasks;
     tasks.emplace_back(query);
-    auto& task = tasks.back();
-    auto dim0s = query.dim0s;
-    auto dim1s = query.dim1s;
-    to_cartesian_inplace(query.manifest.line_numbers[0], dim0s);
-    to_cartesian_inplace(query.manifest.line_numbers[1], dim1s);
-    auto& ids = task.ids;
+    auto& ids = tasks.back().ids;
+    const auto& dim0s = query.dim0s;
+    const auto& dim1s = query.dim1s;
 
     auto gvt = geometry(query);
     const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));

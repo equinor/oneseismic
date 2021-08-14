@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <string>
 
 #include <fmt/format.h>
@@ -317,6 +318,39 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
     }
 }
 
+namespace {
+
+/*
+ * Compute the cartesian coordinate of the label/line numbers. This is
+ * effectively a glorified indexof() in practice, although conceptually it maps
+ * from a user-oriented grid to its internal representation. The cartesian
+ * coordinates are taken at face value by the rest of the system, and can be
+ * used for lookup directly. Past this point, oneseismic only works in the
+ * cartesian grid and no longer cares about line numbers.
+ */
+void to_cartesian_inplace(
+    const std::vector< int >& labels,
+    std::vector< int >& xs)
+noexcept (false) {
+    assert(std::is_sorted(labels.begin(), labels.end()));
+
+    auto fst = xs.begin();
+    auto lst = xs.end();
+
+    const auto indexof = [&labels](auto x) {
+        const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
+        if (*itr != x) {
+            const auto msg = fmt::format("lineno {} not in index");
+            throw not_found(msg);
+        }
+        return std::distance(labels.begin(), itr);
+    };
+
+    std::transform(fst, lst, fst, indexof);
+}
+
+}
+
 void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false) {
     from_json(doc, static_cast< basic_query& >(query));
 
@@ -339,6 +373,16 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
         }
     } catch (std::out_of_range&) {
         throw bad_value("bad coord arg; expected list-of-pairs");
+    }
+
+    const std::string& kind = args.at("kind");
+    if (kind == "index") {
+        /* no-op - already cartesian indices */
+    }
+    else if (kind == "lineno") {
+        const auto& line_numbers = query.manifest.line_numbers;
+        to_cartesian_inplace(line_numbers[0], query.dim0s);
+        to_cartesian_inplace(line_numbers[1], query.dim1s);
     }
 }
 

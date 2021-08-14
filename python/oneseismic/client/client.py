@@ -364,7 +364,7 @@ class cube:
         query = f'''
         query {{
             cube(id: "{self.guid}") {{
-                curtain(coords: {intersections}) {{
+                curtainByLineno(coords: {intersections}) {{
                     url
                     key
                 }}
