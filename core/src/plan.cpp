@@ -347,7 +347,12 @@ schedule_maker< slice_query, slice_task >::header(
     head.function   = functionid::slice;
     head.nbundles   = ntasks;
     head.ndims      = mdims.size() - 1;
-    head.attributes = query.attributes;
+    head.attributes.push_back("data");
+    head.attributes.insert(
+        head.attributes.end(),
+        query.attributes.begin(),
+        query.attributes.end()
+    );
 
     /*
      * Build the index from the line numbers for the directions !=
@@ -469,7 +474,12 @@ schedule_maker< curtain_query, curtain_task >::header(
     head.function   = functionid::curtain;
     head.nbundles   = ntasks;
     head.ndims      = mdims.size();
-    head.attributes = query.attributes;
+    head.attributes.push_back("data");
+    head.attributes.insert(
+        head.attributes.end(),
+        query.attributes.begin(),
+        query.attributes.end()
+    );
 
     auto& index = head.index;
 
