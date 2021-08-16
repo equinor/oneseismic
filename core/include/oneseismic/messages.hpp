@@ -172,7 +172,9 @@ struct process_header : MsgPackable< process_header > {
     int                                 nbundles;
     int                                 ndims;
     std::vector< int >                  index;
+    std::vector< std::string >          labels;
     std::vector< std::string >          attributes;
+    std::vector< int >                  shapes;
 };
 
 struct slice_query : public basic_query, Packable< slice_query > {

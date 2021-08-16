@@ -46,6 +46,8 @@ PYBIND11_MODULE(decoder, m) {
         .def_readonly("ndims",      &one::process_header::ndims)
         .def_readonly("index",      &one::process_header::index)
         .def_readonly("function",   &one::process_header::function)
+        .def_readonly("shapes",     &one::process_header::shapes)
+        .def_readonly("labels",     &one::process_header::labels)
     ;
 
     py::enum_<one::functionid>(m, "functionid")

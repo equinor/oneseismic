@@ -18,236 +18,91 @@ def splitindex(ndims, index):
         yield index[:k]
         index = index[k:]
 
+def splitshapes(xs):
+    while len(xs) > 0:
+        n, xs = xs[0], xs[1:]
+        yield xs[:n]
+        xs = xs[n:]
+
 class assembler:
     def __init__(self):
         self.decoder = decoder.decoder()
 
-        self.numpys = {
-            1: self.npslice,
-            2: self.npcurtain,
-        }
-
-        self.xarrays = {
-            1: self.xaslice,
-            2: self.xacurtain,
-        }
-
-    def decnumpy(self, stream):
+    def decode(self, stream):
         self.decoder.reset()
         self.decoder.buffer_and_process(stream)
 
         head = self.decoder.header()
-        ndims = head.ndims
-        index = head.index
+        shapes = splitshapes(head.shapes)
+
+        d = {}
+        for attr, shape in zip(head.attrs, shapes):
+            a = np.zeros(shape = shape, dtype = 'f4')
+            d[attr] = a
+            self.decoder.register_writer(attr, a)
+
+        self.decoder.process()
+        return head, d
+
+    def numpy(self, decoded):
+        head, d = decoded
+        return d[head.attrs[0]].squeeze()
+
+    def xarray(self, decoded):
+        head, d = decoded
+        # copy the dict so that this function can do destructive operations (on
+        # the dict itself) without leaking the effects
+        d = dict(d)
+
+        ndims  = head.ndims
+        labels = head.labels
+        index  = [x for x in splitindex(ndims, head.index)]
+
         function = head.function
+        data   = d.pop(head.attrs[0])
+        coords = {}
+        attrs  = {}
+        aname  = None
 
         if function == decoder.functionid.slice:
-            a = np.zeros(shape = index[:ndims], dtype = 'f4')
+            # For slices, one of the dimensions (in, cross, depth/time) should
+            # be 1. There could be some awkward cases for absurdly thin cubes
+            # (with dimension-of-one) which should be tested and accounted for.
+            dims = []
+            for ndim, name, indices in zip(data.shape, labels, index):
+                if ndim > 1:
+                    dims.append(name)
+                    coords[name] = (name, indices)
+                else:
+                    attrs[name] = indices[0]
+                    aname = f'{name} slice {indices[0]}'
+
+            data = data.squeeze()
+            # All other attributes describe the x/y plane
+            for attr, array in d.items():
+                array = array.squeeze()
+                coords[attr] = (dims[:array.ndim], array.squeeze())
+
         elif function == decoder.functionid.curtain:
-            a = np.zeros(shape = index[1:ndims], dtype = 'f4')
+            dims = ['x, y', 'x, y', labels[-1]]
+            for name, indices, dim in zip(labels, index, dims):
+                coords[name] = (dim, indices)
+
+            aname = 'curtain'
+            dims.pop(0)
+            for attr, array in d.items():
+                coords[attr] = (dims[0], array.squeeze())
+
         else:
-            raise RuntimeError('Bad message; unknown function')
-
-        self.decoder.register_writer('data', a)
-        self.decoder.process()
-        return a
-
-    def numpy(self, unpacked):
-        """Assemble numpy array
-
-        Assemble a numpy array from a parsed response.
-
-        Parameters
-        ----------
-        unpacked
-            The result of msgpack.unpackb(slice.get())
-        Returns
-        -------
-        a : numpy.array
-            The result as a numpy array
-        """
-        header = unpacked[0]
-        function = header['function']
-
-        try:
-            fn = self.numpys[function]
-        except KeyError:
             raise RuntimeError(f'bad message; unknown function {function}')
-
-        return fn(unpacked)
-
-    def xarray(self, unpacked):
-        """Assemble xarray
-
-        Assemble an xarray from a parsed response.
-
-        Parameters
-        ----------
-        unpacked
-            The result of msgpack.unpackb(slice.get())
-
-        Returns
-        -------
-        xa : xarray.DataArray
-            The result as an xarray
-        """
-        header = unpacked[0]
-        function = header['function']
-
-        try:
-            fn = self.xarrays[function]
-        except KeyError:
-            raise RuntimeError(f'bad message; unknown function {function}')
-
-        return fn(unpacked)
-
-    def npslice(self, unpacked):
-        header = unpacked[0]
-        ndims = header['ndims']
-        shape = header['index'][:ndims]
-
-        result = np.zeros(shape, dtype = np.single).ravel()
-        for bundle in unpacked[1]:
-            attribute = bundle[0]
-            tiles = bundle[1]
-
-            if attribute != 'data':
-                continue
-
-            for tile in tiles:
-                iterations   = tile[0]
-                chunk_size   = tile[1]
-                initial_skip = tile[2]
-                superstride  = tile[3]
-                substride    = tile[4]
-                v            = tile[5]
-                v = np.frombuffer(v, dtype = 'f4')
-                src = 0
-                dst = initial_skip
-                for _ in range(iterations):
-                    result[dst : dst + chunk_size] = v[src : src + chunk_size]
-                    dst += superstride
-                    src += substride
-
-        return result.reshape(shape)
-
-    def xaslice(self, unpacked):
-        a = self.numpy(unpacked)
-
-        header = unpacked[0]
-        ndims = header['ndims']
-        index = header['index']
-        shape = index[:ndims]
-
-        attrs = {}
-        for attr in unpacked[0]['attributes']:
-            dtype = 'f4'
-            if self.name.startswith('time'):
-                attrlabels = self.dims
-                attrshape = shape[:len(attrlabels)]
-            else:
-                attrlabels = self.dims[0]
-                attrshape = shape[0]
-
-            attrs[attr] = np.zeros(np.prod(attrshape), dtype = dtype).ravel()
-
-        for bundle in unpacked[1]:
-            attribute = bundle[0]
-            tiles = bundle[1]
-
-            if attribute not in attrs:
-                continue
-
-            result = attrs[attribute]
-            for tile in tiles:
-                iterations   = tile[0]
-                chunk_size   = tile[1]
-                initial_skip = tile[2]
-                superstride  = tile[3]
-                substride    = tile[4]
-                v            = tile[5]
-                v = np.frombuffer(v, dtype = 'f4')
-                src = 0
-                dst = initial_skip
-                for _ in range(iterations):
-                    result[dst : dst + chunk_size] = v[src : src + chunk_size]
-                    dst += superstride
-                    src += substride
-
-        # TODO: add units for time/depth
-        coords = {
-            self.dims[0]: index[ndims:][:shape[0]],
-            self.dims[1]: index[ndims:][shape[0]:]
-        }
-
-        for k, v in attrs.items():
-            coords[k] = (attrlabels, v.reshape(attrshape))
 
         return xarray.DataArray(
-            data   = a,
-            dims   = self.dims,
-            name   = self.name,
+            data   = data,
+            dims   = dims,
+            name   = aname,
             coords = coords,
+            attrs  = attrs,
         )
-
-    def npcurtain(self, unpacked):
-        # This function is very rough and does suggest that the message from the
-        # server should be richer, to more easily allocate and construct a curtain
-        # object
-        header = unpacked[0]
-        ndims = header['ndims']
-        index = header['index']
-        shape = index[:ndims]
-        index = [dim for dim in splitindex(ndims, index)]
-
-        xs = np.zeros(shape = shape[1:], dtype = np.single)
-        for bundle in unpacked[1]:
-            attribute = bundle[0]
-            if attribute != 'data':
-                continue
-
-            ntraces = bundle[1]
-            major   = bundle[2]
-            minor   = bundle[3]
-            values  = bundle[4]
-            values  = np.frombuffer(values, dtype = 'f4')
-            for i in range(ntraces):
-                ifst = major[i*2]
-                ilst = major[i*2 + 1]
-                zfst = minor[i*2]
-                zlst = minor[i*2 + 1]
-
-                dst = xs[ifst:ilst, zfst:zlst]
-                v = values[:dst.size].reshape(dst.shape)
-                values = values[v.size:]
-                dst[:] = v[:]
-
-        return xs
-
-    def xacurtain(self, unpacked):
-        a = self.numpy(unpacked)
-
-        header = unpacked[0]
-        index = header['index']
-        ndims = header['ndims']
-        index = [dim for dim in splitindex(ndims, index)]
-
-        xs = index[0]
-        ys = index[1]
-        zs = index[2]
-        da = xarray.DataArray(
-            data = a,
-            name = 'curtain',
-            # TODO: derive labels from query, header, or manifest
-            dims = ['xy', 'z'],
-            coords = {
-                'x': ('xy', xs),
-                'y': ('xy', ys),
-                'z': zs,
-            }
-        )
-
-        return da
 
 class cube:
     """ Cube handle
@@ -333,17 +188,11 @@ class cube:
         }}
         '''
 
-        proc = gschedule(
+        return gschedule(
             self.gclient,
             self.session.base_url,
             query,
         )
-        # TODO: derive labels from query or result
-        labels = ['inline', 'crossline', 'time']
-        name = f'{labels.pop(dim)} {lineno}'
-        proc.decoder.dims = labels
-        proc.decoder.name = name
-        return proc
 
     def curtain(self, intersections):
         """Fetch a curtain
@@ -371,12 +220,11 @@ class cube:
             }}
         }}
         '''
-        proc = gschedule(
+        return gschedule(
             self.gclient,
             self.session.base_url,
             query,
         )
-        return proc
 
 class process:
     """
@@ -468,22 +316,18 @@ class process:
     def get(self):
         """Get the parsed response
         """
-        return msgpack.unpackb(self.get_raw())
+        try:
+            return self._decoded
+        except AttributeError:
+            self._decoded = self.decoder.decode(self.get_raw())
+            return self._decoded
+
 
     def numpy(self):
-        try:
-            return self._cached_numpy
-        except AttributeError:
-            self._cached_numpy = self.decoder.decnumpy(self.get_raw())
-            return self._cached_numpy
+        return self.decoder.numpy(self.get())
 
     def xarray(self):
-        try:
-            return self._cached_xarray
-        except AttributeError:
-            raw = self.get()
-            self._cached_xarray = self.decoder.xarray(raw)
-            return self._cached_xarray
+        return self.decoder.xarray(self.get())
 
     def withcompression(self, kind = 'gz'):
         """Get response compressed if available

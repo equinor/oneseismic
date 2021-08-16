@@ -269,6 +269,8 @@ void to_json(nlohmann::json& doc, const process_header& head) noexcept (false) {
     doc["nbundles"]     = head.nbundles;
     doc["ndims"]        = head.ndims;
     doc["index"]        = head.index;
+    doc["labels"]       = head.labels;
+    doc["shapes"]       = head.shapes;
     doc["attributes"]   = head.attributes;
 }
 
@@ -278,6 +280,8 @@ void from_json(const nlohmann::json& doc, process_header& head) noexcept (false)
     doc.at("nbundles")  .get_to(head.nbundles);
     doc.at("ndims")     .get_to(head.ndims);
     doc.at("index")     .get_to(head.index);
+    doc.at("labels")    .get_to(head.labels);
+    doc.at("shapes")    .get_to(head.shapes);
     doc.at("attributes").get_to(head.attributes);
 }
 
