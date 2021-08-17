@@ -211,6 +211,11 @@ type sliceargs struct {
 	Val  int32  `json:"val"`
 }
 
+type curtainargs struct {
+	Kind   string    `json:"kind"`
+	Coords [][]int32 `json:"coords"`
+}
+
 func (c *cube) SliceByLineno(
 	ctx  context.Context,
 	args struct {
@@ -318,9 +323,35 @@ func (c *cube) basicSlice(
 	}, nil
 }
 
-func (c *cube) Curtain(
+func (c *cube) CurtainByIndex(
 	ctx    context.Context,
 	args   struct { Coords [][]int32 `json:"coords"` },
+) (*promise, error) {
+	return c.basicCurtain(
+		ctx,
+		curtainargs {
+			Kind: "index",
+			Coords: args.Coords,
+		},
+	)
+}
+
+func (c *cube) CurtainByLineno(
+	ctx    context.Context,
+	args   struct { Coords [][]int32 `json:"coords"` },
+) (*promise, error) {
+	return c.basicCurtain(
+		ctx,
+		curtainargs {
+			Kind: "lineno",
+			Coords: args.Coords,
+		},
+	)
+}
+
+func (c *cube) basicCurtain(
+	ctx    context.Context,
+	args   curtainargs,
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
@@ -412,7 +443,8 @@ type Cube {
 
     sliceByLineno(dim: Int!, lineno: Int!, opts: Opts): Promise!
     sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise!
-    curtain(coords: [[Int!]!]!): Promise!
+    curtainByLineno(coords: [[Int!]!]!): Promise!
+    curtainByIndex(coords: [[Int!]!]!): Promise!
 }
 
 type Promise {

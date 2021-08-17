@@ -49,7 +49,9 @@ struct convert< one::process_header > {
             else if (key == "function")   kv.val >> head.function;
             else if (key == "nbundles")   kv.val >> head.nbundles;
             else if (key == "ndims")      kv.val >> head.ndims;
+            else if (key == "labels")     kv.val >> head.labels;
             else if (key == "index")      kv.val >> head.index;
+            else if (key == "shapes")     kv.val >> head.shapes;
             else if (key == "attributes") kv.val >> head.attributes;
             else {
                 throw one::bad_message("Unknown key '" + key + "' in header");

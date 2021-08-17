@@ -334,6 +334,16 @@ schedule_maker< slice_query, slice_task >::build(const slice_query& query) {
     return tasks;
 }
 
+namespace {
+
+bool horizontal(const slice_query& query) noexcept (true) {
+    const auto querydims = query.manifest.line_numbers.size();
+    const auto last_dim = querydims - 1;
+    return query.dim == last_dim;
+}
+
+}
+
 template <>
 process_header
 schedule_maker< slice_query, slice_task >::header(
@@ -346,53 +356,77 @@ schedule_maker< slice_query, slice_task >::header(
     head.pid        = query.pid;
     head.function   = functionid::slice;
     head.nbundles   = ntasks;
-    head.ndims      = mdims.size() - 1;
-    head.attributes = query.attributes;
+    head.ndims      = mdims.size();
+    head.labels     = query.manifest.line_labels;
+    head.attributes.push_back("data");
+    head.attributes.insert(
+        head.attributes.end(),
+        query.attributes.begin(),
+        query.attributes.end()
+    );
 
     /*
-     * Build the index from the line numbers for the directions !=
-     * params.lineno
+     * Build the (line number) index of the output. Notice that the queried
+     * direction is also included here, so that users can get infer what line
+     * was queried (useful when source is index or coordinate) and the
+     * direction of the output.
      */
     for (std::size_t i = 0; i < mdims.size(); ++i) {
-        if (i == query.dim) continue;
-        head.index.push_back(mdims[i].size());
+        if (i != query.dim) {
+            head.index.push_back(mdims[i].size());
+        } else {
+            head.index.push_back(1);
+        }
     }
     for (std::size_t i = 0; i < mdims.size(); ++i) {
-        if (i == query.dim) continue;
-        head.index.insert(head.index.end(), mdims[i].begin(), mdims[i].end());
-    }
-    return head;
-}
-
-/*
- * Compute the cartesian coordinate of the label/line numbers. This is
- * effectively a glorified indexof() in practice, although conceptually it
- * maps from a user-oriented grid to its internal representation. The cartesian
- * coordinates are taken at face value by the rest of the system, and can be
- * used for lookup directly. From oneseismic's point of view, the grid labels
- * are forgotten after this function is called.
- */
-template < typename Itr >
-Itr to_cartesian_inplace(const std::vector< int >& labels, Itr fst, Itr lst)
-noexcept (false) {
-    assert(std::is_sorted(labels.begin(), labels.end()));
-
-    auto indexof = [&labels](auto x) {
-        const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
-        if (*itr != x) {
-            const auto msg = fmt::format("lineno {} not in index");
-            throw not_found(msg);
+        if (i != query.dim) {
+            head.index.insert(
+                head.index.end(),
+                mdims[i].begin(),
+                mdims[i].end()
+            );
+        } else {
+            head.index.push_back(mdims[i][query.idx]);
         }
-        return std::distance(labels.begin(), itr);
-    };
+    }
 
-    return std::transform(fst, lst, fst, indexof);
-}
+    /*
+     * Record the shapes of the output. The first attribute is always 'data'
+     * (the payload/values/trace values), and its shape always matches those of
+     * the index. One of the dimensions is 1 (e.g. when querying an inline, the
+     * first dimension is 1), so users with numpy probably wants to squeeze the
+     * array before use. How to handle these 1-dimensions is left to the users.
+     */
+    auto& shapes = head.shapes;
+    shapes.push_back(head.ndims);
+    shapes.insert(
+        shapes.end(),
+        head.index.begin(),
+        head.index.begin() + head.ndims
+    );
 
-std::vector< int >::iterator
-to_cartesian_inplace( const std::vector< int >& labels, std::vector< int >& xs)
-noexcept (false) {
-    return to_cartesian_inplace(labels, xs.begin(), xs.end());
+    for (const auto& attr : query.attributes) {
+        shapes.push_back(head.ndims);
+        shapes.insert(
+            shapes.end(),
+            head.index.begin(),
+            head.index.begin() + head.ndims
+        );
+
+        /*
+         * If the query is vertical (in/crossline) then the attributes should
+         * all be 1D arrays (one-per-trace). When it is a time/depth slice, the
+         * output is a field and the attributes are 2D. This maps the attribute
+         * shapes from/to:
+         *
+         * dim0: [1, N, M] -> [1, N, 1]
+         * dim1: [N, 1, M] -> [N, 1, 1]
+         * dim2: [N, M, 1] -> [N, M, 1]
+         */
+        shapes.back() = 1;
+    }
+
+    return head;
 }
 
 template <>
@@ -414,12 +448,9 @@ schedule_maker< curtain_query, curtain_task >::build(
 
     std::vector< curtain_task > tasks;
     tasks.emplace_back(query);
-    auto& task = tasks.back();
-    auto dim0s = query.dim0s;
-    auto dim1s = query.dim1s;
-    to_cartesian_inplace(query.manifest.line_numbers[0], dim0s);
-    to_cartesian_inplace(query.manifest.line_numbers[1], dim1s);
-    auto& ids = task.ids;
+    auto& ids = tasks.back().ids;
+    const auto& dim0s = query.dim0s;
+    const auto& dim1s = query.dim1s;
 
     auto gvt = geometry(query);
     const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
@@ -503,7 +534,13 @@ schedule_maker< curtain_query, curtain_task >::header(
     head.function   = functionid::curtain;
     head.nbundles   = ntasks;
     head.ndims      = mdims.size();
-    head.attributes = query.attributes;
+    head.labels     = query.manifest.line_labels;
+    head.attributes.push_back("data");
+    head.attributes.insert(
+        head.attributes.end(),
+        query.attributes.begin(),
+        query.attributes.end()
+    );
 
     auto& index = head.index;
 
@@ -514,6 +551,19 @@ schedule_maker< curtain_query, curtain_task >::header(
     index.insert(index.end(), query.dim0s .begin(), query.dim0s .end());
     index.insert(index.end(), query.dim1s .begin(), query.dim1s .end());
     index.insert(index.end(), mdims.back().begin(), mdims.back().end());
+
+    /*
+     * The curtain is already pretty constrained in its output shapes, since it
+     * can only query "vertically", which makes attributes always 1D
+     */
+    auto& shapes = head.shapes;
+    shapes.push_back(2);
+    shapes.insert(shapes.end(), index.begin() + 1, index.begin() + 3);
+
+    for (const auto& attr : query.attributes) {
+        shapes.push_back(1);
+        shapes.push_back(head.index.front());
+    }
 
     return head;
 }
