@@ -31,9 +31,24 @@ type cube struct {
 	root     *resolver
 	manifest map[string]interface{}
 }
+
 type promise struct {
-	url string
-	key string
+	Url string `json:"url"`
+	Key string `json:"key"`
+}
+
+func (promise) ImplementsGraphQLType(name string) bool {
+	return name == "Promise"
+}
+
+func (p *promise) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p)
+}
+
+func (p *promise) UnmarshalGraphQL(input interface{}) error {
+	// Unmarshal must be defined, but should never be used as an input type;
+	// that's a schema bug, and all queries should be ignored.
+	return errors.New("Promise is not an input type");
 }
 
 type opts struct {
@@ -318,8 +333,8 @@ func (c *cube) basicSlice(
 	}()
 
 	return &promise {
-		url: fmt.Sprintf("result/%s", pid),
-		key: key,
+		Url: fmt.Sprintf("result/%s", pid),
+		Key: key,
 	}, nil
 }
 
@@ -401,17 +416,9 @@ func (c *cube) basicCurtain(
 	}()
 
 	return &promise {
-		url: fmt.Sprintf("result/%s", pid),
-		key: key,
+		Url: fmt.Sprintf("result/%s", pid),
+		Key: key,
 	}, nil
-}
-
-func (p *promise) Url() string {
-	return p.url
-}
-
-func (p *promise) Key() string {
-	return p.key
 }
 
 func MakeGraphQL(
@@ -421,6 +428,8 @@ func MakeGraphQL(
 	tokens   auth.Tokens,
 ) *gql {
 	schema := `
+scalar Promise
+
 type Query {
     cubes: [ID!]!
     cube(id: ID!): Cube!
@@ -445,11 +454,6 @@ type Cube {
     sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise
     curtainByLineno(coords: [[Int!]!]!): Promise
     curtainByIndex(coords: [[Int!]!]!): Promise
-}
-
-type Promise {
-    url: String!
-    key: String!
 }
 	`
 	resolver := &resolver {

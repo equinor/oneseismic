@@ -180,10 +180,7 @@ class cube:
         query = f'''
         query {{
             cube(id: "{self.guid}") {{
-                sliceByLineno(dim: {dim}, lineno: {lineno}) {{
-                    url
-                    key
-                }}
+                sliceByLineno(dim: {dim}, lineno: {lineno})
             }}
         }}
         '''
@@ -213,10 +210,7 @@ class cube:
         query = f'''
         query {{
             cube(id: "{self.guid}") {{
-                curtainByLineno(coords: {intersections}) {{
-                    url
-                    key
-                }}
+                curtainByLineno(coords: {intersections})
             }}
         }}
         '''
