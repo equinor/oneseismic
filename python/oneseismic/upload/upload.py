@@ -67,9 +67,8 @@ class fileset:
         # zero-cube will be created, so there is no need to keep track of what
         # needs padding.
         self.files = collections.defaultdict(mkfile)
-        shapestr = '-'.join(map(str, shape))
         # normalize, e.g. remove repeated slashes, make all forward slash etc
-        self.prefix = (pathlib.PurePath(prefix) / shapestr).as_posix()
+        self.prefix = pathlib.PurePath(prefix).as_posix()
         self.ext = 'f32'
 
         # map line-numbers to the fragment ID
@@ -328,9 +327,10 @@ def upload(manifest, shape, src, origfname, filesys):
             fset.put(key1, key2, trace)
 
         for fset in files:
+            shapestr = '-'.join(map(str, fset.shape))
             for ident, block in fset.commit(key1):
                 ident = '-'.join(map(str, ident))
-                name = f'{fset.prefix}/{ident}.{fset.ext}'
+                name = f'{fset.prefix}/{shapestr}/{ident}.{fset.ext}'
                 print('uploading', name)
 
                 with filesys.open(name, mode = 'wb') as f:
