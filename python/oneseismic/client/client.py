@@ -1,4 +1,3 @@
-import collections
 import functools
 import numpy as np
 import requests
@@ -594,37 +593,8 @@ class http_session(requests.Session):
         auth = tokens(cache_dir = cache_dir).load(cfg)
         return http_session(base_url = cfg['url'], tokens = auth)
 
-def ls(session):
-    """List available cubes
-
-    List the cubes stored in oneseismic. The ids returned should all be valid
-    arguments for the oneseismic.client.cube class.
-
-    Parameters
-    ----------
-    session : oneseismic.http_session
-        Session with authorization headers set
-
-    Returns
-    -------
-    guids : iterable of str
-        Cube GUIDs
-
-    See also
-    --------
-    oneseismic.client.cube
+class cubes:
     """
-    query = '''{
-        cubes
-    }
-    '''
-    q = gql.gql(query)
-    res = session.execute(q)
-    return res['cubes']
-
-class cubes(collections.abc.Mapping):
-    """Dict-like interface to cubes in the oneseismic subscription
-
     Parameters
     ----------
     session : http_session
@@ -646,43 +616,9 @@ class cubes(collections.abc.Mapping):
             transport = transport,
             fetch_schema_from_transport = True,
         )
-        self.cache = None
 
     def __getitem__(self, guid):
-        if guid not in self.guids:
-            raise KeyError(guid)
         return cube(guid, self.session, self.gclient)
-
-    def __iter__(self):
-        yield from self.guids
-
-    def __len__(self):
-        return len(self.guids)
-
-    def sync(self):
-        """Synchronize the set of guids in the subscription.
-
-        It is generally only necessary to call this function once, but it can
-        be called manually to get new IDs that have been added to the
-        subscription since the client was created. For programs, it is
-        Generally a better idea to create a new client.
-
-        This is intended for internal use.
-        """
-        self.cache = ls(self.gclient)
-
-    @property
-    def guids(self):
-        """Guids of cubes in subscription
-
-        This is for internal use.
-
-        All other functions should use this property to interact with guids, as
-        it manages the cache.
-        """
-        if self.cache is None:
-            self.sync()
-        return self.cache
 
 class cli:
     """User friendly access to oneseismic
