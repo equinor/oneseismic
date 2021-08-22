@@ -149,17 +149,16 @@ class fileset:
     def extract(self, trace):
         """Extract interesting data from a trace
 
-        This function should be overriden or specialised if you need something
-        other than the trace data (samples). For example, when using this for
-        extracting attributes, it should read (and scale) the appropriate
-        header word.
+        This function should be overriden or specialised. For example, when
+        using this for extracting attributes, it should read (and scale) the
+        appropriate header word.
 
         extract() returns an array_like, i.e. scalar values must be wrapped in
         a list.
 
         extracted : array_like
         """
-        return trace['samples']
+        raise NotImplementedError
 
     def put(self, key1, key2, trace):
         """Put a trace
@@ -242,6 +241,10 @@ class cdpset(fileset):
             'prefix': self.prefix,
         },
 
+class dataset(fileset):
+    def extract(self, trace):
+        return native(trace['samples'])
+
 def upload(manifest, shape, src, origfname, filesys):
     """Upload volume to oneseismic
 
@@ -285,7 +288,7 @@ def upload(manifest, shape, src, origfname, filesys):
     trace = np.array(1, dtype = dtype)
     fmt = manifest['format']
 
-    files = [fileset(key1s, key2s, key3s, shape, prefix = 'src')]
+    files = [dataset(key1s, key2s, key3s, shape, prefix = 'src')]
     files.extend([
         cdpset(
             segyio.su.cdpx,
