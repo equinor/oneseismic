@@ -86,6 +86,7 @@ func (r *resolver) Cube(
 		string(args.Id),
 		auth,
 	)
+	// TODO: inspect error and determine if cached token should be evicted
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err

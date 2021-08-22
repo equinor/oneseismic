@@ -66,7 +66,18 @@ func NewTokens(
 
 func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
 	if cached, found := t.cache.Load(token); found {
-		return cached.(string), nil
+		obo := cached.(oboToken)
+		/*
+		 * If this token is expired or is about to expire in the next five
+		 * minutes (no request should ever take that long to complete) then
+		 * consider it a cache miss. This means tokens issued with very short
+		 * expiration would be refetched every time, but that's probably ok
+		 */
+		if time.Now().Add(5 * time.Minute).After(obo.ExpiresOn) {
+			t.Invalidate(token)
+		} else {
+			return obo.AccessToken, nil
+		}
 	}
 
 	if err := checkAuthorizationHeader(token); err != nil {
@@ -112,7 +123,7 @@ func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
 			message: fmt.Sprintf("Token decoding failed: %v", err),
 		}
 	}
-	t.cache.Store(token, obo.AccessToken)
+	t.cache.Store(token, obo)
 	return obo.AccessToken, nil
 }
 
@@ -264,12 +275,16 @@ func fetchOnBehalfToken(
 }
 
 type oboToken struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string    `json:"access_token"`
+	ExpiresOn   time.Time `json:"expires_on"`
 }
 
 func (o *oboToken) UnmarshalJSON(b []byte) error {
-	type OnBehalfOfToken oboToken
-	aux := OnBehalfOfToken {}
+	type oboResponse struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int64  `json:"expires_in"`
+	}
+	aux := oboResponse {}
 	err := json.Unmarshal(b, &aux)
 	if err != nil {
 		return err
@@ -278,8 +293,16 @@ func (o *oboToken) UnmarshalJSON(b []byte) error {
 	if aux.AccessToken == "" {
 		return fmt.Errorf("missing field 'access_token'")
 	}
+	if aux.ExpiresIn == 0 {
+		return fmt.Errorf("missing field 'expires_in'")
+	}
 
+	// Approximate an expires_on (it's not included in the message) from
+	// expires_in by just adding it to Now(). This shouldn't be a problem since
+	// tokens a few minutes from expiration should be refreshed anyway, so a
+	// few seconds off doesn't matter
 	o.AccessToken = aux.AccessToken
+	o.ExpiresOn   = time.Now().Add(time.Duration(aux.ExpiresIn) * time.Second)
 	return nil
 }
 
