@@ -55,37 +55,6 @@ type opts struct {
 	Attributes *[]string `json:"attributes"`
 }
 
-func (r *resolver) Cubes(ctx context.Context) ([]graphql.ID, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
-
-	endpoint, err := url.Parse(r.endpoint)
-	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
-	}
-
-	cubes, err := util.WithOnbehalfAndRetry(
-		r.tokens,
-		auth,
-		func (tok string) (interface{}, error) {
-			return util.ListCubes(ctx, endpoint, tok)
-		},
-	)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, err
-	}
-
-	guids := cubes.([]string)
-	list := make([]graphql.ID, len(guids))
-	for i, id := range guids {
-		list[i] = graphql.ID(id)
-	}
-	return list, nil
-}
-
 func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
@@ -431,7 +400,6 @@ func MakeGraphQL(
 scalar Promise
 
 type Query {
-    cubes: [ID!]!
     cube(id: ID!): Cube!
 }
 

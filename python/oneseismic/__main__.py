@@ -8,7 +8,6 @@ if __name__ == "__main__":
         'login':   'login.__main__',
         'scan':    'scan.__main__',
         'upload':  'upload.__main__',
-        'ls':      'client.ls',
     }
     parser.add_argument('cmd', choices = programs.keys())
     # only parse prog-name, i.e. python3 -m oneseismic scan args... parses only scan
