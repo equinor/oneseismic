@@ -63,13 +63,18 @@ func (r *resolver) Cube(
 	pid  := keys["pid"]
 	auth := keys["Authorization"]
 
+	token, err := r.tokens.GetOnbehalf(auth)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return nil, errors.New("Unable to get on-behalf token")
+	}
 	doc, err := getManifest(
 		ctx,
-		r.tokens,
+		token,
 		r.endpoint,
 		string(args.Id),
-		auth,
 	)
+	// TODO: inspect error and determine if cached token should be evicted
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err
@@ -151,23 +156,16 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
  */
 func getManifest(
 	ctx      context.Context,
-	tokens   auth.Tokens,
+	token    string,
 	endpoint string,
 	guid     string,
-	auth     string,
 ) ([]byte, error) {
 	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
 	if err != nil {
 		return nil, err
 	}
 
-	manifest, err := util.WithOnbehalfAndRetry(
-		tokens,
-		auth,
-		func (tok string) (interface{}, error) {
-			return util.FetchManifest(ctx, tok, container)
-		},
-	)
+	manifest, err := util.FetchManifest(ctx, token, container)
 	if err != nil {
 		switch e := err.(type) {
 		case azblob.StorageError:
@@ -180,8 +178,7 @@ func getManifest(
 		}
 		return nil, err
 	}
-
-	return manifest.([]byte), nil
+	return manifest, nil
 }
 
 func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
@@ -259,10 +256,6 @@ func (c *cube) basicSlice(
 	 */
 	token, err := c.root.tokens.GetOnbehalf(auth)
 	if err != nil {
-		// No further recovery is tried - GetManifest should already have fixed
-		// a broken token, so this should be readily cached. If it is
-		// just-about to expire then the process will fail pretty soon anyway,
-		// so just give up.
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, errors.New("internal error; bad token?")
 	}
@@ -343,10 +336,6 @@ func (c *cube) basicCurtain(
 
 	token, err := c.root.tokens.GetOnbehalf(auth)
 	if err != nil {
-		// No further recovery is tried - GetManifest should already have fixed
-		// a broken token, so this should be readily cached. If it is
-		// just-about to expire then the process will fail pretty soon anyway,
-		// so just give up.
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, errors.New("internal error; bad token?")
 	}
