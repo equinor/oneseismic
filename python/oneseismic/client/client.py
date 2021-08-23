@@ -180,10 +180,7 @@ class cube:
         query = f'''
         query {{
             cube(id: "{self.guid}") {{
-                sliceByLineno(dim: {dim}, lineno: {lineno}) {{
-                    url
-                    key
-                }}
+                sliceByLineno(dim: {dim}, lineno: {lineno})
             }}
         }}
         '''
@@ -213,10 +210,7 @@ class cube:
         query = f'''
         query {{
             cube(id: "{self.guid}") {{
-                curtainByLineno(coords: {intersections}) {{
-                    url
-                    key
-                }}
+                curtainByLineno(coords: {intersections})
             }}
         }}
         '''
@@ -377,6 +371,8 @@ def gschedule(client, base_url, query):
     res = client.execute(q)
 
     for promise in res['cube'].values():
+        if promise is None:
+            raise RuntimeError('Server unable to resolve query')
         url = promise['url']
         key = promise['key']
 
