@@ -157,7 +157,7 @@ class cube:
         self._ijk = res['cube']['linenumbers']
         return self._ijk
 
-    def slice(self, dim, lineno):
+    def slice(self, dim, lineno, attributes=[]):
         """ Fetch a slice
 
         Parameters
@@ -169,17 +169,23 @@ class cube:
             The line number we would like to fetch. This corresponds to the
             axis labels given in the dim<n> members. In order to fetch the nth
             surface allong the mth dimension use lineno = dim<m>[n].
-
+        attributes : list of strings
+            Attributes (e.g cdp coordinates) to be included in the response.
         Returns
         -------
 
         slice : numpy.ndarray
         """
 
+        attributes = str(attributes).replace("'", "")
         query = f'''
         query {{
             cube(id: "{self.guid}") {{
-                sliceByLineno(dim: {dim}, lineno: {lineno})
+                sliceByLineno(
+                    dim: {dim},
+                    lineno: {lineno},
+                    opts: {{attributes: {attributes}}}
+                )
             }}
         }}
         '''
