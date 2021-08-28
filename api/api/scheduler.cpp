@@ -35,8 +35,8 @@ plan mkschedule(const char* doc, int len, int task_size) try {
 void cleanup(plan* p) {
     if (!p) return;
 
-    delete p->err;
-    delete p->sizes;
-    delete p->tasks;
+    delete[] p->err;
+    delete[] p->sizes;
+    delete[] p->tasks;
     *p = plan {};
 }
