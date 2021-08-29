@@ -548,8 +548,9 @@ schedule_maker< curtain_query, curtain_task >::header(
     index.push_back(query.dim1s .size());
     index.push_back(mdims.back().size());
 
-    index.insert(index.end(), query.dim0s .begin(), query.dim0s .end());
-    index.insert(index.end(), query.dim1s .begin(), query.dim1s .end());
+    const auto& line_numbers = query.manifest.line_numbers;
+    for (auto x : query.dim0s) index.push_back(line_numbers[0][x]);
+    for (auto x : query.dim1s) index.push_back(line_numbers[1][x]);
     index.insert(index.end(), mdims.back().begin(), mdims.back().end());
 
     /*
