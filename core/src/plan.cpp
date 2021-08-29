@@ -467,17 +467,16 @@ schedule_maker< curtain_query, curtain_task >::build(
 
     /*
      * Pre-allocate the id objects by scanning the input and build the
-     * one::single objects, sorted by id lexicographically. All fragments in
-     * the column (z-axis) are generated from the x-y pair. This is essentially
-     * constructing the "buckets" in advance, as many x/y pairs will end up in
-     * the same "bin"/fragment.
+     * one::single objects. All fragments in the column (z-axis) are generated
+     * from the x-y pair. This is essentially constructing the "buckets" in
+     * advance, as many x/y pairs will end up in the same "bin"/fragment.
      *
      * This is effectively
      *  ids = set([fragmentid(x, y, z) for z in zheight for (x, y) in input])
      *
      * but without any intermediary structures.
      *
-     * The bins are lexicographically sorted.
+     * The bins are sorted lexicographically by fragment ID.
      */
     for (int i = 0; i < int(dim0s.size()); ++i) {
         auto top_point = CP< 3 > {

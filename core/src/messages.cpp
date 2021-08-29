@@ -1,12 +1,14 @@
 #include <algorithm>
 #include <cassert>
 #include <string>
+#include <tuple>
 
 #include <fmt/format.h>
 #include <msgpack.hpp>
 #include <nlohmann/json.hpp>
 
 #include <oneseismic/messages.hpp>
+#include <oneseismic/geometry.hpp>
 
 namespace one {
 
@@ -353,6 +355,70 @@ noexcept (false) {
     std::transform(fst, lst, fst, indexof);
 }
 
+gvt< 3 > geometry(const basic_query& query) noexcept (false) {
+    const auto& dimensions = query.manifest.line_numbers;
+    const auto& shape = query.shape();
+
+    return gvt< 3 > {
+        { dimensions[0].size(),
+          dimensions[1].size(),
+          dimensions[2].size(), },
+        { std::size_t(shape[0]),
+          std::size_t(shape[1]),
+          std::size_t(shape[2]), }
+    };
+}
+
+CP< 3 > top_point(const std::tuple< int, int > xy) noexcept (true) {
+    return CP< 3 > {
+        std::size_t(std::get< 0 >(xy)),
+        std::size_t(std::get< 1 >(xy)),
+        std::size_t(0),
+    };
+}
+
+/*
+ * Organise the x/y pairs so that all pairs that belong to the same vertical
+ * fragment block are consecutive. This is important to make sure that all
+ * traces in a fragment are handled in a single fragment fetch (the *by far*
+ * most expensive operation in oneseismic).
+ *
+ * The function first groups the query by fragment-id, then by
+ * fragment-point-id. The decoding is aware (and depends on) this with its
+ * major/minor encoding of trace ID ranges.
+ *
+ * As a consequence, the response needs to be carefully evaluated by users,
+ * since the traces may arrive in a different order than queried. This is
+ * reasonable if you know that oneseismic will attempt to optimise the query,
+ * but can easily catch users by surprise.
+ */
+void group_by_fragment_inplace(curtain_query& query) {
+    auto& dim0s = query.dim0s;
+    auto& dim1s = query.dim1s;
+
+    /*
+     * This uses a temporary vector-of-pairs to automatically get
+     * lexicographical sorting for clarity and ease-of-implementation. This
+     * does introduce an extra allocation and can be improved by sorting the
+     * pair of vectors directly, but that's an optimisation for later.
+     */
+    std::vector< std::tuple< int, int > > pairs(query.dim0s.size());
+    for (std::size_t i = 0; i < pairs.size(); ++i)
+        pairs[i] = std::make_tuple(dim0s[i], dim1s[i]);
+
+    const auto gvt = geometry(query);
+    auto fragment_less = [&gvt] (const auto& lhs, const auto& rhs) noexcept {
+        const auto left  = top_point(lhs);
+        const auto right = top_point(rhs);
+        return gvt.frag_id(left) < gvt.frag_id(right);
+    };
+
+    std::sort(pairs.begin(), pairs.end());
+    std::stable_sort(pairs.begin(), pairs.end(), fragment_less);
+    for (std::size_t i = 0; i < pairs.size(); ++i)
+        std::tie(dim0s[i], dim1s[i]) = pairs[i];
+}
+
 }
 
 void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false) {
@@ -388,6 +454,8 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
         to_cartesian_inplace(line_numbers[0], query.dim0s);
         to_cartesian_inplace(line_numbers[1], query.dim1s);
     }
+
+    group_by_fragment_inplace(query);
 }
 
 void to_json(nlohmann::json& doc, const slice_task& task) noexcept (false) {
