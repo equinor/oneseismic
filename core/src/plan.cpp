@@ -499,10 +499,9 @@ std::string pack_with_envelope(const process_header& head) {
  *  metadata to make sense of data as it is streamed.
  */
 
-template < typename Input, typename Output >
-taskset schedule(const char* doc, int len, int task_size)
+template < typename Input >
+taskset schedule(Input& in, const char* doc, int len, int task_size)
 noexcept (false) {
-    Input in;
     in.unpack(doc, doc + len);
     in.attributes = normalized_attributes(in);
     auto fetch = build(in);
@@ -535,10 +534,12 @@ taskset mkschedule(const char* doc, int len, int task_size) noexcept (false) {
 
     const std::string function = document.at("function");
     if (function == "slice") {
-        return schedule< slice_query, slice_task >(doc, len, task_size);
+        slice_query q;
+        return schedule(q, doc, len, task_size);
     }
     if (function == "curtain") {
-        return schedule< curtain_query, curtain_task > (doc, len, task_size);
+        curtain_query q;
+        return schedule(q, doc, len, task_size);
     }
     throw std::logic_error("No handler for function " + function);
 }
