@@ -66,6 +66,7 @@ struct manifestdoc {
 struct basic_query {
     std::string                 pid;
     std::string                 token;
+    std::string                 url_query;
     std::string                 guid;
     manifestdoc                 manifest;
     std::string                 storage_endpoint;
@@ -97,6 +98,7 @@ struct basic_task {
     explicit basic_task(const basic_query& q) :
         pid              (q.pid),
         token            (q.token),
+        url_query        (q.url_query),
         guid             (q.guid),
         prefix           (q.manifest.vol.at(0).prefix),
         ext              (q.manifest.vol.at(0).ext),
@@ -113,6 +115,7 @@ struct basic_task {
     basic_task(const basic_query& q, const attributedesc& attr) :
         pid              (q.pid),
         token            (q.token),
+        url_query        (q.url_query),
         guid             (q.guid),
         prefix           (attr.prefix),
         ext              (attr.ext),
@@ -129,6 +132,7 @@ struct basic_task {
 
     std::string        pid;
     std::string        token;
+    std::string        url_query;
     std::string        guid;
     std::string        storage_endpoint;
     std::string        prefix;

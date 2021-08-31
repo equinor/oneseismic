@@ -263,6 +263,7 @@ func (c *cube) basicSlice(
 	msg := message.Query {
 		Pid:             pid,
 		Token:           token,
+		UrlQuery:        keys["url-query"],
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -343,6 +344,7 @@ func (c *cube) basicCurtain(
 	msg := message.Query {
 		Pid:             pid,
 		Token:           token,
+		UrlQuery:        keys["url-query"],
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -430,13 +432,58 @@ type Cube {
 }
 
 func (g *gql) Get(ctx *gin.Context) {
-	query  := ctx.Query("query")
-	opName := ctx.Query("operationName")
+	/*
+	 * Parse the the url?... parameters that graphql cares about (query,
+	 * operationName and variables), and forward the remaining parameters with
+	 * the graphql query. This enables users to pass query params to the blob
+	 * store effectively, which means SAS or other URL encoded auth can be used
+	 * with oneseismic.
+	 *
+	 * If a param is passed multiple times, e.g. graphql?query=...,query=... it
+	 * would be made into a list by net/url, but oneseismic considers this an
+	 * error to make it harder to make ambiguous requests. This makes for some
+	 * really ugly request parsing code.
+	 *
+	 * Only the query=... parameter is mandatory for GET requests.
+	 */
+	query := ctx.Request.URL.Query()
+	graphqueryargs := query["query"]
+	if len(graphqueryargs) != 1 {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	graphquery := graphqueryargs[0]
 
-	// TODO: parse the ?variables=... to this map
-	//variables := ctx.Query("variables")
+	opname := ""
+	opnameargs := query["operationName"]
+	if len(opnameargs) > 1 {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	if len(opnameargs) == 1 {
+		opname = opnameargs[0]
+	}
+
 	variables := make(map[string]interface{})
-	ctx.JSON(200, g.execQuery(ctx, query, opName, variables))
+	variablesargs := query["variables"]
+	if len(variables) > 1 {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	if len(opnameargs) == 1 {
+		err := json.Unmarshal([]byte(variablesargs[0]), &variables)
+		if err != nil {
+			ctx.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+	}
+
+	delete(query, "query")
+	delete(query, "operationName")
+	delete(query, "variables")
+
+	ctx.Request.URL.RawQuery = query.Encode()
+	ctx.JSON(200, g.execQuery(ctx, graphquery, opname, variables))
 }
 
 func (g *gql) Post(ctx *gin.Context) {
@@ -469,6 +516,7 @@ func (g *gql) execQuery(
 	keys := map[string]string {
 		"pid": ctx.GetString("pid"),
 		"Authorization": ctx.GetHeader("Authorization"),
+		"url-query": ctx.Request.URL.RawQuery,
 	}
 	c := context.WithValue(ctx, "keys", keys)
 	return g.schema.Exec(c, query, opName, variables)
