@@ -131,7 +131,7 @@ func (sched *cppscheduler) Schedule(
 			"part", part,
 			"task", task,
 		}
-		args := redis.XAddArgs{Stream: "jobs", Values: values}
+		args := redis.XAddArgs{Stream: "jobs", Values: values} // TODO: fix hardcoded group-name!
 		_, err := sched.storage.XAdd(ctx, &args).Result()
 		if err != nil {
 			msg := "part=%v unable to put in storage; %w"

@@ -24,7 +24,7 @@ proc* newproc(const char* kind) try {
     return nullptr;
 }
 
-void cleanup(proc* p) {
+void cleanupProcess(proc* p) {
     if (p) delete p;
 }
 

@@ -6,17 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 
 	"github.com/gin-gonic/gin"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/go-redis/redis/v8"
-	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
-	"github.com/equinor/oneseismic/api/internal/util"
 )
 
 type gql struct {
@@ -48,7 +44,7 @@ func (p *promise) MarshalJSON() ([]byte, error) {
 func (p *promise) UnmarshalGraphQL(input interface{}) error {
 	// Unmarshal must be defined, but should never be used as an input type;
 	// that's a schema bug, and all queries should be ignored.
-	return errors.New("Promise is not an input type");
+	return NewInternalError("Promise is not an input type")
 }
 
 type opts struct {
@@ -65,25 +61,26 @@ func (r *resolver) Cube(
 
 	token, err := r.tokens.GetOnbehalf(auth)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("Unable to get on-behalf token")
+		log.Printf("Cube(1) - pid=%s, %v", pid, err)
+		return nil, NewIllegalAccessError("Unable to get on-behalf token")
 	}
-	doc, err := getManifest(
+
+	doc, err := r.source.FetchManifest(
 		ctx,
 		token,
-		r.endpoint,
 		string(args.Id),
 	)
-	// TODO: inspect error and determine if cached token should be evicted
+	// TODO: inspect error and determine if cached token should be evicted?
 	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
+		log.Printf("Cube(2) - Cube ID=%s %v", args.Id, err)
 		return nil, err
 	}
 
-	manifest, err := manifestAsMap(doc)
+	manifest := make(map[string]interface{})
+	err = json.Unmarshal(doc, &manifest)
 	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
+		log.Printf("Cube(3) - pid=%s %v", pid, err)
+		return nil, NewInternalError("Failed converting to manifest")
 	}
 
 	return &cube {
@@ -135,55 +132,18 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 		keys := ctx.Value("keys").(map[string]string)
 		pid  := keys["pid"]
 		log.Printf(
-			"pid=%s %s/manifest.json broken; no dimensions",
+			"Linenumbers(1) pid=%s %s/manifest.json broken; no dimensions",
 			pid,
 			string(c.id),
 		)
-		return nil, errors.New("internal error; bad document")
+		return nil, NewInternalError("Failed extracting document from manifest")
 	}
 	linenos, err := asSliceSliceInt32(doc)
 	if err != nil {
-		return nil, errors.New("internal error; bad document")
+		log.Printf("Linenumbers(2) %v", err)
+		return nil, NewInternalError("Failed parsing linenumbers in manifest")
 	}
 	return linenos, nil
-}
-
-/*
- * This is the util.GetManifest function, but tuned for graphql and with
- * gin-specifics removed. Its purpose is to make for a quick migration to a
- * working graphql interface to oneseismic. Expect this function to be removed
- * or drastically change soon.
- */
-func getManifest(
-	ctx      context.Context,
-	token    string,
-	endpoint string,
-	guid     string,
-) ([]byte, error) {
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
-	if err != nil {
-		return nil, err
-	}
-
-	manifest, err := util.FetchManifest(ctx, token, container)
-	if err != nil {
-		switch e := err.(type) {
-		case azblob.StorageError:
-			sc := e.Response()
-			if sc.StatusCode == http.StatusNotFound {
-				// TODO: add guid as a part of the error message?
-				return nil, errors.New("Not found")
-			}
-			return nil, errors.New("Internal error")
-		}
-		return nil, err
-	}
-	return manifest, nil
-}
-
-func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
-	err = json.Unmarshal(doc, &m)
-	return
 }
 
 type sliceargs struct {
@@ -256,8 +216,8 @@ func (c *cube) basicSlice(
 	 */
 	token, err := c.root.tokens.GetOnbehalf(auth)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error; bad token?")
+		log.Printf("basicSlice(1) pid=%s, %v", pid, err)
+		return nil, NewIllegalAccessError("Unable to get on-behalf token")
 	}
 
 	msg := message.Query {
@@ -265,23 +225,26 @@ func (c *cube) basicSlice(
 		Token:           token,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
-		StorageEndpoint: c.root.endpoint,
+		StorageEndpoint: c.root.BasicEndpoint.source.GetUrl().String(),
 		Function:        "slice",
 		Args:            args,
 		Opts:            opts,
 	}
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
+		log.Printf("basicSlice(2) pid=%s, %v", pid, err)
+		return nil, NewIllegalInputError(fmt.Sprintf("Failed to construct query: %v", err.Error()))
 	}
 
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error")
+		log.Printf("basicSlice(3) pid=%s, %v", pid, err)
+		return nil, NewInternalError("Signing the token failed")
 	}
 
+	// TODO: Why async?
+	// If we make this call synchronous we can report errors immediately
+	// to client and avoid potentially messy cleanup later
 	go func () {
 		err := c.root.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
@@ -290,7 +253,7 @@ func (c *cube) basicSlice(
 			 * Eventually this should log, maybe cancel the process, and
 			 * continue.
 			 */
-			log.Fatalf("pid=%s, %v", pid, err)
+			log.Fatalf("basicSlice(4) pid=%s, %v", pid, err)
 		}
 	}()
 
@@ -336,8 +299,8 @@ func (c *cube) basicCurtain(
 
 	token, err := c.root.tokens.GetOnbehalf(auth)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error; bad token?")
+		log.Printf("basicCurtain(1) pid=%s, %v", pid, err)
+		return nil, NewIllegalAccessError("Unable to get on-behalf token")
 	}
 
 	msg := message.Query {
@@ -345,22 +308,23 @@ func (c *cube) basicCurtain(
 		Token:           token,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
-		StorageEndpoint: c.root.endpoint,
+		StorageEndpoint: c.root.BasicEndpoint.source.GetUrl().String(),
 		Function:        "curtain",
 		Args:            args,
 	}
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
+		log.Printf("basicCurtain(2) pid=%s, %v", pid, err)
+		return nil, NewIllegalInputError(fmt.Sprintf("Failed to construct query: %v", err.Error()))
 	}
 
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error")
+		log.Printf("basicCurtain(3) pid=%s, %v", pid, err)
+		return nil, NewInternalError("Signing the token failed")
 	}
 
+	// TODO: See corresponding comment in basicSlice()
 	go func () {
 		err := c.root.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
@@ -381,9 +345,9 @@ func (c *cube) basicCurtain(
 
 func MakeGraphQL(
 	keyring  *auth.Keyring,
-	endpoint string,
 	storage  redis.Cmdable,
 	tokens   auth.Tokens,
+	datasource AbstractStorage,
 ) *gql {
 	schema := `
 scalar Promise
@@ -416,9 +380,9 @@ type Cube {
 	resolver := &resolver {
 		MakeBasicEndpoint(
 			keyring,
-			endpoint,
 			storage,
 			tokens,
+			datasource,
 		),
 	}
 
@@ -448,10 +412,10 @@ func (g *gql) Post(ctx *gin.Context) {
 	b := body {}
 	err := ctx.BindJSON(&b)
 	if err != nil {
-		log.Printf("pid=%s %v", ctx.GetString("pid"), err)
+		log.Printf("Post(1) pid=%s %v", ctx.GetString("pid"), err)
 		return
 	}
-
+	//log.Printf("query=%v  opName=%v  vars=%v", b.Query, b.OperationName, b.Variables)
 	ctx.JSON(200, g.execQuery(
 		ctx,
 		b.Query,
@@ -471,5 +435,7 @@ func (g *gql) execQuery(
 		"Authorization": ctx.GetHeader("Authorization"),
 	}
 	c := context.WithValue(ctx, "keys", keys)
-	return g.schema.Exec(c, query, opName, variables)
+	response := g.schema.Exec(c, query, opName, variables)
+	//log.Printf("response=%v,  data=%v  error=%v", response, response.Data, response.Errors)
+	return response
 }

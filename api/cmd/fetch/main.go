@@ -6,27 +6,33 @@ import (
 	"log"
 	"os"
 
+	"github.com/equinor/oneseismic/api/api"
+	"github.com/equinor/oneseismic/api/internal/datastorage"
 	"github.com/equinor/oneseismic/api/internal/util"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
 )
 
 type opts struct {
-	redis      string
-	group      string
-	stream     string
-	consumerid string
-	jobs       int
-	retries    int
+	redis       string
+	group       string
+	stream      string
+	consumerid  string
+	jobs        int
+	retries     int
+	storageKind string	
+	storageUrl  string // Not used atm because tasks carry necessary info
+					   // Useful if we store manifests and blobs separately
 }
 
 func parseopts() opts {
 	help := getopt.BoolLong("help", 0, "print this help text")
 	opts := opts {
-		group:  "fetch",
-		stream: "jobs",
+		group:        "fetch",
+		stream:       "jobs",
+		storageKind:  os.Getenv("STORAGE_KIND"),
+		storageUrl:   os.Getenv("STORAGE_URL"),
 	}
 	getopt.FlagLong(
 		&opts.redis,
@@ -35,6 +41,20 @@ func parseopts() opts {
 		"Address to redis, e.g. host[:port]",
 		"addr",
 	).Mandatory()
+	getopt.FlagLong(
+		&opts.storageKind,
+		"storage-kind",
+		'K',
+		"Kind of storage, defaults to 'azure'",
+		"name",
+	)
+	getopt.FlagLong(
+		&opts.storageUrl,
+		"storage-url",
+		0,
+		"Storage URL, e.g. https://<account>.blob.core.windows.net",
+		"url",
+	)
 	getopt.FlagLong(
 		&opts.group,
 		"group",
@@ -87,6 +107,9 @@ func parseopts() opts {
 	if opts.consumerid == "" {
 		opts.consumerid = fmt.Sprintf("consumer:%s", util.MakePID())
 	}
+	if opts.storageKind == "" {
+		opts.storageKind = "azure"
+	}
 	opts.jobs = *jobs
 	opts.retries = *retries
 	return opts
@@ -94,11 +117,12 @@ func parseopts() opts {
 
 type task struct {
 	index int
-	blob  azblob.BlobURL
+	blob  api.AbstractBlobURL
 }
 
 func run(
 	storage redis.Cmdable,
+	blobStorage api.AbstractStorage,
 	njobs   int,
 	retries int,
 	process map[string]interface{},
@@ -127,7 +151,7 @@ func run(
 	 * so that no goroutines are scheduled before any sanity
 	 * checking of input.
 	 */
-	container, err := proc.container()
+	container, err := blobStorage.CreateBlobContainer(proc.task)
 	if err != nil {
 		log.Printf("%s dropping bad process %v", proc.logpid(), err)
 		return
@@ -153,7 +177,7 @@ func run(
 	go proc.gather(storage, len(fragments), frags, errors)
 	for i, id := range fragments {
 		select {
-		case tasks <- task { index: i, blob: container.NewBlobURL(id) }:
+		case tasks <- task { index: i, blob: container.ConstructBlobURL(id) }:
 		case <-proc.ctx.Done():
 			msg := "%s cancelled after %d scheduling fragments; %v"
 			log.Printf(msg, proc.logpid(), i, proc.ctx.Err())
@@ -164,6 +188,7 @@ func run(
 
 func main() {
 	opts := parseopts()
+	blobStorage := datastorage.CreateStorage(opts.storageKind, opts.storageUrl)
 
 	storage := redis.NewClient(&redis.Options {
 		Addr: opts.redis,
@@ -268,7 +293,7 @@ func main() {
 		for _, xmsg := range msgs {
 			for _, message := range xmsg.Messages {
 				// TODO: graceful shutdown and/or cancellation
-				run(storage, opts.jobs, opts.retries, message.Values)
+				run(storage, blobStorage, opts.jobs, opts.retries, message.Values)
 			}
 		}
 	}

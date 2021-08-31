@@ -9,15 +9,12 @@ import "unsafe"
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/url"
 	"strings"
+	"errors"
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal/message"
-
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -129,7 +126,7 @@ func exec(msg [][]byte) (*process, error) {
  * objects and cancel the context.
  */
 func (p *process) cleanup() {
-	C.cleanup(p.cpp)
+	C.cleanupProcess(p.cpp)
 	p.cpp = nil
 	p.cancel()
 }
@@ -226,25 +223,6 @@ func (p *process) pack() []byte {
 }
 
 /*
- * Make a container URL. This is just a stupid helper to make calling prettier,
- * and it is somewhat inflexible by reading endpoint + guid from the input
- * task.
- */
-func (p *process) container() (azblob.ContainerURL, error) {
-	endpoint := p.task.StorageEndpoint
-	guid     := p.task.Guid
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
-	if err != nil {
-		err = fmt.Errorf("Container URL would be malformed: %w", err)
-		return azblob.ContainerURL{}, err
-	}
-
-	credentials := azblob.NewTokenCredential(p.task.Token, nil)
-	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	return azblob.NewContainerURL(*container, pipeline), nil
-}
-
-/*
  * Gather the result and write the result to storage. This must *be called
  * exactly once* since it also clears the process handle.
  *
@@ -300,27 +278,6 @@ func (p *process) gather(
 }
 
 /*
- * Synchronously fetch a blob from the blob store.
- */
-func fetchblob(ctx context.Context, blob azblob.BlobURL, maxRetries int) ([]byte, error) {
-	dl, err := blob.Download(
-		ctx,
-		0,
-		azblob.CountToEnd,
-		azblob.BlobAccessConditions{},
-		false,
-		azblob.ClientProvidedKeyOptions {},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	body := dl.Body(azblob.RetryReaderOptions{MaxRetryRequests: maxRetries})
-	defer body.Close()
-	return ioutil.ReadAll(body)
-}
-
-/*
  * Fetch fragments from the blob store, and write them to the fragments
  * channel. This is a simple worker loop, which will grab tasks until the input
  * channel is closed.
@@ -330,17 +287,23 @@ func fetch(
 	maxRetries int,
 	tasks      chan task,
 	fragments  chan fragment,
-	errors     chan error,
+	errorChan  chan error,
 ) {
 	for task := range tasks {
-		chunk, err := fetchblob(ctx, task.blob, maxRetries)
-		if err != nil {
-			errors <- err
+		select {
+		case <- ctx.Done():
+			errorChan <- errors.New("operation was cancelled")
 			return
-		}
-		fragments <- fragment {
-			index: task.index,
-			chunk: chunk,
+		default:
+			chunk, err := task.blob.Download(ctx)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+			fragments <- fragment {
+				index: task.index,
+				chunk: chunk,
+			}
 		}
 	}
 }

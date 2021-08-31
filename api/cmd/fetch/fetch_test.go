@@ -3,33 +3,43 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"testing"
 
-	"github.com/Azure/azure-pipeline-go/pipeline"
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	// "github.com/equinor/oneseismic/api/api"
+	// "github.com/equinor/oneseismic/api/internal/datastorage"
+	// "github.com/equinor/oneseismic/api/internal/message"
 )
 
-func testpipeline() pipeline.Pipeline {
-	return azblob.NewPipeline(
-		azblob.NewAnonymousCredential(),
-		azblob.PipelineOptions{},
-	)
-}
+//
+// BGH: Removed - not relevant aymore
+//
+// func testpipeline() pipeline.Pipeline {
+// 	return azblob.NewPipeline(
+// 		azblob.NewAnonymousCredential(),
+// 		azblob.PipelineOptions{},
+// 	)
+// }
+//
+// func testurl() url.URL {
+// 	addr, _ := url.Parse("https://example.com")
+// 	return *addr
+// }
 
-func testurl() url.URL {
-	addr, _ := url.Parse("https://example.com")
-	return *addr
-}
+// BGH: This is a test for an Azure-specific blobstorage
+//
+// func TestCancelledDownloadErrors(t *testing.T) {
+// 	ctx, cancel := context.WithCancel(context.Background())
+// 	cancel()
+// 	blob := azblob.NewBlobURL(testurl(), testpipeline())
+// 	_, err := fetchblob(ctx, blob, 0)
+// 	if err == nil {
+// 		t.Errorf("expected fetchblob() to fail; err was nil")
+// 	}
+// }
 
-func TestCancelledDownloadErrors(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	blob := azblob.NewBlobURL(testurl(), testpipeline())
-	_, err := fetchblob(ctx, blob, 0)
-	if err == nil {
-		t.Errorf("expected fetchblob() to fail; err was nil")
-	}
+type FakeBlobURL struct {}
+func (b FakeBlobURL) Download(context.Context) ([]byte, error) {
+	return []byte(""), nil
 }
 
 func TestCancelledDownloadPostsOnErrorChannel(t *testing.T) {
@@ -47,7 +57,7 @@ func TestCancelledDownloadPostsOnErrorChannel(t *testing.T) {
 	errors    := make(chan error, 1)
 	tasks <- task {
 		index: 0,
-		blob: azblob.NewBlobURL(testurl(), testpipeline()),
+		blob: FakeBlobURL{},
 	}
 	// *don't* close the tasks channel - the fetch() loop should terminate with
 	// the message posted on the error channel, so keeping it open from the

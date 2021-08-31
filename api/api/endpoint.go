@@ -7,26 +7,26 @@ import (
 )
 
 type BasicEndpoint struct {
-	endpoint string // e.g. https://oneseismic-storage.blob.windows.net
 	keyring  *auth.Keyring
 	tokens   auth.Tokens
-	sched    scheduler
+	sched    scheduler // TODO: why not expose necessary methods directly?
+	source   AbstractStorage
 }
 
 func MakeBasicEndpoint(
 	keyring *auth.Keyring,
-	endpoint string,
-	storage  redis.Cmdable,
-	tokens   auth.Tokens,
+	storage redis.Cmdable,
+	tokens auth.Tokens,
+	source AbstractStorage,
 ) BasicEndpoint {
 	return BasicEndpoint {
-		endpoint: endpoint,
-		keyring: keyring,
-		tokens:  tokens,
+		keyring:  keyring,
+		tokens:   tokens,
 		/*
 		 * Scheduler should probably be exported (and in internal/?) and be
 		 * constructed directly by the caller.
 		 */
-		sched:   newScheduler(storage),
+		sched:  newScheduler(storage),
+		source: source,
 	}
 }

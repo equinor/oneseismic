@@ -9,6 +9,7 @@ import (
 
 	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/auth"
+	"github.com/equinor/oneseismic/api/internal/datastorage"
 	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -21,8 +22,8 @@ type opts struct {
 	clientID     string
 	clientSecret string
 	storageURL   string
+	storageKind  string
 	redisURL     string
-	bind         string
 	signkey      string
 }
 
@@ -34,8 +35,13 @@ func parseopts() opts {
 		clientID:     os.Getenv("CLIENT_ID"),
 		clientSecret: os.Getenv("CLIENT_SECRET"),
 		storageURL:   os.Getenv("STORAGE_URL"),
+		storageKind:  os.Getenv("STORAGE_KIND"),
 		redisURL:     os.Getenv("REDIS_URL"),
 		signkey:      os.Getenv("SIGN_KEY"),
+	}
+
+	if opts.storageKind == "" {
+		opts.storageKind = "azure"
 	}
 
 	getopt.FlagLong(
@@ -74,18 +80,18 @@ func parseopts() opts {
 		"url",
 	)
 	getopt.FlagLong(
+		&opts.storageKind,
+		"storage-kind",
+		0,
+		"Kind of storage, defaults to 'azure'",
+		"name",
+	)
+	getopt.FlagLong(
 		&opts.redisURL,
 		"redis-url",
 		0,
 		"Redis URL",
 		"url",
-	)
-	getopt.FlagLong(
-		&opts.bind,
-		"bind",
-		0,
-		"Bind URL e.g. tcp://*:port",
-		"addr",
 	)
 	getopt.FlagLong(
 		&opts.signkey,
@@ -179,30 +185,33 @@ func main() {
 	}
 
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
-	tokens  := auth.NewTokens(
+	tokens := auth.NewTokens(
 		openidcfg.TokenEndpoint,
 		opts.clientID,
 		opts.clientSecret,
 	)
-	cmdable := redis.NewClient(
-		&redis.Options {
-			Addr: opts.redisURL,
-			DB: 0,
-		},
-	)
-	gql := api.MakeGraphQL(&keyring, opts.storageURL, cmdable, tokens)
+	gql := api.MakeGraphQL(&keyring,
+		redis.NewClient(
+			&redis.Options {
+				Addr: opts.redisURL,
+				DB:   0,
+			},
+		),
+		tokens,
+		datastorage.CreateStorage(opts.storageKind, opts.storageURL))
+
 	result := api.Result {
-		Timeout: time.Second * 15,
+		Timeout:    time.Second * 15,
 		StorageURL: opts.storageURL,
 		Storage: redis.NewClient(&redis.Options {
 			Addr: opts.redisURL,
-			DB: 0,
+			DB:   0,
 		}),
 		Keyring: &keyring,
 	}
 
 	cfg := clientconfig {
-		appid: opts.clientID,
+		appid:     opts.clientID,
 		authority: opts.authserver,
 		scopes: []string{
 			fmt.Sprintf("api://%s/One.Read", opts.clientID),
@@ -210,7 +219,7 @@ func main() {
 	}
 
 	app := gin.Default()
-	
+
 	graphql := app.Group("/graphql")
 	graphql.Use(util.GeneratePID)
 	graphql.GET( "", gql.Get)
