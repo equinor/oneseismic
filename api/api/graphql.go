@@ -55,6 +55,21 @@ type opts struct {
 	Attributes *[]string `json:"attributes"`
 }
 
+func credentials(
+	tokens auth.Tokens,
+	token string,
+) (azblob.Credential, error) {
+	log.Printf("Credentials token: %v", token)
+	if token != "" {
+		tok, err := tokens.GetOnbehalf(token)
+		if err != nil {
+			return nil, err
+		}
+		return azblob.NewTokenCredential(tok, nil), nil
+	}
+	return azblob.NewAnonymousCredential(), nil
+}
+
 func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
@@ -63,14 +78,15 @@ func (r *resolver) Cube(
 	pid  := keys["pid"]
 	auth := keys["Authorization"]
 
-	token, err := r.tokens.GetOnbehalf(auth)
+	creds, err := credentials(r.tokens, auth)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, errors.New("Unable to get on-behalf token")
 	}
 	doc, err := getManifest(
 		ctx,
-		token,
+		creds,
+		keys["url-query"],
 		r.endpoint,
 		string(args.Id),
 	)
@@ -156,7 +172,8 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
  */
 func getManifest(
 	ctx      context.Context,
-	token    string,
+	cred     azblob.Credential,
+	urlquery string,
 	endpoint string,
 	guid     string,
 ) ([]byte, error) {
@@ -165,7 +182,8 @@ func getManifest(
 		return nil, err
 	}
 
-	manifest, err := util.FetchManifest(ctx, token, container)
+	container.RawQuery = urlquery
+	manifest, err := util.FetchManifestWithCredential(ctx, cred, container)
 	if err != nil {
 		switch e := err.(type) {
 		case azblob.StorageError:
@@ -254,10 +272,14 @@ func (c *cube) basicSlice(
 	 * faithful to what's stored in blob, i.e. information can be stripped out
 	 * or added.
 	 */
-	token, err := c.root.tokens.GetOnbehalf(auth)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error; bad token?")
+	token := ""
+	if auth != "" {
+		tok, err := c.root.tokens.GetOnbehalf(auth)
+		if err != nil {
+			log.Printf("pid=%s, %v", pid, err)
+			return nil, errors.New("internal error; bad token?")
+		}
+		token = tok
 	}
 
 	msg := message.Query {
@@ -335,10 +357,14 @@ func (c *cube) basicCurtain(
 	pid  := keys["pid"]
 	auth := keys["Authorization"]
 
-	token, err := c.root.tokens.GetOnbehalf(auth)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error; bad token?")
+	token := ""
+	if auth != "" {
+		tok, err := c.root.tokens.GetOnbehalf(auth)
+		if err != nil {
+			log.Printf("pid=%s, %v", pid, err)
+			return nil, errors.New("internal error; bad token?")
+		}
+		token = tok
 	}
 
 	msg := message.Query {

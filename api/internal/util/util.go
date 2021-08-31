@@ -110,10 +110,17 @@ func FetchManifest(
 	containerURL *url.URL,
 ) ([]byte, error) {
 	credentials := azblob.NewTokenCredential(token, nil)
-	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	container   := azblob.NewContainerURL(*containerURL, pipeline)
-	blob        := container.NewBlobURL("manifest.json")
+	return FetchManifestWithCredential(ctx, credentials, containerURL)
+}
 
+func FetchManifestWithCredential(
+	ctx          context.Context,
+	credentials  azblob.Credential,
+	containerURL *url.URL,
+) ([]byte, error) {
+	pipeline  := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
+	container := azblob.NewContainerURL(*containerURL, pipeline)
+	blob      := container.NewBlobURL("manifest.json")
 	dl, err := blob.Download(
 		ctx,
 		0, /* offset */
