@@ -242,8 +242,12 @@ class cdpset(fileset):
         },
 
 class dataset(fileset):
+    def __init__(self, format, *args, **kwargs):
+        self.format = format
+        super().__init__(*args, **kwargs)
+
     def extract(self, trace):
-        return native(trace['samples'])
+        return native(trace['samples'], format = self.format, copy=False)
 
 def upload(manifest, shape, src, origfname, filesys):
     """Upload volume to oneseismic
@@ -288,7 +292,7 @@ def upload(manifest, shape, src, origfname, filesys):
     trace = np.array(1, dtype = dtype)
     fmt = manifest['format']
 
-    files = [dataset(key1s, key2s, key3s, shape, prefix = 'src')]
+    files = [dataset(fmt, key1s, key2s, key3s, shape, prefix = 'src')]
     files.extend([
         cdpset(
             segyio.su.cdpx,
@@ -322,7 +326,6 @@ def upload(manifest, shape, src, origfname, filesys):
             break
 
         header = segyio.field.Field(buf = trace['header'], kind = 'trace')
-        data = native(data = trace['samples'], format = fmt)
 
         key1 = header[word1]
         key2 = header[word2]
