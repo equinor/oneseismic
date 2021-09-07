@@ -322,6 +322,44 @@ std::vector< curtain_task > build(const curtain_query& query) {
         }
     }
 
+    for (const auto& attr : query.attributes) {
+        /*
+         * It's perfectly common for queries to request attributes that aren't
+         * recorded for a survey - in this case, silently drop it
+         */
+        auto itr = find_desc(query, attr);
+        if (itr == query.manifest.attr.end())
+            continue;
+
+        /*
+         * The attributes may be partitioned differently, so we need a fresh
+         * gvt
+         */
+        auto atask = curtain_task(query, *itr);
+        const auto gvt = geometry(atask);
+        auto& ids = atask.ids;
+
+        for (int i = 0; i < int(dim0s.size()); ++i) {
+            auto top_point = CP< 3 > {
+                std::size_t(dim0s[i]),
+                std::size_t(dim1s[i]),
+                std::size_t(0),
+            };
+            const auto fid = gvt.frag_id(top_point);
+            const auto lid = gvt.to_local(top_point);
+            auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
+            if (itr == atask.ids.end() or (not equal(itr->id, fid))) {
+                single top;
+                top.id.assign(fid.begin(), fid.end());
+                top.offset = i;
+                itr = atask.ids.insert(itr, top);
+            }
+            itr->coordinates.push_back({ int(lid[0]), int(lid[1]) });
+        }
+
+        tasks.push_back(std::move(atask));
+    }
+
     return tasks;
 }
 
