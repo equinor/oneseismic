@@ -135,9 +135,10 @@ std::string curtain_bundle::pack() const noexcept (false) {
     msgpack::sbuffer buffer;
     msgpack::packer< decltype(buffer) > packer(buffer);
 
-    packer.pack_array(5);
+    packer.pack_array(6);
     packer.pack(this->attr);
     packer.pack(size);
+    packer.pack(zlength);
     packer.pack(major);
     packer.pack(minor);
     packarray_bin(packer, this->values);
@@ -155,10 +156,11 @@ noexcept (false) {
 
     obj.via.array.ptr[0] >> this->attr;
     obj.via.array.ptr[1] >> this->size;
-    obj.via.array.ptr[2] >> this->major;
-    obj.via.array.ptr[3] >> this->minor;
+    obj.via.array.ptr[2] >> this->zlength;
+    obj.via.array.ptr[3] >> this->major;
+    obj.via.array.ptr[4] >> this->minor;
 
-    auto tv = obj.via.array.ptr[4];
+    auto tv = obj.via.array.ptr[5];
     if (tv.type != msgpack::v2::type::BIN)
         throw bad_value("curtain.values should be BIN");
     this->values.resize(tv.via.bin.size / sizeof(float));

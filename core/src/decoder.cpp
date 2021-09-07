@@ -352,7 +352,7 @@ noexcept (false) {
 
 void decoder::curtain(const msgpack::v2::object& obj)
 noexcept (false) {
-    const auto& slots = astuple(obj, 5);
+    const auto& slots = astuple(obj, 6);
 
     const auto attribute = slots[0].as< std::string >();
     auto* dst = this->get_writer_for(attribute);
@@ -362,12 +362,12 @@ noexcept (false) {
     // TODO: check message integrity (array sizes)
     // TODO: cache vectors
     const auto size  = slots[1].as< int >();
-    const auto major = slots[2].as< std::vector< int > >();
-    const auto minor = slots[3].as< std::vector< int > >();
-    const auto v     = asbinarray(slots[4]);
+    const auto zlen  = slots[2].as< int >();
+    const auto major = slots[3].as< std::vector< int > >();
+    const auto minor = slots[4].as< std::vector< int > >();
+    const auto v     = asbinarray(slots[5]);
 
     const auto* src = v.ptr;
-    const auto zlen = this->head.index[2];
     for (int n = 0; n < size; ++n) {
         const auto ifst = major[n*2 + 0];
         const auto ilst = major[n*2 + 1];

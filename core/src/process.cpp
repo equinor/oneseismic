@@ -231,6 +231,7 @@ void curtain::init(const char* msg, int len) {
     const auto zdim    = this->gvt.mkdim(gvt.ndims - 1);
     const auto zheight = this->gvt.fragment_shape()[zdim];
     const auto zmax    = this->gvt.nsamples(zdim);
+    this->output.zlength = zmax;
     for (const auto& id : ids) {
         const auto zfst = id.id[zdim] * zheight;
         const auto zlst = std::min(zfst + zheight, zmax);
