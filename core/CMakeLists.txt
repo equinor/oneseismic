@@ -45,7 +45,8 @@ target_include_directories(oneseismic
 if (BUILD_CORE)
     add_library(json INTERFACE)
     target_include_directories(json INTERFACE external/nlohmann)
-    find_package(fmt REQUIRED)
+    find_package(fmt     REQUIRED)
+    find_package(msgpack REQUIRED)
 
     target_sources(oneseismic
         PRIVATE
@@ -59,6 +60,7 @@ if (BUILD_CORE)
         PRIVATE
             include
             external/nlohmann
+            msgpackc-cxx
     )
     target_link_libraries(oneseismic
         PUBLIC
