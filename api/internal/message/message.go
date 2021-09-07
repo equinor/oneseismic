@@ -18,6 +18,7 @@ type Message interface {
 type Query struct {
 	Pid             string       `json:"pid"`
 	Token           string       `json:"token"`
+	UrlQuery        string       `json:"url-query"`
 	Guid            string       `json:"guid"`
 	Manifest        interface {} `json:"manifest"`
 	StorageEndpoint string       `json:"storage_endpoint"`
@@ -45,6 +46,7 @@ func (msg *Query) Unpack(doc []byte) (*Query, error) {
 type Task struct {
 	Pid             string       `json:"pid"`
 	Token           string       `json:"token"`
+	UrlQuery        string       `json:"url-query"`
 	Guid            string       `json:"guid"`
 	StorageEndpoint string       `json:"storage_endpoint"`
 	Function        string       `json:"function"`

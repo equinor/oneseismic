@@ -65,6 +65,7 @@ TEST_CASE("well-formed slice-query is unpacked correctly") {
     const auto doc = R"({
         "pid": "some-pid",
         "token": "on-behalf-of-token",
+        "url-query": "",
         "guid": "object-id",
         "storage_endpoint": "https://storage.com",
         "manifest": {

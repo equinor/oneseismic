@@ -239,8 +239,15 @@ func (p *process) container() (azblob.ContainerURL, error) {
 		return azblob.ContainerURL{}, err
 	}
 
-	credentials := azblob.NewTokenCredential(p.task.Token, nil)
-	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
+	container.RawQuery = p.task.UrlQuery
+
+	var credentials azblob.Credential
+	if p.task.Token != "" {
+		credentials = azblob.NewTokenCredential(p.task.Token, nil)
+	} else {
+		credentials = azblob.NewAnonymousCredential()
+	}
+	pipeline := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
 	return azblob.NewContainerURL(*container, pipeline), nil
 }
 
