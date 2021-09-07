@@ -34,7 +34,7 @@ jobs:
       - name: Install dependencies on macos
         if: startsWith(matrix.os, 'mac')
         run: |
-            brew install fmt msgpack
+            brew install fmt msgpack-cxx
 
       - name: Configure Windows specifics
         if: startsWith(matrix.os, 'windows')
