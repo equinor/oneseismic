@@ -137,10 +137,10 @@ std::string curtain_bundle::pack() const noexcept (false) {
 
     packer.pack_array(6);
     packer.pack(this->attr);
-    packer.pack(size);
-    packer.pack(zlength);
-    packer.pack(major);
-    packer.pack(minor);
+    packer.pack(this->size);
+    packer.pack(this->zlength);
+    packer.pack(this->major);
+    packer.pack(this->minor);
     packarray_bin(packer, this->values);
     return std::string(buffer.data(), buffer.size());
 }
