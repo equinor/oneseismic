@@ -223,15 +223,15 @@ void curtain::init(const char* msg, int len) {
         return x.coordinates.size();
     };
 
-    this->output.attr = this->input.attribute;
-    this->output.size = ids.size();
-    this->output.major.reserve(this->output.size * 2);
-    this->output.minor.reserve(this->output.size * 2);
-    this->output.values.resize(this->traceindex.back());
     const auto zdim    = this->gvt.mkdim(gvt.ndims - 1);
     const auto zheight = this->gvt.fragment_shape()[zdim];
     const auto zmax    = this->gvt.nsamples(zdim);
+    this->output.attr = this->input.attribute;
+    this->output.size = ids.size();
     this->output.zlength = zmax;
+    this->output.major.reserve(this->output.size * 2);
+    this->output.minor.reserve(this->output.size * 2);
+    this->output.values.resize(this->traceindex.back());
     for (const auto& id : ids) {
         const auto zfst = id.id[zdim] * zheight;
         const auto zlst = std::min(zfst + zheight, zmax);
