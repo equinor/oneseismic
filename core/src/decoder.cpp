@@ -243,7 +243,7 @@ decoder::status decoder::process() {
             }
             this->phase = state::header;
         }
-        /* INTENTIONAL FALL-THROUGH */
+        [[fallthrough]];
 
         case state::header:
             if (!this->unp.next(this->objhandle))
@@ -269,7 +269,7 @@ decoder::status decoder::process() {
             }
             this->phase = state::bundles;
         }
-        /* INTENTIONAL FALL-THROUGH */
+        [[fallthrough]];
 
         case state::bundles:
             while (this->nbundles > 0) {
