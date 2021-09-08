@@ -120,15 +120,17 @@ std::vector< std::string > normalized_attributes(const Query& q) {
 }
 
 template < typename Query >
-auto find_desc(const Query& query, const std::string& attr)
--> decltype(query.manifest.attr.begin()) {
-    return std::find_if(
+auto find_attribute(const Query& query, const std::string& attr)
+-> std::tuple< decltype(query.manifest.attr.begin()), bool> {
+    auto itr = std::find_if(
         query.manifest.attr.begin(),
         query.manifest.attr.end(),
         [&attr](const auto& desc) noexcept {
             return desc.type == attr;
         }
     );
+
+    return { itr, itr != query.manifest.attr.end() };
 }
 
 template < typename Seq >
@@ -170,8 +172,8 @@ std::vector< slice_task > build(const slice_query& query) {
          * It's perfectly common for queries to request attributes that aren't
          * recorded for a survey - in this case, silently drop it
          */
-        auto itr = find_desc(query, attr);
-        if (itr == query.manifest.attr.end())
+        auto [itr, found] = find_attribute(query, attr);
+        if (not found)
             continue;
 
         auto task = slice_task(query, *itr);
@@ -327,8 +329,8 @@ std::vector< curtain_task > build(const curtain_query& query) {
          * It's perfectly common for queries to request attributes that aren't
          * recorded for a survey - in this case, silently drop it
          */
-        auto itr = find_desc(query, attr);
-        if (itr == query.manifest.attr.end())
+        auto [itr, found] = find_attribute(query, attr);
+        if (not found)
             continue;
 
         tasks.emplace_back(query, *itr);
