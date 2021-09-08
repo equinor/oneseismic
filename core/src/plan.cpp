@@ -275,22 +275,49 @@ noexcept (false) {
     return head;
 }
 
-std::vector< curtain_task > build(const curtain_query& query) {
-    const auto less = [](const auto& lhs, const auto& rhs) noexcept (true) {
-        return std::lexicographical_compare(
-            lhs.id.begin(),
-            lhs.id.end(),
-            rhs.begin(),
-            rhs.end()
-        );
-    };
-    const auto equal = [](const auto& lhs, const auto& rhs) noexcept (true) {
-        return std::equal(lhs.begin(), lhs.end(), rhs.begin());
-    };
+/*
+ * The curtain query is expanded to the set of fragment IDs that contain all
+ * the input traces, including z-axis. This for-purpose sorted-by-bucket-map
+ * class helps maintain the invariant and provides simple interface for the
+ * curtain.
+ *
+ * It inherits storage, clear, and move semantics from vector, but provides a
+ * find() and at() for map lookup.
+ *
+ * The main achievement is getting all the hairy binary search out of the way,
+ * and provide a more suitable abstraction for the build(curtain) function.
+ */
+struct flat_map : public std::vector< single > {
+    using iterator = std::vector< single >::iterator;
 
+    iterator at(FID< 3 > id) noexcept (true) {
+        const auto less = [](const auto& lhs, const auto& rhs) noexcept {
+            return std::lexicographical_compare(
+                lhs.id.begin(),
+                lhs.id.end(),
+                rhs.begin(),
+                rhs.end()
+            );
+        };
+
+        assert(std::is_sorted(this->begin(), this->end(), less));
+        return std::lower_bound(this->begin(), this->end(), id, less);
+    }
+
+    std::tuple< iterator, bool > find(FID< 3 > fid) noexcept (true) {
+        const auto equal = [](const auto& lhs, const auto& rhs) noexcept {
+            return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+        };
+        auto itr   = this->at(fid);
+        auto found = (itr != this->end()) and equal(itr->id, fid);
+        return { itr, found };
+    }
+};
+
+std::vector< curtain_task > build(const curtain_query& query) {
     std::vector< curtain_task > tasks;
-    tasks.emplace_back(query);
-    auto& ids = tasks.back().ids;
+    flat_map ids;
+
     const auto& dim0s = query.dim0s;
     const auto& dim1s = query.dim1s;
 
@@ -324,8 +351,8 @@ std::vector< curtain_task > build(const curtain_query& query) {
         const auto top = top_cubepoint(dim0s, dim1s, i);
         const auto fid = gvt.frag_id(top);
 
-        auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
-        if (itr == ids.end() or (not equal(itr->id, fid))) {
+        auto [itr, found] = ids.find(fid);
+        if (not found) {
             single top;
             top.id.assign(fid.begin(), fid.end());
             top.coordinates.reserve(approx_coordinates_per_fragment);
@@ -344,14 +371,18 @@ std::vector< curtain_task > build(const curtain_query& query) {
         const auto top = top_cubepoint(dim0s, dim1s, i);
         const auto fid = gvt.frag_id(top);
         const auto lid = gvt.to_local(top);
-        auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
+        auto itr = ids.at(fid);
         const auto end = itr + zfrags;
         for (auto block = itr; block != end; ++block) {
             block->coordinates.push_back(coordinate(lid));
         }
     }
 
+    tasks.emplace_back(query);
+    tasks.back().ids = std::move(ids);
+
     for (const auto& attr : query.attributes) {
+        ids.clear();
         /*
          * It's perfectly common for queries to request attributes that aren't
          * recorded for a survey - in this case, silently drop it
@@ -364,25 +395,22 @@ std::vector< curtain_task > build(const curtain_query& query) {
          * The attributes may be partitioned differently, so we need a fresh
          * gvt
          */
-        auto atask = curtain_task(query, *itr);
-        const auto gvt = geometry(atask);
-        auto& ids = atask.ids;
-
+        tasks.emplace_back(query, *itr);
+        const auto gvt = geometry(tasks.back());
         for (int i = 0; i < int(dim0s.size()); ++i) {
             const auto top = top_cubepoint(dim0s, dim1s, i);
             const auto fid = gvt.frag_id(top);
             const auto lid = gvt.to_local(top);
-            auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
-            if (itr == atask.ids.end() or (not equal(itr->id, fid))) {
+            auto [itr, found] = ids.find(fid);
+            if (not found) {
                 single top;
                 top.id.assign(fid.begin(), fid.end());
                 top.offset = i;
-                itr = atask.ids.insert(itr, top);
+                itr = ids.insert(itr, top);
             }
             itr->coordinates.push_back(coordinate(lid));
         }
-
-        tasks.push_back(std::move(atask));
+        tasks.back().ids = std::move(ids);
     }
 
     return tasks;
