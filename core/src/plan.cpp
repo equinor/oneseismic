@@ -46,6 +46,35 @@ gvt< 3 > geometry(const basic_task& task) noexcept (true) {
     };
 }
 
+/*
+ * Stupid helper to make it less noisy to unpack the parallel arrays in the
+ * curtain input to a geometry/cube-point.
+ *
+ * Curtain (query) input:
+ *  intersections: [[x1 y1] [x2 y2] [x3 y3]]
+ *
+ * _query message:
+ *  dim0s: [x1 x2 x3]
+ *  dim1s: [y1 y2 y3]
+ *
+ * maps to coordinates (x1 y1 0) (x2 y2 0) (x3 y3 0)
+ *
+ * The top point can then be used to identify the containing fragment ID and
+ * its z-axis column.
+ */
+[[nodiscard]]
+CP< 3 > top_cubepoint(
+    const std::vector< int >& xs,
+    const std::vector< int >& ys,
+    int i)
+noexcept (false) {
+    return CP< 3 > {
+        std::size_t(xs[i]),
+        std::size_t(ys[i]),
+        std::size_t(0),
+    };
+}
+
 int task_count(int jobs, int task_size) {
     /*
      * Return the number of task-size'd tasks needed to process all jobs
@@ -284,12 +313,8 @@ std::vector< curtain_task > build(const curtain_query& query) {
      * The bins are sorted lexicographically by fragment ID.
      */
     for (int i = 0; i < int(dim0s.size()); ++i) {
-        auto top_point = CP< 3 > {
-            std::size_t(dim0s[i]),
-            std::size_t(dim1s[i]),
-            std::size_t(0),
-        };
-        const auto fid = gvt.frag_id(top_point);
+        const auto top = top_cubepoint(dim0s, dim1s, i);
+        const auto fid = gvt.frag_id(top);
 
         auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
         if (itr == ids.end() or (not equal(itr->id, fid))) {
@@ -308,13 +333,9 @@ std::vector< curtain_task > build(const curtain_query& query) {
      * ids.
      */
     for (int i = 0; i < int(dim0s.size()); ++i) {
-        const auto cp = CP< 3 > {
-            std::size_t(dim0s[i]),
-            std::size_t(dim1s[i]),
-            std::size_t(0),
-        };
-        const auto fid = gvt.frag_id(cp);
-        const auto lid = gvt.to_local(cp);
+        const auto top = top_cubepoint(dim0s, dim1s, i);
+        const auto fid = gvt.frag_id(top);
+        const auto lid = gvt.to_local(top);
         auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
         const auto end = itr + zfrags;
         for (auto block = itr; block != end; ++block) {
@@ -340,13 +361,9 @@ std::vector< curtain_task > build(const curtain_query& query) {
         auto& ids = atask.ids;
 
         for (int i = 0; i < int(dim0s.size()); ++i) {
-            auto top_point = CP< 3 > {
-                std::size_t(dim0s[i]),
-                std::size_t(dim1s[i]),
-                std::size_t(0),
-            };
-            const auto fid = gvt.frag_id(top_point);
-            const auto lid = gvt.to_local(top_point);
+            const auto top = top_cubepoint(dim0s, dim1s, i);
+            const auto fid = gvt.frag_id(top);
+            const auto lid = gvt.to_local(top);
             auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
             if (itr == atask.ids.end() or (not equal(itr->id, fid))) {
                 single top;
