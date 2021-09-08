@@ -320,9 +320,22 @@ struct flat_map : public std::vector< single > {
 
 std::vector< curtain_task > build(const curtain_query& query) {
     std::vector< curtain_task > tasks;
-    flat_map ids;
 
-    auto make = [&ids](auto& task, const auto& dim0s, const auto& dim1s) {
+    tasks.emplace_back(query);
+    for (const auto& attr : query.attributes) {
+        /*
+         * It's perfectly common for queries to request attributes that aren't
+         * recorded for a survey - in this case, silently drop it
+         */
+        auto itr = find_desc(query, attr);
+        if (itr == query.manifest.attr.end())
+            continue;
+
+        tasks.emplace_back(query, *itr);
+    }
+
+    flat_map ids;
+    for (auto& task : tasks) {
         ids.clear();
         const auto gvt = geometry(task);
         const auto zheight = gvt.fragment_count(gvt.mkdim(2));
@@ -339,8 +352,8 @@ std::vector< curtain_task > build(const curtain_query& query) {
             1.2 * std::max(gvt.fragment_shape()[0], gvt.fragment_shape()[1])
         );
 
-        for (int i = 0; i < int(dim0s.size()); ++i) {
-            const auto top = top_cubepoint(dim0s, dim1s, i);
+        for (int i = 0; i < int(query.dim0s.size()); ++i) {
+            const auto top = top_cubepoint(query.dim0s, query.dim1s, i);
             const auto fid = gvt.frag_id(top);
 
             auto [itr, found] = ids.find(fid);
@@ -367,22 +380,6 @@ std::vector< curtain_task > build(const curtain_query& query) {
 
         task.ids = std::move(ids);
     };
-
-    tasks.emplace_back(query);
-    make(tasks.back(), query.dim0s, query.dim1s);
-
-    for (const auto& attr : query.attributes) {
-        /*
-         * It's perfectly common for queries to request attributes that aren't
-         * recorded for a survey - in this case, silently drop it
-         */
-        auto itr = find_desc(query, attr);
-        if (itr == query.manifest.attr.end())
-            continue;
-
-        tasks.emplace_back(query, *itr);
-        make(tasks.back(), query.dim0s, query.dim1s);
-    }
 
     return tasks;
 }
