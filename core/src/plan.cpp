@@ -300,7 +300,11 @@ struct flat_map : public std::vector< single > {
             );
         };
 
-        assert(std::is_sorted(this->begin(), this->end(), less));
+        const auto lessid = [](const auto& lhs, const auto& rhs) noexcept {
+            return lhs.id < rhs.id;
+        };
+
+        assert(std::is_sorted(this->begin(), this->end(), lessid));
         return std::lower_bound(this->begin(), this->end(), id, less);
     }
 
@@ -354,7 +358,8 @@ std::vector< curtain_task > build(const curtain_query& query) {
         auto [itr, found] = ids.find(fid);
         if (not found) {
             single top;
-            top.id.assign(fid.begin(), fid.end());
+            assert(fid.size() == top.id.size());
+            std::copy_n(fid.begin(), top.id.size(), top.id.begin());
             top.coordinates.reserve(approx_coordinates_per_fragment);
             top.offset = i;
             itr = ids.insert(itr, zfrags, top);
@@ -404,7 +409,8 @@ std::vector< curtain_task > build(const curtain_query& query) {
             auto [itr, found] = ids.find(fid);
             if (not found) {
                 single top;
-                top.id.assign(fid.begin(), fid.end());
+                assert(fid.size() == top.id.size());
+                std::copy_n(fid.begin(), top.id.size(), top.id.begin());
                 top.offset = i;
                 itr = ids.insert(itr, top);
             }
