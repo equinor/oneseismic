@@ -133,26 +133,17 @@ auto find_attribute(const Query& query, const std::string& attr)
     return { itr, itr != query.manifest.attr.end() };
 }
 
-template < typename Seq >
-void append_vector_ids(
-    std::vector< std::vector< int > >& dst,
-    const Seq& src)
-{
-    using std::begin;
-    using std::end;
-
-    const auto to_vec = [](const auto& s) noexcept (false) {
-        const auto convert = [](const auto x) noexcept (true) {
-            return int(x);
-        };
-
-        std::vector< int > xs(s.size());
-        std::transform(begin(s), end(s), begin(xs), convert);
-        return xs;
+std::vector< std::array< int, 3 > >
+convert(const std::vector< FID< 3 > >& xs) noexcept (false) {
+    auto conv = [](const auto& fid) noexcept {
+        std::array< int, 3 > x;
+        std::copy_n(fid.begin(), x.size(), x.begin());
+        return x;
     };
 
-    auto append = std::back_inserter(dst);
-    std::transform(begin(src), end(src), append, to_vec);
+    std::vector< std::array< int, 3 > > out(xs.size());
+    std::transform(xs.begin(), xs.end(), out.begin(), conv);
+    return out;
 }
 
 std::vector< slice_task > build(const slice_query& query) {
@@ -172,7 +163,7 @@ std::vector< slice_task > build(const slice_query& query) {
         const auto gvt = geometry(task);
         const auto dim = gvt.mkdim(query.dim);
         task.idx = gvt.fragment_shape().index(dim, query.idx);
-        append_vector_ids(task.ids, gvt.slice(dim, query.idx));
+        task.ids = convert(gvt.slice(dim, query.idx));
     };
 
     return tasks;
