@@ -156,42 +156,24 @@ void append_vector_ids(
 }
 
 std::vector< slice_task > build(const slice_query& query) {
-    auto task = slice_task(query);
     std::vector< slice_task > tasks;
     tasks.reserve(query.attributes.size() + 1);
 
-    const auto gvt = geometry(query);
-    const auto dim = gvt.mkdim(query.dim);
-    task.idx = gvt.fragment_shape().index(dim, query.idx);
-    const auto ids = gvt.slice(dim, query.idx);
-    append_vector_ids(task.ids, ids);
-    tasks.push_back(task);
-
+    tasks.emplace_back(query);
     for (const auto& attr : query.attributes) {
-        /*
-         * It's perfectly common for queries to request attributes that aren't
-         * recorded for a survey - in this case, silently drop it
-         */
         auto [itr, found] = find_attribute(query, attr);
         if (not found)
             continue;
 
-        auto task = slice_task(query, *itr);
-        const auto gvt3 = geometry(task);
-        /*
-         * Attributes are really 2D volumes (depth = 1), but stored as 3D
-         * volumes to make querying them trivial. However, when requesting
-         * attributes for z-slices, the index will almost always not be 0 (the
-         * only valid z-index in the attributes surface), but this applies only
-         * for queries where dim = z. Modulus moves the index back into the
-         * grid, and is a no-op for any index a valid dimension.
-         */
-        const auto idx = query.idx % gvt3.cube_shape()[dim];
-        task.idx = gvt3.fragment_shape().index(dim, idx);
-        const auto ids = gvt3.slice(dim, idx);
-        append_vector_ids(task.ids, ids);
-        tasks.push_back(task);
+        tasks.emplace_back(query, *itr);
     }
+
+    for (auto& task : tasks) {
+        const auto gvt = geometry(task);
+        const auto dim = gvt.mkdim(query.dim);
+        task.idx = gvt.fragment_shape().index(dim, query.idx);
+        append_vector_ids(task.ids, gvt.slice(dim, query.idx));
+    };
 
     return tasks;
 }
