@@ -322,72 +322,67 @@ std::vector< curtain_task > build(const curtain_query& query) {
     std::vector< curtain_task > tasks;
     flat_map ids;
 
-    const auto& dim0s = query.dim0s;
-    const auto& dim1s = query.dim1s;
+    auto make = [&ids](auto& task, const auto& dim0s, const auto& dim1s) {
+        ids.clear();
+        const auto gvt = geometry(task);
+        const auto zheight = gvt.fragment_count(gvt.mkdim(2));
 
-    auto gvt = geometry(query);
-    const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
+        /*
+         * Guess the number of coordinates per fragment. A reasonable
+         * assumption is a plane going through a fragment, with a little bit of
+         * margin. Not pre-reserving is perfectly fine, but we can save a bunch
+         * of allocations in the average case by guessing well. It is
+         * reasonably short-lived, so overestimating slightly should not be a
+         * problem.
+         */
+        const auto approx_coordinates_per_fragment = int(
+            1.2 * std::max(gvt.fragment_shape()[0], gvt.fragment_shape()[1])
+        );
+        /*
+         * Pre-allocate the id objects by scanning the input and build the
+         * one::single objects. All fragments in the column (z-axis) are
+         * generated from the x-y pair. This is essentially constructing the
+         * "buckets" in advance.
+         */
+        for (int i = 0; i < int(dim0s.size()); ++i) {
+            const auto top = top_cubepoint(dim0s, dim1s, i);
+            const auto fid = gvt.frag_id(top);
 
-    /*
-     * Guess the number of coordinates per fragment. A reasonable assumption is
-     * a plane going through a fragment, with a little bit of margin. Not
-     * pre-reserving is perfectly fine, but we can save a bunch of allocations
-     * in the average case by guessing well. It is reasonably short-lived, so
-     * overestimating slightly should not be a problem.
-     */
-    const auto approx_coordinates_per_fragment =
-        int(std::max(gvt.fragment_shape()[0], gvt.fragment_shape()[1]) * 1.2);
-
-    /*
-     * Pre-allocate the id objects by scanning the input and build the
-     * one::single objects. All fragments in the column (z-axis) are generated
-     * from the x-y pair. This is essentially constructing the "buckets" in
-     * advance, as many x/y pairs will end up in the same "bin"/fragment.
-     *
-     * This is effectively
-     *  ids = set([fragmentid(x, y, z) for z in zheight for (x, y) in input])
-     *
-     * but without any intermediary structures.
-     *
-     * The bins are sorted lexicographically by fragment ID.
-     */
-    for (int i = 0; i < int(dim0s.size()); ++i) {
-        const auto top = top_cubepoint(dim0s, dim1s, i);
-        const auto fid = gvt.frag_id(top);
-
-        auto [itr, found] = ids.find(fid);
-        if (not found) {
-            single top;
-            assert(fid.size() == top.id.size());
-            std::copy_n(fid.begin(), top.id.size(), top.id.begin());
-            top.coordinates.reserve(approx_coordinates_per_fragment);
-            top.offset = i;
-            itr = ids.insert(itr, zfrags, top);
-            for (int z = 0; z < zfrags; ++z, ++itr)
-                itr->id[2] = z;
+            auto [itr, found] = ids.find(fid);
+            if (not found) {
+                single top {};
+                assert(fid.size() == top.id.size());
+                std::copy_n(fid.begin(), top.id.size(), top.id.begin());
+                top.coordinates.reserve(approx_coordinates_per_fragment);
+                top.offset = i;
+                itr = ids.insert(itr, zheight, top);
+                for (int z = 0; z < zheight; ++z, ++itr)
+                    itr->id[2] = z;
+            }
         }
-    }
 
-    /*
-     * Traverse the x/y coordinates and put them in the correct bins/fragment
-     * ids.
-     */
-    for (int i = 0; i < int(dim0s.size()); ++i) {
-        const auto top = top_cubepoint(dim0s, dim1s, i);
-        const auto fid = gvt.frag_id(top);
-        const auto lid = gvt.to_local(top);
-        auto itr = ids.at(fid);
-        const auto end = itr + zfrags;
-        for (auto block = itr; block != end; ++block) {
-            block->coordinates.push_back(coordinate(lid));
+        /*
+         * Traverse the x/y coordinates and put them in the correct
+         * bins/fragment ids.
+         */
+        for (int i = 0; i < int(dim0s.size()); ++i) {
+            const auto top = top_cubepoint(dim0s, dim1s, i);
+            const auto fid = gvt.frag_id(top);
+            const auto lid = gvt.to_local(top);
+            auto append_lid = [lid = coordinate(lid)](auto& block) {
+                block.coordinates.push_back(lid);
+            };
+            auto itr = ids.at(fid);
+            std::for_each(itr, itr + zheight, append_lid);
         }
-    }
+
+        task.ids = std::move(ids);
+    };
 
     tasks.emplace_back(query);
-    tasks.back().ids = std::move(ids);
+    make(tasks.back(), query.dim0s, query.dim1s);
 
     for (const auto& attr : query.attributes) {
-        ids.clear();
         /*
          * It's perfectly common for queries to request attributes that aren't
          * recorded for a survey - in this case, silently drop it
@@ -396,27 +391,8 @@ std::vector< curtain_task > build(const curtain_query& query) {
         if (itr == query.manifest.attr.end())
             continue;
 
-        /*
-         * The attributes may be partitioned differently, so we need a fresh
-         * gvt
-         */
         tasks.emplace_back(query, *itr);
-        const auto gvt = geometry(tasks.back());
-        for (int i = 0; i < int(dim0s.size()); ++i) {
-            const auto top = top_cubepoint(dim0s, dim1s, i);
-            const auto fid = gvt.frag_id(top);
-            const auto lid = gvt.to_local(top);
-            auto [itr, found] = ids.find(fid);
-            if (not found) {
-                single top;
-                assert(fid.size() == top.id.size());
-                std::copy_n(fid.begin(), top.id.size(), top.id.begin());
-                top.offset = i;
-                itr = ids.insert(itr, top);
-            }
-            itr->coordinates.push_back(coordinate(lid));
-        }
-        tasks.back().ids = std::move(ids);
+        make(tasks.back(), query.dim0s, query.dim1s);
     }
 
     return tasks;
