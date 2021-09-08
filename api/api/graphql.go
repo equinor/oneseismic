@@ -325,7 +325,10 @@ func (c *cube) basicSlice(
 
 func (c *cube) CurtainByIndex(
 	ctx    context.Context,
-	args   struct { Coords [][]int32 `json:"coords"` },
+	args   struct {
+		Coords [][]int32
+		Opts   *opts
+	},
 ) (*promise, error) {
 	return c.basicCurtain(
 		ctx,
@@ -333,12 +336,16 @@ func (c *cube) CurtainByIndex(
 			Kind: "index",
 			Coords: args.Coords,
 		},
+		args.Opts,
 	)
 }
 
 func (c *cube) CurtainByLineno(
 	ctx    context.Context,
-	args   struct { Coords [][]int32 `json:"coords"` },
+	args   struct {
+		Coords [][]int32
+		Opts   *opts
+	},
 ) (*promise, error) {
 	return c.basicCurtain(
 		ctx,
@@ -346,12 +353,14 @@ func (c *cube) CurtainByLineno(
 			Kind: "lineno",
 			Coords: args.Coords,
 		},
+		args.Opts,
 	)
 }
 
 func (c *cube) basicCurtain(
 	ctx    context.Context,
 	args   curtainargs,
+	opts   *opts,
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
@@ -376,6 +385,7 @@ func (c *cube) basicCurtain(
 		StorageEndpoint: c.root.endpoint,
 		Function:        "curtain",
 		Args:            args,
+		Opts:            opts,
 	}
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
@@ -437,8 +447,8 @@ type Cube {
 
     sliceByLineno(dim: Int!, lineno: Int!, opts: Opts): Promise
     sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise
-    curtainByLineno(coords: [[Int!]!]!): Promise
-    curtainByIndex(coords: [[Int!]!]!): Promise
+    curtainByLineno(coords: [[Int!]!]!, opts: Opts): Promise
+    curtainByIndex( coords: [[Int!]!]!, opts: Opts): Promise
 }
 	`
 	resolver := &resolver {

@@ -282,11 +282,16 @@ struct curtain_bundle {
      * structure. This is a detail that partially comes from using a statically
      * typed language, but it makes for nice messages regardless.
      *
+     * The zlength is the height of the output in the z dimension; this is
+     * trace-length for data, and usually 1 for attributes. It's embedded in
+     * the message to make decoding easier, and to handle more shapes.
+     *
      * [1] conceptually, although multiple fragments may be merged
      * [2] this might get changed to multiple shorter arrays
      */
     std::string attr;
     int size;
+    int zlength;
     std::vector< int > major;
     std::vector< int > minor;
     std::vector< float > values;
