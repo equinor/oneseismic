@@ -338,42 +338,31 @@ std::vector< curtain_task > build(const curtain_query& query) {
         const auto approx_coordinates_per_fragment = int(
             1.2 * std::max(gvt.fragment_shape()[0], gvt.fragment_shape()[1])
         );
-        /*
-         * Pre-allocate the id objects by scanning the input and build the
-         * one::single objects. All fragments in the column (z-axis) are
-         * generated from the x-y pair. This is essentially constructing the
-         * "buckets" in advance.
-         */
+
         for (int i = 0; i < int(dim0s.size()); ++i) {
             const auto top = top_cubepoint(dim0s, dim1s, i);
             const auto fid = gvt.frag_id(top);
 
             auto [itr, found] = ids.find(fid);
             if (not found) {
-                single top {};
-                assert(fid.size() == top.id.size());
-                std::copy_n(fid.begin(), top.id.size(), top.id.begin());
-                top.coordinates.reserve(approx_coordinates_per_fragment);
-                top.offset = i;
-                itr = ids.insert(itr, zheight, top);
-                for (int z = 0; z < zheight; ++z, ++itr)
-                    itr->id[2] = z;
+                /*
+                 * Generate and insert all the fragments in this column.
+                 * For attributes, zheight should be 1
+                 */
+                single block {};
+                assert(fid.size() == block.id.size());
+                std::copy_n(fid.begin(), block.id.size(), block.id.begin());
+                block.coordinates.reserve(approx_coordinates_per_fragment);
+                block.offset = i;
+                itr = ids.insert(itr, zheight, block);
+                for (int z = 0; z < zheight; ++z)
+                    (itr + z)->id[2] = z;
             }
-        }
 
-        /*
-         * Traverse the x/y coordinates and put them in the correct
-         * bins/fragment ids.
-         */
-        for (int i = 0; i < int(dim0s.size()); ++i) {
-            const auto top = top_cubepoint(dim0s, dim1s, i);
-            const auto fid = gvt.frag_id(top);
-            const auto lid = gvt.to_local(top);
-            auto append_lid = [lid = coordinate(lid)](auto& block) {
+            const auto lid = coordinate(gvt.to_local(top));
+            std::for_each(itr, itr + zheight, [lid](auto& block) {
                 block.coordinates.push_back(lid);
-            };
-            auto itr = ids.at(fid);
-            std::for_each(itr, itr + zheight, append_lid);
+            });
         }
 
         task.ids = std::move(ids);
