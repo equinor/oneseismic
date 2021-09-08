@@ -75,6 +75,14 @@ noexcept (false) {
     };
 }
 
+[[nodiscard]]
+std::array< int, 2 > coordinate(const FP< 3 > localid) noexcept (false) {
+    return {
+        int(localid[0]),
+        int(localid[1]),
+    };
+}
+
 int task_count(int jobs, int task_size) {
     /*
      * Return the number of task-size'd tasks needed to process all jobs
@@ -339,7 +347,7 @@ std::vector< curtain_task > build(const curtain_query& query) {
         auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
         const auto end = itr + zfrags;
         for (auto block = itr; block != end; ++block) {
-            block->coordinates.push_back({ int(lid[0]), int(lid[1]) });
+            block->coordinates.push_back(coordinate(lid));
         }
     }
 
@@ -371,7 +379,7 @@ std::vector< curtain_task > build(const curtain_query& query) {
                 top.offset = i;
                 itr = atask.ids.insert(itr, top);
             }
-            itr->coordinates.push_back({ int(lid[0]), int(lid[1]) });
+            itr->coordinates.push_back(coordinate(lid));
         }
 
         tasks.push_back(std::move(atask));
