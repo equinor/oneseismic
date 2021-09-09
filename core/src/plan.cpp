@@ -46,6 +46,43 @@ gvt< 3 > geometry(const basic_task& task) noexcept (true) {
     };
 }
 
+/*
+ * Stupid helper to make it less noisy to unpack the parallel arrays in the
+ * curtain input to a geometry/cube-point.
+ *
+ * Curtain (query) input:
+ *  intersections: [[x1 y1] [x2 y2] [x3 y3]]
+ *
+ * _query message:
+ *  dim0s: [x1 x2 x3]
+ *  dim1s: [y1 y2 y3]
+ *
+ * maps to coordinates (x1 y1 0) (x2 y2 0) (x3 y3 0)
+ *
+ * The top point can then be used to identify the containing fragment ID and
+ * its z-axis column.
+ */
+[[nodiscard]]
+CP< 3 > top_cubepoint(
+    const std::vector< int >& xs,
+    const std::vector< int >& ys,
+    int i)
+noexcept (false) {
+    return CP< 3 > {
+        std::size_t(xs[i]),
+        std::size_t(ys[i]),
+        std::size_t(0),
+    };
+}
+
+[[nodiscard]]
+std::array< int, 2 > coordinate(const FP< 3 > localid) noexcept (false) {
+    return {
+        int(localid[0]),
+        int(localid[1]),
+    };
+}
+
 int task_count(int jobs, int task_size) {
     /*
      * Return the number of task-size'd tasks needed to process all jobs
@@ -83,76 +120,51 @@ std::vector< std::string > normalized_attributes(const Query& q) {
 }
 
 template < typename Query >
-auto find_desc(const Query& query, const std::string& attr)
--> decltype(query.manifest.attr.begin()) {
-    return std::find_if(
+auto find_attribute(const Query& query, const std::string& attr)
+-> std::tuple< decltype(query.manifest.attr.begin()), bool> {
+    auto itr = std::find_if(
         query.manifest.attr.begin(),
         query.manifest.attr.end(),
         [&attr](const auto& desc) noexcept {
             return desc.type == attr;
         }
     );
+
+    return { itr, itr != query.manifest.attr.end() };
 }
 
-template < typename Seq >
-void append_vector_ids(
-    std::vector< std::vector< int > >& dst,
-    const Seq& src)
-{
-    using std::begin;
-    using std::end;
-
-    const auto to_vec = [](const auto& s) noexcept (false) {
-        const auto convert = [](const auto x) noexcept (true) {
-            return int(x);
-        };
-
-        std::vector< int > xs(s.size());
-        std::transform(begin(s), end(s), begin(xs), convert);
-        return xs;
+std::vector< std::array< int, 3 > >
+convert(const std::vector< FID< 3 > >& xs) noexcept (false) {
+    auto conv = [](const auto& fid) noexcept {
+        std::array< int, 3 > x;
+        std::copy_n(fid.begin(), x.size(), x.begin());
+        return x;
     };
 
-    auto append = std::back_inserter(dst);
-    std::transform(begin(src), end(src), append, to_vec);
+    std::vector< std::array< int, 3 > > out(xs.size());
+    std::transform(xs.begin(), xs.end(), out.begin(), conv);
+    return out;
 }
 
 std::vector< slice_task > build(const slice_query& query) {
-    auto task = slice_task(query);
     std::vector< slice_task > tasks;
     tasks.reserve(query.attributes.size() + 1);
 
-    const auto gvt = geometry(query);
-    const auto dim = gvt.mkdim(query.dim);
-    task.idx = gvt.fragment_shape().index(dim, query.idx);
-    const auto ids = gvt.slice(dim, query.idx);
-    append_vector_ids(task.ids, ids);
-    tasks.push_back(task);
-
+    tasks.emplace_back(query);
     for (const auto& attr : query.attributes) {
-        /*
-         * It's perfectly common for queries to request attributes that aren't
-         * recorded for a survey - in this case, silently drop it
-         */
-        auto itr = find_desc(query, attr);
-        if (itr == query.manifest.attr.end())
+        auto [itr, found] = find_attribute(query, attr);
+        if (not found)
             continue;
 
-        auto task = slice_task(query, *itr);
-        const auto gvt3 = geometry(task);
-        /*
-         * Attributes are really 2D volumes (depth = 1), but stored as 3D
-         * volumes to make querying them trivial. However, when requesting
-         * attributes for z-slices, the index will almost always not be 0 (the
-         * only valid z-index in the attributes surface), but this applies only
-         * for queries where dim = z. Modulus moves the index back into the
-         * grid, and is a no-op for any index a valid dimension.
-         */
-        const auto idx = query.idx % gvt3.cube_shape()[dim];
-        task.idx = gvt3.fragment_shape().index(dim, idx);
-        const auto ids = gvt3.slice(dim, idx);
-        append_vector_ids(task.ids, ids);
-        tasks.push_back(task);
+        tasks.emplace_back(query, *itr);
     }
+
+    for (auto& task : tasks) {
+        const auto gvt = geometry(task);
+        const auto dim = gvt.mkdim(query.dim);
+        task.idx = gvt.fragment_shape().index(dim, query.idx);
+        task.ids = convert(gvt.slice(dim, query.idx));
+    };
 
     return tasks;
 }
@@ -238,127 +250,111 @@ noexcept (false) {
     return head;
 }
 
+/*
+ * The curtain query is expanded to the set of fragment IDs that contain all
+ * the input traces, including z-axis. This for-purpose sorted-by-bucket-map
+ * class helps maintain the invariant and provides simple interface for the
+ * curtain.
+ *
+ * It inherits storage, clear, and move semantics from vector, but provides a
+ * find() and at() for map lookup.
+ *
+ * The main achievement is getting all the hairy binary search out of the way,
+ * and provide a more suitable abstraction for the build(curtain) function.
+ */
+struct flat_map : public std::vector< single > {
+    using iterator = std::vector< single >::iterator;
+
+    iterator at(FID< 3 > id) noexcept (true) {
+        const auto less = [](const auto& lhs, const auto& rhs) noexcept {
+            return std::lexicographical_compare(
+                lhs.id.begin(),
+                lhs.id.end(),
+                rhs.begin(),
+                rhs.end()
+            );
+        };
+
+        const auto lessid = [](const auto& lhs, const auto& rhs) noexcept {
+            return lhs.id < rhs.id;
+        };
+
+        assert(std::is_sorted(this->begin(), this->end(), lessid));
+        return std::lower_bound(this->begin(), this->end(), id, less);
+    }
+
+    std::tuple< iterator, bool > find(FID< 3 > fid) noexcept (true) {
+        const auto equal = [](const auto& lhs, const auto& rhs) noexcept {
+            return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+        };
+        auto itr   = this->at(fid);
+        auto found = (itr != this->end()) and equal(itr->id, fid);
+        return { itr, found };
+    }
+};
+
 std::vector< curtain_task > build(const curtain_query& query) {
-    const auto less = [](const auto& lhs, const auto& rhs) noexcept (true) {
-        return std::lexicographical_compare(
-            lhs.id.begin(),
-            lhs.id.end(),
-            rhs.begin(),
-            rhs.end()
-        );
-    };
-    const auto equal = [](const auto& lhs, const auto& rhs) noexcept (true) {
-        return std::equal(lhs.begin(), lhs.end(), rhs.begin());
-    };
-
     std::vector< curtain_task > tasks;
+
     tasks.emplace_back(query);
-    auto& ids = tasks.back().ids;
-    const auto& dim0s = query.dim0s;
-    const auto& dim1s = query.dim1s;
-
-    auto gvt = geometry(query);
-    const auto zfrags  = gvt.fragment_count(gvt.mkdim(2));
-
-    /*
-     * Guess the number of coordinates per fragment. A reasonable assumption is
-     * a plane going through a fragment, with a little bit of margin. Not
-     * pre-reserving is perfectly fine, but we can save a bunch of allocations
-     * in the average case by guessing well. It is reasonably short-lived, so
-     * overestimating slightly should not be a problem.
-     */
-    const auto approx_coordinates_per_fragment =
-        int(std::max(gvt.fragment_shape()[0], gvt.fragment_shape()[1]) * 1.2);
-
-    /*
-     * Pre-allocate the id objects by scanning the input and build the
-     * one::single objects. All fragments in the column (z-axis) are generated
-     * from the x-y pair. This is essentially constructing the "buckets" in
-     * advance, as many x/y pairs will end up in the same "bin"/fragment.
-     *
-     * This is effectively
-     *  ids = set([fragmentid(x, y, z) for z in zheight for (x, y) in input])
-     *
-     * but without any intermediary structures.
-     *
-     * The bins are sorted lexicographically by fragment ID.
-     */
-    for (int i = 0; i < int(dim0s.size()); ++i) {
-        auto top_point = CP< 3 > {
-            std::size_t(dim0s[i]),
-            std::size_t(dim1s[i]),
-            std::size_t(0),
-        };
-        const auto fid = gvt.frag_id(top_point);
-
-        auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
-        if (itr == ids.end() or (not equal(itr->id, fid))) {
-            single top;
-            top.id.assign(fid.begin(), fid.end());
-            top.coordinates.reserve(approx_coordinates_per_fragment);
-            top.offset = i;
-            itr = ids.insert(itr, zfrags, top);
-            for (int z = 0; z < zfrags; ++z, ++itr)
-                itr->id[2] = z;
-        }
-    }
-
-    /*
-     * Traverse the x/y coordinates and put them in the correct bins/fragment
-     * ids.
-     */
-    for (int i = 0; i < int(dim0s.size()); ++i) {
-        const auto cp = CP< 3 > {
-            std::size_t(dim0s[i]),
-            std::size_t(dim1s[i]),
-            std::size_t(0),
-        };
-        const auto fid = gvt.frag_id(cp);
-        const auto lid = gvt.to_local(cp);
-        auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
-        const auto end = itr + zfrags;
-        for (auto block = itr; block != end; ++block) {
-            block->coordinates.push_back({ int(lid[0]), int(lid[1]) });
-        }
-    }
-
     for (const auto& attr : query.attributes) {
         /*
          * It's perfectly common for queries to request attributes that aren't
          * recorded for a survey - in this case, silently drop it
          */
-        auto itr = find_desc(query, attr);
-        if (itr == query.manifest.attr.end())
+        auto [itr, found] = find_attribute(query, attr);
+        if (not found)
             continue;
 
-        /*
-         * The attributes may be partitioned differently, so we need a fresh
-         * gvt
-         */
-        auto atask = curtain_task(query, *itr);
-        const auto gvt = geometry(atask);
-        auto& ids = atask.ids;
+        tasks.emplace_back(query, *itr);
+    }
 
-        for (int i = 0; i < int(dim0s.size()); ++i) {
-            auto top_point = CP< 3 > {
-                std::size_t(dim0s[i]),
-                std::size_t(dim1s[i]),
-                std::size_t(0),
-            };
-            const auto fid = gvt.frag_id(top_point);
-            const auto lid = gvt.to_local(top_point);
-            auto itr = std::lower_bound(ids.begin(), ids.end(), fid, less);
-            if (itr == atask.ids.end() or (not equal(itr->id, fid))) {
-                single top;
-                top.id.assign(fid.begin(), fid.end());
-                top.offset = i;
-                itr = atask.ids.insert(itr, top);
+    flat_map ids;
+    for (auto& task : tasks) {
+        ids.clear();
+        const auto gvt = geometry(task);
+        const auto zheight = gvt.fragment_count(gvt.mkdim(2));
+
+        /*
+         * Guess the number of coordinates per fragment. A reasonable
+         * assumption is a plane going through a fragment, with a little bit of
+         * margin. Not pre-reserving is perfectly fine, but we can save a bunch
+         * of allocations in the average case by guessing well. It is
+         * reasonably short-lived, so overestimating slightly should not be a
+         * problem.
+         */
+        const auto approx_coordinates_per_fragment = int(
+            1.2 * std::max(gvt.fragment_shape()[0], gvt.fragment_shape()[1])
+        );
+
+        for (int i = 0; i < int(query.dim0s.size()); ++i) {
+            const auto top = top_cubepoint(query.dim0s, query.dim1s, i);
+            const auto fid = gvt.frag_id(top);
+
+            auto [itr, found] = ids.find(fid);
+            if (not found) {
+                /*
+                 * Generate and insert all the fragments in this column.
+                 * For attributes, zheight should be 1
+                 */
+                single block {};
+                assert(fid.size() == block.id.size());
+                std::copy_n(fid.begin(), block.id.size(), block.id.begin());
+                block.coordinates.reserve(approx_coordinates_per_fragment);
+                block.offset = i;
+                itr = ids.insert(itr, zheight, block);
+                for (int z = 0; z < zheight; ++z)
+                    (itr + z)->id[2] = z;
             }
-            itr->coordinates.push_back({ int(lid[0]), int(lid[1]) });
+
+            const auto lid = coordinate(gvt.to_local(top));
+            std::for_each(itr, itr + zheight, [lid](auto& block) {
+                block.coordinates.push_back(lid);
+            });
         }
 
-        tasks.push_back(std::move(atask));
-    }
+        task.ids = std::move(ids);
+    };
 
     return tasks;
 }

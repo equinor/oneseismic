@@ -1,6 +1,7 @@
 #ifndef ONESEISMIC_MESSAGES_HPP
 #define ONESEISMIC_MESSAGES_HPP
 
+#include <array>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -207,7 +208,7 @@ struct slice_task : public basic_task, Packable< slice_task > {
 
     int dim;
     int idx;
-    std::vector< std::vector< int > > ids;
+    std::vector< std::array< int, 3 > > ids;
 };
 
 struct tile {
@@ -229,7 +230,7 @@ struct slice_tiles {
 
 struct single {
     /* id is a 3-tuple (i,j,k) that gives the fragment-ID */
-    std::vector< int > id;
+    std::array< int, 3 > id;
 
     /*
      * The offset is the index of this fragment in the lexicographically sorted
