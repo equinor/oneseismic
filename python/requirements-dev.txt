@@ -1,4 +1,5 @@
 azure-storage-blob
+azure-identity
 gql
 hypothesis
 msal
