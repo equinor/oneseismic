@@ -66,11 +66,12 @@ struct manifestdoc {
  */
 struct basic_query {
     std::string                 pid;
-    std::string                 token;
+    std::string                 credentials;
     std::string                 url_query;
     std::string                 guid;
     manifestdoc                 manifest;
     std::string                 storage_endpoint;
+    std::string                 storage_kind;
     std::string                 function;
     std::vector< std::string >  attributes;
 
@@ -98,12 +99,13 @@ struct basic_task {
     basic_task() = default;
     explicit basic_task(const basic_query& q) :
         pid              (q.pid),
-        token            (q.token),
+		credentials      (q.credentials),
         url_query        (q.url_query),
         guid             (q.guid),
         prefix           (q.manifest.vol.at(0).prefix),
         ext              (q.manifest.vol.at(0).ext),
         storage_endpoint (q.storage_endpoint),
+        storage_kind     (q.storage_kind),
         shape            (q.shape()),
         function         (q.function),
         attribute        ("data")
@@ -115,12 +117,13 @@ struct basic_task {
 
     basic_task(const basic_query& q, const attributedesc& attr) :
         pid              (q.pid),
-        token            (q.token),
+		credentials      (q.credentials),
         url_query        (q.url_query),
         guid             (q.guid),
         prefix           (attr.prefix),
         ext              (attr.ext),
         storage_endpoint (q.storage_endpoint),
+        storage_kind     (q.storage_kind),
         shape            (attr.shapes.at(0)),
         function         (q.function),
         attribute        (attr.type)
@@ -132,10 +135,11 @@ struct basic_task {
     }
 
     std::string        pid;
-    std::string        token;
+    std::string        credentials;
     std::string        url_query;
     std::string        guid;
     std::string        storage_endpoint;
+    std::string        storage_kind;
     std::string        prefix;
     std::string        ext;
     std::vector< int > shape;

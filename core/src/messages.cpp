@@ -214,22 +214,24 @@ void to_json(nlohmann::json& doc, const manifestdoc& m) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
     doc["pid"]              = query.pid;
-    doc["token"]            = query.token;
+    doc["credentials"]      = query.credentials;
     doc["url-query"]        = query.url_query;
     doc["guid"]             = query.guid;
     doc["manifest"]         = query.manifest;
     doc["storage_endpoint"] = query.storage_endpoint;
+    doc["storage_kind"]     = query.storage_kind;
     doc["function"]         = query.function;
     doc["attributes"]       = query.attributes;
 }
 
 void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
     doc.at("pid")             .get_to(query.pid);
-    doc.at("token")           .get_to(query.token);
+    doc.at("credentials")     .get_to(query.credentials);
     doc.at("url-query")       .get_to(query.url_query);
     doc.at("guid")            .get_to(query.guid);
     doc.at("manifest")        .get_to(query.manifest);
     doc.at("storage_endpoint").get_to(query.storage_endpoint);
+    doc.at("storage_kind")    .get_to(query.storage_kind);
     doc.at("function")        .get_to(query.function);
 
     const auto optsitr = doc.find("opts");
@@ -244,10 +246,11 @@ void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
     doc["pid"]              = task.pid;
-    doc["token"]            = task.token;
+    doc["credentials"]      = task.credentials;
     doc["url-query"]        = task.url_query;
     doc["guid"]             = task.guid;
     doc["storage_endpoint"] = task.storage_endpoint;
+    doc["storage_kind"]     = task.storage_kind;
     doc["prefix"]           = task.prefix;
     doc["ext"]              = task.ext;
     doc["shape"]            = task.shape;
@@ -259,10 +262,11 @@ void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
 
 void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
     doc.at("pid")             .get_to(task.pid);
-    doc.at("token")           .get_to(task.token);
+    doc.at("credentials")     .get_to(task.credentials);
     doc.at("url-query")       .get_to(task.url_query);
     doc.at("guid")            .get_to(task.guid);
     doc.at("storage_endpoint").get_to(task.storage_endpoint);
+    doc.at("storage_kind")    .get_to(task.storage_kind);
     doc.at("prefix")          .get_to(task.prefix);
     doc.at("ext")             .get_to(task.ext);
     doc.at("shape")           .get_to(task.shape);

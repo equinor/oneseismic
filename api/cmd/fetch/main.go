@@ -6,27 +6,33 @@ import (
 	"log"
 	"os"
 
+	"github.com/equinor/oneseismic/api/api"
+	"github.com/equinor/oneseismic/api/internal/datastorage"
 	"github.com/equinor/oneseismic/api/internal/util"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
 )
 
 type opts struct {
-	redis      string
-	group      string
-	stream     string
-	consumerid string
-	jobs       int
-	retries    int
+	redis       string
+	group       string
+	stream      string
+	consumerid  string
+	jobs        int
+	retries     int
+
+	storageKind string	
+	storageUrl  string
 }
 
 func parseopts() opts {
 	help := getopt.BoolLong("help", 0, "print this help text")
 	opts := opts {
-		group:  "fetch",
-		stream: "jobs",
+		group:        "fetch",
+		stream:       "jobs",
+		storageKind:  os.Getenv("STORAGE_KIND"),
+		storageUrl:   os.Getenv("STORAGE_URL"),
 	}
 	getopt.FlagLong(
 		&opts.redis,
@@ -35,6 +41,23 @@ func parseopts() opts {
 		"Address to redis, e.g. host[:port]",
 		"addr",
 	).Mandatory()
+	getopt.FlagLong(
+		&opts.storageKind,
+		"storage-kind",
+		'K',
+		"Kind of storage. " +
+			  " Set this together with storage-url if you want to " +
+			  " specify the storage-backend on startup." +
+			  " Otherwise, storage-backend is derived from each task.",
+		"name",
+	)
+	getopt.FlagLong(
+		&opts.storageUrl,
+		"storage-url",
+		0,
+		"Storage URL, e.g. https://<account>.blob.core.windows.net",
+		"url",
+	)
 	getopt.FlagLong(
 		&opts.group,
 		"group",
@@ -94,7 +117,32 @@ func parseopts() opts {
 
 type task struct {
 	index int
-	blob  azblob.BlobURL
+	id string
+	blobStorage  *api.AbstractStorage
+	credentials string
+}
+
+/*
+* The storage can be a global singleton in this module.
+* This means the driver can override it if we decide this is the best
+* overall solution (i.e driver assumes responsibility of its storage-
+* backend). See also TODOs in api.AbstractStorage.
+*
+* If not set by driver, each task will look it up from a map where kind
+* and endpoint is combined to key.
+*/
+var storageSingleton api.AbstractStorage = nil
+var storageCache map[string]api.AbstractStorage = make(map[string]api.AbstractStorage)
+func getStorage(kind string, endpoint string) *api.AbstractStorage {
+	if storageSingleton != nil {
+		return &storageSingleton
+	}
+	key := fmt.Sprintf("%s::%s", kind, endpoint)
+	retval, ok := storageCache[key]; if !ok {
+		retval = datastorage.CreateStorage(kind, endpoint)
+		storageCache[key] = retval
+	}
+	return &retval
 }
 
 func run(
@@ -122,16 +170,6 @@ func run(
 		log.Printf("%s dropping bad process %v", proc.logpid(), err)
 		return
 	}
-	/*
-	 * Build the container-URL early, in case it should be broken,
-	 * so that no goroutines are scheduled before any sanity
-	 * checking of input.
-	 */
-	container, err := proc.container()
-	if err != nil {
-		log.Printf("%s dropping bad process %v", proc.logpid(), err)
-		return
-	}
 
 	// TODO: share job queue between processes, but use private
 	// output/error queue? Then buffered-elements would control
@@ -150,10 +188,16 @@ func run(
 		go fetch(proc.ctx, retries, tasks, frags, errors)
 	}
 	fragments := proc.fragments()
+	guid := proc.task.Guid
 	go proc.gather(storage, len(fragments), frags, errors)
 	for i, id := range fragments {
 		select {
-		case tasks <- task { index: i, blob: container.NewBlobURL(id) }:
+		case tasks <- task { index: i,
+							id: fmt.Sprintf("%s#%s", guid, id),
+							blobStorage: getStorage(proc.task.StorageKind,
+                                                    proc.task.StorageEndpoint),
+							credentials: proc.task.Credentials,
+							}:
 		case <-proc.ctx.Done():
 			msg := "%s cancelled after %d scheduling fragments; %v"
 			log.Printf(msg, proc.logpid(), i, proc.ctx.Err())
@@ -164,6 +208,10 @@ func run(
 
 func main() {
 	opts := parseopts()
+
+	if opts.storageKind != "" && opts.storageUrl != "" {
+		storageSingleton = datastorage.CreateStorage(opts.storageKind, opts.storageUrl)
+	}
 
 	storage := redis.NewClient(&redis.Options {
 		Addr: opts.redis,

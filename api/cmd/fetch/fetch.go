@@ -4,20 +4,17 @@ package main
 // #include <stdlib.h>
 // #include "tasks.h"
 import "C"
-import "unsafe"
-
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/url"
 	"strings"
 	"time"
+	"unsafe"
 
+	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/message"
-
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -36,7 +33,6 @@ type process struct {
 	 * is probably only useful for logging, and helps identify tasks and track
 	 * a process through the system.
 	 */
-	pid  string
 	part string
 	/*
 	 * The parsed and raw task specification, as read from the input message
@@ -76,7 +72,7 @@ type process struct {
  * error.
  */
 func (p *process) logpid() string {
-	return fmt.Sprintf("pid=%s, part=%s", p.pid, p.part)
+	return fmt.Sprintf("pid=%s, part=%s", api.GetPid(p.ctx), p.part)
 }
 
 /*
@@ -96,8 +92,8 @@ func (p *process) c_error() error {
  */
 func exec(msg [][]byte) (*process, error) {
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx = context.WithValue(ctx, "pid", string(msg[0]))
 	proc := &process {
-		pid:     string(msg[0]),
 		part:    string(msg[1]),
 		rawtask: msg[2],
 		ctx:     ctx,
@@ -129,7 +125,7 @@ func exec(msg [][]byte) (*process, error) {
  * objects and cancel the context.
  */
 func (p *process) cleanup() {
-	C.cleanup(p.cpp)
+	C.cleanupProcess(p.cpp)
 	p.cpp = nil
 	p.cancel()
 }
@@ -226,32 +222,6 @@ func (p *process) pack() []byte {
 }
 
 /*
- * Make a container URL. This is just a stupid helper to make calling prettier,
- * and it is somewhat inflexible by reading endpoint + guid from the input
- * task.
- */
-func (p *process) container() (azblob.ContainerURL, error) {
-	endpoint := p.task.StorageEndpoint
-	guid     := p.task.Guid
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
-	if err != nil {
-		err = fmt.Errorf("Container URL would be malformed: %w", err)
-		return azblob.ContainerURL{}, err
-	}
-
-	container.RawQuery = p.task.UrlQuery
-
-	var credentials azblob.Credential
-	if p.task.Token != "" {
-		credentials = azblob.NewTokenCredential(p.task.Token, nil)
-	} else {
-		credentials = azblob.NewAnonymousCredential()
-	}
-	pipeline := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	return azblob.NewContainerURL(*container, pipeline), nil
-}
-
-/*
  * Gather the result and write the result to storage. This must *be called
  * exactly once* since it also clears the process handle.
  *
@@ -286,7 +256,8 @@ func (p *process) gather(
 				case e := <-errors:
 					log.Printf("%s download failed: %v", p.logpid(), e)
 				default:
-					return
+					return // This makes the defer-handler fire, i.e.
+                           // calling p.cleanup() and cancel the ctx
 				}
 			}
 		}
@@ -295,36 +266,15 @@ func (p *process) gather(
 	packed := p.pack()
 	log.Printf("%s ready", p.logpid())
 	args := redis.XAddArgs{
-		Stream: p.pid,
+		Stream: api.GetPid(p.ctx),
 		Values: map[string]interface{}{p.part: packed},
 	}
 	err := storage.XAdd(p.ctx, &args).Err()
 	if err != nil {
 		log.Printf("%s write to storage failed: %v", p.logpid(), err)
 	}
-	storage.Expire(p.ctx, p.pid, 10 * time.Minute)
+	storage.Expire(p.ctx, api.GetPid(p.ctx), 10 * time.Minute)
 	log.Printf("%s written to storage", p.logpid())
-}
-
-/*
- * Synchronously fetch a blob from the blob store.
- */
-func fetchblob(ctx context.Context, blob azblob.BlobURL, maxRetries int) ([]byte, error) {
-	dl, err := blob.Download(
-		ctx,
-		0,
-		azblob.CountToEnd,
-		azblob.BlobAccessConditions{},
-		false,
-		azblob.ClientProvidedKeyOptions {},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	body := dl.Body(azblob.RetryReaderOptions{MaxRetryRequests: maxRetries})
-	defer body.Close()
-	return ioutil.ReadAll(body)
 }
 
 /*
@@ -337,17 +287,23 @@ func fetch(
 	maxRetries int,
 	tasks      chan task,
 	fragments  chan fragment,
-	errors     chan error,
+	errorChan  chan error,
 ) {
 	for task := range tasks {
-		chunk, err := fetchblob(ctx, task.blob, maxRetries)
-		if err != nil {
-			errors <- err
+		select {
+		case <- ctx.Done():
+			errorChan <- errors.New("operation was cancelled")
 			return
-		}
-		fragments <- fragment {
-			index: task.index,
-			chunk: chunk,
+		default:
+			chunk, err := (*task.blobStorage).Get(ctx, task.credentials, task.id)
+			if err != nil {
+				errorChan <- err
+				return
+			}
+			fragments <- fragment {
+				index: task.index,
+				chunk: chunk,
+			}
 		}
 	}
 }

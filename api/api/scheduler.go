@@ -4,7 +4,15 @@ package api
 // #include <stdlib.h>
 // #include "scheduler.h"
 import "C"
-import "unsafe"
+import (
+	"context"
+	"fmt"
+	"time"
+	"unsafe"
+
+	"github.com/equinor/oneseismic/api/internal/message"
+	"github.com/go-redis/redis/v8"
+)
 
 /*
  * This module implements the go-interface to the scheduler module. The
@@ -15,16 +23,6 @@ import "unsafe"
  * that if scaling or design needs mandate it, scheduling can be moved out of
  * this process and into a separate.
  */
-
-import(
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/go-redis/redis/v8"
-
-	"github.com/equinor/oneseismic/api/internal/message"
-)
 
 type cppscheduler struct {
 	tasksize int
@@ -131,7 +129,7 @@ func (sched *cppscheduler) Schedule(
 			"part", part,
 			"task", task,
 		}
-		args := redis.XAddArgs{Stream: "jobs", Values: values}
+		args := redis.XAddArgs{Stream: "jobs", Values: values} // TODO: fix hardcoded group-name!
 		_, err := sched.storage.XAdd(ctx, &args).Result()
 		if err != nil {
 			msg := "part=%v unable to put in storage; %w"

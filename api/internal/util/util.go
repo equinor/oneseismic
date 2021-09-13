@@ -2,15 +2,12 @@ package util
 
 import (
 	"compress/gzip"
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
-	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -96,49 +93,6 @@ func Compression() gin.HandlerFunc {
 }
 
 /*
- * Get the manifest for the cube from the blob store.
- *
- * It's important that this is a blocking read, since this is the first
- * authorization mechanism in oneseismic. If the user (through the
- * on-behalf-token) does not have permissions to read the manifest, it
- * shouldn't be able to read the cube either. If so, no more processing should
- * be done, and the request discarded.
- */
-func FetchManifest(
-	ctx context.Context,
-	token string,
-	containerURL *url.URL,
-) ([]byte, error) {
-	credentials := azblob.NewTokenCredential(token, nil)
-	return FetchManifestWithCredential(ctx, credentials, containerURL)
-}
-
-func FetchManifestWithCredential(
-	ctx          context.Context,
-	credentials  azblob.Credential,
-	containerURL *url.URL,
-) ([]byte, error) {
-	pipeline  := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	container := azblob.NewContainerURL(*containerURL, pipeline)
-	blob      := container.NewBlobURL("manifest.json")
-	dl, err := blob.Download(
-		ctx,
-		0, /* offset */
-		azblob.CountToEnd,
-		azblob.BlobAccessConditions {},
-		false, /* content-get-md5 */
-		azblob.ClientProvidedKeyOptions {},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	body := dl.Body(azblob.RetryReaderOptions{})
-	defer body.Close()
-	return ioutil.ReadAll(body)
-}
-
-/*
  * Centralize the understanding of error conditions of azblob.download.
  *
  * There are two classes of errors:
@@ -180,10 +134,13 @@ func AbortOnManifestError(ctx *gin.Context, err error) {
 	}
 }
 
-func ParseManifest(doc []byte) (*message.Manifest, error) {
-	m := message.Manifest{}
-	return m.Unpack(doc)
-}
+//
+// Doesn't seem to work (returns empty slice), nor is it used anywhere?
+//
+//func ParseManifest(doc []byte) (*message.Manifest, error) {
+//	m := message.Manifest{}
+//	return m.Unpack(doc)
+//}
 
 /*
  * Custom logger for the /query family of endpoints, that logs the id of the

@@ -7,16 +7,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 
 	"github.com/gin-gonic/gin"
-	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/go-redis/redis/v8"
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	graphql "github.com/graph-gophers/graphql-go"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
-	"github.com/equinor/oneseismic/api/internal/util"
 )
 
 type gql struct {
@@ -24,12 +21,16 @@ type gql struct {
 }
 
 type resolver struct {
-	BasicEndpoint
+	tokens auth.Tokens
+	datasource AbstractStorage
+	keyring  *auth.Keyring
+	sched    scheduler
 }
 type cube struct {
 	id       graphql.ID
 	root     *resolver
 	manifest map[string]interface{}
+	credentials string
 }
 
 type promise struct {
@@ -48,26 +49,11 @@ func (p *promise) MarshalJSON() ([]byte, error) {
 func (p *promise) UnmarshalGraphQL(input interface{}) error {
 	// Unmarshal must be defined, but should never be used as an input type;
 	// that's a schema bug, and all queries should be ignored.
-	return errors.New("Promise is not an input type");
+	return NewInternalError("Promise is not an input type")
 }
 
 type opts struct {
 	Attributes *[]string `json:"attributes"`
-}
-
-func credentials(
-	tokens auth.Tokens,
-	token string,
-) (azblob.Credential, error) {
-	log.Printf("Credentials token: %v", token)
-	if token != "" {
-		tok, err := tokens.GetOnbehalf(token)
-		if err != nil {
-			return nil, err
-		}
-		return azblob.NewTokenCredential(tok, nil), nil
-	}
-	return azblob.NewAnonymousCredential(), nil
 }
 
 func (r *resolver) Cube(
@@ -75,37 +61,32 @@ func (r *resolver) Cube(
 	args struct { Id graphql.ID },
 ) (*cube, error) {
 	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
+	pid  := GetPid(ctx)
 
-	creds, err := credentials(r.tokens, auth)
+	creds, err := EncodeCredentials(&r.tokens, keys)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("Unable to get on-behalf token")
+		return nil, NewIllegalAccessError("Could not authenticate with given credentials")
 	}
-	doc, err := getManifest(
-		ctx,
-		creds,
-		keys["url-query"],
-		r.endpoint,
-		string(args.Id),
-	)
-	// TODO: inspect error and determine if cached token should be evicted
-	if err != nil {
+
+	resourceUrl := fmt.Sprintf("%s#manifest.json", string(args.Id))
+	doc, err := r.datasource.Get(ctx, creds, resourceUrl); if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err
 	}
 
-	manifest, err := manifestAsMap(doc)
+	manifest := make(map[string]interface{})
+	err = json.Unmarshal(doc, &manifest)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
-		return nil, err
+		return nil, NewInternalError("Failed converting to manifest")
 	}
 
 	return &cube {
-		id:       args.Id,
-		root:     r,
-		manifest: manifest,
+		credentials: creds,
+		id:          args.Id,
+		root:        r,
+		manifest:    manifest,
 	}, nil
 }
 
@@ -151,57 +132,18 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 		keys := ctx.Value("keys").(map[string]string)
 		pid  := keys["pid"]
 		log.Printf(
-			"pid=%s %s/manifest.json broken; no dimensions",
+			"Linenumbers(1) pid=%s %s/manifest.json broken; no dimensions",
 			pid,
 			string(c.id),
 		)
-		return nil, errors.New("internal error; bad document")
+		return nil, NewInternalError("Failed extracting document from manifest")
 	}
 	linenos, err := asSliceSliceInt32(doc)
 	if err != nil {
-		return nil, errors.New("internal error; bad document")
+		log.Printf("Linenumbers(2) %v", err)
+		return nil, NewInternalError("Failed parsing linenumbers in manifest")
 	}
 	return linenos, nil
-}
-
-/*
- * This is the util.GetManifest function, but tuned for graphql and with
- * gin-specifics removed. Its purpose is to make for a quick migration to a
- * working graphql interface to oneseismic. Expect this function to be removed
- * or drastically change soon.
- */
-func getManifest(
-	ctx      context.Context,
-	cred     azblob.Credential,
-	urlquery string,
-	endpoint string,
-	guid     string,
-) ([]byte, error) {
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
-	if err != nil {
-		return nil, err
-	}
-
-	container.RawQuery = urlquery
-	manifest, err := util.FetchManifestWithCredential(ctx, cred, container)
-	if err != nil {
-		switch e := err.(type) {
-		case azblob.StorageError:
-			sc := e.Response()
-			if sc.StatusCode == http.StatusNotFound {
-				// TODO: add guid as a part of the error message?
-				return nil, errors.New("Not found")
-			}
-			return nil, errors.New("Internal error")
-		}
-		return nil, err
-	}
-	return manifest, nil
-}
-
-func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
-	err = json.Unmarshal(doc, &m)
-	return
 }
 
 type sliceargs struct {
@@ -259,8 +201,7 @@ func (c *cube) basicSlice(
 	opts *opts,
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
+	pid := GetPid(ctx)
 	/*
 	 * Embedding a json doc as a string works (surprisingly) well, since the
 	 * Pack()/encoding escapes all nested quotes. It might be reasonable at
@@ -272,23 +213,14 @@ func (c *cube) basicSlice(
 	 * faithful to what's stored in blob, i.e. information can be stripped out
 	 * or added.
 	 */
-	token := ""
-	if auth != "" {
-		tok, err := c.root.tokens.GetOnbehalf(auth)
-		if err != nil {
-			log.Printf("pid=%s, %v", pid, err)
-			return nil, errors.New("internal error; bad token?")
-		}
-		token = tok
-	}
-
 	msg := message.Query {
 		Pid:             pid,
-		Token:           token,
+		Credentials:	 c.credentials,
 		UrlQuery:        keys["url-query"],
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
-		StorageEndpoint: c.root.endpoint,
+		StorageEndpoint: c.root.datasource.GetEndpoint(),
+		StorageKind:     c.root.datasource.GetKind(),
 		Function:        "slice",
 		Args:            args,
 		Opts:            opts,
@@ -296,15 +228,19 @@ func (c *cube) basicSlice(
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
+		return nil, NewIllegalInputError(fmt.Sprintf("Failed to construct query: %v", err.Error()))
 	}
 
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error")
+		return nil, NewInternalError("Signing the token failed")
 	}
 
+	// TODO: Why async? Measure performance to determine if it is worth
+	// keeping it async?
+	// If we make this call synchronous we can report errors immediately
+	// to client and avoid potentially messy cleanup later
 	go func () {
 		err := c.root.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
@@ -363,26 +299,16 @@ func (c *cube) basicCurtain(
 	opts   *opts,
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
-
-	token := ""
-	if auth != "" {
-		tok, err := c.root.tokens.GetOnbehalf(auth)
-		if err != nil {
-			log.Printf("pid=%s, %v", pid, err)
-			return nil, errors.New("internal error; bad token?")
-		}
-		token = tok
-	}
+	pid := GetPid(ctx)
 
 	msg := message.Query {
 		Pid:             pid,
-		Token:           token,
+		Credentials:     c.credentials,
 		UrlQuery:        keys["url-query"],
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
-		StorageEndpoint: c.root.endpoint,
+		StorageEndpoint: c.root.datasource.GetEndpoint(),
+		StorageKind:     c.root.datasource.GetKind(),
 		Function:        "curtain",
 		Args:            args,
 		Opts:            opts,
@@ -390,15 +316,16 @@ func (c *cube) basicCurtain(
 	query, err := c.root.sched.MakeQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
+		return nil, NewIllegalInputError(fmt.Sprintf("Failed to construct query: %v", err.Error()))
 	}
 
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error")
+		return nil, NewInternalError("Signing the token failed")
 	}
 
+	// TODO: See corresponding comment in basicSlice()
 	go func () {
 		err := c.root.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
@@ -419,9 +346,9 @@ func (c *cube) basicCurtain(
 
 func MakeGraphQL(
 	keyring  *auth.Keyring,
-	endpoint string,
 	storage  redis.Cmdable,
-	tokens   auth.Tokens,
+	datasource AbstractStorage,
+	tokens auth.Tokens,
 ) *gql {
 	schema := `
 scalar Promise
@@ -452,14 +379,11 @@ type Cube {
 }
 	`
 	resolver := &resolver {
-		MakeBasicEndpoint(
-			keyring,
-			endpoint,
-			storage,
-			tokens,
-		),
+		tokens,
+		datasource,
+		keyring,
+		newScheduler(storage),
 	}
-
 
 	s := graphql.MustParseSchema(schema, resolver)
 	return &gql {
@@ -534,7 +458,6 @@ func (g *gql) Post(ctx *gin.Context) {
 		log.Printf("pid=%s %v", ctx.GetString("pid"), err)
 		return
 	}
-
 	ctx.JSON(200, g.execQuery(
 		ctx,
 		b.Query,
@@ -543,17 +466,35 @@ func (g *gql) Post(ctx *gin.Context) {
 	))
 }
 
+/*
+* In order to trace a request through its whole lifetime we assume
+* the context contains a string named "pid". This is a util-method
+* with a simple fallback.
+*/
+func GetPid(ctx context.Context) string {
+	pid := ctx.Value("pid")
+	if pid == nil {
+		return "<WARNING: Unknown pid>"
+	}
+	return pid.(string)
+}
+
 func (g *gql) execQuery(
 	ctx    *gin.Context,
 	query  string,
 	opName string,
 	variables map[string]interface{},
 ) *graphql.Response {
+	/*
+	* This map comprise the information passed to handlers
+	* from requests, primarily used for authentication.
+	* Extend this map as needed.
+	*/
 	keys := map[string]string {
-		"pid": ctx.GetString("pid"),
-		"Authorization": ctx.GetHeader("Authorization"),
-		"url-query": ctx.Request.URL.RawQuery,
+		"Authorization": ctx.GetHeader("Authorization"),// OAuth2.0
+		"url-query": ctx.Request.URL.RawQuery,          // Needed for SAAS-auth
 	}
 	c := context.WithValue(ctx, "keys", keys)
+	c  = context.WithValue(c, "pid", ctx.GetString("pid"))
 	return g.schema.Exec(c, query, opName, variables)
 }

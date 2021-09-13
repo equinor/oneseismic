@@ -28,7 +28,7 @@ struct proc* newproc(const char* kind);
 /*
  * Clean up (delete) the proc. If proc is a nullptr, this is a no-op.
  */
-void cleanup(struct proc*);
+void cleanupProcess(struct proc*);
 
 /*
  * Get the last-set error message. This should be called immediately after the

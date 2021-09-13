@@ -9,7 +9,6 @@ using namespace Catch::Matchers;
 one::slice_task default_slice_task() {
     one::slice_task input;
     input.pid    = "some-pid";
-    input.token  = "some-token";
     input.guid   = "some-guid";
     input.prefix = "src";
     input.ext    = "f32";
@@ -159,7 +158,6 @@ TEST_CASE("slice.add is not sensitive to order") {
 one::curtain_task default_curtain_task() {
     one::curtain_task input;
     input.pid    = "some-pid";
-    input.token  = "some-token";
     input.guid   = "some-guid";
     input.prefix = "src";
     input.ext    = "f32";
