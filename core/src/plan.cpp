@@ -162,8 +162,13 @@ std::vector< slice_task > build(const slice_query& query) {
     for (auto& task : tasks) {
         const auto gvt = geometry(task);
         const auto dim = gvt.mkdim(query.dim);
-        task.idx = gvt.fragment_shape().index(dim, query.idx);
-        task.ids = convert(gvt.slice(dim, query.idx));
+        // Coerce index to zero if the "cube" is flat (for attributes). This
+        // assumes the input has been checked and that query.idx isn't already
+        // out-of-bounds (and this would give data when the query should be
+        // rejected)
+        const auto idx = query.idx % gvt.cube_shape()[dim];
+        task.idx = gvt.fragment_shape().index(dim, idx);
+        task.ids = convert(gvt.slice(dim, idx));
     };
 
     return tasks;
