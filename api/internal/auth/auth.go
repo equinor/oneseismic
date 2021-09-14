@@ -13,26 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/*
- * The status error is an internal error type that provides a (suggested) http
- * error code and a (suggested) log message. Virtually all errors should result
- * in aborting the request and setting the appropriate HTTP return code, and
- * this has to be communicated from helper functions somehow.
- *
- * Without a custom and predicatable error type, then functions that call
- * helpers would have to know intimately all error paths and possible error
- * types when writing log messages and setting status codes, which defeats the
- * purpose of the helper functions. This is not designed to be an exported.
- */
-type statusError struct {
-	status  int
-	message string
-}
-
-func (s *statusError) Error() string {
-	return s.message
-}
-
 func verifyIssuerAudience(
 	issuer   string,
 	audience string,
