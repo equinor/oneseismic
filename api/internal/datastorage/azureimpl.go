@@ -37,11 +37,34 @@ func (s AzureStorage) Get(
 ) ([]byte, error) {
 	pid := api.GetPid(ctx)
 
-	blob, err := s.createBlobUrl(ctx, creds, request); if err != nil {
+	// In Azure we must construct a container representing the resource,
+	// then request the fragment from this container. This allows controlling 
+	// access on the resource (cube) level, which is what we want.
+	//
+	// Hence we parse and verify the full URI to resource and fragment,
+	// then strip off the fragment-part in the URI to address the container.
+	containerUri, err := url.Parse(fmt.Sprintf("%s/%s", s.baseurl, request))
+	if err != nil {
+		log.Printf("pid=%s %v", pid, err)
+		return nil, api.NewIllegalInputError(
+			fmt.Sprintf("URL would be malformed for %v", request))
+	}
+
+	// Keep and verify fragment, then clear it to address the resource
+	fragment := containerUri.Fragment
+	if fragment == "" {
+		log.Printf("pid=%s missing fragment in %v", pid, request)
+		return nil, api.NewIllegalInputError(
+			fmt.Sprintf("No fragment specified in %v", request))
+	}
+	containerUri.Fragment = "" // See e.g. https://stackoverflow.com/a/55299809
+	container, err := s.getContainer(ctx, creds, containerUri)
+	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err
 	}
 
+	blob := container.NewBlobURL(fragment)
 	dl, err := blob.Download(
 		ctx,
 		0, /* offset */
@@ -71,36 +94,31 @@ func (s AzureStorage) Get(
 * Could probably be inlined. Errors can just be forwarded
 * by caller unless stricter control is required.
 */
-func (s AzureStorage)createBlobUrl(
+func (s AzureStorage) getContainer(
 	ctx context.Context,
 	credentials string,
-	request string,
-) (*azblob.BlobURL, error) {
-	// In Azure we must construct a container representing the resource,
-	// then request the fragment from the container. This allows to control 
-	// access on the resource (cube) level, which is what we want.
-	//
-	// Hence we parse and verify the full URI to resource and fragment,
-	// then strip off the fragment-part in the URI to address the container.
-	containerUri, err := url.Parse(fmt.Sprintf("%s/%s", s.baseurl, request))
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, api.NewIllegalInputError(
-			fmt.Sprintf("URL would be malformed for %v", request))
+	containerUri *url.URL,
+) (*azblob.ContainerURL, error) {
+	// Look in the context for a cached container.
+	// In principle there is a race-condition here which should be handled
+	// the standard way with a mutex or similar mechanism, but this is not
+	// really necessary: A "crash" just means that more than one container-
+	// object is created and the last one becomes the cached object.
+	// However, since container-objects have identical functionality it
+	// really matter which subsequent calls retrieves from the cache, doesn't
+	// hence we drop synchronization for now.
+	var cache map[string]interface{} = nil
+	tmp := ctx.Value("cache")
+	if tmp != nil {
+		cache = tmp.(map[string]interface{})
+		cached, ok := cache["container"]
+		if ok {
+			return cached.(*azblob.ContainerURL),nil
+		}	
 	}
-
-	// Keep and verify fragment, then clear it to only address the resource
-	fragment := containerUri.Fragment
-	if fragment == "" {
-		log.Printf("Missing fragment in %v", containerUri)
-		return nil, api.NewIllegalInputError(
-			fmt.Sprintf("No fragment specified in %v", request))
-	}
-	containerUri.Fragment = "" // See e.g. https://stackoverflow.com/a/55299809
 
 	// Figure out what kind of credentials we have and construct the
 	// corresponding azblob.Credential-object
-	//log.Printf("Credentials string: %v", creds)
 	creds := azblob.NewAnonymousCredential()
 	kind, values, err := api.DecodeCredentials(credentials)
 	if err != nil { return nil, err }
@@ -109,7 +127,7 @@ func (s AzureStorage)createBlobUrl(
 			// OBO-based credentials is a token
 			token, ok := values["token"]; if !ok {
 				return nil, api.NewInternalError(
-					   fmt.Sprintf("Missing OBO-token for %v", request))
+					   fmt.Sprintf("Missing OBO-token for %v", containerUri.String()))
 			}
 			creds = azblob.NewTokenCredential(token, nil)
 		case "saas":
@@ -118,9 +136,8 @@ func (s AzureStorage)createBlobUrl(
 			// can contain query-params, append the token/cookie
 			token, ok := values["token"]; if !ok {
 				return nil, api.NewInternalError(
-					   fmt.Sprintf("Missing SaaS-token for %v", request))
+					   fmt.Sprintf("Missing SaaS-token for %v", containerUri.String()))
 			}
-			creds = azblob.NewAnonymousCredential()
 			containerUri.RawQuery += token
 		default:
 			log.Printf("Failed to parse credentials encoded in %v", credentials)
@@ -129,6 +146,9 @@ func (s AzureStorage)createBlobUrl(
 
 	pipeline := azblob.NewPipeline(creds, azblob.PipelineOptions{})
 	container := azblob.NewContainerURL(*containerUri, pipeline)
-	blob := container.NewBlobURL(fragment)
-	return &blob, nil
+	if cache != nil {
+		cache["container"] = &container
+	}
+
+	return &container, nil
 }

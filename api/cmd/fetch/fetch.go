@@ -91,8 +91,10 @@ func (p *process) c_error() error {
  * > new process image.
  */
 func exec(msg [][]byte) (*process, error) {
+	cache := make(map[string]interface{})
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "pid", string(msg[0]))
+	ctx = context.WithValue(ctx, "cache", cache)
 	proc := &process {
 		part:    string(msg[1]),
 		rawtask: msg[2],
