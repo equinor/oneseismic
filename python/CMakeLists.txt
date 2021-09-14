@@ -27,7 +27,7 @@ find_package(oneseismic REQUIRED)
 # accepting missing packages is a good balance between use cases
 find_package(fmt)
 
-add_library(decoder MODULE oneseismic/decoder.cpp)
+add_library(decoder MODULE oneseismic/decoding/decoder.cpp)
 target_compile_features(decoder PUBLIC cxx_std_14)
 python_extension_module(decoder)
 target_link_libraries(decoder
@@ -37,6 +37,6 @@ target_link_libraries(decoder
 
 install(
     TARGETS decoder
-    LIBRARY DESTINATION oneseismic
-    RUNTIME DESTINATION oneseismic
+    LIBRARY DESTINATION oneseismic/decoding
+    RUNTIME DESTINATION oneseismic/decoding
 )

@@ -144,6 +144,7 @@ type clientconfig struct {
 	appid      string
 	authority  string
 	scopes     []string
+	defaultStorageResource string
 }
 
 func (c *clientconfig) Get(ctx *gin.Context) {
@@ -162,6 +163,17 @@ func (c *clientconfig) Get(ctx *gin.Context) {
 		 * function
 		 */
 		"scopes": c.scopes,
+
+		/*
+		 * The default storage account resource URL, e.g.
+		 * https://<acc>.blob.core.windows.net. While most of the oneseismic
+		 * infrastructure doesn't mandate it, it will be overwhelmingly likely
+		 * that one oneseismic instance maps to a single storage account.
+		 * Having the "backing resource" programmatically available to users
+		 * makes for pretty programs, since it is sufficient to specify the
+		 * oneseismic instance and query the rest from there.
+		 */
+		"default-storage-resource": c.defaultStorageResource,
 	})
 }
 
@@ -207,6 +219,7 @@ func main() {
 		scopes: []string{
 			fmt.Sprintf("api://%s/One.Read", opts.clientID),
 		},
+		defaultStorageResource: opts.storageURL,
 	}
 
 	app := gin.Default()

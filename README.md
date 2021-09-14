@@ -23,28 +23,24 @@ applications, and get results faster and easier.
 The best way to illustrate this is with a motivating example:
 
     import oneseismic
-    cubeid = '...'
-    cli = oneseismic.client.new()
-    cube = cli.cubes[cubeid]
+    import oneseismic.simple as simple
 
-    inline24    = cube.slice(dim = 0, lineno = 24).numpy()
-    crossline13 = cube.slice(dim = 1, lineno = 13).numpy()
-    depth220    = cube.slice(dim = 1, lineno = 220).numpy()
+    cubeid = '...'
+    client = simple.client('https://oneseismic.url')
+    inline24    = cube.sliceByLineno(cubeid, dim = 0, lineno = 24 )().numpy()
+    crossline13 = cube.sliceByLineno(cubeid, dim = 1, lineno = 13 )().numpy()
+    time220     = cube.sliceByLineno(cubeid, dim = 2, lineno = 220)().numpy()
 
 This Python program gets three slices - an inline slice, a crossline slice, and
 a time slice, and makes them immediately available. This simple example only
 demonstrates the fetching of arbitrary data, but we can also do something
 useful with it:
 
-    import oneseismic
     vintage1 = '...'
     vintage2 = '...'
-    cli = oneseismic.client.new()
-    v1 = cli.cubes[vintage1]
-    v2 = cli.cubes[vintage2]
-
-    proc1 = v1.slice(dim = 1, lineno = 13)
-    proc2 = v2.slice(dim = 1, lineno = 13)
+    client = simple.client('https://oneseismic.url')
+    proc1 = client.sliceByLineno(vintage1, dim = 1, lineno = 13)()
+    proc2 = client.sliceByLineno(vintage2, dim = 1, lineno = 13)()
     slicev1 = proc1.numpy()
     slicev2 = proc2.numpy()
 

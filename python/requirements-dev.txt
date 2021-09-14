@@ -1,6 +1,8 @@
 azure-storage-blob
+azure-identity
 gql
 hypothesis
+importlib-metadata >= '1.0'; python_version < '3.8'
 msal
 numpy
 pytest

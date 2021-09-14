@@ -8,7 +8,7 @@ import gql
 
 from gql.transport.requests import RequestsHTTPTransport
 
-from .. import decoder
+from ..decoding import decoder
 
 def splitindex(ndims, index):
     shape = index[:ndims]
