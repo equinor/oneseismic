@@ -8,12 +8,12 @@ import requests
 from .. import internal
 from .. import decoding
 
-def add_graphql_path(url):
+def add_url_path(url, path):
     split = urllib.parse.urlsplit(url)
     return urllib.parse.urlunsplit((
         split.scheme,
         split.netloc,
-        split.path + '/graphql',
+        '/'.join([split.path, path]),
         split.query,
         split.fragment,
     ))
@@ -136,7 +136,7 @@ class simple_client:
     def __init__(self, url):
         self.client = gql.Client(
             transport = RequestsHTTPTransport(
-                url = add_graphql_path(url),
+                url = add_url_path(url, 'graphql'),
             ),
             fetch_schema_from_transport = True,
         )
