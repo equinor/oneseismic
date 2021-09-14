@@ -204,7 +204,6 @@ func main() {
 
 	result := api.Result {
 		Timeout:    time.Second * 15,
-		StorageURL: opts.storageURL,
 		Storage: redis.NewClient(&redis.Options {
 			Addr: opts.redisURL,
 			DB:   0,

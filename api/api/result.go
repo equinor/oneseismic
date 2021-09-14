@@ -16,7 +16,6 @@ import (
 
 type Result struct {
 	Timeout    time.Duration
-	StorageURL string
 	Storage    redis.Cmdable
 	Keyring    *auth.Keyring
 }
