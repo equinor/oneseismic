@@ -7,7 +7,6 @@ pytest
 pytest-runner
 pybind11
 requests
-requests_mock
 scikit-build
 segyio
 tqdm
