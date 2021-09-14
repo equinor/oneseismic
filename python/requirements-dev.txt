@@ -13,5 +13,4 @@ scikit-build
 segyio
 tqdm
 xdg
-msgpack
 xarray
