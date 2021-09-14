@@ -8,6 +8,8 @@ if __name__ == "__main__":
             'oneseismic',
             'oneseismic.client',
             'oneseismic.internal',
+            'oneseismic.simple',
+            'oneseismic.decoding',
             'oneseismic.scan',
             'oneseismic.upload',
         ],
