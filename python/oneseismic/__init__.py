@@ -1,7 +1,11 @@
 try:
-    import pkg_resources
-    __version__ = pkg_resources.get_distribution(__name__).version
-except pkg_resources.DistributionNotFound:
+    import sys
+    if sys.version_info >= (3, 8):
+        from importlib import metadata
+    else:
+        import importlib_metadata as metadata
+    __version__ = metadata.version('oneseismic')
+except:
     pass
 
 from . import client
