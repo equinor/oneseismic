@@ -1,7 +1,6 @@
 import functools
 import numpy as np
 import requests
-import msgpack
 import time
 import xarray
 import gql
