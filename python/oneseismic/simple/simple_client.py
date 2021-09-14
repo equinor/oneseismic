@@ -5,8 +5,8 @@ import gql
 from gql.transport.requests import RequestsHTTPTransport
 import requests
 
-from .. import internal
-from .. import decoding
+import oneseismic.internal as internal
+import oneseismic.decoding as decoding
 
 def add_url_path(url, path):
     split = urllib.parse.urlsplit(url)
