@@ -1,15 +1,12 @@
 package auth
 
 import (
-	"bytes"
 	"crypto/rsa"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
-	"sync"
 
 	"github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
@@ -34,116 +31,6 @@ type statusError struct {
 
 func (s *statusError) Error() string {
 	return s.message
-}
-
-type Tokens interface {
-	// Get an on-behalf-of token, possibly from cache. The token may have
-	// expired, be bad, or revoked, in which case it must be manually evicted.
-	GetOnbehalf(auth string) (string, error)
-	// Invalidate a user token. This evicts the key from the cache, and makes
-	// the next invocation of GetOnbehalf() fetch a fresh token.
-	Invalidate(auth string)
-}
-
-type TokenFetch struct {
-	loginAddr    string
-	clientID     string
-	clientSecret string
-	cache        sync.Map
-}
-
-func NewTokens(
-	loginAddr    string,
-	clientID     string,
-	clientSecret string,
-) Tokens {
-	return &TokenFetch {
-		loginAddr:    loginAddr,
-		clientID:     clientID,
-		clientSecret: clientSecret,
-	}
-}
-
-func (t *TokenFetch) GetOnbehalf(token string) (string, error) {
-	if cached, found := t.cache.Load(token); found {
-		obo := cached.(oboToken)
-		/*
-		 * If this token is expired or is about to expire in the next five
-		 * minutes (no request should ever take that long to complete) then
-		 * consider it a cache miss. This means tokens issued with very short
-		 * expiration would be refetched every time, but that's probably ok
-		 */
-		if time.Now().Add(5 * time.Minute).After(obo.ExpiresOn) {
-			t.Invalidate(token)
-		} else {
-			return obo.AccessToken, nil
-		}
-	}
-
-	if err := checkAuthorizationHeader(token); err != nil {
-		// TODO: should the authorization header itself be logged?
-		return "", &statusError {
-			status: http.StatusBadRequest,
-			message: fmt.Sprintf("%v", err),
-		}
-	}
-
-	/*
-	 * TODO: this could use some more tests to make sure that error paths are
-	 * properly taken and errors are properly set. Unfortunately, it's mostly
-	 * I/O and invoking third-party parsing, so testing is a right pain and an
-	 * underwhelming gain, so it's put off until later.
-	 */
-	response, err := fetchOnBehalfToken(
-		t.loginAddr,
-		t.clientID,
-		t.clientSecret,
-		strings.Split(token, " ")[1],
-	)
-	if err != nil {
-		return "", &statusError {
-			status:  http.StatusUnauthorized,
-			message: fmt.Sprintf("Request for obo token failed: %v", err),
-		}
-	}
-
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return "", &statusError {
-			status:  http.StatusUnauthorized,
-			message: response.Status,
-		}
-	}
-
-	obo := oboToken{}
-	err = json.NewDecoder(response.Body).Decode(&obo)
-	if err != nil {
-		return "", &statusError {
-			status: http.StatusInternalServerError,
-			message: fmt.Sprintf("Token decoding failed: %v", err),
-		}
-	}
-	t.cache.Store(token, obo)
-	return obo.AccessToken, nil
-}
-
-func (t *TokenFetch) Invalidate(auth string) {
-	t.cache.Delete(auth)
-}
-
-/*
- * A stupid helper that automates the inspection of the (unexported!) error
- * type and setting the right status code. Logging is left to the caller, but
- * the statusError supports the Error interface, so this should be perfectly
- * fine.
- */
-func AbortContextFromToken(ctx *gin.Context, err error) {
-	switch e := err.(type) {
-	case *statusError:
-		ctx.AbortWithStatus(e.status)
-	default:
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-	}
 }
 
 func verifyIssuerAudience(
@@ -235,74 +122,6 @@ func checkAuthorizationHeader(authorization string) error {
 		return fmt.Errorf("Authorization not a Bearer token")
 	}
 
-	return nil
-}
-
-func fetchOnBehalfToken(
-	host      string,
-	id        string,
-	secret    string,
-	assertion string,
-) (*http.Response, error) {
-
-	/*
-	 * TODO: Could take gin.Context and abort directly, to since error handling
-	 * regardless boils down to just killing the ongoing request
-	 */
-
-	/* 
-	 * The host is the token endpoint from the OpenID Connect config, which in
-	 * turn is fetch'd from the auth server.
-	 *
-	 * The assertion is what's in the JWT token in the Authorization header:
-	 * Authorization: Bearer $assertion
-	 */
-	 parameters := []string {
-		"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer",
-		"client_id=" + id,
-		"client_secret=" + secret,
-		"assertion=" + assertion,
-		"scope=" + "https://storage.azure.com/user_impersonation",
-		"requested_token_use=on_behalf_of",
-	}
-	request := strings.Join(parameters[:], "&")
-
-	return http.Post(
-		host,
-		"application/x-www-form-urlencoded",
-		bytes.NewBuffer([]byte(request)),
-	)
-}
-
-type oboToken struct {
-	AccessToken string    `json:"access_token"`
-	ExpiresOn   time.Time `json:"expires_on"`
-}
-
-func (o *oboToken) UnmarshalJSON(b []byte) error {
-	type oboResponse struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int64  `json:"expires_in"`
-	}
-	aux := oboResponse {}
-	err := json.Unmarshal(b, &aux)
-	if err != nil {
-		return err
-	}
-
-	if aux.AccessToken == "" {
-		return fmt.Errorf("missing field 'access_token'")
-	}
-	if aux.ExpiresIn == 0 {
-		return fmt.Errorf("missing field 'expires_in'")
-	}
-
-	// Approximate an expires_on (it's not included in the message) from
-	// expires_in by just adding it to Now(). This shouldn't be a problem since
-	// tokens a few minutes from expiration should be refreshed anyway, so a
-	// few seconds off doesn't matter
-	o.AccessToken = aux.AccessToken
-	o.ExpiresOn   = time.Now().Add(time.Duration(aux.ExpiresIn) * time.Second)
 	return nil
 }
 

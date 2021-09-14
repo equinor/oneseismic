@@ -2,7 +2,6 @@ package auth
 
 import (
 	"crypto/rsa"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -96,15 +95,6 @@ func TestValidateKeyFailsUnknownKey(t *testing.T) {
 	}
 	if !strings.HasPrefix(err.Error(), prefix) {
 		t.Errorf("Expected error message prefix \"%s\"; got %v", prefix, err)
-	}
-}
-
-func TestOBOTokenMissingFields(t *testing.T) {
-	doc := "{}"
-	obo := oboToken {}
-	err := json.Unmarshal([]byte(doc), &obo)
-	if err == nil {
-		t.Errorf("expected missing-field error, got nil; in %s", doc)
 	}
 }
 
@@ -218,23 +208,5 @@ func TestResultAuthTokens(t *testing.T) {
 			msg := "Got %v; want %d %s"
 			t.Errorf(msg, w.Result().Status, expected, http.StatusText(expected))
 		}
-	}
-}
-
-func TestOnbehalfBadTokenGivesBadRequest(t *testing.T) {
-	tokens := NewTokens("", "", "")
-
-	empty := ""
-	_, err := tokens.GetOnbehalf(empty)
-	status := err.(*statusError).status
-	if status != http.StatusBadRequest {
-		t.Errorf("Empty token should set status 400 BadRequest")
-	}
-
-	nobearer := "valid-but-malformed"
-	_, err = tokens.GetOnbehalf(nobearer)
-	status = err.(*statusError).status
-	if status != http.StatusBadRequest {
-		t.Errorf("Malformed token should status 400 BadRequest")
 	}
 }
