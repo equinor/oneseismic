@@ -134,12 +134,17 @@ class simple_client:
     True
     """
     def __init__(self, url):
+        self.url = url
         self.client = gql.Client(
             transport = RequestsHTTPTransport(
                 url = add_url_path(url, 'graphql'),
             ),
             fetch_schema_from_transport = True,
         )
+
+    def get_config(self):
+        url = add_url_path(self.url, 'config')
+        return requests.get(url).json()
 
     def sliceByIndex(self, guid, dim, index, attributes = None):
         """
