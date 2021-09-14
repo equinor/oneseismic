@@ -1,109 +1,14 @@
 package auth
 
 import (
-	"crypto/rsa"
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/gin-gonic/gin"
 )
-
-func verifyIssuerAudience(
-	issuer   string,
-	audience string,
-	token    *jwt.Token,
-) error {
-	claims := token.Claims.(jwt.MapClaims)
-	if !claims.VerifyAudience(audience, false) {
-		return fmt.Errorf("Invalid audience; wanted %s, got %s", audience, claims["aud"])
-	}
-
-	if !claims.VerifyIssuer(issuer, false) {
-		return fmt.Errorf("Invalid issuer; wanted %s, got %s", issuer, claims["iss"])
-	}
-
-	return nil
-}
-
-func validateKey(
-	keys  map[string]rsa.PublicKey,
-	token *jwt.Token,
-) (interface {}, error) {
-	keyID, ok := token.Header["kid"];
-	if !ok {
-		return nil, fmt.Errorf("'kid' not in JWT.Header")
-	}
-	key, ok := keys[keyID.(string)];
-	if !ok {
-		return nil, fmt.Errorf("key not recognized; id = %s", keyID)
-	}
-	return &key, nil
-}
-
-/*
- * Make a function that validates the contents of the JWT token in the
- * Authorization header.
- *
- * The implementation itself is heavily influenced by how the JWT middlware and
- * gin works, so there's not too much wiggle room here.
- *
- * Notes
- * -----
- * The keys and issuer params are obtained through the OpenID connect protocol.
- * 
- * The audience claim is specific to this application, i.e. the application
- * performing requests on-behalf-of its clients.
- */
-func ValidateJWT(
-	keys     map[string]rsa.PublicKey,
-	issuer   string,
-	audience string,
-) gin.HandlerFunc {
-	auth := jwtmiddleware.New(jwtmiddleware.Options {
-		SigningMethod: jwt.SigningMethodRS256,
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			err := verifyIssuerAudience(issuer, audience, token)
-			if err != nil {
-				log.Printf("%v", err)
-				return nil, err
-			}
-			key, err := validateKey(keys, token)
-			if err != nil {
-				log.Printf("%v", err)
-			}
-			return key, err
-		},
-	})
-
-	return func (ctx *gin.Context) {
-		if err := auth.CheckJWT(ctx.Writer, ctx.Request); err != nil {
-			log.Printf("checkJWT() failed: %v", err)
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-		}
-	}
-}
-
-/*
- * Check that the authorization header is well-formatted
- */
-func checkAuthorizationHeader(authorization string) error {
-	// TODO: ensure that the CheckJWT function checks the authorization header
-	// suffienctly well
-	if authorization == "" {
-		return fmt.Errorf("Request without JWT header, but passed validation")
-	}
-
-	if !strings.HasPrefix(authorization, "Bearer") {
-		return fmt.Errorf("Authorization not a Bearer token")
-	}
-
-	return nil
-}
 
 /*
  * The Keyring is the concept of making, signing, and parsing tokens that
