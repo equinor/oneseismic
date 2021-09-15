@@ -7,5 +7,3 @@ try:
     __version__ = metadata.version('oneseismic')
 except:
     pass
-
-from . import client
