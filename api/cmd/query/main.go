@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -16,10 +15,7 @@ import (
 )
 
 type opts struct {
-	authserver   string
-	audience     string
 	clientID     string
-	clientSecret string
 	storageURL   string
 	redisURL     string
 	bind         string
@@ -29,42 +25,18 @@ type opts struct {
 func parseopts() opts {
 	help := getopt.BoolLong("help", 0, "print this help text")
 	opts := opts {
-		authserver:   os.Getenv("AUTHSERVER"),
-		audience:     os.Getenv("AUDIENCE"),
 		clientID:     os.Getenv("CLIENT_ID"),
-		clientSecret: os.Getenv("CLIENT_SECRET"),
 		storageURL:   os.Getenv("STORAGE_URL"),
 		redisURL:     os.Getenv("REDIS_URL"),
 		signkey:      os.Getenv("SIGN_KEY"),
 	}
 
 	getopt.FlagLong(
-		&opts.authserver,
-		"authserver",
-		0,
-		"OpenID Connect discovery server",
-		"addr",
-	)
-	getopt.FlagLong(
-		&opts.audience,
-		"audience",
-		0,
-		"Audience for token validation",
-		"audience",
-	)
-	getopt.FlagLong(
 		&opts.clientID,
 		"client-id",
 		0,
 		"Client ID for on-behalf tokens",
 		"id",
-	)
-	getopt.FlagLong(
-		&opts.clientSecret,
-		"client-secret",
-		0,
-		"Client ID for on-behalf tokens",
-		"secret",
 	)
 	getopt.FlagLong(
 		&opts.storageURL,
@@ -108,41 +80,17 @@ func parseopts() opts {
  * Configuration for this instance of oneseismic for user-controlled clients
  *
  * Oneseismic does not really have a good concept of logged in users, sessions
- * etc. Rather, oneseismic gets tokens (in the Authorization header) which it
- * uses to obtain on-behalf-of tokens that in turn are used to query blob
- * storage. Users can use the python libraries to "log in", i.e. obtain a token
- * for their AD-registered user, constructed in a way that gives oneseismic the
- * permission to perform (blob) requests on their behalf [1].
- *
- * In order to construct a token that allows oneseismic to make requests, the
- * app-id of oneseismic must be available somehow. This app-id, sometimes
- * called client-id, is public information and for web apps often coded into
- * the javascript and ultimately delivered from server-side. Conceptually, this
- * should be no different. Oneseismic is largely designed to support multiple
- * deployments, so hard-coding an app id is probably not a good idea. Forcing
- * users to store or memorize the app-id and auth-server for use with the
- * python3 oneiseismic.login module is also not a good solution.
- *
- * The microsoft authentication library (MSAL) [2] is pretty clear on wanting a
- * client-id for obtaining a token. When the oneseismic python library is used,
- * it is an extension of the instance it's trying to reach, so getting the
- * app-id and authorization server [3] from a specific setup seems pretty
- * reasonable.
+ * etc. Rather, oneseismic gets tokens (in the Authorization header) or query
+ * parameters (shared access signatures) that are to query blob storage. Users
+ * can obtain such tokens or signatures as they see fit.
  *
  * The clientconfig struct and the /config endpoint are meant for sharing
  * oneseismic instance and company specific configurations with clients. While
  * only auth stuff is included now, it's a natural place to add more client
  * configuration parameters later e.g. performance hints, max/min latency.
- *
- * [1] https://docs.microsoft.com/en-us/graph/auth-v2-user
- * [2] https://msal-python.readthedocs.io/en/latest/#msal.PublicClientApplication
- * [3] usually https://login.microsoftonline.com/<tenant-id>
- *
- * https://docs.microsoft.com/en-us/azure/storage/common/storage-auth-aad-app
  */
 type clientconfig struct {
 	appid      string
-	authority  string
 	scopes     []string
 	defaultStorageResource string
 }
@@ -153,11 +101,6 @@ func (c *clientconfig) Get(ctx *gin.Context) {
 		 * oneseismic's app-id
 		 */
 		"client_id": c.appid,
-		/*
-		 * URL for the token authority. Usually
-		 * https://login.microsoftonline.com/<tenant>
-		 */
-		"authority": c.authority,
 		/*
 		 * The scopes (permissions) that oneseismic requests in order to
 		 * function
@@ -179,30 +122,15 @@ func (c *clientconfig) Get(ctx *gin.Context) {
 
 func main() {
 	opts := parseopts()
-	httpclient := http.Client {
-		Timeout: 10 * time.Second,
-	}
-	openidcfg, err := auth.GetOpenIDConfig(
-		&httpclient,
-		opts.authserver + "/v2.0/.well-known/openid-configuration",
-	)
-	if err != nil {
-		log.Fatalf("Unable to get OpenID keyset: %v", err)
-	}
 
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
-	tokens  := auth.NewTokens(
-		openidcfg.TokenEndpoint,
-		opts.clientID,
-		opts.clientSecret,
-	)
 	cmdable := redis.NewClient(
 		&redis.Options {
 			Addr: opts.redisURL,
 			DB: 0,
 		},
 	)
-	gql := api.MakeGraphQL(&keyring, opts.storageURL, cmdable, tokens)
+	gql := api.MakeGraphQL(&keyring, opts.storageURL, cmdable)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
@@ -215,7 +143,6 @@ func main() {
 
 	cfg := clientconfig {
 		appid: opts.clientID,
-		authority: opts.authserver,
 		scopes: []string{
 			fmt.Sprintf("api://%s/One.Read", opts.clientID),
 		},

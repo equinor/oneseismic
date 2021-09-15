@@ -1,6 +1,6 @@
 import pytest
 
-from . import simple_client
+from .simple_client import simple_client
 
 class noschema_simple_client(simple_client):
     """

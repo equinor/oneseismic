@@ -5,7 +5,6 @@ import sys
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog = 'oneseismic')
     programs = {
-        'login':   'login.__main__',
         'scan':    'scan.__main__',
         'upload':  'upload.__main__',
     }

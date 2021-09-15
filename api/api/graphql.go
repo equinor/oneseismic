@@ -55,19 +55,11 @@ type opts struct {
 	Attributes *[]string `json:"attributes"`
 }
 
-func credentials(
-	tokens auth.Tokens,
-	token string,
-) (azblob.Credential, error) {
-	log.Printf("Credentials token: %v", token)
+func credentials(token string) (azblob.Credential) {
 	if token != "" {
-		tok, err := tokens.GetOnbehalf(token)
-		if err != nil {
-			return nil, err
-		}
-		return azblob.NewTokenCredential(tok, nil), nil
+		return azblob.NewTokenCredential(token, nil)
 	}
-	return azblob.NewAnonymousCredential(), nil
+	return azblob.NewAnonymousCredential()
 }
 
 func (r *resolver) Cube(
@@ -78,11 +70,7 @@ func (r *resolver) Cube(
 	pid  := keys["pid"]
 	auth := keys["Authorization"]
 
-	creds, err := credentials(r.tokens, auth)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("Unable to get on-behalf token")
-	}
+	creds := credentials(auth)
 	doc, err := getManifest(
 		ctx,
 		creds,
@@ -260,31 +248,9 @@ func (c *cube) basicSlice(
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
-	auth := keys["Authorization"]
-	/*
-	 * Embedding a json doc as a string works (surprisingly) well, since the
-	 * Pack()/encoding escapes all nested quotes. It might be reasonable at
-	 * some point to change the underlying representation to messagepack, or
-	 * even send the messages gzipped, but so for now strings and embedded
-	 * documents should do fine.
-	 *
-	 * This opens an opportunity for the manifest forwarded not being quite
-	 * faithful to what's stored in blob, i.e. information can be stripped out
-	 * or added.
-	 */
-	token := ""
-	if auth != "" {
-		tok, err := c.root.tokens.GetOnbehalf(auth)
-		if err != nil {
-			log.Printf("pid=%s, %v", pid, err)
-			return nil, errors.New("internal error; bad token?")
-		}
-		token = tok
-	}
-
 	msg := message.Query {
 		Pid:             pid,
-		Token:           token,
+		Token:           keys["Authorization"],
 		UrlQuery:        keys["url-query"],
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
@@ -364,21 +330,9 @@ func (c *cube) basicCurtain(
 ) (*promise, error) {
 	keys := ctx.Value("keys").(map[string]string)
 	pid  := keys["pid"]
-	auth := keys["Authorization"]
-
-	token := ""
-	if auth != "" {
-		tok, err := c.root.tokens.GetOnbehalf(auth)
-		if err != nil {
-			log.Printf("pid=%s, %v", pid, err)
-			return nil, errors.New("internal error; bad token?")
-		}
-		token = tok
-	}
-
 	msg := message.Query {
 		Pid:             pid,
-		Token:           token,
+		Token:           keys["Authorization"],
 		UrlQuery:        keys["url-query"],
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
@@ -421,7 +375,6 @@ func MakeGraphQL(
 	keyring  *auth.Keyring,
 	endpoint string,
 	storage  redis.Cmdable,
-	tokens   auth.Tokens,
 ) *gql {
 	schema := `
 scalar Promise
@@ -456,7 +409,6 @@ type Cube {
 			keyring,
 			endpoint,
 			storage,
-			tokens,
 		),
 	}
 

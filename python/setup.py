@@ -7,7 +7,8 @@ if __name__ == "__main__":
         packages = [
             'oneseismic',
             'oneseismic.internal',
-            'oneseismic.login',
+            'oneseismic.simple',
+            'oneseismic.decoding',
             'oneseismic.scan',
             'oneseismic.upload',
         ],
