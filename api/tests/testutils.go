@@ -11,6 +11,7 @@ import (
 	"path"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
@@ -37,10 +38,10 @@ return []byte(`{}`), nil
 }
 
 // Wrapper to simplify patching a result in order to eg. provoke errors
-// The cb is the callback-func doing the actual patching
+// The cb is the callback-func which does the actual patching
 type WrappedFileStorage struct {
 	*datastorage.FileStorage
-	cb func([]byte)[]byte
+	cb func(string, string, []byte) ([]byte, error)
 }
 func (s WrappedFileStorage) Get(
 	ctx context.Context,
@@ -50,7 +51,7 @@ func (s WrappedFileStorage) Get(
 	tmp, err := s.FileStorage.Get(ctx, token, guid) ; if err != nil {
 		return nil, err
 	}
-	return s.cb(tmp), nil
+	return s.cb(token, guid, tmp)
 }
 
 // Path to where test-data is stored relative to THIS FILE
@@ -141,9 +142,7 @@ func setupGraphqlEndpoint(opts RedisOpts, query string, vars map[string]interfac
 	ctx, app := gin.CreateTestContext(response)
 	app.Use(util.GeneratePID) // inject pid - nothing works without it...
 
-	// TODO: this should probably be joined with Tokens in an AuthProvider or similar
 	kr := auth.MakeKeyring([]byte("test"))
-
 	client := redis.NewClient(&redis.Options{
 		Addr: opts.url,
 	})
@@ -171,4 +170,56 @@ func runQuery(t *testing.T, opts RedisOpts, query string, vars map[string]interf
 		t.Error(err)
 	}
 	return m
+}
+
+func setupResultEndpoint(opts RedisOpts,
+					query string,
+	) (*gin.Engine, *http.Request, *httptest.ResponseRecorder) {
+
+	// TODO: this should probably be joined with Tokens in an AuthProvider or similar
+	kr := auth.MakeKeyring([]byte("test"))
+
+	result := api.Result {
+		Timeout:    time.Second * 15,
+		Storage: redis.NewClient(&redis.Options {
+			Addr: opts.url,
+			DB:   0,
+		}),
+		Keyring: &kr,
+	}
+
+	response := httptest.NewRecorder()
+	ctx, app := gin.CreateTestContext(response)
+	results := app.Group("/result")
+	results.Use(auth.ResultAuth(&kr))
+	results.Use(util.Compression())
+	results.GET("/:pid", result.Get)
+	results.GET("/:pid/stream", result.Stream)
+	results.GET("/:pid/status", result.Status)
+
+	request, _ := http.NewRequestWithContext(ctx, http.MethodGet, query, nil)
+	return app, request, response
+}
+
+func getResponse(t *testing.T,
+				opts RedisOpts,
+				query string,
+				authToken string,
+) *httptest.ResponseRecorder {
+	app, request, response := setupResultEndpoint(opts, query)
+	request.Header.Add("Authorization", authToken)
+	app.ServeHTTP(response, request)
+	// log.Printf("Response: %v", response)
+	return response
+}
+func getResult(t *testing.T, opts RedisOpts, query string, authToken string) []byte {
+	return getResponse(t,opts,query,authToken).Body.Bytes()
+}
+
+func getResultAsObjx(t *testing.T,
+					 opts RedisOpts,
+					 query string,
+					 authToken string,
+	) (objx.Map, error) {
+	return objx.FromJSON(string(getResult(t,opts,query, authToken)))
 }

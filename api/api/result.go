@@ -73,7 +73,15 @@ func collectResult(
 		}
 
 		for _, message := range reply[0].Messages {
-			for _, tile := range message.Values {
+			for key, tile := range message.Values {
+				// If we get a key named "error", something failed in the process
+				// fetching fragments. Pass the error-text to failure-channel
+				if key == "error" {
+					log.Printf("pid=%s received error %s. Exit!", pid, tile.(string))
+					failure <- errors.New(tile.(string))
+					return
+				}
+
 				chunk, ok := tile.(string)
 				if !ok {
 					msg := fmt.Sprintf("tile.type = %T; expected []byte]", tile)
@@ -105,6 +113,15 @@ func (r *Result) Stream(ctx *gin.Context) {
 		return
 	}
 
+	count, err := r.Storage.XLen(ctx, pid).Result()
+	// MORE tiles available than expected: This is the signal from
+	// fetch-server that something failed - return error to let
+	// client know that the request failed
+	if count > int64(head.Ntasks) {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
 	tiles := make(chan []byte)
 	failure := make(chan error)
 	go collectResult(ctx, r.Storage, pid, head, tiles, failure)
@@ -112,7 +129,7 @@ func (r *Result) Stream(ctx *gin.Context) {
 	w := ctx.Writer
 	header := w.Header()
 	header.Set("Transfer-Encoding", "chunked")
-	header.Set("Content-Type", "text/html")
+	header.Set("Content-Type", "application/octet-stream")
 	w.WriteHeader(http.StatusOK)
 
 	for {
@@ -124,6 +141,15 @@ func (r *Result) Stream(ctx *gin.Context) {
 			}
 			w.Write(output)
 
+		// If we already started streaming and THEN something fails,
+		// we cannot change the http status-code. The most standard
+		// thing is to just close the stream and leave it to the client
+		// to deal with partial data. Another approach is to introduce
+		// a trailer-header to carry the final status
+		//
+		// https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.40)
+		//
+		// but http client-libraries rarely support this (as of Q3/2021)
 		case err := <-failure:
 			log.Printf("pid=%s, %s", pid, err)
 			return
@@ -148,9 +174,14 @@ func (r *Result) Get(ctx *gin.Context) {
 	}
 
 	count, err := r.Storage.XLen(ctx, pid).Result()
-
+	// Fewer tiles available than expected: we are working on it
 	if count < int64(head.Ntasks) {
 		ctx.AbortWithStatus(http.StatusAccepted)
+		return
+	// MORE tiles available than expected: This is the signal from
+	// fetch-server that something failed - return error
+	} else if count > int64(head.Ntasks) {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
@@ -191,12 +222,14 @@ func (r *Result) Status(ctx *gin.Context) {
 	 *
 	 * [1] the header-write step not completed, to be precise
 	 */
+	 // TODO: See comment in graphql.go/basicSlice() and possibly wipe
+	 // the discussion above + code below returning "pending"
 	body, err := r.Storage.Get(ctx, headerkey(pid)).Bytes()
 	if err == redis.Nil {
 		/* request sucessful, but key does not exist */
-		ctx.JSON(http.StatusAccepted, gin.H {
-			"location": fmt.Sprintf("result/%s/status", pid),
+		ctx.JSON(http.StatusOK, gin.H {
 			"status": "pending",
+			"progress": fmt.Sprintf("0/0"), // because we don't know anything yet
 		})
 		return
 	}
@@ -219,20 +252,20 @@ func (r *Result) Status(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-
-	done := count == int64(proc.Ntasks)
 	completed := fmt.Sprintf("%d/%d", count, proc.Ntasks)
 
-	// TODO: add (and detect) failed status
-	if done {
+	if count == int64(proc.Ntasks) {
 		ctx.JSON(http.StatusOK, gin.H {
-			"location": fmt.Sprintf("result/%s", pid),
 			"status": "finished",
 			"progress": completed,
 		})
+	} else if count > int64(proc.Ntasks) {
+		ctx.JSON(http.StatusOK, gin.H {
+			"status": "failed",
+			"progress": fmt.Sprintf("0/%d", proc.Ntasks),
+		})
 	} else {
-		ctx.JSON(http.StatusAccepted, gin.H {
-			"location": fmt.Sprintf("result/%s/status", pid),
+		ctx.JSON(http.StatusOK, gin.H {
 			"status": "working",
 			"progress": completed,
 		})

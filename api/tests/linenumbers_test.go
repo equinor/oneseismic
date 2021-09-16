@@ -1,12 +1,12 @@
 package tests
 
 import (
-	"log"
 	"strings"
 	"testing"
 
 	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/datastorage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLinenumbersAuthorization(t *testing.T) {
@@ -24,69 +24,43 @@ func TestLinenumbersAuthorization(t *testing.T) {
 				  map[string]interface{}{"cubeId":"cube0"},
 				  "0")
 	ln := m.Get("data.cube.linenumbers[2]")
-	if ln.Data() == nil {
-		t.Fatalf("Bad data returned")
-	}
+	assert.NotEqual(t, nil, ln.String(), "Expected some data")
 	// Verify (part of the) returned data
 	firstLineNumbers := ln.Data().([]interface{})
 	for i,v := range []int{0, 4000, 8000, 12000, 16000}  {
-		if firstLineNumbers[i] != v {
-			t.Fatalf("Wrong linenumbers in manifest")
-		}
+		assert.Equal(t, firstLineNumbers[i], v,
+			       "Wrong linenumbers in manifest")
 	}
 
 	// Existing cube from existing user without autorization
 	m = runQuery(t, opts, query,
 				map[string]interface{}{"cubeId":"cube0"},
 				"1")
-	ln = m.Get("data") ; if ln.Data() != nil {
-		log.Printf("Data==%s", ln.Data())
-		t.Fatalf("Should not return data")
-	}
-	ln = m.Get("errors")
-	if ln.Data() == nil {
-		t.Fatalf("Should return errors")
-	}
-	ln = m.Get("errors[0].extensions.type")
-	if ln.Int() != api.IllegalAccessErrorType {
-		t.Fatalf("Expected error-code %v", api.IllegalAccessErrorType)
-	}
+	assert.Equal(t, "", m.Get("data").String(), "Should not return data")
+	assert.NotEqual(t, "", m.Get("errors").String(), "Should return errors")
+	assert.Equal(t, api.IllegalAccessErrorType,
+				 m.Get("errors[0].extensions.type").Int(),
+				"Wrong error-code")
 
 	// Non-existing cube, existing user
 	m = runQuery(t, opts, query,
 				map[string]interface{}{"cubeId":"non-existing"},
 				"0")
-	ln = m.Get("data") ; if ln.Data() != nil {
-		log.Printf("Data==%s", ln.Data())
-		t.Fatalf("Should not return data")
-	}
-	ln = m.Get("errors")
-	if ln.Data() == nil {
-		t.Fatalf("Should return errors")
-	}
-	ln = m.Get("errors[0].extensions.type")
-	if ln.Int() != api.NonExistingErrorType {
-		t.Fatalf("Expected error-code %v, got %v",
-		            api.NonExistingErrorType, ln.Int())
-	}
+	assert.Equal(t, "", m.Get("data").String(), "Should not return data")
+	assert.NotEqual(t, "", m.Get("errors").String(), "Should return errors")
+	assert.Equal(t, api.NonExistingErrorType,
+				 m.Get("errors[0].extensions.type").Int(),
+				"Wrong error-code")
 
 	// Finally, Unknown user
 	m = runQuery(t, opts, query,
 				map[string]interface{}{"cubeId":"non-existing"},
 				"unknown-user")
-	ln = m.Get("data") ; if ln.Data() != nil {
-		log.Printf("Data==%s", ln.Data())
-		t.Fatalf("Should not return data")
-	}
-	ln = m.Get("errors")
-	if ln.Data() == nil {
-		t.Fatalf("Should return errors")
-	}
-	ln = m.Get("errors[0].extensions.type")
-	if ln.Int() != api.IllegalAccessErrorType {
-		t.Fatalf("Expected error-code %v, got %v",
-		            api.IllegalAccessErrorType, ln.Int())
-	}
+	assert.Equal(t, "", m.Get("data").String(), "Should not return data")
+	assert.NotEqual(t, "", m.Get("errors").String(), "Should return errors")
+	assert.Equal(t, api.IllegalAccessErrorType,
+				 m.Get("errors[0].extensions.type").Int(),
+				"Wrong error-code")
 }
 
 func TestLinenumbersMalformedQuery(t *testing.T) {
@@ -103,16 +77,9 @@ func TestLinenumbersMalformedQuery(t *testing.T) {
 				  map[string]interface{}{"cubeId":"cube0"},
 				  "0")
 
-	ln := m.Get("data") ; if ln.Data() != nil {
- 		log.Printf("Data==%s", ln.Data())
-		t.Fatalf("Should not return data")
-	}
-	ln = m.Get("errors[0].message") ; if ln.Data() == nil {
-		t.Fatalf("Should return some errors")
-	}
-	if !strings.Contains(ln.Data().(string), "syntax error") {
-		t.Fatalf("First error should be a variant of syntax-error")
-	}
+	assert.Equal(t, "", m.Get("data").String(), "Should not return data")
+	assert.NotEqual(t, "", m.Get("errors").String(), "Should return errors")
+	assert.Contains(t, m.Get("errors[0].message").String(), "syntax error")
 }
 
 func TestLinenumbersIllegalProperty(t *testing.T) {
@@ -127,28 +94,22 @@ func TestLinenumbersIllegalProperty(t *testing.T) {
 	m := runQuery(t, opts, query,
 				  map[string]interface{}{"cubeId":"cube0"},
 				  "0")
-	log.Printf("Response==%s", m)
-
-	ln := m.Get("data") ; if ln.Data() != nil {
-		log.Printf("Data==%s", ln.Data())
-		t.Fatalf("Should not return data")
-	}
-	ln = m.Get("errors[0].message") ; if ln.Data() == nil {
-		t.Fatalf("Should return some errors")
-	}
-	if !strings.Contains(ln.Data().(string), "illegalFieldCookie") {
-		t.Fatalf("First error should complain about illegalFieldCookie")
-	}
+	assert.Equal(t, "", m.Get("data").String(), "Should not return data")
+	assert.NotEqual(t, "", m.Get("errors").String(), "Should return errors")
+	assert.Contains(t, m.Get("errors[0].message").String(), "illegalFieldCookie")
 }
 
 func TestLinenumbersManifestMissingDimensions(t *testing.T) {
 // Test a malformed manifest (missing line-numbers) 
 	datastorage.Storage = WrappedFileStorage{
 		datastorage.NewFileStorage("test", getDataPath()),
-		func(orig []byte) []byte {
-			tmp := string(orig)
-			tmp  = strings.Replace(tmp, "line-numbers", "Line-Numbers", -1)
-			return []byte(tmp)
+		func(token string, guid string, orig []byte) ([]byte, error) {
+			if strings.Contains(guid, "manifest") {
+				tmp := string(orig)
+				tmp  = strings.Replace(tmp, "line-numbers", "Line-Numbers", -1)
+				return []byte(tmp), nil
+			}
+			return orig, nil
 		},
 	}
 	query := `
@@ -161,26 +122,25 @@ func TestLinenumbersManifestMissingDimensions(t *testing.T) {
 	m := runQuery(t, opts, query,
 				  map[string]interface{}{"cubeId":"cube0"},
 				  "0")
-	ln := m.Get("data") ; if ln.Data() != nil {
-		log.Printf("Data==%s", ln.Data())
-		t.Fatalf("Should not return data")
-	}
-	ln = m.Get("errors[0].extensions.type")
-	if ln.Int() != api.InternalErrorType {
-		t.Fatalf("Expected error-code %v, got %v",
-		            api.InternalErrorType, ln.Int())
-	}
+	assert.Equal(t, "", m.Get("data").String(), "Should not return data")
+	assert.NotEqual(t, "", m.Get("errors").String(), "Should return errors")
+	assert.Equal(t, api.InternalErrorType,
+				 m.Get("errors[0].extensions.type").Int(),
+				"Wrong error-code")
 }
 
 func TestLinenumbersManifestBadlyTyped(t *testing.T) {
 // Test malformed manifest (linenumbers not convertible to floats)
 	datastorage.Storage = WrappedFileStorage{
 		datastorage.NewFileStorage("test", getDataPath()),
-		func(orig []byte) []byte {
-			tmp := string(orig)
-			tmp  = strings.Replace(tmp,"[ 1, 2, 3, 4, 5 ]",
+		func(token string, guid string, orig []byte) ([]byte, error) {
+			if strings.Contains(guid, "manifest") {
+				tmp := string(orig)
+				tmp  = strings.Replace(tmp,"[ 1, 2, 3, 4, 5 ]",
 							"[ \"one\", \"two\", 3, 4, 5 ]", -1)
-			return []byte(tmp)
+				return []byte(tmp), nil
+			}
+			return orig, nil
 		},
 	}
 	query := `
@@ -193,13 +153,10 @@ func TestLinenumbersManifestBadlyTyped(t *testing.T) {
 	m := runQuery(t, opts, query,
 				  map[string]interface{}{"cubeId":"cube0"},
 				  "0")
-	ln := m.Get("data") ; if ln.Data() != nil {
-		log.Printf("Data==%s", ln.Data())
-		t.Fatalf("Should not return data")
-	}
-	ln = m.Get("errors[0].extensions.type")
-	if ln.Int() != api.InternalErrorType {
-		t.Fatalf("Expected error-code %v, got %v",
-		            api.InternalErrorType, ln.Int())
-	}
+
+	assert.Equal(t, "", m.Get("data").String(), "Should not return data")
+	assert.NotEqual(t, "", m.Get("errors").String(), "Should return errors")
+	assert.Equal(t, api.InternalErrorType,
+				 m.Get("errors[0].extensions.type").Int(),
+				"Wrong error-code")
 }

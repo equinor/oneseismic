@@ -241,6 +241,11 @@ func (c *cube) basicSlice(
 	// keeping it async?
 	// If we make this call synchronous we can report errors immediately
 	// to client and avoid potentially messy cleanup later
+	//
+	// TODO: The first part of Schedule() writes header-information. If
+	// we do that part synchronously, we avoid the timing issue mentioned
+	// in Result.Status(). The loop could be done in a goroutine... (still
+	// think it would be useful to measure time spent in this loop though)
 	go func () {
 		err := c.root.sched.Schedule(context.Background(), pid, query)
 		if err != nil {
@@ -443,7 +448,7 @@ func (g *gql) Get(ctx *gin.Context) {
 	delete(query, "variables")
 
 	ctx.Request.URL.RawQuery = query.Encode()
-	ctx.JSON(200, g.execQuery(ctx, graphquery, opname, variables))
+	ctx.JSON(http.StatusOK, g.execQuery(ctx, graphquery, opname, variables))
 }
 
 func (g *gql) Post(ctx *gin.Context) {
@@ -458,7 +463,7 @@ func (g *gql) Post(ctx *gin.Context) {
 		log.Printf("pid=%s %v", ctx.GetString("pid"), err)
 		return
 	}
-	ctx.JSON(200, g.execQuery(
+	ctx.JSON(http.StatusOK, g.execQuery(
 		ctx,
 		b.Query,
 		b.OperationName,

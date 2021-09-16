@@ -101,12 +101,12 @@ func (s AzureStorage) getContainer(
 ) (*azblob.ContainerURL, error) {
 	// Look in the context for a cached container.
 	// In principle there is a race-condition here which should be handled
-	// the standard way with a mutex or similar mechanism, but this is not
+	// in standard ways with a mutex or similar mechanism, but this is not
 	// really necessary: A "crash" just means that more than one container-
 	// object is created and the last one becomes the cached object.
 	// However, since container-objects have identical functionality it
-	// really matter which subsequent calls retrieves from the cache, doesn't
-	// hence we drop synchronization for now.
+	// really doesn't matter which subsequent calls retrieves from the cache,
+	// hence we drop synchronization for now
 	var cache map[string]interface{} = nil
 	tmp := ctx.Value("cache")
 	if tmp != nil {

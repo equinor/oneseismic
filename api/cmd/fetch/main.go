@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/datastorage"
 	"github.com/equinor/oneseismic/api/internal/util"
+	"github.com/equinor/oneseismic/api/internal/fetch"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
@@ -115,102 +115,11 @@ func parseopts() opts {
 	return opts
 }
 
-type task struct {
-	index int
-	id string
-	blobStorage  *api.AbstractStorage
-	credentials string
-}
-
-/*
-* The storage can be a global singleton in this module.
-* This means the driver can override it if we decide this is the best
-* overall solution (i.e driver assumes responsibility of its storage-
-* backend). See also TODOs in api.AbstractStorage.
-*
-* If not set by driver, each task will look it up from a map where kind
-* and endpoint is combined to key.
-*/
-var storageSingleton api.AbstractStorage = nil
-var storageCache map[string]api.AbstractStorage = make(map[string]api.AbstractStorage)
-func getStorage(kind string, endpoint string) *api.AbstractStorage {
-	if storageSingleton != nil {
-		return &storageSingleton
-	}
-	key := fmt.Sprintf("%s::%s", kind, endpoint)
-	retval, ok := storageCache[key]; if !ok {
-		retval = datastorage.CreateStorage(kind, endpoint)
-		storageCache[key] = retval
-	}
-	return &retval
-}
-
-func run(
-	storage redis.Cmdable,
-	njobs   int,
-	retries int,
-	process map[string]interface{},
-) {
-	/*
-	 * Curiously, the XReadGroup/XStream values end up being map[string]string
-	 * effectively. This is detail of the go library where it uses ReadLine()
-	 * internally - redis uses byte strings as strings anyway.
-	 *
-	 * The type assertion is not checked and will panic. This is a good thing
-	 * as it should only happen when the redis library is updated to no longer
-	 * return strings, and crash oneseismic properly. This should catch such a
-	 * change early.
-	 */
-	pid  := process["pid" ].(string)
-	part := process["part"].(string)
-	body := process["task"].(string)
-	msg  := [][]byte{ []byte(pid), []byte(part), []byte(body) }
-	proc, err := exec(msg)
-	if err != nil {
-		log.Printf("%s dropping bad process %v", proc.logpid(), err)
-		return
-	}
-
-	// TODO: share job queue between processes, but use private
-	// output/error queue? Then buffered-elements would control
-	// number of pending jobs Rather than it now continuing once
-	// the last task has been scheduled and possibly spawning N
-	// more goroutines.
-	frags  := make(chan fragment, njobs)
-	tasks  := make(chan task, njobs)
-	errors := make(chan error)
-	/*
-	 * The goroutines must be signalled that there are no more data, or
-	 * they will leak.
-	 */
-	defer close(tasks)
-	for i := 0; i < njobs; i++ {
-		go fetch(proc.ctx, retries, tasks, frags, errors)
-	}
-	fragments := proc.fragments()
-	guid := proc.task.Guid
-	go proc.gather(storage, len(fragments), frags, errors)
-	for i, id := range fragments {
-		select {
-		case tasks <- task { index: i,
-							id: fmt.Sprintf("%s#%s", guid, id),
-							blobStorage: getStorage(proc.task.StorageKind,
-                                                    proc.task.StorageEndpoint),
-							credentials: proc.task.Credentials,
-							}:
-		case <-proc.ctx.Done():
-			msg := "%s cancelled after %d scheduling fragments; %v"
-			log.Printf(msg, proc.logpid(), i, proc.ctx.Err())
-			break
-		}
-	}
-}
-
 func main() {
 	opts := parseopts()
 
 	if opts.storageKind != "" && opts.storageUrl != "" {
-		storageSingleton = datastorage.CreateStorage(opts.storageKind, opts.storageUrl)
+		fetch.StorageSingleton = datastorage.CreateStorage(opts.storageKind, opts.storageUrl)
 	}
 
 	storage := redis.NewClient(&redis.Options {
@@ -267,57 +176,10 @@ func main() {
 	}
 
 	for {
-		msgs, err := storage.XReadGroup(ctx, &args).Result()
-		if err != nil {
-			log.Fatalf("Unable to read from redis: %v", err)
-		}
-
-		go func() {
-			/*
-			 * Send a request-for-delete once the message has been read, in
-			 * order to stop the infinite growth of the job queue.
-			 *
-			 * This is the simplest solution that is correct [1] - the node
-			 * that gets a job also deletes it, which emulates a
-			 * fire-and-forget job queue. Unfortunately it also means more
-			 * traffic back to the central job queue node. In redis6.2 the
-			 * XTRIM MINID strategy is introduced, which opens up some
-			 * interesting strategies for cleaning up the job queue. This is
-			 * work for later though.
-			 *
-			 * [1] except in some crashing scenarios
-			 */
-			ids := make([]string, 0, 3)
-			for _, xmsg := range msgs {
-				for _, msg := range xmsg.Messages {
-					ids = append(ids, msg.ID)
-				}
-			}
-			err := storage.XDel(ctx, opts.stream, ids...).Err()
-			if err != nil {
-				log.Fatalf("Unable to XDEL: %v", err)
-			}
-		}()
-
-		/*
-		 * The redis interface is designed for asking for a set of messages per
-		 * XReadGroup command, but we really only ask for one [1]. The redis-go
-		 * API is is aware of this which means the message structure must be
-		 * unpacked with nested loops. As a consequence, the read-count can
-		 * be increased with little code change, but it also means more nested
-		 * loops.
-		 *
-		 * For ease of understanding, the loops can be ignored.
-		 *
-		 * [1] Instead opting for multiple fragments to download per message.
-		 *     This is a design decision from before redis streams, but it
-		 *     works well with redis streams too.
-		 */
-		for _, xmsg := range msgs {
-			for _, message := range xmsg.Messages {
-				// TODO: graceful shutdown and/or cancellation
-				run(storage, opts.jobs, opts.retries, message.Values)
-			}
-		}
+		fetch.Run(ctx,
+			          storage,
+					  &args,
+					  opts.jobs,
+					  opts.retries)
 	}
 }
