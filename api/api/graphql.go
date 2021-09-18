@@ -25,6 +25,7 @@ type gql struct {
 
 type resolver struct {
 	BasicEndpoint
+	QueryEngine
 }
 type cube struct {
 	id       graphql.ID
@@ -259,7 +260,7 @@ func (c *cube) basicSlice(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := c.root.sched.MakeQuery(&msg)
+	query, err := c.root.PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
@@ -341,7 +342,7 @@ func (c *cube) basicCurtain(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := c.root.sched.MakeQuery(&msg)
+	query, err := c.root.PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
@@ -410,6 +411,9 @@ type Cube {
 			endpoint,
 			storage,
 		),
+		QueryEngine {
+			tasksize: 10,
+		},
 	}
 
 

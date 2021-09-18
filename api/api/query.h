@@ -1,5 +1,5 @@
-#ifndef ONESEISMIC_CGO_SLICE_H
-#define ONESEISMIC_CGO_SLICE_H
+#ifndef ONESEISMIC_CGO_QUERY_H
+#define ONESEISMIC_CGO_QUERY_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,4 +56,4 @@ void cleanup(struct plan*);
 #ifdef __cplusplus
 }
 #endif //__cplusplus
-#endif //ONESEISMIC_CGO_SLICE_H
+#endif //ONESEISMIC_CGO_QUERY_H
