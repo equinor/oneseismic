@@ -75,19 +75,11 @@ func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
 ) (*cube, error) {
-	queryctx := ctx.Value("queryctx").(*queryContext)
-	pid  := queryctx.pid
-	auth := queryctx.authorization
+	qctx := ctx.Value("queryctx").(*queryContext)
+	pid  := qctx.pid
+	path := fmt.Sprintf("%s/%s",  r.endpoint, args.Id)
 
-	creds := util.AzblobCredential(auth)
-	doc, err := getManifest(
-		ctx,
-		creds,
-		queryctx.urlQuery,
-		r.endpoint,
-		string(args.Id),
-	)
-	// TODO: inspect error and determine if cached token should be evicted
+	doc, err := getManifest(ctx, qctx, path)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err
@@ -169,17 +161,16 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
  */
 func getManifest(
 	ctx      context.Context,
-	cred     azblob.Credential,
-	urlquery string,
-	endpoint string,
-	guid     string,
+	qctx     *queryContext,
+	path     string,
 ) ([]byte, error) {
-	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
+	container, err := url.Parse(path)
 	if err != nil {
 		return nil, err
 	}
 
-	container.RawQuery = urlquery
+	container.RawQuery = qctx.urlQuery
+	cred := util.AzblobCredential(qctx.authorization)
 	manifest, err := util.FetchManifestWithCredential(ctx, cred, container)
 	if err == nil {
 		return manifest, nil
