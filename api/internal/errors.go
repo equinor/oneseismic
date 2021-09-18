@@ -1,5 +1,9 @@
 package internal
 
+import (
+	"net/http"
+)
+
 type InternalE struct {
 	msg string
 }
@@ -14,4 +18,20 @@ func InternalError(msg string) *InternalE {
 
 func (ie *InternalE) Error() string {
 	return ie.msg
+}
+
+type PermissionDeniedE struct {
+	msg string
+}
+
+func PermissionDenied(msg string) *PermissionDeniedE {
+	return &PermissionDeniedE{ msg: msg }
+}
+
+func PermissionDeniedFromStatus(status int) *PermissionDeniedE {
+	return &PermissionDeniedE{ http.StatusText(status) }
+}
+
+func (pd *PermissionDeniedE) Error() string {
+	return pd.msg
 }

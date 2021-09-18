@@ -180,15 +180,17 @@ func getManifest(
 	log.Printf("%v", err)
 	switch e := err.(type) {
 	case azblob.StorageError:
-		switch e.Response().StatusCode {
+		status := e.Response().StatusCode
+		switch status {
 		case http.StatusNotFound:
 			// TODO: add guid as a part of the error message?
 			return nil, errors.New("Not found")
 
 		case http.StatusForbidden:
-			return nil, errors.New("Forbidden")
+			return nil, internal.PermissionDeniedFromStatus(status)
 		case http.StatusUnauthorized:
-			return nil, errors.New("Unauthorized")
+			return nil, internal.PermissionDeniedFromStatus(status)
+
 		default:
 			return nil, internal.NewInternalError()
 		}
