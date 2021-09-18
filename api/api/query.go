@@ -8,6 +8,7 @@ import "unsafe"
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/equinor/oneseismic/api/internal/message"
 )
@@ -26,15 +27,41 @@ func (qe *QueryError) Error() string {
 }
 
 /*
- * The Query Engine struct, which mostly just wraps the C++ functionality and
- * gives it a go interface. This makes an "executable plan" (set of job
- * descriptions) from a query, e.g. sliceByIndex.
+ * The Query Engine struct, which mostly just manages a pool of Session objects
+ * that wrap C++ functionality and gives it a go interface.
  */
 type QueryEngine struct {
 	tasksize int
+	pool     sync.Pool
 }
 
-func (qe *QueryEngine) PlanQuery(query *message.Query) (*QueryPlan, error) {
+/*
+ * A QuerySession wraps C++ functionality and caches parsed messages, re-uses
+ * buffers etc.
+ */
+type QuerySession struct {
+	tasksize int
+}
+
+func DefaultQueryEnginePool() sync.Pool {
+	return sync.Pool {
+		New: func() interface{} {
+			return &QuerySession {}
+		},
+	}
+}
+
+func (qe *QueryEngine) Get() *QuerySession {
+	q := qe.pool.Get().(*QuerySession)
+	q.tasksize = qe.tasksize
+	return q
+}
+
+func (qe *QueryEngine) Put(q *QuerySession) {
+	qe.pool.Put(q)
+}
+
+func (q *QuerySession) PlanQuery(query *message.Query) (*QueryPlan, error) {
 	msg, err := query.Pack()
 	if err != nil {
 		return nil, fmt.Errorf("pack error: %w", err)
@@ -43,7 +70,7 @@ func (qe *QueryEngine) PlanQuery(query *message.Query) (*QueryPlan, error) {
 	csched := C.mkschedule(
 		(*C.char)(unsafe.Pointer(&msg[0])),
 		C.int(len(msg)),
-		C.int(qe.tasksize),
+		C.int(q.tasksize),
 	)
 	defer C.cleanup(&csched)
 	if csched.err != nil {

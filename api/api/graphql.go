@@ -21,11 +21,11 @@ import (
 
 type gql struct {
 	schema *graphql.Schema
+	queryEngine QueryEngine
 }
 
 type resolver struct {
 	BasicEndpoint
-	QueryEngine
 }
 type cube struct {
 	id       graphql.ID
@@ -260,7 +260,7 @@ func (c *cube) basicSlice(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := c.root.PlanQuery(&msg)
+	query, err := keys["session"].(*QuerySession).PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
@@ -342,7 +342,7 @@ func (c *cube) basicCurtain(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := c.root.PlanQuery(&msg)
+	query, err := keys["session"].(*QuerySession).PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
@@ -411,15 +411,16 @@ type Cube {
 			endpoint,
 			storage,
 		),
-		QueryEngine {
-			tasksize: 10,
-		},
 	}
 
 
 	s := graphql.MustParseSchema(schema, resolver)
 	return &gql {
 		schema: s,
+		queryEngine: QueryEngine {
+			tasksize: 10,
+			pool: DefaultQueryEnginePool(),
+		},
 	}
 }
 
@@ -505,10 +506,16 @@ func (g *gql) execQuery(
 	opName string,
 	variables map[string]interface{},
 ) *graphql.Response {
+	// The Query object is constructed here in order to have a single
+	// entry/exit point for the QuerySession objects, to make sure they get put
+	// back in the pool.
+	session := g.queryEngine.Get()
+	defer g.queryEngine.Put(session)
 	keys := map[string]interface{} {
 		"pid": ctx.GetString("pid"),
 		"Authorization": ctx.GetHeader("Authorization"),
 		"url-query": ctx.Request.URL.RawQuery,
+		"session": session,
 	}
 	c := context.WithValue(ctx, "keys", keys)
 	return g.schema.Exec(c, query, opName, variables)
