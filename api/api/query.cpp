@@ -16,7 +16,6 @@ plan mkschedule(const char* doc, int len, int task_size) try {
     }
 
     plan p {};
-    p.status_code = 200;
     p.len = taskset.count();
     p.tasks = new char[taskset.size()];
     p.sizes = new int [p.len];
@@ -25,7 +24,6 @@ plan mkschedule(const char* doc, int len, int task_size) try {
     return p;
 } catch (std::exception& e) {
     plan p {};
-    p.status_code = 500;
     auto* err = new char[std::strlen(e.what()) + 1];
     std::strcpy(err, e.what());
     p.err = err;

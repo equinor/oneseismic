@@ -11,21 +11,6 @@ struct plan {
      * is the only correct way to determine if the function succeeded or not.
      */
     const char* err;
-    /*
-     * HTTP status code hint. This is really only meaningful when err is not
-     * null, in order to return a more accurate status code to the caller.
-     *
-     * The status code should be considered a hint, and not definite - if the
-     * scheduler/query planner has more information, it is free to not respect
-     * the status_code here.
-     *
-     * The status_code may not always be set, even if err is not null, and
-     * callers should have a fallback path should this be zero or an invalid
-     * HTTP status code.
-     *
-     * If the status code is not explicitly set, it defaults to zero.
-     */
-    int status_code;
 
     /*
      * The number of task groups/chunks in this plan, including the header.
