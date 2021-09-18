@@ -77,9 +77,14 @@ func (r *resolver) Cube(
 ) (*cube, error) {
 	qctx := ctx.Value("queryctx").(*queryContext)
 	pid  := qctx.pid
-	path := fmt.Sprintf("%s/%s",  r.endpoint, args.Id)
+	urls := fmt.Sprintf("%s/%s",  r.endpoint, args.Id)
+	url, err := url.Parse(urls)
+	if err != nil {
+		log.Printf("Failed to parse container URL; settings are broken")
+		return nil, internal.NewInternalError()
+	}
 
-	doc, err := getManifest(ctx, qctx, path)
+	doc, err := getManifest(ctx, qctx, url)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)
 		return nil, err
@@ -162,16 +167,15 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 func getManifest(
 	ctx      context.Context,
 	qctx     *queryContext,
-	path     string,
+	url      *url.URL,
 ) ([]byte, error) {
-	container, err := url.Parse(path)
-	if err != nil {
-		return nil, err
-	}
-
-	container.RawQuery = qctx.urlQuery
+	// This is arguably bad; the passed url gets modified in-place. It's
+	// probably ok since this is a helper function to pull the azure handling
+	// stuff out of the caller body, and it is called once, but it should be
+	// considered if this function should restore the rawQuery.
+	url.RawQuery = qctx.urlQuery
 	cred := util.AzblobCredential(qctx.authorization)
-	manifest, err := util.FetchManifest(ctx, cred, container)
+	manifest, err := util.FetchManifest(ctx, cred, url)
 	if err == nil {
 		return manifest, nil
 	}
