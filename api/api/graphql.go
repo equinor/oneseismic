@@ -172,19 +172,27 @@ func getManifest(
 
 	container.RawQuery = urlquery
 	manifest, err := util.FetchManifestWithCredential(ctx, cred, container)
-	if err != nil {
-		switch e := err.(type) {
-		case azblob.StorageError:
-			sc := e.Response()
-			if sc.StatusCode == http.StatusNotFound {
-				// TODO: add guid as a part of the error message?
-				return nil, errors.New("Not found")
-			}
+	if err == nil {
+		return manifest, nil
+	}
+
+	log.Printf("%v", err)
+	switch e := err.(type) {
+	case azblob.StorageError:
+		switch e.Response().StatusCode {
+		case http.StatusNotFound:
+			// TODO: add guid as a part of the error message?
+			return nil, errors.New("Not found")
+
+		case http.StatusForbidden:
+			return nil, errors.New("Forbidden")
+		case http.StatusUnauthorized:
+			return nil, errors.New("Unauthorized")
+		default:
 			return nil, errors.New("Internal error")
 		}
-		return nil, err
 	}
-	return manifest, nil
+	return nil, err
 }
 
 func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
