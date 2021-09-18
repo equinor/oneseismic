@@ -17,6 +17,7 @@ import (
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/equinor/oneseismic/api/internal/util"
+	"github.com/equinor/oneseismic/api/internal"
 )
 
 type gql struct {
@@ -143,11 +144,11 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 			pid,
 			string(c.id),
 		)
-		return nil, errors.New("internal error; bad document")
+		return nil, internal.NewInternalError()
 	}
 	linenos, err := asSliceSliceInt32(doc)
 	if err != nil {
-		return nil, errors.New("internal error; bad document")
+		return nil, internal.NewInternalError()
 	}
 	return linenos, nil
 }
@@ -189,7 +190,7 @@ func getManifest(
 		case http.StatusUnauthorized:
 			return nil, errors.New("Unauthorized")
 		default:
-			return nil, errors.New("Internal error")
+			return nil, internal.NewInternalError()
 		}
 	}
 	return nil, err
@@ -276,7 +277,7 @@ func (c *cube) basicSlice(
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error")
+		return nil, internal.NewInternalError()
 	}
 
 	go func () {
@@ -358,7 +359,7 @@ func (c *cube) basicCurtain(
 	key, err := c.root.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("internal error")
+		return nil, internal.NewInternalError()
 	}
 
 	go func () {
