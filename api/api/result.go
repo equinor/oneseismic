@@ -113,7 +113,7 @@ func (r *Result) Stream(ctx *gin.Context) {
 	w := ctx.Writer
 	header := w.Header()
 	header.Set("Transfer-Encoding", "chunked")
-	header.Set("Content-Type", "text/html")
+	header.Set("Content-Type", "application/octet-stream")
 	w.WriteHeader(http.StatusOK)
 
 	for {
