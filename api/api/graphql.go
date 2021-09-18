@@ -67,15 +67,15 @@ func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
 ) (*cube, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
+	keys := ctx.Value("keys").(map[string]interface{})
+	pid  := keys["pid"].(string)
+	auth := keys["Authorization"].(string)
 
 	creds := credentials(auth)
 	doc, err := getManifest(
 		ctx,
 		creds,
-		keys["url-query"],
+		keys["url-query"].(string),
 		r.endpoint,
 		string(args.Id),
 	)
@@ -137,8 +137,8 @@ func asSliceSliceInt32(root interface{}) ([][]int32, error) {
 func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 	doc, ok := c.manifest["line-numbers"]
 	if !ok {
-		keys := ctx.Value("keys").(map[string]string)
-		pid  := keys["pid"]
+		keys := ctx.Value("keys").(map[string]interface{})
+		pid  := keys["pid"].(string)
 		log.Printf(
 			"pid=%s %s/manifest.json broken; no dimensions",
 			pid,
@@ -247,12 +247,12 @@ func (c *cube) basicSlice(
 	args sliceargs,
 	opts *opts,
 ) (*promise, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
+	keys := ctx.Value("keys").(map[string]interface{})
+	pid  := keys["pid"].(string)
 	msg := message.Query {
 		Pid:             pid,
-		Token:           keys["Authorization"],
-		UrlQuery:        keys["url-query"],
+		Token:           keys["Authorization"].(string),
+		UrlQuery:        keys["url-query"].(string),
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -329,12 +329,12 @@ func (c *cube) basicCurtain(
 	args   curtainargs,
 	opts   *opts,
 ) (*promise, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
+	keys := ctx.Value("keys").(map[string]interface{})
+	pid  := keys["pid"].(string)
 	msg := message.Query {
 		Pid:             pid,
-		Token:           keys["Authorization"],
-		UrlQuery:        keys["url-query"],
+		Token:           keys["Authorization"].(string),
+		UrlQuery:        keys["url-query"].(string),
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -505,7 +505,7 @@ func (g *gql) execQuery(
 	opName string,
 	variables map[string]interface{},
 ) *graphql.Response {
-	keys := map[string]string {
+	keys := map[string]interface{} {
 		"pid": ctx.GetString("pid"),
 		"Authorization": ctx.GetHeader("Authorization"),
 		"url-query": ctx.Request.URL.RawQuery,
