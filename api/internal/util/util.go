@@ -125,15 +125,6 @@ func AzblobCredential(authorization string) azblob.Credential {
  * be done, and the request discarded.
  */
 func FetchManifest(
-	ctx context.Context,
-	token string,
-	containerURL *url.URL,
-) ([]byte, error) {
-	credentials := azblob.NewTokenCredential(token, nil)
-	return FetchManifestWithCredential(ctx, credentials, containerURL)
-}
-
-func FetchManifestWithCredential(
 	ctx          context.Context,
 	credentials  azblob.Credential,
 	containerURL *url.URL,

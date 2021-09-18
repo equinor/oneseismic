@@ -171,7 +171,7 @@ func getManifest(
 
 	container.RawQuery = qctx.urlQuery
 	cred := util.AzblobCredential(qctx.authorization)
-	manifest, err := util.FetchManifestWithCredential(ctx, cred, container)
+	manifest, err := util.FetchManifest(ctx, cred, container)
 	if err == nil {
 		return manifest, nil
 	}
