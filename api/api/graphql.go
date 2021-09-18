@@ -71,13 +71,6 @@ type opts struct {
 	Attributes *[]string `json:"attributes"`
 }
 
-func credentials(token string) (azblob.Credential) {
-	if token != "" {
-		return azblob.NewTokenCredential(token, nil)
-	}
-	return azblob.NewAnonymousCredential()
-}
-
 func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
@@ -86,7 +79,7 @@ func (r *resolver) Cube(
 	pid  := queryctx.pid
 	auth := queryctx.authorization
 
-	creds := credentials(auth)
+	creds := util.AzblobCredential(auth)
 	doc, err := getManifest(
 		ctx,
 		creds,

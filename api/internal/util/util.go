@@ -96,6 +96,26 @@ func Compression() gin.HandlerFunc {
 }
 
 /*
+ * Make an azblob.Credential object for constructing azblob.Pipelines. This is
+ * just automation so that query resolvers don't have to check the content of
+ * the HTTP authorization header (which is just taken at face value from users
+ * and forwarded to the blob store).
+ *
+ * This function is useful because azblob needs AnonymousCredentials for
+ * anonymous/public access, or when authorization happens with SAS or some
+ * other url encoded scheme.
+ *
+ * The TokenCredential might not be valid, in which case any attempted *use*
+ * should fail, and any errors should be handled there.
+ */
+func AzblobCredential(authorization string) azblob.Credential {
+	if authorization != "" {
+		return azblob.NewTokenCredential(authorization, nil)
+	}
+	return azblob.NewAnonymousCredential()
+}
+
+/*
  * Get the manifest for the cube from the blob store.
  *
  * It's important that this is a blocking read, since this is the first
