@@ -48,6 +48,7 @@ class simple_result:
                 headers = self.process.headers(),
                 stream = True,
             )
+            r.raise_for_status()
             self.cached_decoded = decoding.decode_stream(r.iter_content(None))
             return self.cached_decoded
 

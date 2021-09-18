@@ -3,6 +3,26 @@ import requests
 
 import urllib.parse
 
+def urljoin(base, path):
+    """
+    Parameters
+    ----------
+    base : str or None
+        Base URL, e.g. 'https://oneseismic.equinor.com'
+    path : str
+        Path to add, e.g. result/<pid/lstream'
+
+    Thin helper to remove a sharp edge from the urllib urljoin. The Base url
+    must have a trailing / to preserve the last element of the path:
+    >>> urljoin('base.com/path/sub', 'pid/stream')
+    'base.com/path/pid/stream'
+    >>> urljoin('base.com/path/sub/', 'pid/stream')
+    'base.com/path/sub/pid/stream'
+    """
+    if base is not None:
+        base += '/'
+    return urllib.parse.urljoin(base, path)
+
 class process:
     """Basic process handle
 
@@ -69,7 +89,7 @@ class process:
         >>> proc.status('https://oneseismic.equinor.com')
         'https://oneseismic.equinor.com/<pid>/status'
         """
-        return urllib.parse.urljoin(baseurl, f'{self.path}/status')
+        return urljoin(baseurl, f'{self.path}/status')
 
     def stream(self, baseurl = None):
         """URL to get payload stream
@@ -99,8 +119,8 @@ class process:
         >>> payload = requests.get(stream, headers = proc.headers())
         """
         # Right now this is hard-coded to stream, but this could move to /, be
-        # read from the promise, or even be read from / in true REST fashion
-        return urllib.parse.urljoin(baseurl, f'{self.path}/stream')
+        # read from the promise, or even be read from / in true REST fashion.
+        return urljoin(baseurl, f'{self.path}/stream')
 
 def procs_from_promises(response):
     """Make process instances from GraphQL response
