@@ -180,7 +180,7 @@ func getManifest(
 		return manifest, nil
 	}
 
-	log.Printf("%v", err)
+	log.Printf("pid=%s, %v", qctx.pid, err)
 	switch e := err.(type) {
 	case azblob.StorageError:
 		status := e.Response().StatusCode
