@@ -20,6 +20,21 @@ import (
 	"github.com/equinor/oneseismic/api/internal"
 )
 
+/*
+ * queryContext is for the graphql resolvers almost what the gin.context is for
+ * the gin handlerfuncs. It carries "request-global" across function
+ * boundaries, but unlike the gin.context it does not come with cancelling
+ * semantics.
+ *
+ * It is meant to be stored and passed to resolvers through the context
+ * argument.
+ */
+type queryContext struct {
+	pid           string
+	authorization string
+	urlQuery      string
+}
+
 type gql struct {
 	schema *graphql.Schema
 }
@@ -67,15 +82,15 @@ func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
 ) (*cube, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
-	auth := keys["Authorization"]
+	queryctx := ctx.Value("queryctx").(*queryContext)
+	pid  := queryctx.pid
+	auth := queryctx.authorization
 
 	creds := credentials(auth)
 	doc, err := getManifest(
 		ctx,
 		creds,
-		keys["url-query"],
+		queryctx.urlQuery,
 		r.endpoint,
 		string(args.Id),
 	)
@@ -137,8 +152,8 @@ func asSliceSliceInt32(root interface{}) ([][]int32, error) {
 func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 	doc, ok := c.manifest["line-numbers"]
 	if !ok {
-		keys := ctx.Value("keys").(map[string]string)
-		pid  := keys["pid"]
+		qctx := ctx.Value("queryctx").(*queryContext)
+		pid  := qctx.pid
 		log.Printf(
 			"pid=%s %s/manifest.json broken; no dimensions",
 			pid,
@@ -257,12 +272,12 @@ func (c *cube) basicSlice(
 	args sliceargs,
 	opts *opts,
 ) (*promise, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
+	queryctx := ctx.Value("queryctx").(*queryContext)
+	pid := queryctx.pid
 	msg := message.Query {
 		Pid:             pid,
-		Token:           keys["Authorization"],
-		UrlQuery:        keys["url-query"],
+		Token:           queryctx.authorization,
+		UrlQuery:        queryctx.urlQuery,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -339,12 +354,12 @@ func (c *cube) basicCurtain(
 	args   curtainargs,
 	opts   *opts,
 ) (*promise, error) {
-	keys := ctx.Value("keys").(map[string]string)
-	pid  := keys["pid"]
+	queryctx := ctx.Value("queryctx").(*queryContext)
+	pid := queryctx.pid
 	msg := message.Query {
 		Pid:             pid,
-		Token:           keys["Authorization"],
-		UrlQuery:        keys["url-query"],
+		Token:           queryctx.authorization,
+		UrlQuery:        queryctx.urlQuery,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -512,11 +527,11 @@ func (g *gql) execQuery(
 	opName string,
 	variables map[string]interface{},
 ) *graphql.Response {
-	keys := map[string]string {
-		"pid": ctx.GetString("pid"),
-		"Authorization": ctx.GetHeader("Authorization"),
-		"url-query": ctx.Request.URL.RawQuery,
+	qctx := queryContext {
+		pid: ctx.GetString("pid"),
+		authorization: ctx.GetHeader("Authorization"),
+		urlQuery: ctx.Request.URL.RawQuery,
 	}
-	c := context.WithValue(ctx, "keys", keys)
+	c := context.WithValue(ctx, "queryctx", &qctx)
 	return g.schema.Exec(c, query, opName, variables)
 }
