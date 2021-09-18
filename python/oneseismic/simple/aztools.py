@@ -10,7 +10,6 @@ write bespoke azure integration.
 import datetime
 from urllib.parse import urlsplit
 
-import azure.identity
 import azure.storage.blob as azblob
 
 class simple_blobstore_auth:
@@ -33,6 +32,10 @@ class simple_blobstore_auth:
         self.acc = urlsplit(resource).netloc.split('.')[0]
 
         if credential is None:
+            # only import azure.identity when it is certain we want to use it
+            # importing it takes several hundred milliseconds (and from a
+            # glance seems to make some http requests)
+            import azure.identity
             credential = azure.identity.DefaultAzureCredential()
         self.client = azblob.BlobServiceClient(
             resource,
