@@ -56,7 +56,7 @@ public:
         int task_size)
     noexcept (false);
 
-    std::string query_manifest(const std::string& path) noexcept (false);
+    std::string query_manifest(const std::string& path) const noexcept (false);
 
 private:
     class impl;

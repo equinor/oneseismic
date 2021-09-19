@@ -612,7 +612,7 @@ noexcept (false) {
     throw std::logic_error("No handler for function " + function);
 }
 
-std::string session::query_manifest(const std::string& path)
+std::string session::query_manifest(const std::string& path) const
 noexcept (false) {
     nlohmann::json::json_pointer ptr(path);
     try {
