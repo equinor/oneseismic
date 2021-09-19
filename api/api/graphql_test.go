@@ -62,3 +62,72 @@ func TestLinenumbersReturnsExpected(t *testing.T) {
 		t.Errorf("expected %v; got %v", expected, numbers)
 	}
 }
+
+func TestFilenameOnUploadSucceedsOnKeyMiss(t *testing.T) {
+	doc := `{
+		"format-version": 1,
+		"guid": "<some-id>",
+		"data": [{
+				"file-extension": "f32",
+				"filters": [],
+				"shapes": [[3, 3, 3]],
+				"prefix": "src",
+				"resolution": "source"
+			}],
+		"attributes": [],
+		"line-numbers": [
+				[9961, 9963, 9965],
+				[1961, 1962, 1963],
+				[0, 4000, 8000]
+			],
+		"line-labels": ["inline", "crossline", "time"]
+	}`
+	qctx := queryContext {
+		session: setupSession(t, doc),
+	}
+	ctx := setQueryContext(context.Background(), &qctx)
+	c := cube {}
+	fname, err := c.FilenameOnUpload(ctx)
+	if err != nil {
+		t.Errorf("expected success; got %v", err)
+	}
+	if fname != nil {
+		t.Errorf("expected fname = <nil>; got %v", fname)
+	}
+}
+
+func TestFilenameOnUploadSucceeds(t *testing.T) {
+	doc := `{
+		"format-version": 1,
+		"guid": "<some-id>",
+		"upload-filename": "some-filename",
+		"data": [{
+				"file-extension": "f32",
+				"filters": [],
+				"shapes": [[3, 3, 3]],
+				"prefix": "src",
+				"resolution": "source"
+			}],
+		"attributes": [],
+		"line-numbers": [
+				[9961, 9963, 9965],
+				[1961, 1962, 1963],
+				[0, 4000, 8000]
+			],
+		"line-labels": ["inline", "crossline", "time"]
+	}`
+	qctx := queryContext {
+		session: setupSession(t, doc),
+	}
+	ctx := setQueryContext(context.Background(), &qctx)
+	c := cube {}
+	fname, err := c.FilenameOnUpload(ctx)
+	if err != nil {
+		t.Errorf("expected success; got %v", err)
+	}
+	if fname == nil {
+		t.Errorf("expected fname; got <nil>")
+	} else if *fname != "some-filename" {
+		t.Errorf("expected fname = 'some-filename'; got %v", *fname)
+	}
+}

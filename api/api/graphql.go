@@ -158,6 +158,20 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 	return out, err
 }
 
+func (c *cube) FilenameOnUpload(ctx context.Context) (*string, error) {
+	qctx := getQueryContext(ctx)
+	d, err := qctx.session.QueryManifest("/upload-filename")
+	if err != nil {
+		return nil, internal.NewInternalError()
+	}
+	if len(d) == 0 {
+		return nil, nil
+	}
+	var out string
+	err = json.Unmarshal(d, &out)
+	return &out, err
+}
+
 /*
  * This is the util.GetManifest function, but tuned for graphql and with
  * gin-specifics removed. Its purpose is to make for a quick migration to a
@@ -406,6 +420,7 @@ type Cube {
     id: ID!
 
     linenumbers: [[Int!]!]!
+    filenameOnUpload: String
 
     sliceByLineno(dim: Int!, lineno: Int!, opts: Opts): Promise
     sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise
