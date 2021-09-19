@@ -102,7 +102,6 @@ func (r *resolver) Cube(
 
 	doc, err := getManifest(ctx, qctx, url)
 	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
 		return nil, err
 	}
 
