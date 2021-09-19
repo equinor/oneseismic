@@ -7,6 +7,7 @@ import "C"
 import "unsafe"
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -95,7 +96,7 @@ func (q *QuerySession) PlanQuery(query *message.Query) (*QueryPlan, error) {
 		C.int(len(msg)),
 		C.int(q.tasksize),
 	)
-	defer C.cleanup(&csched)
+	defer C.plan_delete(&csched)
 	if csched.err != nil {
 		return nil, &QueryError {
 			msg: C.GoString(csched.err),
@@ -117,4 +118,41 @@ func (q *QuerySession) PlanQuery(query *message.Query) (*QueryPlan, error) {
 		header: result[headerindex],
 		plan:   result[:headerindex],
 	}, nil
+}
+
+/*
+ * QueryManifest is essentially a JSON pointer [1] interface to the manifest
+ * object. It is intended to support simple read-field-in-manifest resolvers,
+ * without having to parse the manifest every time.
+ *
+ * It is written through cgo and the query engine in order to make go a pure
+ * I/O layer, and to contain all parsing, validation, and lookup in the same
+ * module. This means certain classes of errors can be handled centrally too,
+ * rather than having to take up space in every single block
+ *
+ * This does make a single query lookup *significantly* more complicated than
+ * it would be in pure go, but it makes adding new calls very cheap, and it
+ * makes for a single feature that must be understood.
+ *
+ * This function returns a JSON encoded byte array (if not an error). Ideally
+ * graphql could just write this directly, but the resolver system expects to
+ * find a return type of the resolver that matches the schema type. An easy fix
+ * is to parse the RawMessage into the "destination" type. The overhead is of
+ * course outrageous, but it can work until the upstream graphql support can
+ * handle json.rawmessage or similar.
+ *
+ * [1] https://rapidjson.org/md_doc_pointer.html
+ */
+func (q *QuerySession) QueryManifest(path string) (json.RawMessage, error) {
+	pathb    := []byte(path)
+	pathcstr := (*C.char)(unsafe.Pointer(&pathb[0]))
+	pathlen  := C.int(len(path))
+
+	result := C.session_query_manifest(q.csession, pathcstr, pathlen)
+	defer C.query_result_delete(&result)
+	if result.err != nil {
+		errstr := C.GoString(result.err)
+		return nil, fmt.Errorf("QueryManifest: %v", errstr)
+	}
+	return C.GoBytes(unsafe.Pointer(result.body), result.size), nil
 }

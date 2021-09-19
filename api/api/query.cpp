@@ -11,13 +11,21 @@
 
 #include <oneseismic/plan.hpp>
 
-void cleanup(plan* p) {
+void plan_delete(plan* p) {
     if (!p) return;
 
     delete[] p->err;
     delete[] p->sizes;
     delete[] p->tasks;
     *p = plan {};
+}
+
+void query_result_delete(query_result* p) {
+    if (!p) return;
+
+    delete[] p->err;
+    delete[] p->body;
+    *p = query_result {};
 }
 
 struct session : public one::session {};
@@ -62,4 +70,21 @@ try {
     std::strcpy(err, e.what());
     p.err = err;
     return p;
+}
+
+query_result session_query_manifest(session* self, const char* path, int len) {
+    try {
+        const auto paths = std::string(path, len);
+        const auto result = self->query_manifest(paths);
+        query_result r {};
+        r.body = new char[result.size()];
+        r.size = result.size();
+        std::copy_n(result.begin(), r.size, r.body);
+        return r;
+    } catch (std::exception& e) {
+        query_result r {};
+        r.err = new char[std::strlen(e.what()) + 1];
+        std::strcpy(r.err, e.what());
+        return r;
+    }
 }

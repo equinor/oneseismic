@@ -35,7 +35,18 @@ struct plan {
     char* tasks;
 };
 
-void cleanup(struct plan*);
+struct query_result {
+    char* err;
+    /*
+     * The body is the already json-encoded response. Accessing this if err is
+     * set is undefined behaviour.
+     */
+    char* body;
+    int size;
+};
+
+void plan_delete(struct plan*);
+void query_result_delete(struct query_result*);
 
 struct session;
 struct session* session_new();
@@ -45,6 +56,11 @@ struct plan session_plan_query(
     const char* doc,
     int len,
     int task_size);
+
+struct query_result session_query_manifest(
+    struct session*,
+    const char* path,
+    int len);
 
 #ifdef __cplusplus
 }

@@ -611,12 +611,23 @@ noexcept (false) {
     throw std::logic_error("No handler for function " + function);
 }
 
+std::string session::impl::query_manifest(const std::string& path)
+noexcept (false) {
+    nlohmann::json::json_pointer ptr(path);
+    return this->manifest[ptr].dump();
+}
+
 void session::init(const char* doc, int len) noexcept (false) {
     self->init(doc, len);
 }
 
 taskset session::plan_query(const char* doc, int len, int task_size) {
     return self->plan_query(doc, len, task_size);
+}
+
+std::string session::query_manifest(const std::string& path)
+noexcept (false) {
+    return self->query_manifest(path);
 }
 
 }
