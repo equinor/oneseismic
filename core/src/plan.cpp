@@ -555,7 +555,8 @@ noexcept (false) {
 
 class session::impl {
 public:
-    nlohmann::json manifest;
+    nlohmann::json document;
+    manifestdoc    manifest;
 };
 
 session::session() : self(std::make_unique<impl>()) {}
@@ -563,8 +564,21 @@ session::session(session&&) = default;
 session& session::operator = (session&&) = default;
 session::~session() = default;
 
+/*
+ * ghetto #include the json -> manifestdoc conversion
+ *
+ * Expect this declaration to go away soon (tm) - it is a hack to make the
+ * conversion from nlohmann.json -> manifestdoc work without having to parse
+ * the document twice, and without exposing the to/from functions in many
+ * headers. This is an artefact of too poor structuring, and uncertainty if the
+ * manifest belongs in the message/basic_query or not.
+ */
+void from_json(const nlohmann::json& doc, manifestdoc& m) noexcept (false);
+
 void session::init(const char* doc, int len) noexcept (false) {
-    self->manifest = nlohmann::json::parse(doc, doc + len);
+    auto parsed = nlohmann::json::parse(doc, doc + len);
+    self->manifest = parsed;
+    self->document = std::move(parsed);
 }
 
 taskset session::plan_query( const char* doc, int len, int task_size)
@@ -601,7 +615,7 @@ noexcept (false) {
 std::string session::query_manifest(const std::string& path)
 noexcept (false) {
     nlohmann::json::json_pointer ptr(path);
-    return self->manifest[ptr].dump();
+    return self->document[ptr].dump();
 }
 
 }
