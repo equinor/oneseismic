@@ -16,15 +16,15 @@ type Message interface {
  * authorization etc. into a single message.
  */
 type Query struct {
-	Pid             string       `json:"pid"`
-	Token           string       `json:"token"`
-	UrlQuery        string       `json:"url-query"`
-	Guid            string       `json:"guid"`
+	Pid             string          `json:"pid"`
+	Token           string          `json:"token"`
+	UrlQuery        string          `json:"url-query"`
+	Guid            string          `json:"guid"`
 	Manifest        json.RawMessage `json:"manifest"`
-	StorageEndpoint string       `json:"storage_endpoint"`
-	Function        string       `json:"function"`
-	Args            interface {} `json:"args"`
-	Opts            interface {} `json:"opts"`
+	StorageEndpoint string          `json:"storage_endpoint"`
+	Function        string          `json:"function"`
+	Args            interface {}    `json:"args"`
+	Opts            interface {}    `json:"opts"`
 }
 
 func (msg *Query) Pack() ([]byte, error) {
