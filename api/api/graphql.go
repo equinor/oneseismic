@@ -36,6 +36,14 @@ type queryContext struct {
 	session       *QuerySession
 }
 
+/*
+ * Stupid helper to get the query-context from the context. The aim is really
+ * to hide the ugly string lookup and cast from the producing code.
+ */
+func getQueryContext(ctx context.Context) *queryContext {
+	return ctx.Value("queryctx").(*queryContext)
+}
+
 type gql struct {
 	schema *graphql.Schema
 	queryEngine QueryEngine
@@ -77,7 +85,7 @@ func (r *resolver) Cube(
 	ctx context.Context,
 	args struct { Id graphql.ID },
 ) (*cube, error) {
-	qctx := ctx.Value("queryctx").(*queryContext)
+	qctx := getQueryContext(ctx)
 	pid  := qctx.pid
 	urls := fmt.Sprintf("%s/%s",  r.endpoint, args.Id)
 	url, err := url.Parse(urls)
@@ -110,7 +118,7 @@ func (c *cube) Id() graphql.ID {
 }
 
 func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
-	qctx := ctx.Value("queryctx").(*queryContext)
+	qctx := getQueryContext(ctx)
 	d, err := qctx.session.QueryManifest("/line-numbers")
 	if err != nil {
 		return nil, internal.NewInternalError()
@@ -217,7 +225,7 @@ func (c *cube) basicSlice(
 	args sliceargs,
 	opts *opts,
 ) (*promise, error) {
-	queryctx := ctx.Value("queryctx").(*queryContext)
+	queryctx := getQueryContext(ctx)
 	pid := queryctx.pid
 	msg := message.Query {
 		Pid:             pid,
