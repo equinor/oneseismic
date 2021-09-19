@@ -107,8 +107,16 @@ func (r *resolver) Cube(
 
 	err = qctx.session.InitWithManifest(doc)
 	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, errors.New("Internal error")
+		// errors here probably mean the document itself is broken
+		// the URL gets recorded, but maybe the content (or digested content
+		// e.g. hash) should be recorded as well)
+		log.Printf(
+			"pid=%s, init query engine session from %v failed: %v",
+			pid,
+			url,
+			err,
+		)
+		return nil, internal.NewInternalError()
 	}
 
 	return &cube {
