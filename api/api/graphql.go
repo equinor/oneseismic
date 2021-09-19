@@ -170,7 +170,7 @@ func getManifest(
 		switch status {
 		case http.StatusNotFound:
 			// TODO: add guid as a part of the error message?
-			return nil, errors.New("Not found")
+			return nil, internal.QueryError("Not found")
 
 		case http.StatusForbidden:
 			return nil, internal.PermissionDeniedFromStatus(status)
