@@ -67,12 +67,15 @@ func (q *QuerySession) InitWithManifest(doc []byte) error {
 	clen := C.int(len(doc))
 	err := C.session_init(q.csession, cdoc, clen)
 	if err != nil {
+		/*
+		 * This should only fail if JSON document is not a JSON document, or if
+		 * it is not a manifest. Either way there is no recovery, and a healthy
+		 * system should have no such documents.
+		 */
 		defer C.free(unsafe.Pointer(err))
 		errstr := C.GoString(err)
-		// TODO: parse string (split-on-:) and map to error class
-		return fmt.Errorf("Unable to init session. %v", errstr)
+		return internal.InternalError(errstr)
 	}
-
 	return nil
 }
 
