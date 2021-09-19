@@ -90,7 +90,13 @@ func (r *resolver) Cube(
 	urls := fmt.Sprintf("%s/%s",  r.endpoint, args.Id)
 	url, err := url.Parse(urls)
 	if err != nil {
-		log.Printf("Failed to parse container URL; settings are broken")
+		log.Printf(
+			"pid=%s, failed to parse URL; endpoint=%s, id=%s, error=%v",
+			pid,
+			r.endpoint,
+			args.Id,
+			err,
+		)
 		return nil, internal.NewInternalError()
 	}
 
