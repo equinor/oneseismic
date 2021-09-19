@@ -148,7 +148,7 @@ func (q *QuerySession) QueryManifest(path string) (json.RawMessage, error) {
 	defer C.query_result_delete(&result)
 	if result.err != nil {
 		errstr := C.GoString(result.err)
-		return nil, fmt.Errorf("QueryManifest: %v", errstr)
+		return nil, internal.InternalError(errstr)
 	}
 	return C.GoBytes(unsafe.Pointer(result.body), result.size), nil
 }
