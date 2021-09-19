@@ -35,3 +35,15 @@ func PermissionDeniedFromStatus(status int) *PermissionDeniedE {
 func (pd *PermissionDeniedE) Error() string {
 	return pd.msg
 }
+
+type QueryE struct {
+	msg string
+}
+
+func QueryError(msg string) *QueryE {
+	return &QueryE{ msg: msg }
+}
+
+func (qe *QueryE) Error() string {
+	return qe.msg
+}

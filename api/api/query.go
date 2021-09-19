@@ -11,20 +11,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/equinor/oneseismic/api/internal"
 	"github.com/equinor/oneseismic/api/internal/message"
 )
 
 type QueryPlan struct {
 	header []byte
 	plan   [][]byte
-}
-
-type QueryError struct {
-	msg    string
-}
-
-func (qe *QueryError) Error() string {
-	return qe.msg
 }
 
 /*
@@ -98,9 +91,7 @@ func (q *QuerySession) PlanQuery(query *message.Query) (*QueryPlan, error) {
 	)
 	defer C.plan_delete(&csched)
 	if csched.err != nil {
-		return nil, &QueryError {
-			msg: C.GoString(csched.err),
-		}
+		return nil, internal.QueryError(C.GoString(csched.err))
 	}
 
 	ntasks := int(csched.len)
