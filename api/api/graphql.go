@@ -142,7 +142,16 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 	qctx := getQueryContext(ctx)
 	d, err := qctx.session.QueryManifest("/line-numbers")
 	if err != nil {
+		log.Printf("pid=%s, Linenumbers failed: %v", qctx.pid, err)
 		return nil, internal.NewInternalError()
+	}
+	if len(d) == 0 {
+		log.Printf(
+			"pid=%s, line-numbers not found in %s manifest",
+			qctx.pid,
+			c.id,
+		)
+		return nil, internal.InternalError("line-numbers not found")
 	}
 	var out [][]int32
 	err = json.Unmarshal(d, &out)
