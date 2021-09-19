@@ -225,12 +225,12 @@ func (c *cube) basicSlice(
 	args sliceargs,
 	opts *opts,
 ) (*promise, error) {
-	queryctx := getQueryContext(ctx)
-	pid := queryctx.pid
-	msg := message.Query {
+	qctx := getQueryContext(ctx)
+	pid  := qctx.pid
+	msg  := message.Query {
 		Pid:             pid,
-		Token:           queryctx.authorization,
-		UrlQuery:        queryctx.urlQuery,
+		Token:           qctx.authorization,
+		UrlQuery:        qctx.urlQuery,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -238,7 +238,7 @@ func (c *cube) basicSlice(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := queryctx.session.PlanQuery(&msg)
+	query, err := qctx.session.PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
@@ -307,12 +307,12 @@ func (c *cube) basicCurtain(
 	args   curtainargs,
 	opts   *opts,
 ) (*promise, error) {
-	queryctx := ctx.Value("queryctx").(*queryContext)
-	pid := queryctx.pid
-	msg := message.Query {
+	qctx := ctx.Value("queryctx").(*queryContext)
+	pid  := qctx.pid
+	msg  := message.Query {
 		Pid:             pid,
-		Token:           queryctx.authorization,
-		UrlQuery:        queryctx.urlQuery,
+		Token:           qctx.authorization,
+		UrlQuery:        qctx.urlQuery,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
 		StorageEndpoint: c.root.endpoint,
@@ -320,7 +320,7 @@ func (c *cube) basicCurtain(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := queryctx.session.PlanQuery(&msg)
+	query, err := qctx.session.PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
