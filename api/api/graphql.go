@@ -33,10 +33,12 @@ type queryContext struct {
 	pid           string
 	authorization string
 	urlQuery      string
+	session       *QuerySession
 }
 
 type gql struct {
 	schema *graphql.Schema
+	queryEngine QueryEngine
 }
 
 type resolver struct {
@@ -45,7 +47,7 @@ type resolver struct {
 type cube struct {
 	id       graphql.ID
 	root     *resolver
-	manifest map[string]interface{}
+	manifest json.RawMessage
 }
 
 type promise struct {
@@ -90,16 +92,16 @@ func (r *resolver) Cube(
 		return nil, err
 	}
 
-	manifest, err := manifestAsMap(doc)
+	err = qctx.session.InitWithManifest(doc)
 	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
+		log.Printf("pid=%s, %v", pid, err)
+		return nil, errors.New("Internal error")
 	}
 
 	return &cube {
 		id:       args.Id,
 		root:     r,
-		manifest: manifest,
+		manifest: doc,
 	}, nil
 }
 
@@ -107,55 +109,15 @@ func (c *cube) Id() graphql.ID {
 	return c.id
 }
 
-func asSliceInt32(root interface{}) ([]int32, error) {
-	xs, ok := root.([]interface{})
-	if !ok {
-		return nil, errors.New("as([]int32) root was not []interface{}")
-	}
-	out := make([]int32, len(xs))
-	for i, x := range xs {
-		elem, ok := x.(float64)
-		if !ok {
-			return nil, errors.New("as([]int32) root[i] was not float64")
-		}
-		out[i] = int32(elem)
-	}
-	return out, nil
-}
-
-func asSliceSliceInt32(root interface{}) ([][]int32, error) {
-	xs, ok := root.([]interface{})
-	if !ok {
-		return nil, errors.New("as([][]int32) root was not []interface{}")
-	}
-	out := make([][]int32, len(xs))
-	for i, x := range xs {
-		y, err := asSliceInt32(x)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = y
-	}
-	return out, nil
-}
-
 func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
-	doc, ok := c.manifest["line-numbers"]
-	if !ok {
-		qctx := ctx.Value("queryctx").(*queryContext)
-		pid  := qctx.pid
-		log.Printf(
-			"pid=%s %s/manifest.json broken; no dimensions",
-			pid,
-			string(c.id),
-		)
-		return nil, internal.NewInternalError()
-	}
-	linenos, err := asSliceSliceInt32(doc)
+	qctx := ctx.Value("queryctx").(*queryContext)
+	d, err := qctx.session.QueryManifest("/line-numbers")
 	if err != nil {
 		return nil, internal.NewInternalError()
 	}
-	return linenos, nil
+	var out [][]int32
+	err = json.Unmarshal(d, &out)
+	return out, err
 }
 
 /*
@@ -199,11 +161,6 @@ func getManifest(
 		}
 	}
 	return nil, err
-}
-
-func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
-	err = json.Unmarshal(doc, &m)
-	return
 }
 
 type sliceargs struct {
@@ -273,7 +230,7 @@ func (c *cube) basicSlice(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := c.root.sched.MakeQuery(&msg)
+	query, err := queryctx.session.PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
@@ -355,7 +312,7 @@ func (c *cube) basicCurtain(
 		Args:            args,
 		Opts:            opts,
 	}
-	query, err := c.root.sched.MakeQuery(&msg)
+	query, err := queryctx.session.PlanQuery(&msg)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, nil
@@ -430,6 +387,10 @@ type Cube {
 	s := graphql.MustParseSchema(schema, resolver)
 	return &gql {
 		schema: s,
+		queryEngine: QueryEngine {
+			tasksize: 10,
+			pool: DefaultQueryEnginePool(),
+		},
 	}
 }
 
@@ -515,10 +476,16 @@ func (g *gql) execQuery(
 	opName string,
 	variables map[string]interface{},
 ) *graphql.Response {
+	// The Query object is constructed here in order to have a single
+	// entry/exit point for the QuerySession objects, to make sure they get put
+	// back in the pool.
+	session := g.queryEngine.Get()
+	defer g.queryEngine.Put(session)
 	qctx := queryContext {
 		pid: ctx.GetString("pid"),
 		authorization: ctx.GetHeader("Authorization"),
 		urlQuery: ctx.Request.URL.RawQuery,
+		session: session,
 	}
 	c := context.WithValue(ctx, "queryctx", &qctx)
 	return g.schema.Exec(c, query, opName, variables)

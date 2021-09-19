@@ -2,6 +2,7 @@
 #define ONESEISMIC_PLAN_HPP
 
 #include <exception>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -40,7 +41,27 @@ struct taskset {
     }
 };
 
-taskset mkschedule( const char* doc, int len, int task_size) noexcept (false);
+class session {
+public:
+    session();
+    session(session&&);
+    session(const session&) = delete;
+    session& operator = (session&&);
+    ~session();
+
+    void init(const char* doc, int len) noexcept (false);
+    taskset plan_query(
+        const char* doc,
+        int len,
+        int task_size)
+    noexcept (false);
+
+    std::string query_manifest(const std::string& path) noexcept (false);
+
+private:
+    class impl;
+    std::unique_ptr< impl > self;
+};
 
 }
 

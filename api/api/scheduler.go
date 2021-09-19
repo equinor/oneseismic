@@ -1,11 +1,5 @@
 package api
 
-// #cgo LDFLAGS: -loneseismic
-// #include <stdlib.h>
-// #include "scheduler.h"
-import "C"
-import "unsafe"
-
 /*
  * This module implements the go-interface to the scheduler module. The
  * scheduler module is access through cgo, but it conceptually be a separate
@@ -22,31 +16,10 @@ import(
 	"time"
 
 	"github.com/go-redis/redis/v8"
-
-	"github.com/equinor/oneseismic/api/internal/message"
 )
 
 type cppscheduler struct {
-	tasksize int
 	storage  redis.Cmdable
-}
-
-type QueryPlan struct {
-	header []byte
-	plan   [][]byte
-}
-
-type QueryError struct {
-	msg    string
-	status int
-}
-
-func (qe *QueryError) Error() string {
-	return qe.msg
-}
-
-func (qe *QueryError) Status() int {
-	return qe.status
 }
 
 /*
@@ -56,51 +29,13 @@ func (qe *QueryError) Status() int {
  * for now.
  */
 type scheduler interface {
-	MakeQuery(*message.Query) (*QueryPlan, error)
 	Schedule(context.Context, string, *QueryPlan) error
 }
 
 func newScheduler(storage redis.Cmdable) scheduler {
 	return &cppscheduler{
 		storage:  storage,
-		tasksize: 10,
 	}
-}
-
-func (sched *cppscheduler) MakeQuery(query *message.Query) (*QueryPlan, error) {
-	msg, err := query.Pack()
-	if err != nil {
-		return nil, fmt.Errorf("pack error: %w", err)
-	}
-	// TODO: exhaustive error check including those from C++ exceptions
-	csched := C.mkschedule(
-		(*C.char)(unsafe.Pointer(&msg[0])),
-		C.int(len(msg)),
-		C.int(sched.tasksize),
-	)
-	defer C.cleanup(&csched)
-	if csched.err != nil {
-		return nil, &QueryError {
-			msg: C.GoString(csched.err),
-			status: int(csched.status_code),
-		}
-	}
-
-	ntasks := int(csched.len)
-	result := make([][]byte, 0, ntasks)
-	sizes  := (*[1 << 30]C.int)(unsafe.Pointer(csched.sizes))[:ntasks:ntasks]
-
-	this := uintptr(unsafe.Pointer(csched.tasks))
-	for _, size := range sizes {
-		result = append(result, C.GoBytes(unsafe.Pointer(this), size))
-		this += uintptr(size)
-	}
-
-	headerindex := len(result) - 1
-	return &QueryPlan {
-		header: result[headerindex],
-		plan:   result[:headerindex],
-	}, nil
 }
 
 func (sched *cppscheduler) Schedule(

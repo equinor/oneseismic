@@ -1,5 +1,5 @@
-#ifndef ONESEISMIC_CGO_SLICE_H
-#define ONESEISMIC_CGO_SLICE_H
+#ifndef ONESEISMIC_CGO_QUERY_H
+#define ONESEISMIC_CGO_QUERY_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,21 +11,6 @@ struct plan {
      * is the only correct way to determine if the function succeeded or not.
      */
     const char* err;
-    /*
-     * HTTP status code hint. This is really only meaningful when err is not
-     * null, in order to return a more accurate status code to the caller.
-     *
-     * The status code should be considered a hint, and not definite - if the
-     * scheduler/query planner has more information, it is free to not respect
-     * the status_code here.
-     *
-     * The status_code may not always be set, even if err is not null, and
-     * callers should have a fallback path should this be zero or an invalid
-     * HTTP status code.
-     *
-     * If the status code is not explicitly set, it defaults to zero.
-     */
-    int status_code;
 
     /*
      * The number of task groups/chunks in this plan, including the header.
@@ -50,10 +35,34 @@ struct plan {
     char* tasks;
 };
 
-struct plan mkschedule(const char* doc, int len, int task_size);
-void cleanup(struct plan*);
+struct query_result {
+    char* err;
+    /*
+     * The body is the already json-encoded response. Accessing this if err is
+     * set is undefined behaviour.
+     */
+    char* body;
+    int size;
+};
+
+void plan_delete(struct plan*);
+void query_result_delete(struct query_result*);
+
+struct session;
+struct session* session_new();
+const char* session_init(struct session*, const char* doc, int len);
+struct plan session_plan_query(
+    struct session*,
+    const char* doc,
+    int len,
+    int task_size);
+
+struct query_result session_query_manifest(
+    struct session*,
+    const char* path,
+    int len);
 
 #ifdef __cplusplus
 }
 #endif //__cplusplus
-#endif //ONESEISMIC_CGO_SLICE_H
+#endif //ONESEISMIC_CGO_QUERY_H
