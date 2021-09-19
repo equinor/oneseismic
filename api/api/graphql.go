@@ -44,6 +44,14 @@ func getQueryContext(ctx context.Context) *queryContext {
 	return ctx.Value("queryctx").(*queryContext)
 }
 
+/*
+ * Stupid helper to set the query context on any context. It is mostly to make
+ * sure that the names always match, and that tests are less effort setting up.
+ */
+func setQueryContext(ctx context.Context, qctx *queryContext) context.Context {
+	return context.WithValue(ctx, "queryctx", qctx)
+}
+
 type gql struct {
 	schema *graphql.Schema
 	queryEngine QueryEngine
@@ -508,6 +516,6 @@ func (g *gql) execQuery(
 		urlQuery: ctx.Request.URL.RawQuery,
 		session: session,
 	}
-	c := context.WithValue(ctx, "queryctx", &qctx)
+	c := setQueryContext(ctx, &qctx)
 	return g.schema.Exec(c, query, opName, variables)
 }
