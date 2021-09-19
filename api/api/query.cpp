@@ -2,15 +2,49 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <new>
 #include <numeric>
 #include <string>
 
 #include <oneseismic/plan.hpp>
 
-plan mkschedule(const char* doc, int len, int task_size) try {
-    const auto taskset = one::mkschedule(doc, len, task_size);
+void cleanup(plan* p) {
+    if (!p) return;
+
+    delete[] p->err;
+    delete[] p->sizes;
+    delete[] p->tasks;
+    *p = plan {};
+}
+
+struct session : public one::session {};
+
+session* session_new() {
+    return new (std::nothrow) session;
+}
+
+const char* session_init(session* self, const char* doc, int len) {
+    try {
+        self->init(doc, len);
+        return nullptr;
+    } catch (std::exception& e) {
+        // using malloc is important; the str will be free'd by go
+        char* msg = (char*)std::malloc(std::strlen(e.what()) + 1);
+        std::strcpy(msg, e.what());
+        return msg;
+    }
+}
+
+plan session_plan_query(
+    session* self,
+    const char* doc,
+    int len,
+    int task_size)
+try {
+    const auto taskset = self->plan_query(doc, len, task_size);
     if (taskset.empty()) {
         throw one::bad_message("task-set should not be empty");
     }
@@ -28,13 +62,4 @@ plan mkschedule(const char* doc, int len, int task_size) try {
     std::strcpy(err, e.what());
     p.err = err;
     return p;
-}
-
-void cleanup(plan* p) {
-    if (!p) return;
-
-    delete[] p->err;
-    delete[] p->sizes;
-    delete[] p->tasks;
-    *p = plan {};
 }

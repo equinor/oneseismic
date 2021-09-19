@@ -40,13 +40,20 @@ type QueryEngine struct {
  * buffers etc.
  */
 type QuerySession struct {
+	csession *C.struct_session
 	tasksize int
+}
+
+func NewQuerySession() *QuerySession {
+	return &QuerySession{
+		csession: C.session_new(),
+	}
 }
 
 func DefaultQueryEnginePool() sync.Pool {
 	return sync.Pool {
 		New: func() interface{} {
-			return &QuerySession {}
+			return NewQuerySession()
 		},
 	}
 }
@@ -61,13 +68,29 @@ func (qe *QueryEngine) Put(q *QuerySession) {
 	qe.pool.Put(q)
 }
 
+func (q *QuerySession) InitWithManifest(doc []byte) error {
+	cdoc := (*C.char)(unsafe.Pointer(&doc[0]))
+	clen := C.int(len(doc))
+	err := C.session_init(q.csession, cdoc, clen)
+	if err != nil {
+		defer C.free(unsafe.Pointer(err))
+		errstr := C.GoString(err)
+		// TODO: parse string (split-on-:) and map to error class
+		return fmt.Errorf("Unable to init session. %v", errstr)
+	}
+
+	return nil
+}
+
 func (q *QuerySession) PlanQuery(query *message.Query) (*QueryPlan, error) {
 	msg, err := query.Pack()
 	if err != nil {
 		return nil, fmt.Errorf("pack error: %w", err)
 	}
+
 	// TODO: exhaustive error check including those from C++ exceptions
-	csched := C.mkschedule(
+	csched := C.session_plan_query(
+		q.csession,
 		(*C.char)(unsafe.Pointer(&msg[0])),
 		C.int(len(msg)),
 		C.int(q.tasksize),

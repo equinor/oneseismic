@@ -553,7 +553,35 @@ noexcept (false) {
 
 }
 
-taskset mkschedule(const char* doc, int len, int task_size) noexcept (false) {
+class session::impl {
+public:
+    void init(const char* doc, int len) noexcept (false);
+    taskset plan_query(
+        const char* doc,
+        int len,
+        int task_size)
+    noexcept (false);
+
+    std::string query_manifest(const std::string& path) noexcept (false);
+
+private:
+    nlohmann::json manifest;
+};
+
+session::session() : self(std::make_unique<impl>()) {}
+session::session(session&&) = default;
+session& session::operator = (session&&) = default;
+session::~session() = default;
+
+void session::impl::init(const char* doc, int len) noexcept (false) {
+    this->manifest = nlohmann::json::parse(doc, doc + len);
+}
+
+taskset session::impl::plan_query(
+    const char* doc,
+    int len,
+    int task_size)
+noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
     /*
      * Right now, only format-version: 1 is supported, but checking the format
@@ -581,6 +609,14 @@ taskset mkschedule(const char* doc, int len, int task_size) noexcept (false) {
         return schedule(q, doc, len, task_size);
     }
     throw std::logic_error("No handler for function " + function);
+}
+
+void session::init(const char* doc, int len) noexcept (false) {
+    self->init(doc, len);
+}
+
+taskset session::plan_query(const char* doc, int len, int task_size) {
+    return self->plan_query(doc, len, task_size);
 }
 
 }

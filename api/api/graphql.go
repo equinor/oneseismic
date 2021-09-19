@@ -85,6 +85,12 @@ func (r *resolver) Cube(
 		return nil, err
 	}
 
+	err = keys["session"].(*QuerySession).InitWithManifest(doc)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return nil, errors.New("Internal error")
+	}
+
 	manifest, err := manifestAsMap(doc)
 	if err != nil {
 		log.Printf("pid=%s %v", pid, err)

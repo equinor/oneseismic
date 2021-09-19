@@ -35,8 +35,16 @@ struct plan {
     char* tasks;
 };
 
-struct plan mkschedule(const char* doc, int len, int task_size);
 void cleanup(struct plan*);
+
+struct session;
+struct session* session_new();
+const char* session_init(struct session*, const char* doc, int len);
+struct plan session_plan_query(
+    struct session*,
+    const char* doc,
+    int len,
+    int task_size);
 
 #ifdef __cplusplus
 }
