@@ -20,7 +20,7 @@ type Query struct {
 	Token           string       `json:"token"`
 	UrlQuery        string       `json:"url-query"`
 	Guid            string       `json:"guid"`
-	Manifest        interface {} `json:"manifest"`
+	Manifest        json.RawMessage `json:"manifest"`
 	StorageEndpoint string       `json:"storage_endpoint"`
 	Function        string       `json:"function"`
 	Args            interface {} `json:"args"`

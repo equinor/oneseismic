@@ -30,7 +30,7 @@ type resolver struct {
 type cube struct {
 	id       graphql.ID
 	root     *resolver
-	manifest map[string]interface{}
+	manifest json.RawMessage
 }
 
 type promise struct {
@@ -91,16 +91,10 @@ func (r *resolver) Cube(
 		return nil, errors.New("Internal error")
 	}
 
-	manifest, err := manifestAsMap(doc)
-	if err != nil {
-		log.Printf("pid=%s %v", pid, err)
-		return nil, err
-	}
-
 	return &cube {
 		id:       args.Id,
 		root:     r,
-		manifest: manifest,
+		manifest: doc,
 	}, nil
 }
 
@@ -152,11 +146,6 @@ func getManifest(
 		return nil, err
 	}
 	return manifest, nil
-}
-
-func manifestAsMap(doc []byte) (m map[string]interface{}, err error) {
-	err = json.Unmarshal(doc, &m)
-	return
 }
 
 type sliceargs struct {
