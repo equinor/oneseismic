@@ -108,55 +108,15 @@ func (c *cube) Id() graphql.ID {
 	return c.id
 }
 
-func asSliceInt32(root interface{}) ([]int32, error) {
-	xs, ok := root.([]interface{})
-	if !ok {
-		return nil, errors.New("as([]int32) root was not []interface{}")
-	}
-	out := make([]int32, len(xs))
-	for i, x := range xs {
-		elem, ok := x.(float64)
-		if !ok {
-			return nil, errors.New("as([]int32) root[i] was not float64")
-		}
-		out[i] = int32(elem)
-	}
-	return out, nil
-}
-
-func asSliceSliceInt32(root interface{}) ([][]int32, error) {
-	xs, ok := root.([]interface{})
-	if !ok {
-		return nil, errors.New("as([][]int32) root was not []interface{}")
-	}
-	out := make([][]int32, len(xs))
-	for i, x := range xs {
-		y, err := asSliceInt32(x)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = y
-	}
-	return out, nil
-}
-
 func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
-	doc, ok := c.manifest["line-numbers"]
-	if !ok {
-		keys := ctx.Value("keys").(map[string]interface{})
-		pid  := keys["pid"].(string)
-		log.Printf(
-			"pid=%s %s/manifest.json broken; no dimensions",
-			pid,
-			string(c.id),
-		)
-		return nil, errors.New("internal error; bad document")
-	}
-	linenos, err := asSliceSliceInt32(doc)
+	keys := ctx.Value("keys").(map[string]interface{})
+	d, err := keys["session"].(*QuerySession).QueryManifest("/line-numbers")
 	if err != nil {
-		return nil, errors.New("internal error; bad document")
+		return nil, err
 	}
-	return linenos, nil
+	var out [][]int32
+	err = json.Unmarshal(d, &out)
+	return out, err
 }
 
 /*
