@@ -135,6 +135,8 @@ func (q *QuerySession) PlanQuery(query *message.Query) (*QueryPlan, error) {
  * course outrageous, but it can work until the upstream graphql support can
  * handle json.rawmessage or similar.
  *
+ * Key misses return an empty document.
+ *
  * [1] https://rapidjson.org/md_doc_pointer.html
  */
 func (q *QuerySession) QueryManifest(path string) (json.RawMessage, error) {

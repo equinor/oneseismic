@@ -615,7 +615,11 @@ noexcept (false) {
 std::string session::query_manifest(const std::string& path)
 noexcept (false) {
     nlohmann::json::json_pointer ptr(path);
-    return self->document[ptr].dump();
+    try {
+        return self->document.at(ptr).dump();
+    } catch (nlohmann::json::out_of_range) {
+        return std::string();
+    }
 }
 
 }
