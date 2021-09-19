@@ -555,16 +555,6 @@ noexcept (false) {
 
 class session::impl {
 public:
-    void init(const char* doc, int len) noexcept (false);
-    taskset plan_query(
-        const char* doc,
-        int len,
-        int task_size)
-    noexcept (false);
-
-    std::string query_manifest(const std::string& path) noexcept (false);
-
-private:
     nlohmann::json manifest;
 };
 
@@ -573,14 +563,11 @@ session::session(session&&) = default;
 session& session::operator = (session&&) = default;
 session::~session() = default;
 
-void session::impl::init(const char* doc, int len) noexcept (false) {
-    this->manifest = nlohmann::json::parse(doc, doc + len);
+void session::init(const char* doc, int len) noexcept (false) {
+    self->manifest = nlohmann::json::parse(doc, doc + len);
 }
 
-taskset session::impl::plan_query(
-    const char* doc,
-    int len,
-    int task_size)
+taskset session::plan_query( const char* doc, int len, int task_size)
 noexcept (false) {
     const auto document = nlohmann::json::parse(doc, doc + len);
     /*
@@ -611,23 +598,10 @@ noexcept (false) {
     throw std::logic_error("No handler for function " + function);
 }
 
-std::string session::impl::query_manifest(const std::string& path)
-noexcept (false) {
-    nlohmann::json::json_pointer ptr(path);
-    return this->manifest[ptr].dump();
-}
-
-void session::init(const char* doc, int len) noexcept (false) {
-    self->init(doc, len);
-}
-
-taskset session::plan_query(const char* doc, int len, int task_size) {
-    return self->plan_query(doc, len, task_size);
-}
-
 std::string session::query_manifest(const std::string& path)
 noexcept (false) {
-    return self->query_manifest(path);
+    nlohmann::json::json_pointer ptr(path);
+    return self->manifest[ptr].dump();
 }
 
 }
