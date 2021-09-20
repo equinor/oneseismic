@@ -138,37 +138,69 @@ func (c *cube) Id() graphql.ID {
 	return c.id
 }
 
-func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
+func (c *cube) basicManifestQuery(
+	ctx context.Context,
+	path string,
+	out interface {},
+) error {
 	qctx := getQueryContext(ctx)
-	d, err := qctx.session.QueryManifest("/line-numbers")
+	d, err := qctx.session.QueryManifest(path)
 	if err != nil {
-		log.Printf("pid=%s, Linenumbers failed: %v", qctx.pid, err)
-		return nil, internal.NewInternalError()
+		log.Printf("pid=%s, %s failed: %v", qctx.pid, path, err)
+		return internal.NewInternalError()
 	}
+
 	if len(d) == 0 {
-		log.Printf(
-			"pid=%s, line-numbers not found in %s manifest",
-			qctx.pid,
-			c.id,
-		)
-		return nil, internal.InternalError("line-numbers not found")
+		/*
+		 * A key missing from the manifest is not an error (and if it is, it
+		 * must be handled by the caller). This makes the queries more robust
+		 * when properties are added to the manifest on new data and the old
+		 * data isn't updated yet. Some metadata might also not be applicable.
+		 */
+		return internal.NewNotFoundError()
 	}
+
+	err = json.Unmarshal(d, out)
+	if err != nil {
+		/*
+		 * This error should be *very* rare, and it means there is a mismatch
+		 * between the manifest content => C++ parse-and-lookup => output. This
+		 * should be investigated immediately.
+		 */
+		msg := "pid=%s, %s failed: unable to unmarshal %s to %T"
+		log.Printf(msg, qctx.pid, path, string(d), out)
+		return internal.NewInternalError()
+	}
+	return nil
+}
+
+func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 	var out [][]int32
-	err = json.Unmarshal(d, &out)
+	err := c.basicManifestQuery(ctx, "/line-numbers", &out)
+	if err == nil {
+		return out, nil
+	} else {
+		if _, ok := err.(*internal.NotFoundE); ok {
+			// If this is reached, something is very wrong. The query engine
+			// session init() should not succeed if the line numbers are
+			// missing, which means this resolver is not constructible. This
+			// should be debugged immediately.
+			pid := getQueryContext(ctx).pid
+			msg := "pid=%s, /line-numbers not found in %s manifest"
+			log.Printf(msg, pid, c.id)
+		}
+	}
 	return out, err
 }
 
 func (c *cube) FilenameOnUpload(ctx context.Context) (*string, error) {
-	qctx := getQueryContext(ctx)
-	d, err := qctx.session.QueryManifest("/upload-filename")
-	if err != nil {
-		return nil, internal.NewInternalError()
-	}
-	if len(d) == 0 {
-		return nil, nil
-	}
 	var out string
-	err = json.Unmarshal(d, &out)
+	err := c.basicManifestQuery(ctx, "/upload-filename", &out)
+	if err != nil {
+		if _, ok := err.(*internal.NotFoundE); ok {
+			return nil, nil
+		}
+	}
 	return &out, err
 }
 
