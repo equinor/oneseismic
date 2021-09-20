@@ -47,3 +47,14 @@ func QueryError(msg string) *QueryE {
 func (qe *QueryE) Error() string {
 	return qe.msg
 }
+
+type NotFoundE struct {
+}
+
+func NewNotFoundError() *NotFoundE {
+	return &NotFoundE{}
+}
+
+func (nf *NotFoundE) Error() string {
+	return "Not found"
+}
