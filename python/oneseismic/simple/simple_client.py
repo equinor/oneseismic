@@ -96,8 +96,11 @@ def prepared_query(client, gq, variables, *args, **kwargs):
         with transport_opts(client, params, headers) as gc:
             r = gc.execute(gq, variable_values = variables, *args, **kwargs)
             p = internal.procs_from_promises(r)
-            proc = next(internal.filter_procs(p))
-            return simple_result(proc, client.transport.url)
+            try:
+                proc = next(internal.filter_procs(p))
+                return simple_result(proc, client.transport.url)
+            except StopIteration:
+                return p
 
     return fn
 
@@ -146,6 +149,20 @@ class simple_client:
     def get_config(self):
         url = add_url_path(self.url, 'config')
         return requests.get(url).json()
+
+    def metadata(self, guid):
+        query = gql.gql('''
+            query metadata($id: ID!) {
+                cube(id: $id) {
+                    linenumbers
+                    filenameOnUpload
+                }
+            }
+        ''')
+        variables = {
+            'id': guid,
+        }
+        return prepared_query(self.client, query, variables)
 
     def sliceByIndex(self, guid, dim, index, attributes = None):
         """
