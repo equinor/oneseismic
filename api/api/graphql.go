@@ -215,6 +215,55 @@ func getManifest(
 	return nil, err
 }
 
+func (c *cube) basicQuery(
+	ctx  context.Context,
+	fun  string,
+	args interface{},
+	opts interface{},
+) (*promise, error) {
+	qctx := getQueryContext(ctx)
+	pid  := qctx.pid
+	msg  := message.Query {
+		Pid:             pid,
+		Token:           qctx.authorization,
+		UrlQuery:        qctx.urlQuery,
+		Guid:            string(c.id),
+		Manifest:        c.manifest,
+		StorageEndpoint: c.root.endpoint,
+		Function:        fun,
+		Args:            args,
+		Opts:            opts,
+	}
+	query, err := qctx.session.PlanQuery(&msg)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return nil, nil
+	}
+
+	key, err := c.root.keyring.Sign(pid)
+	if err != nil {
+		log.Printf("pid=%s, %v", pid, err)
+		return nil, internal.NewInternalError()
+	}
+
+	go func () {
+		err := c.root.sched.Schedule(context.Background(), pid, query)
+		if err != nil {
+			/*
+			 * Make scheduling errors fatal to detect them for debugging.
+			 * Eventually this should log, maybe cancel the process, and
+			 * continue.
+			 */
+			log.Fatalf("pid=%s, %v", pid, err)
+		}
+	}()
+
+	return &promise {
+		Url: fmt.Sprintf("result/%s", pid),
+		Key: key,
+	}, nil
+}
+
 type sliceargs struct {
 	Kind string `json:"kind"`
 	Dim  int32  `json:"dim"`
@@ -234,8 +283,9 @@ func (c *cube) SliceByLineno(
 		Opts   *opts
 	},
 ) (*promise, error) {
-	return c.basicSlice(
+	return c.basicQuery(
 		ctx,
+		"slice",
 		sliceargs {
 			Kind: "lineno",
 			Dim: args.Dim,
@@ -253,8 +303,9 @@ func (c *cube) SliceByIndex(
 		Opts   *opts
 	},
 ) (*promise, error) {
-	return c.basicSlice(
+	return c.basicQuery(
 		ctx,
+		"slice",
 		sliceargs {
 			Kind: "index",
 			Dim: args.Dim,
@@ -264,54 +315,6 @@ func (c *cube) SliceByIndex(
 	)
 }
 
-func (c *cube) basicSlice(
-	ctx  context.Context,
-	args sliceargs,
-	opts *opts,
-) (*promise, error) {
-	qctx := getQueryContext(ctx)
-	pid  := qctx.pid
-	msg  := message.Query {
-		Pid:             pid,
-		Token:           qctx.authorization,
-		UrlQuery:        qctx.urlQuery,
-		Guid:            string(c.id),
-		Manifest:        c.manifest,
-		StorageEndpoint: c.root.endpoint,
-		Function:        "slice",
-		Args:            args,
-		Opts:            opts,
-	}
-	query, err := qctx.session.PlanQuery(&msg)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
-	}
-
-	key, err := c.root.keyring.Sign(pid)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, internal.NewInternalError()
-	}
-
-	go func () {
-		err := c.root.sched.Schedule(context.Background(), pid, query)
-		if err != nil {
-			/*
-			 * Make scheduling errors fatal to detect them for debugging.
-			 * Eventually this should log, maybe cancel the process, and
-			 * continue.
-			 */
-			log.Fatalf("pid=%s, %v", pid, err)
-		}
-	}()
-
-	return &promise {
-		Url: fmt.Sprintf("result/%s", pid),
-		Key: key,
-	}, nil
-}
-
 func (c *cube) CurtainByIndex(
 	ctx    context.Context,
 	args   struct {
@@ -319,8 +322,9 @@ func (c *cube) CurtainByIndex(
 		Opts   *opts
 	},
 ) (*promise, error) {
-	return c.basicCurtain(
+	return c.basicQuery(
 		ctx,
+		"curtain",
 		curtainargs {
 			Kind: "index",
 			Coords: args.Coords,
@@ -336,62 +340,15 @@ func (c *cube) CurtainByLineno(
 		Opts   *opts
 	},
 ) (*promise, error) {
-	return c.basicCurtain(
+	return c.basicQuery(
 		ctx,
+		"curtain",
 		curtainargs {
 			Kind: "lineno",
 			Coords: args.Coords,
 		},
 		args.Opts,
 	)
-}
-
-func (c *cube) basicCurtain(
-	ctx    context.Context,
-	args   curtainargs,
-	opts   *opts,
-) (*promise, error) {
-	qctx := ctx.Value("queryctx").(*queryContext)
-	pid  := qctx.pid
-	msg  := message.Query {
-		Pid:             pid,
-		Token:           qctx.authorization,
-		UrlQuery:        qctx.urlQuery,
-		Guid:            string(c.id),
-		Manifest:        c.manifest,
-		StorageEndpoint: c.root.endpoint,
-		Function:        "curtain",
-		Args:            args,
-		Opts:            opts,
-	}
-	query, err := qctx.session.PlanQuery(&msg)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, nil
-	}
-
-	key, err := c.root.keyring.Sign(pid)
-	if err != nil {
-		log.Printf("pid=%s, %v", pid, err)
-		return nil, internal.NewInternalError()
-	}
-
-	go func () {
-		err := c.root.sched.Schedule(context.Background(), pid, query)
-		if err != nil {
-			/*
-			 * Make scheduling errors fatal to detect them for debugging.
-			 * Eventually this should log, maybe cancel the process, and
-			 * continue.
-			 */
-			log.Fatalf("pid=%s, %v", pid, err)
-		}
-	}()
-
-	return &promise {
-		Url: fmt.Sprintf("result/%s", pid),
-		Key: key,
-	}, nil
 }
 
 func MakeGraphQL(
