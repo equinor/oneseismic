@@ -18,8 +18,8 @@ import(
 	"github.com/go-redis/redis/v8"
 )
 
-type cppscheduler struct {
-	storage  redis.Cmdable
+type redisScheduler struct {
+	queue redis.Cmdable
 }
 
 /*
@@ -33,12 +33,12 @@ type scheduler interface {
 }
 
 func NewScheduler(storage redis.Cmdable) scheduler {
-	return &cppscheduler{
-		storage:  storage,
+	return &redisScheduler {
+		queue: storage,
 	}
 }
 
-func (sched *cppscheduler) Schedule(
+func (rs *redisScheduler) Schedule(
 	ctx  context.Context,
 	pid  string,
 	plan *QueryPlan,
@@ -48,7 +48,7 @@ func (sched *cppscheduler) Schedule(
 	 * well be split up into sub structs and functions which can then be
 	 * dependency-injected for some customisation and easier testing.
 	 */
-	sched.storage.Set(
+	rs.queue.Set(
 		ctx,
 		fmt.Sprintf("%s/header.json", pid),
 		plan.header,
@@ -67,7 +67,7 @@ func (sched *cppscheduler) Schedule(
 			"task", task,
 		}
 		args := redis.XAddArgs{Stream: "jobs", Values: values}
-		_, err := sched.storage.XAdd(ctx, &args).Result()
+		_, err := rs.queue.XAdd(ctx, &args).Result()
 		if err != nil {
 			msg := "part=%v unable to put in storage; %w"
 			return fmt.Errorf(msg, part, err)
