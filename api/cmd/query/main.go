@@ -130,7 +130,8 @@ func main() {
 			DB: 0,
 		},
 	)
-	gql := api.MakeGraphQL(&keyring, opts.storageURL, cmdable)
+	scheduler := api.NewScheduler(cmdable)
+	gql := api.MakeGraphQL(&keyring, opts.storageURL, scheduler)
 	result := api.Result {
 		Timeout: time.Second * 15,
 		StorageURL: opts.storageURL,
