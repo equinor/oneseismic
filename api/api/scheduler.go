@@ -49,11 +49,6 @@ func (rs *redisScheduler) Schedule(
 	pid  string,
 	plan *QueryPlan,
 ) error {
-	/*
-	 * TODO: This mixes I/O with parsing and building the plan. This could very
-	 * well be split up into sub structs and functions which can then be
-	 * dependency-injected for some customisation and easier testing.
-	 */
 	rs.queue.Set(
 		ctx,
 		fmt.Sprintf("%s/header.json", pid),
