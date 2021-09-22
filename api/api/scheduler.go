@@ -65,6 +65,7 @@ func (rs *redisScheduler) Schedule(
 		"part", nil,
 		"task", nil,
 	}
+	args := &redis.XAddArgs{Stream: "jobs", Values: values}
 	ntasks := len(plan.plan)
 	for i, task := range plan.plan {
 		if ctx.Err() != nil {
@@ -74,8 +75,7 @@ func (rs *redisScheduler) Schedule(
 		part := fmt.Sprintf("%d/%d", i, ntasks)
 		values[3] = part
 		values[5] = task
-		args := redis.XAddArgs{Stream: "jobs", Values: values}
-		_, err := rs.queue.XAdd(ctx, &args).Result()
+		_, err := rs.queue.XAdd(ctx, args).Result()
 		if err != nil {
 			msg := "pid=%s, part=%v, unable to schedule: %w"
 			return fmt.Errorf(msg, part, err)
