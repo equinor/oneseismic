@@ -54,6 +54,11 @@ func (rs *redisScheduler) Schedule(
 		plan.header,
 		10 * time.Minute,
 	)
+	values := []interface{} {
+		"pid",  pid,
+		"part", nil,
+		"task", nil,
+	}
 	ntasks := len(plan.plan)
 	for i, task := range plan.plan {
 		if ctx.Err() != nil {
@@ -61,11 +66,8 @@ func (rs *redisScheduler) Schedule(
 		}
 
 		part := fmt.Sprintf("%d/%d", i, ntasks)
-		values := []interface{} {
-			"pid",  pid,
-			"part", part,
-			"task", task,
-		}
+		values[3] = part
+		values[5] = task
 		args := redis.XAddArgs{Stream: "jobs", Values: values}
 		_, err := rs.queue.XAdd(ctx, &args).Result()
 		if err != nil {
