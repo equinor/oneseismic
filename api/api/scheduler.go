@@ -77,7 +77,7 @@ func (rs *redisScheduler) Schedule(
 		args := redis.XAddArgs{Stream: "jobs", Values: values}
 		_, err := rs.queue.XAdd(ctx, &args).Result()
 		if err != nil {
-			msg := "part=%v unable to put in storage; %w"
+			msg := "pid=%s, part=%v, unable to schedule: %w"
 			return fmt.Errorf(msg, part, err)
 		}
 	}
