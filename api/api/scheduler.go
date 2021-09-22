@@ -20,6 +20,11 @@ import(
 
 type redisScheduler struct {
 	queue redis.Cmdable
+	/*
+	 * Time-to-live for the response, i.e. after this duration results will be
+	 * cleaned up
+	 */
+	ttl   time.Duration
 }
 
 /*
@@ -35,6 +40,7 @@ type scheduler interface {
 func NewScheduler(storage redis.Cmdable) scheduler {
 	return &redisScheduler {
 		queue: storage,
+		ttl:   10 * time.Minute,
 	}
 }
 
@@ -52,7 +58,7 @@ func (rs *redisScheduler) Schedule(
 		ctx,
 		fmt.Sprintf("%s/header.json", pid),
 		plan.header,
-		10 * time.Minute,
+		rs.ttl,
 	)
 	values := []interface{} {
 		"pid",  pid,
