@@ -32,7 +32,7 @@ type scheduler interface {
 	Schedule(context.Context, string, *QueryPlan) error
 }
 
-func newScheduler(storage redis.Cmdable) scheduler {
+func NewScheduler(storage redis.Cmdable) scheduler {
 	return &cppscheduler{
 		storage:  storage,
 	}

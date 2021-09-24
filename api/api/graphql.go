@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/go-redis/redis/v8"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
@@ -34,6 +33,9 @@ type queryContext struct {
 	authorization string
 	urlQuery      string
 	session       *QuerySession
+	endpoint      string
+	keyring       *auth.Keyring
+	scheduler     scheduler
 }
 
 /*
@@ -55,14 +57,16 @@ func setQueryContext(ctx context.Context, qctx *queryContext) context.Context {
 type gql struct {
 	schema *graphql.Schema
 	queryEngine QueryEngine
+	endpoint  string // e.g. https://oneseismic-storage.blob.windows.net
+	keyring   *auth.Keyring
+	scheduler scheduler
 }
 
 type resolver struct {
-	BasicEndpoint
 }
+
 type cube struct {
 	id       graphql.ID
-	root     *resolver
 	manifest json.RawMessage
 }
 
@@ -95,13 +99,14 @@ func (r *resolver) Cube(
 ) (*cube, error) {
 	qctx := getQueryContext(ctx)
 	pid  := qctx.pid
-	urls := fmt.Sprintf("%s/%s",  r.endpoint, args.Id)
+	urls := fmt.Sprintf("%s/%s", qctx.endpoint, args.Id)
+	log.Printf("Getting URL %s", urls)
 	url, err := url.Parse(urls)
 	if err != nil {
 		log.Printf(
 			"pid=%s, failed to parse URL; endpoint=%s, id=%s, error=%v",
 			pid,
-			r.endpoint,
+			qctx.endpoint,
 			args.Id,
 			err,
 		)
@@ -129,7 +134,6 @@ func (r *resolver) Cube(
 
 	return &cube {
 		id:       args.Id,
-		root:     r,
 		manifest: doc,
 	}, nil
 }
@@ -261,7 +265,7 @@ func (c *cube) basicQuery(
 		UrlQuery:        qctx.urlQuery,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
-		StorageEndpoint: c.root.endpoint,
+		StorageEndpoint: qctx.endpoint,
 		Function:        fun,
 		Args:            args,
 		Opts:            opts,
@@ -272,14 +276,14 @@ func (c *cube) basicQuery(
 		return nil, nil
 	}
 
-	key, err := c.root.keyring.Sign(pid)
+	key, err := qctx.keyring.Sign(pid)
 	if err != nil {
 		log.Printf("pid=%s, %v", pid, err)
 		return nil, internal.NewInternalError()
 	}
 
-	go func () {
-		err := c.root.sched.Schedule(context.Background(), pid, query)
+	go func (s scheduler) {
+		err := s.Schedule(context.Background(), pid, query)
 		if err != nil {
 			/*
 			 * Make scheduling errors fatal to detect them for debugging.
@@ -288,7 +292,7 @@ func (c *cube) basicQuery(
 			 */
 			log.Fatalf("pid=%s, %v", pid, err)
 		}
-	}()
+	}(qctx.scheduler)
 
 	return &promise {
 		Url: fmt.Sprintf("result/%s", pid),
@@ -384,9 +388,9 @@ func (c *cube) CurtainByLineno(
 }
 
 func MakeGraphQL(
-	keyring  *auth.Keyring,
-	endpoint string,
-	storage  redis.Cmdable,
+	keyring   *auth.Keyring,
+	endpoint  string,
+	scheduler scheduler,
 ) *gql {
 	schema := `
 scalar Promise
@@ -417,15 +421,7 @@ type Cube {
     curtainByIndex( coords: [[Int!]!]!, opts: Opts): Promise
 }
 	`
-	resolver := &resolver {
-		MakeBasicEndpoint(
-			keyring,
-			endpoint,
-			storage,
-		),
-	}
-
-
+	resolver := &resolver {}
 	s := graphql.MustParseSchema(schema, resolver)
 	return &gql {
 		schema: s,
@@ -433,6 +429,9 @@ type Cube {
 			tasksize: 10,
 			pool: DefaultQueryEnginePool(),
 		},
+		endpoint:  endpoint,
+		keyring:   keyring,
+		scheduler: scheduler,
 	}
 }
 
@@ -526,8 +525,11 @@ func (g *gql) execQuery(
 	qctx := queryContext {
 		pid: ctx.GetString("pid"),
 		authorization: ctx.GetHeader("Authorization"),
-		urlQuery: ctx.Request.URL.RawQuery,
-		session: session,
+		urlQuery:  ctx.Request.URL.RawQuery,
+		session:   session,
+		endpoint:  g.endpoint,
+		keyring:   g.keyring,
+		scheduler: g.scheduler,
 	}
 	c := setQueryContext(ctx, &qctx)
 	return g.schema.Exec(c, query, opName, variables)
