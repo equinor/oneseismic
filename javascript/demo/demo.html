@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <script>
+    var Module = {
+      onRuntimeInitialized: function() {
+          fetch("http://host:port/result/<pid>/stream", {
+              headers: {
+                  'Authorization': 'Bearer <token>'
+              }
+         })
+        .then(response => response.arrayBuffer())
+        .then(function (chunk) {
+              console.log(chunk);
+              let dec = Module.stream_decoder();
+              var x = dec(chunk);
+              x = dec(null);
+              const a = x[1]['data']['data'];
+              console.log(a.reduce((acc, v) => acc +v ));
+        })
+      }
+    };
+  </script>
+  <script src="oneseismic.js"></script>
+</html>
+
