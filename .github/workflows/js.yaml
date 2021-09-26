@@ -1,0 +1,33 @@
+name: javascript
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Test on node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [15.x]
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Build oneseismic/emscripten image
+        run: docker build -t oneseismic/emscripten - < javascript/emscripten.dockerfile
+      - name: Build js library
+        run: >
+            docker run -v $(pwd):/src oneseismic/emscripten
+            javascript/build.sh /src/js
+            -DONESEISMIC_MODULARIZE=ON
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+      - name: Run tests
+        working-directory: javascript/tests/
+        env:
+          NODE_PATH: ${{ github.workspace}}/js/javascript/
+        run: node streaming.js

@@ -3,6 +3,7 @@
 set -xe
 
 BUILD_DIR="$1"
+shift
 
 emcmake cmake \
     -S core/ -B $BUILD_DIR/core/ \
@@ -22,6 +23,7 @@ emcmake cmake \
     -DCMAKE_CXX_FLAGS=-I/msgpack \
     -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=1 \
     -DCMAKE_TOOLCHAIN_FILE=/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake \
+    "$@" \
 
 pushd $BUILD_DIR/javascript
 emmake make
