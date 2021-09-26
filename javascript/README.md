@@ -34,3 +34,9 @@ browser javascript.
 
 Please note that you libraries probably should be built modularized for
 node.js.
+
+# Tests and test-data
+Test-data includes stored binary messages, to avoid bringing up a bunch of
+infrastructure and to make the tests fast & robust to run. This may lead to
+some churn and repo ballooning since message formats can get outdated fast, so
+a better long-term strategy is necessary.
