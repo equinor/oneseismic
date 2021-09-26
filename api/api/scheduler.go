@@ -49,12 +49,15 @@ func (rs *redisScheduler) Schedule(
 	pid  string,
 	plan *QueryPlan,
 ) error {
-	rs.queue.Set(
+	err := rs.queue.Set(
 		ctx,
 		fmt.Sprintf("%s/header.json", pid),
 		plan.header,
 		rs.ttl,
-	)
+	).Err()
+	if err != nil {
+		return err
+	}
 	values := []interface{} {
 		"pid",  pid,
 		"part", nil,
