@@ -76,7 +76,7 @@ func (rs *redisScheduler) Schedule(
 		_, err := rs.queue.XAdd(ctx, args).Result()
 		if err != nil {
 			msg := "pid=%s, part=%v, unable to schedule: %w"
-			return fmt.Errorf(msg, part, err)
+			return fmt.Errorf(msg, pid, part, err)
 		}
 	}
 	return nil
