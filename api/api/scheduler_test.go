@@ -87,5 +87,5 @@ func TestErrorOnDisconnectedClient(t *testing.T) {
 	s   := NewScheduler(dcd)
 	qp  := &QueryPlan{plan: make([][]byte, 2)}
 	err := s.Schedule(context.Background(), "<pid>", qp)
-	assert.Error(t, nil, "Scheduling on disconnected redis did not fail")
+	assert.Error(t, err, "Scheduling on disconnected redis did not fail")
 }
