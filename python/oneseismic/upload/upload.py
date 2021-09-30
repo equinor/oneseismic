@@ -242,11 +242,16 @@ class cdpset(fileset):
         },
 
 class dataset(fileset):
-    def __init__(self, format, *args, **kwargs):
+    def __init__(self, format, endian, *args, **kwargs):
         self.format = format
+        self.endian = endian
         super().__init__(*args, **kwargs)
 
     def extract(self, trace):
+        # segyio.tools.native assumes MSB (big endian) and will always byteswap
+        # on LSB hosts. This effectively means a double byteswap for LSB data
+        # on LSB hosts.
+        if self.endian == 'little': trace.byteswap(inplace=True)
         return native(trace['samples'], format = self.format, copy=False)
 
 def upload(manifest, shape, src, origfname, filesys):
@@ -290,9 +295,11 @@ def upload(manifest, shape, src, origfname, filesys):
         ('samples', 'f4', len(key3s)),
     ])
     trace = np.array(1, dtype = dtype)
-    fmt = manifest['format']
 
-    files = [dataset(fmt, key1s, key2s, key3s, shape, prefix = 'src')]
+    fmt    = manifest['format']
+    endian = manifest['byteorder']
+
+    files = [dataset(fmt, endian, key1s, key2s, key3s, shape, prefix = 'src')]
     files.extend([
         cdpset(
             segyio.su.cdpx,
