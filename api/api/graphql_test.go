@@ -63,6 +63,96 @@ func TestLinenumbersReturnsExpected(t *testing.T) {
 	}
 }
 
+func TestSampleValueMinMaxSucceeds(t *testing.T) {
+	doc := `{
+		"format-version": 1,
+		"guid": "<some-id>",
+		"data": [{
+				"file-extension": "f32",
+				"filters": [],
+				"shapes": [[3, 3, 3]],
+				"prefix": "src",
+				"resolution": "source"
+			}],
+		"attributes": [],
+		"line-numbers": [
+				[9961, 9963, 9965],
+				[1961, 1962, 1963],
+				[0, 4000, 8000]
+			],
+		"sample-value-min" : 1.2100000381469727,
+		"sample-value-max" : 5.240489959716797,
+		"line-labels": ["inline", "crossline", "time"]
+	} `
+	qctx := queryContext {
+		session: setupSession(t, doc),
+	}
+	ctx := setQueryContext(context.Background(), &qctx)
+	c := cube {}
+
+	sampleValueMin, err := c.SampleValueMin(ctx)
+	expected := float64(1.2100000381469727)
+
+	if err != nil {
+		t.Errorf("expected success; got %v", err)
+	}
+	if !reflect.DeepEqual(*sampleValueMin, expected) {
+		t.Errorf("expected %v; got %v", expected, *sampleValueMin)
+	}
+
+	sampleValueMax, err := c.SampleValueMax(ctx)
+	expected = 5.240489959716797
+
+	if err != nil {
+		t.Errorf("expected success; got %v", err)
+	}
+	if *sampleValueMax != expected {
+		t.Errorf("expected %v; got %v", expected, *sampleValueMax)
+	}
+}
+
+func TestSampleValueMinMaxSucceedsOnKeyMiss(t *testing.T) {
+	doc := `{
+		"format-version": 1,
+		"guid": "<some-id>",
+		"data": [{
+				"file-extension": "f32",
+				"filters": [],
+				"shapes": [[3, 3, 3]],
+				"prefix": "src",
+				"resolution": "source"
+			}],
+		"attributes": [],
+		"line-numbers": [
+				[9961, 9963, 9965],
+				[1961, 1962, 1963],
+				[0, 4000, 8000]
+			],
+		"line-labels": ["inline", "crossline", "time"]
+	} `
+	qctx := queryContext {
+		session: setupSession(t, doc),
+	}
+	ctx := setQueryContext(context.Background(), &qctx)
+	c := cube {}
+
+	sampleValueMin, err := c.SampleValueMin(ctx)
+	if err != nil {
+		t.Errorf("expected success; got %v", err)
+	}
+	if sampleValueMin != nil {
+		t.Errorf("expected sample-value-min = <nil>; got %v", *sampleValueMin)
+	}
+
+	sampleValueMax, err := c.SampleValueMax(ctx)
+	if err != nil {
+		t.Errorf("expected success; got %v", err)
+	}
+	if sampleValueMax != nil {
+		t.Errorf("expected sample-value-max = <nil>; got %v", *sampleValueMax)
+	}
+}
+
 func TestFilenameOnUploadSucceedsOnKeyMiss(t *testing.T) {
 	doc := `{
 		"format-version": 1,

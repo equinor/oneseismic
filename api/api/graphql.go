@@ -197,6 +197,28 @@ func (c *cube) Linenumbers(ctx context.Context) ([][]int32, error) {
 	return out, err
 }
 
+func (c *cube) SampleValueMin(ctx context.Context) (*float64, error) {
+	var out float64
+	err := c.basicManifestQuery(ctx, "/sample-value-min", &out)
+	if err != nil {
+		if _, ok := err.(*internal.NotFoundE); ok {
+			return nil, nil
+		}
+	}
+	return &out, err
+}
+
+func (c *cube) SampleValueMax(ctx context.Context) (*float64, error) {
+	var out float64
+	err := c.basicManifestQuery(ctx, "/sample-value-max", &out)
+	if err != nil {
+		if _, ok := err.(*internal.NotFoundE); ok {
+			return nil, nil
+		}
+	}
+	return &out, err
+}
+
 func (c *cube) FilenameOnUpload(ctx context.Context) (*string, error) {
 	var out string
 	err := c.basicManifestQuery(ctx, "/upload-filename", &out)
@@ -413,6 +435,8 @@ type Cube {
     id: ID!
 
     linenumbers: [[Int!]!]!
+    sampleValueMin: Float
+    sampleValueMax: Float
     filenameOnUpload: String
 
     sliceByLineno(dim: Int!, lineno: Int!, opts: Opts): Promise
