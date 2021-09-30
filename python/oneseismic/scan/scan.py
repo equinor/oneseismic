@@ -5,6 +5,8 @@ import segyio
 import segyio._segyio
 import numpy as np
 
+from segyio.tools import native
+
 textheader_size = 3200
 binary_size = 400
 header_size = 240
@@ -230,6 +232,10 @@ class lineset(scanner):
         r['key1-last-trace'] = self.last1s
         r['key-words'] = [self.key1, self.key2]
         return r
+
+def tonative(trace, format, endian):
+    if endian == 'little': trace.byteswap(inplace=True)
+    return native(trace, format = format, copy = False)
 
 def scan(stream, action):
     """Scan a file and build an index from action
