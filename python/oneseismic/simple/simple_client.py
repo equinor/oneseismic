@@ -156,6 +156,8 @@ class simple_client:
                 cube(id: $id) {
                     linenumbers
                     filenameOnUpload
+                    sampleValueMin
+                    sampleValueMax
                 }
             }
         ''')
