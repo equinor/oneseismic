@@ -365,6 +365,8 @@ def upload(manifest, shape, src, origfname, filesys):
         'attributes': [],
         'line-numbers': [key1s, key2s, key3s],
         'line-labels': ['inline', 'crossline', zdomain],
+        'sample-value-min' : manifest['sample-value-min'],
+        'sample-value-max' : manifest['sample-value-max'],
     }
 
     for fset in files:

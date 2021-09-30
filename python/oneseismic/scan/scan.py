@@ -165,6 +165,31 @@ class scanner:
         if self.observed.get('sampleinterval', 0) == 0:
             self.observed['sampleinterval'] = intp.parse(header[segyio.su.dt])
 
+    def scan_trace(self, trace):
+        """Update metadata with trace information
+
+        Record statisical metadata from the trace samples. This information is
+        not strictly necessary, but it can be quite handy for applications to
+        have it easily accessable through the manifest. This method assumes
+        that the trace is parsed as native floats.
+
+        Parameters
+        ----------
+        trace : segyio.trace or array_like
+            array_like trace
+        """
+        trmin = float(np.amin(trace))
+        trmax = float(np.amax(trace))
+
+        prmin = self.observed.get('sample-value-min')
+        prmax = self.observed.get('sample-value-max')
+
+        if prmin is None or trmin < prmin:
+            self.observed['sample-value-min'] = trmin
+
+        if prmax is None or trmax > prmax:
+            self.observed['sample-value-max'] = trmax
+
     def tracelen(self):
         return self.observed['samples'] * format_size[self.observed['format']]
 
@@ -234,7 +259,7 @@ class lineset(scanner):
         return r
 
 def tonative(trace, format, endian):
-    if endian == 'little': trace.byteswap(inplace=True)
+    if endian == 'little': trace.byteswap(inplace = True)
     return native(trace, format = format, copy = False)
 
 def scan(stream, action):
@@ -266,22 +291,29 @@ def scan(stream, action):
     chunk = stream.read(header_size)
     header = segyio.field.Field(buf = chunk, kind = 'trace')
     action.add(header)
-    tracelen = action.tracelen()
+
+    tracelen  = action.tracelen()
+    tracesize = header_size + tracelen
+
     stream.seek(tracelen, io.SEEK_CUR)
 
     trace_count = 1
     while True:
-        chunk = stream.read(header_size)
+        chunk = stream.read(tracesize)
         if len(chunk) == 0:
             break
 
-        if len(chunk) != header_size:
+        if len(chunk) != tracesize :
             msg = 'file truncated at trace {}'.format(trace_count)
             raise RuntimeError(msg)
 
-        header = segyio.field.Field(buf = chunk, kind = 'trace')
+        header = segyio.field.Field(buf = chunk[:header_size], kind = 'trace')
         action.add(header)
-        stream.seek(tracelen, io.SEEK_CUR)
+
+        trace = np.frombuffer(chunk[header_size:])
+        trace = tonative(trace.copy(), action.observed['format'], action.endian)
+        action.scan_trace(trace)
+
         trace_count += 1
 
     return action.report()

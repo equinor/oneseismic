@@ -8,6 +8,8 @@ expected = {
     'format': 1,
     'samples': 50,
     'sampleinterval': 4000,
+    'sample-value-min' : 1.2100000381469727,
+    'sample-value-max' : 5.240489959716797,
     'byteoffset-first-trace': 3600,
     'guid': '86f5f8f783fabe2773531d5529226d37b6c9bdcf',
     'dimensions': [[1, 2, 3, 4, 5],
@@ -41,13 +43,14 @@ expected_il5_xl21 = expected.copy()
 expected_il5_xl21.update({
     'guid': '35368c1a2aec523c324ae1fd1fb42f1994f46fbe',
     'key-words': [5, 21],
+    'sample-value-min' : 0.037812501192092896,
+    'sample-value-max' : 0.6550612449645996
 })
 
-expected_il5_xl21_lsb = expected.copy()
+expected_il5_xl21_lsb = expected_il5_xl21.copy()
 expected_il5_xl21_lsb.update({
     'byteorder' : 'little',
     'guid': 'd3f1e9fa8b1ebaae26c55fa3e9beba0b4fe57287',
-    'key-words': [5, 21],
 })
 
 expected_2byte_keys = expected.copy()
