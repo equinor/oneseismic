@@ -18,6 +18,8 @@ small_manifest = '''
     "samples": 50,
     "sampleinterval": 4000,
     "byteoffset-first-trace": 3600,
+    "sample-value-min" : 1.2100000381469727,
+    "sample-value-max" : 5.240489959716797,
     "dimensions": [
         [1, 2, 3, 4, 5],
         [20, 21, 22, 23, 24],
@@ -59,6 +61,8 @@ def test_upload_manifest_all_keys(tmp_path):
     assert manifest['guid']             == guid
     assert manifest['line-numbers']     == meta['dimensions']
     assert manifest['line-labels']      == ['inline', 'crossline', 'time']
+    assert manifest['sample-value-min'] == 1.2100000381469727
+    assert manifest['sample-value-max'] == 5.240489959716797
 
 def test_upload_proper_volume_expected_fragment_ids(tmp_path):
     filesys = localfs(tmp_path)
