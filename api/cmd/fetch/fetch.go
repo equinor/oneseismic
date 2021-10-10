@@ -9,7 +9,6 @@ import "unsafe"
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"strings"
@@ -171,14 +170,6 @@ func (p *process) fragments() []string {
 }
 
 /*
- * A reference to a downloaded fragment (as it is stored in blob)
- */
-type fragment struct {
-	index int
-	chunk []byte
-}
-
-/*
  * Register a downloaded fragment. This should be called *at least once* [1]
  * for every fragment in the task set [2] before the process is finalized with
  * pack().
@@ -266,24 +257,23 @@ func (p *process) container() (azblob.ContainerURL, error) {
 func (p *process) gather(
 	storage    redis.Cmdable,
 	nfragments int,
-	fragments  chan fragment,
-	errors     chan error,
+	queue      fetchQueue,
 ) {
 	defer p.cleanup()
 	for i := 0; i < nfragments; i++ {
 		select {
-		case f := <-fragments:
+		case f := <-queue.fragments:
 			err := p.add(f)
 			if err != nil {
 				log.Fatalf("%s add failed: %v", p.logpid(), err)
 			}
-		case e := <-errors:
+		case e := <-queue.errors:
 			log.Printf("%s download failed: %v", p.logpid(), e)
 			for {
 				// Grab the remaining available errors to log them, but don't
 				// wait around for any new ones to come in
 				select {
-				case e := <-errors:
+				case e := <-queue.errors:
 					log.Printf("%s download failed: %v", p.logpid(), e)
 				default:
 					return
@@ -304,50 +294,4 @@ func (p *process) gather(
 	}
 	storage.Expire(p.ctx, p.pid, 10 * time.Minute)
 	log.Printf("%s written to storage", p.logpid())
-}
-
-/*
- * Synchronously fetch a blob from the blob store.
- */
-func fetchblob(ctx context.Context, blob azblob.BlobURL, maxRetries int) ([]byte, error) {
-	dl, err := blob.Download(
-		ctx,
-		0,
-		azblob.CountToEnd,
-		azblob.BlobAccessConditions{},
-		false,
-		azblob.ClientProvidedKeyOptions {},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	body := dl.Body(azblob.RetryReaderOptions{MaxRetryRequests: maxRetries})
-	defer body.Close()
-	return ioutil.ReadAll(body)
-}
-
-/*
- * Fetch fragments from the blob store, and write them to the fragments
- * channel. This is a simple worker loop, which will grab tasks until the input
- * channel is closed.
- */
-func fetch(
-	ctx        context.Context,
-	maxRetries int,
-	tasks      chan task,
-	fragments  chan fragment,
-	errors     chan error,
-) {
-	for task := range tasks {
-		chunk, err := fetchblob(ctx, task.blob, maxRetries)
-		if err != nil {
-			errors <- err
-			return
-		}
-		fragments <- fragment {
-			index: task.index,
-			chunk: chunk,
-		}
-	}
 }
