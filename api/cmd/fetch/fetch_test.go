@@ -27,9 +27,9 @@ func TestCancelledDownloadErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	blob := azblob.NewBlobURL(testurl(), testpipeline())
-	_, err := fetchblob(ctx, blob)
+	_, err := downloadBlob(ctx, blob, azblob.BlobAccessConditions{})
 	if err == nil {
-		t.Errorf("expected fetchblob() to fail; err was nil")
+		t.Errorf("expected downloadBlob() to fail; err was nil")
 	}
 
 	msg := "context canceled"
