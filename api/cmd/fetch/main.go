@@ -92,14 +92,9 @@ func parseopts() opts {
 	return opts
 }
 
-type task struct {
-	index int
-	blob  azblob.BlobURL
-}
-
 func run(
 	storage redis.Cmdable,
-	njobs   int,
+	fetch   *fetch,
 	retries int,
 	process map[string]interface{},
 ) {
@@ -133,33 +128,14 @@ func run(
 		return
 	}
 
-	// TODO: share job queue between processes, but use private
-	// output/error queue? Then buffered-elements would control
-	// number of pending jobs Rather than it now continuing once
-	// the last task has been scheduled and possibly spawning N
-	// more goroutines.
-	frags  := make(chan fragment, njobs)
-	tasks  := make(chan task, njobs)
-	errors := make(chan error)
-	/*
-	 * The goroutines must be signalled that there are no more data, or
-	 * they will leak.
-	 */
-	defer close(tasks)
-	for i := 0; i < njobs; i++ {
-		go fetch(proc.ctx, retries, tasks, frags, errors)
-	}
 	fragments := proc.fragments()
-	go proc.gather(storage, len(fragments), frags, errors)
+	blobs := make([]azblob.BlobURL, len(fragments))
 	for i, id := range fragments {
-		select {
-		case tasks <- task { index: i, blob: container.NewBlobURL(id) }:
-		case <-proc.ctx.Done():
-			msg := "%s cancelled after %d scheduling fragments; %v"
-			log.Printf(msg, proc.logpid(), i, proc.ctx.Err())
-			break
-		}
+		blobs[i] = container.NewBlobURL(id)
 	}
+	fq := fetch.mkqueue()
+	go proc.gather(storage, len(fragments), fq)
+	fetch.enqueue(proc.ctx, fq, blobs)
 }
 
 func main() {
@@ -218,6 +194,9 @@ func main() {
 		NoAck:    true,
 	}
 
+	fetch := newFetch(opts.jobs)
+	fetch.startWorkers()
+
 	for {
 		msgs, err := storage.XReadGroup(ctx, &args).Result()
 		if err != nil {
@@ -268,7 +247,7 @@ func main() {
 		for _, xmsg := range msgs {
 			for _, message := range xmsg.Messages {
 				// TODO: graceful shutdown and/or cancellation
-				run(storage, opts.jobs, opts.retries, message.Values)
+				run(storage, fetch, opts.retries, message.Values)
 			}
 		}
 	}

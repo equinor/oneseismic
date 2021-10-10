@@ -26,7 +26,7 @@ func TestCancelledDownloadErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	blob := azblob.NewBlobURL(testurl(), testpipeline())
-	_, err := fetchblob(ctx, blob, 0)
+	_, err := fetchblob(ctx, blob)
 	if err == nil {
 		t.Errorf("expected fetchblob() to fail; err was nil")
 	}
@@ -42,33 +42,26 @@ func TestCancelledDownloadPostsOnErrorChannel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	tasks     := make(chan task, 1)
-	fragments := make(chan fragment, 1)
-	errors    := make(chan error, 1)
-	tasks <- task {
-		index: 0,
-		blob: azblob.NewBlobURL(testurl(), testpipeline()),
-	}
-	// *don't* close the tasks channel - the fetch() loop should terminate with
-	// the message posted on the error channel, so keeping it open from the
-	// producer side means another layer covered in test.
-	// close(tasks)
-	fetch(ctx, 0, tasks, fragments, errors)
+	fetch := newFetch(1)
+	blobs := []azblob.BlobURL{azblob.NewBlobURL(testurl(), testpipeline())}
+
+	fq := fetch.mkqueue()
+	fetch.enqueue(ctx, fq, blobs)
+	close(fetch.requests)
+	fetch.run()
 
 	select {
-	case <-tasks:
-		t.Errorf("Pending message on tasks; should be drained by fetch()")
-	case <-fragments:
-		t.Errorf("Pending message on fragments; should be error")
-	case <-errors:
-	default:
-		t.Errorf("No pending messages; should be error")
+	case <-fq.errors:
+	case <-fq.fragments:
+		t.Errorf("Pending message on fragments; should be message on error")
 	}
 }
 
 func TestMessageOnErrorCancelsGather(t *testing.T) {
-	fragments := make(chan fragment, 1)
-	errors    := make(chan error, 1)
+	o := fetchQueue {
+		fragments: make(chan fragment, 1),
+		errors:    make(chan error, 1),
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	// directly construct the process by populating fields manually. This is to
@@ -82,14 +75,50 @@ func TestMessageOnErrorCancelsGather(t *testing.T) {
 		cpp: nil,
 	}
 
-	errors <- fmt.Errorf("Test error")
+	o.errors <- fmt.Errorf("Test error")
 	// Pretend that there are 2 fragments to be fetched. None will be sent, but
 	// it increases the confidence that the worker loop is aborted immediately
 	// rather than waiting for more data.
-	proc.gather(nil, 2, fragments, errors)
+	proc.gather(nil, 2, o)
 	select {
 	case <-ctx.Done():
 	default:
 		t.Errorf("Expected context to be cancelled, but it is not")
+	}
+}
+
+/*
+ * Compare the cost of sending the (regular) payload with a smaller structure.
+ * Sending blob objects as pointers is much faster, but might possibly
+ * pessimize garbage collection or other parts of the program, so it must be
+ * optimized with much care.
+ *
+ * So far it seems that the cost of sending by-value is so small that *any* gc
+ * hit or other indirection will eat up the gain and more.
+ *
+ * BenchmarkSendTask-4             15701625                75.2 ns/op
+ * BenchmarkSendSmallStruct-4      20805266                55.6 ns/op
+ */
+func BenchmarkSendTask(b *testing.B) {
+	type payload = request
+	p := payload {}
+	c := make(chan payload, 100)
+	for n := 0; n < b.N; n++ {
+		c <- p
+		<-c
+	}
+}
+
+func BenchmarkSendSmallStruct(b *testing.B) {
+	type payload struct {
+		i int
+		b []byte
+		e chan error
+	}
+	p := payload {}
+	c := make(chan payload, 100)
+	for n := 0; n < b.N; n++ {
+		c <- p
+		<-c
 	}
 }
