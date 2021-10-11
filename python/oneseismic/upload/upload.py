@@ -266,7 +266,7 @@ def upload(metadata, shape, src, origfname, filesys):
     src : io.BaseIO
     fname : Path or str
         The original filename of the SEG-Y being ingested
-    blob : azure.storage.blob.BlobServiceClient
+    filesys : blobfs or localfs
     """
     word1 = metadata['key-words'][0]
     word2 = metadata['key-words'][1]
