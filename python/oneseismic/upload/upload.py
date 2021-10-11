@@ -254,12 +254,12 @@ class dataset(fileset):
         if self.endian == 'little': trace.byteswap(inplace=True)
         return native(trace['samples'], format = self.format, copy=False)
 
-def upload(manifest, shape, src, origfname, filesys):
+def upload(metadata, shape, src, origfname, filesys):
     """Upload volume to oneseismic
 
     Parameters
     ----------
-    manifest : dict
+    metadata : dict
         The parsed output of the scan program
     shape : tuple of int
         The shape of the fragment, typically (64, 64, 64) (adds up to 1mb)
@@ -268,19 +268,19 @@ def upload(manifest, shape, src, origfname, filesys):
         The original filename of the SEG-Y being ingested
     blob : azure.storage.blob.BlobServiceClient
     """
-    word1 = manifest['key-words'][0]
-    word2 = manifest['key-words'][1]
-    key1s = manifest['dimensions'][0]
-    key2s = manifest['dimensions'][1]
-    key3s = manifest['dimensions'][2]
-    guid  = manifest['guid']
+    word1 = metadata['key-words'][0]
+    word2 = metadata['key-words'][1]
+    key1s = metadata['dimensions'][0]
+    key2s = metadata['dimensions'][1]
+    key3s = metadata['dimensions'][2]
+    guid  = metadata['guid']
 
     key1s.sort()
     key2s.sort()
     key3s.sort()
 
     # Seek past the textual headers and the binary header
-    src.seek(int(manifest['byteoffset-first-trace']), io.SEEK_CUR)
+    src.seek(int(metadata['byteoffset-first-trace']), io.SEEK_CUR)
 
     # Make a custom dtype that corresponds to a header and a trace. This
     # assumes all traces are of same length and sampled similarly, which is
@@ -296,8 +296,8 @@ def upload(manifest, shape, src, origfname, filesys):
     ])
     trace = np.array(1, dtype = dtype)
 
-    fmt    = manifest['format']
-    endian = manifest['byteorder']
+    fmt    = metadata['format']
+    endian = metadata['byteorder']
 
     files = [dataset(fmt, endian, key1s, key2s, key3s, shape, prefix = 'src')]
     files.extend([
@@ -322,7 +322,7 @@ def upload(manifest, shape, src, origfname, filesys):
     ])
 
     for fset in files:
-        fset.setlimits(manifest['key1-last-trace'])
+        fset.setlimits(metadata['key1-last-trace'])
 
     filesys.mkdir(guid)
     filesys.cd(guid)
@@ -365,8 +365,8 @@ def upload(manifest, shape, src, origfname, filesys):
         'attributes': [],
         'line-numbers': [key1s, key2s, key3s],
         'line-labels': ['inline', 'crossline', zdomain],
-        'sample-value-min' : manifest['sample-value-min'],
-        'sample-value-max' : manifest['sample-value-max'],
+        'sample-value-min' : metadata['sample-value-min'],
+        'sample-value-max' : metadata['sample-value-max'],
     }
 
     for fset in files:
