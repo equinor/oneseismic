@@ -12,6 +12,7 @@ target_compile_features(oneseismic PRIVATE cxx_std_17)
 target_link_options    (oneseismic
     PRIVATE
         --bind
+	-s ALLOW_MEMORY_GROWTH=1
         --pre-js ${CMAKE_CURRENT_SOURCE_DIR}/decoding.js
 )
 
