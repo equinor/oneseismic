@@ -145,26 +145,6 @@ class scanner:
         })
         return skip
 
-    def scan_first_header(self, header):
-        """Update metadata with (first) header information
-
-        Some metadata is not necessarily well-defined or set in the binary
-        header, but instead inferred from parsing the first trace header.
-
-        Generally, scanners themselves should call this function, not users.
-
-        Parameters
-        ----------
-        header : segyio.header or dict_like
-            dict_like trace header
-        """
-        intp = parseint(endian = self.endian, default_length = 2)
-        if self.observed.get('samples', 0) == 0:
-            self.observed['samples'] = intp.parse(header[segyio.su.ns])
-
-        if self.observed.get('sampleinterval', 0) == 0:
-            self.observed['sampleinterval'] = intp.parse(header[segyio.su.dt])
-
     def scan_trace(self, trace):
         """Update metadata with trace information
 
