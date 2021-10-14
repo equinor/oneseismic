@@ -8,6 +8,7 @@ import (
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/stretchr/testify/assert"
 )
 
 func testpipeline() pipeline.Pipeline {
@@ -30,6 +31,9 @@ func TestCancelledDownloadErrors(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected fetchblob() to fail; err was nil")
 	}
+
+	msg := "context canceled"
+	assert.Containsf(t, err.Error(), msg, "want err =~ '%s'; was %v", msg, err)
 }
 
 func TestCancelledDownloadPostsOnErrorChannel(t *testing.T) {
