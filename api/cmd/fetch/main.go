@@ -66,8 +66,8 @@ func parseopts() opts {
 	jobs := getopt.IntLong(
 		"jobs",
 		'j',
-		10,
-		"Allow N concurrent connections at once. Defaults to 10",
+		30,
+		"Allow N concurrent connections at once. Defaults to 30",
 		"N",
 	)
 	retries := getopt.IntLong(
