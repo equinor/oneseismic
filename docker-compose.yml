@@ -26,12 +26,8 @@ services:
     depends_on:
       - storage
     environment:
-      - HOST_ADDR=0.0.0.0:8080
-      - AUTHSERVER
-      - AUDIENCE
       - STORAGE_URL
       - CLIENT_ID
-      - CLIENT_SECRET
       - LOG_LEVEL
       - REDIS_URL=storage:6379
       - SIGN_KEY
