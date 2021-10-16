@@ -148,7 +148,9 @@ class simple_client:
 
     def get_config(self):
         url = add_url_path(self.url, 'config')
-        return requests.get(url).json()
+        r = requests.get(url)
+        r.raise_for_status()
+        return r.json()
 
     def metadata(self, guid):
         query = gql.gql('''
