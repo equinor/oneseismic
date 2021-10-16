@@ -13,6 +13,22 @@ services:
     depends_on:
       - storage
 
+  result:
+    image: oneseismic.azurecr.io/base:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8080'
+    command: [
+        "oneseismic-result",
+        "--broker", "storage:6379",
+    ]
+    depends_on:
+      - storage
+    environment:
+      - SIGN_KEY
+
   api:
     image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
@@ -43,3 +59,4 @@ services:
       - ./docker-compose-nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - api
+      - result
