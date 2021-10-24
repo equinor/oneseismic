@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/equinor/oneseismic/api/api"
 	"github.com/equinor/oneseismic/api/internal/auth"
@@ -132,15 +131,6 @@ func main() {
 	)
 	scheduler := api.NewScheduler(cmdable)
 	gql := api.MakeGraphQL(&keyring, opts.storageURL, scheduler)
-	result := api.Result {
-		Timeout: time.Second * 15,
-		StorageURL: opts.storageURL,
-		Storage: redis.NewClient(&redis.Options {
-			Addr: opts.redisURL,
-			DB: 0,
-		}),
-		Keyring: &keyring,
-	}
 
 	cfg := clientconfig {
 		appid: opts.clientID,
@@ -156,13 +146,6 @@ func main() {
 	graphql.Use(util.GeneratePID)
 	graphql.GET( "", gql.Get)
 	graphql.POST("", gql.Post)
-
-	results := app.Group("/result")
-	results.Use(auth.ResultAuth(&keyring))
-	results.Use(util.Compression())
-	results.GET("/:pid", result.Get)
-	results.GET("/:pid/stream", result.Stream)
-	results.GET("/:pid/status", result.Status)
 
 	app.GET("/config", cfg.Get)
 	app.Run(":8080")

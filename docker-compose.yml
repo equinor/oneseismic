@@ -13,28 +13,50 @@ services:
     depends_on:
       - storage
 
+  result:
+    image: oneseismic.azurecr.io/base:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8080'
+    command: [
+        "oneseismic-result",
+        "--broker", "storage:6379",
+    ]
+    depends_on:
+      - storage
+    environment:
+      - SIGN_KEY
+
   api:
     image: oneseismic.azurecr.io/base:${VERSION:-latest}
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '8080:8080'
+      - '8080'
     command: [
         "oneseismic-query",
     ]
     depends_on:
       - storage
     environment:
-      - HOST_ADDR=0.0.0.0:8080
-      - AUTHSERVER
-      - AUDIENCE
       - STORAGE_URL
       - CLIENT_ID
-      - CLIENT_SECRET
       - LOG_LEVEL
       - REDIS_URL=storage:6379
       - SIGN_KEY
 
   storage:
     image: redis
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - 8080:8080
+    volumes:
+      - ./docker-compose-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - result
