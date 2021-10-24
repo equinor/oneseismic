@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/Azure/azure-pipeline-go v0.2.3
 	github.com/Azure/azure-storage-blob-go v0.13.0
-	github.com/auth0/go-jwt-middleware v1.0.0
+	github.com/dgraph-io/ristretto v0.1.0
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-redis/redis/v8 v8.6.0
