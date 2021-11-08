@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
+#include <regex>
+#include <variant>
 
 #include <catch/catch.hpp>
+#include <nlohmann/json.hpp>
 #include <fmt/format.h>
 
 #include <oneseismic/messages.hpp>
@@ -61,100 +64,195 @@ bool operator == (const one::manifestdoc& lhs, const one::manifestdoc& rhs) {
 
 }
 
-TEST_CASE("well-formed slice-query is unpacked correctly") {
-    const auto doc = R"({
-        "pid": "some-pid",
-        "token": "on-behalf-of-token",
-        "url-query": "",
-        "guid": "object-id",
-        "storage_endpoint": "https://storage.com",
-        "manifest": {
-            "format-version": 1,
-            "data": [
-                {
-                    "file-extension": "f32",
-                    "shapes": [[1]],
-                    "prefix": "prefix",
-                    "resolution": "source"
-                }
-            ],
-            "attributes": [],
-            "line-numbers": [[10]],
-            "line-labels": ["dim-0"]
-        },
-        "function": "slice",
-        "args": {
-            "kind": "lineno",
-            "dim": 0,
-            "val": 10
-        }
-    })";
+namespace {
+using jsonvalue = std::variant<
+    int,
+    std::string,
+    std::vector< int >,
+    std::vector< std::vector<int> >
+>;
+
+struct badjson {
+    std::string keypath;
+    jsonvalue value;
+    std::string error;
+};
+
+std::string update_json(const std::string& qs, const std::string& keypath,
+                        const jsonvalue& value) {
+    auto doc = nlohmann::json::parse(qs.begin(), qs.end());
+    const auto update = [&doc, &keypath](auto&& v) {
+        const auto keypointer = nlohmann::json::json_pointer(keypath);
+        doc.at(keypointer) = v;
+    };
+
+    std::visit(update, value);
+    return nlohmann::json(doc).dump();
+}
+}
+
+/***
+ * All possible required basic query fields
+ */
+const std::string query_required = R"(
+    "pid": "some-pid",
+    "token": "on-behalf-of-token",
+    "url-query": "original query",
+    "guid": "object-id",
+    "storage_endpoint": "https://storage.com",
+    "manifest": {
+        "data": [
+            {
+                "file-extension": "f32",
+                "shapes": [[2, 3, 15]],
+                "prefix": "prefix"
+            }
+        ],
+        "attributes": [
+            {
+                "type": "cdpx",
+                "layout": "tiled",
+                "file-extension": "f32",
+                "labels": ["CDP X"],
+                "shapes": [[512, 512, 1]],
+                "prefix": "attributes/cdpx"
+            }
+        ],
+        "line-numbers": [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 69], [12, 34, 560]],
+        "line-labels": ["dim-0", "dim-1", "dim-2"]
+    }
+)";
+
+/***
+ * All possible optional base query fields
+ */
+const std::string query_optional =  R"(
+    "opts": {
+        "attributes": ["attribute1", "attribute2"]
+    }
+)";
+
+/***
+ * Unexpected base query fields that are disregarded
+ */
+const std::string query_unexpected =  R"(
+    "unexpected": "value"
+)";
+
+/***
+ * All required query slice fields
+ */
+const std::string query_slice_specific = R"(
+    "function": "slice",
+    "args": {
+        "kind": "lineno",
+        "dim": 1,
+        "val": 9
+    }
+)";
+
+const std::vector<std::string> query_specific = {
+    query_slice_specific,
+};
+
+TEST_CASE("well-formed query is unpacked correctly") {
+    const auto templ = "{{ {}, {}, {}, {} }}";
+    const auto qs = fmt::format(templ, query_required, query_slice_specific,
+                                query_optional, query_unexpected);
+
+    one::slice_query query;
+    query.unpack(qs.c_str(), qs.c_str() + qs.length());
 
     one::volumedesc vol;
     vol.prefix = "prefix";
     vol.ext = "f32";
-    vol.shapes = { { 1 } };
+    vol.shapes = { { 2, 3, 15 } };
+
+    one::attributedesc attr;
+    attr.prefix = "attributes/cdpx";
+    attr.ext = "f32";
+    attr.type = "cdpx";
+    attr.layout = "tiled";
+    attr.labels = { "CDP X" };
+    attr.shapes = {{512, 512, 1}};
 
     one::manifestdoc manifest;
     manifest.vol.push_back(vol);
-    manifest.line_numbers = { { 10 } };
-    manifest.line_labels = { "dim-0" };
+    manifest.attr.push_back(attr);
+    manifest.line_numbers = {
+        {1, 2, 3, 4, 5}, {6, 7, 8, 9, 10, 69}, {12, 34, 560}};
+    manifest.line_labels = {"dim-0", "dim-1", "dim-2"};
 
-    one::slice_query query;
-    query.unpack(doc, doc + std::strlen(doc));
+    const std::vector<std::string> attributes = {"attribute1", "attribute2"};
+
     CHECK(query.pid   == "some-pid");
     CHECK(query.token == "on-behalf-of-token");
+    CHECK(query.url_query == "original query");
     CHECK(query.guid  == "object-id");
     CHECK(query.manifest == manifest);
     CHECK(query.storage_endpoint == "https://storage.com");
-    CHECK(query.dim == 0);
-    CHECK(query.idx == 0);
+    CHECK(query.attributes == attributes);
+
+    CHECK(query.function == "slice");
+    CHECK(query.dim == 1);
+    CHECK(query.idx == 3);
 }
 
-TEST_CASE("unpacking query with missing field fails") {
-    const auto entries = std::vector< std::string > {
-        R"("pid": "some-pid")",
-        R"("token": "on-behalf-of-token")",
-        R"("guid": "object-id")",
-        R"("manifest": { "dimensions": [[]] })",
-        R"("storage_endpoint": "http://storage.com")",
-        R"("shape": [64, 64, 64])",
-        R"("function": "slice")",
-    };
 
-    for (std::size_t i = 0; i < entries.size(); ++i) {
-        auto parts = entries;
-        const auto key = parts[i].substr(0, parts[i].find(":"));
-        SECTION(fmt::format("when key {} is missing", key)) {
-            parts.erase(parts.begin() + i);
-            const auto doc = fmt::format("{{\n{}\n}}", fmt::join(parts, ",\n"));
-            const auto fst = doc.data();
-            const auto lst = doc.data() + doc.size();
-            one::slice_query query;
-            CHECK_THROWS(query.unpack(fst, lst));
-        }
+TEMPLATE_TEST_CASE_SIG("unpacking a query with missing field fails", "",
+                       ((typename T, int i), T, i),
+                       (one::slice_query, 0)) {
+    const auto qs =
+        fmt::format("{{ {}, {} }}", query_required, query_specific[i]);
 
+    const std::regex r("\"(.+)\"\\s*:"); // matches any key
+    auto it = std::sregex_iterator(qs.begin(), qs.end(), r);
+
+    for (it; it != std::sregex_iterator(); ++it) {
+        auto scopy = qs;
+
+        const auto key = it->str(1);
+        const auto pos = it->position(1);
+        const auto doc = scopy.replace(pos, key.length(), "dummy").c_str();
+
+        T query;
+        INFO(fmt::format("when key '{}' is missing", key));
+        CHECK_THROWS_WITH(query.unpack(doc, doc + std::strlen(doc)),
+                          Contains(fmt::format("key '{}' not found", key)));
     }
 }
 
-TEST_CASE("unpacking message with wrong function tag fails") {
-    const auto doc = R"({
-        "pid": "some-pid",
-        "token": "on-behalf-of-token",
-        "guid": "object-id",
-        "manifest": { "dimensions": [[]] },
-        "storage_endpoint": "https://storage.com",
-        "shape": [64, 64, 64],
-        "function": "broken",
-        "args": {
-            "dim": 0,
-            "lineno": 10
-        }
-    })";
 
-    one::slice_query query;
-    CHECK_THROWS(query.unpack(doc, doc + sizeof(doc)));
+std::initializer_list<badjson> badslice = {
+    {
+        "/function",
+        "dummy",
+        "expected query 'slice', got dummy"
+    },
+};
+
+TEMPLATE_TEST_CASE_SIG("unpacking a query with wrong key value fails", "",
+                       ((typename T, int i), T, i),
+                       (one::slice_query, 0)) {
+
+    const std::vector<std::initializer_list<badjson>> badquery = {
+        badslice,
+    };
+
+    auto [keypath, value, error] = GENERATE_REF(values<badjson>(badquery[i]));
+
+    SECTION(fmt::format("when value for key '{}' is unexpected", keypath)) {
+        const auto qs =
+            fmt::format("{{ {}, {} }}", query_required, query_specific[i]);
+        const auto bad_qs = update_json(qs, keypath, value);
+        const auto doc = bad_qs.c_str();
+
+        T query;
+        CHECK_THROWS_WITH(query.unpack(doc, doc + std::strlen(doc)),
+                          Contains(error));
+    }
 }
+
 
 TEST_CASE("slice-task can round trip packing") {
     one::slice_task task;
