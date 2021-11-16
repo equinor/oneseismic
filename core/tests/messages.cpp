@@ -390,6 +390,16 @@ SCENARIO("Requests of different kinds return the same result for curtain") {
     }
 }
 
+TEST_CASE("packing a query is not supported") {
+    const auto msg = "Packing is not implemented for query";
+    one::slice_query slice_query;
+    CHECK_THROWS_WITH(slice_query.pack(), Contains(msg));
+
+    one::curtain_query curtain_query;
+    CHECK_THROWS_WITH(curtain_query.pack(), Contains(msg));
+}
+
+
 TEST_CASE("slice-task can round trip packing") {
     one::slice_task task;
     task.pid = "pid";

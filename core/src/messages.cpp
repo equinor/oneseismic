@@ -220,15 +220,9 @@ void to_json(nlohmann::json& doc, const manifestdoc& m) noexcept (false) {
     }
 }
 
-void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
-    doc["pid"]              = query.pid;
-    doc["token"]            = query.token;
-    doc["url-query"]        = query.url_query;
-    doc["guid"]             = query.guid;
-    doc["manifest"]         = query.manifest;
-    doc["storage_endpoint"] = query.storage_endpoint;
-    doc["function"]         = query.function;
-    doc["attributes"]       = query.attributes;
+void to_json(nlohmann::json& doc, const basic_query& query) noexcept(false) {
+    const auto msg = fmt::format("Packing is not implemented for query.");
+    throw std::logic_error(msg);
 }
 
 void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
