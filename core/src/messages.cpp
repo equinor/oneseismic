@@ -305,7 +305,7 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
     from_json(doc, static_cast< basic_query& >(query));
 
     if (query.function != "slice") {
-        const auto msg = "expected task 'slice', got {}";
+        const auto msg = "expected query 'slice', got {}";
         throw bad_message(fmt::format(msg, query.function));
     }
 
