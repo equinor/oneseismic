@@ -373,7 +373,17 @@ void assure_cartesian_in_bounds(const std::vector<int>& labels,
 
 gvt< 3 > geometry(const basic_query& query) noexcept (false) {
     const auto& dimensions = query.manifest.line_numbers;
+    if (dimensions.size() != 3) {
+        const auto msg =
+            "operation requires 3-dimensional cube, but dimension was {}";
+        throw not_found(fmt::format(msg, dimensions.size()));
+    }
     const auto& shape = query.shape();
+    if (shape.size() != 3) {
+        const auto msg =
+            "operation requires 3-dimensional fragments, but dimension was {}";
+        throw not_found(fmt::format(msg, shape.size()));
+    }
 
     return gvt< 3 > {
         { dimensions[0].size(),

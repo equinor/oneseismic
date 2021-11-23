@@ -309,6 +309,16 @@ std::initializer_list<badjson> badcurtain = {
         std::vector<std::vector<int>>{{1, 2, 10}, {3, 4, 11}},
         "bad coords arg: expected list-of-pairs"
     },
+    {
+        "/manifest/line-numbers",
+        std::vector<std::vector<int>>{{1, 2, 3, 4, 5}, {7, 9}, {100}, {0}},
+        "operation requires 3-dimensional cube, but dimension was 4"
+    },
+    {
+        "/manifest/data/0/shapes",
+        std::vector<std::vector<int>>{{1}},
+        "operation requires 3-dimensional fragments, but dimension was 1"
+    }
 };
 
 TEMPLATE_TEST_CASE_SIG("unpacking a query with wrong key value fails", "",
