@@ -329,6 +329,9 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
             throw not_found(fmt::format(msg, val));
         }
         query.idx = std::distance(index.begin(), itr);
+    } else {
+        const auto msg = "expected kind 'index' or 'lineno', got {}";
+        throw bad_message(fmt::format(msg, kind));
     }
 }
 
@@ -544,6 +547,9 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
             },
             float()
         );
+    } else {
+        const auto msg = "expected kind 'index' or 'lineno' or 'utm', got {}";
+        throw bad_message(fmt::format(msg, kind));
     }
 
     group_by_fragment_inplace(query);

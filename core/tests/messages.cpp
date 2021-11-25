@@ -261,6 +261,11 @@ std::initializer_list<badjson> badslice = {
         11,
         "line (= 11) not found in index"
     },
+    {
+        "/args/kind",
+        "dummy",
+        "expected kind 'index' or 'lineno', got dummy"
+    },
 };
 
 std::initializer_list<badjson> badcurtain = {
@@ -268,6 +273,11 @@ std::initializer_list<badjson> badcurtain = {
         "/function",
         "dummy",
         "expected query 'curtain', got dummy"
+    },
+    {
+        "/args/kind",
+        "dummy",
+        "expected kind 'index' or 'lineno' or 'utm', got dummy"
     },
 };
 
