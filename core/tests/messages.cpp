@@ -266,6 +266,11 @@ std::initializer_list<badjson> badslice = {
         "dummy",
         "expected kind 'index' or 'lineno', got dummy"
     },
+    {
+        "/args/kind",
+        "index",
+        "index (= 9) not in [0, 6)"
+    },
 };
 
 std::initializer_list<badjson> badcurtain = {
@@ -278,6 +283,11 @@ std::initializer_list<badjson> badcurtain = {
         "/args/kind",
         "dummy",
         "expected kind 'index' or 'lineno' or 'utm', got dummy"
+    },
+    {
+        "/args/kind",
+        "index",
+        "dimension 0: coordinate (= 5) of type index is out of cube boundaries [0, 5)"
     },
 };
 

@@ -319,6 +319,10 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
     const std::string& kind = args.at("kind");
     const int val = args.at("val");
     if (kind == "index") {
+        if (!(0 <= val && val < lines[query.dim].size())) {
+            const auto msg = "index (= {}) not in [0, {})";
+            throw not_found(fmt::format(msg, val, lines[query.dim].size()));
+        }
         query.idx = val;
     }
     else if (kind == "lineno") {
@@ -353,6 +357,18 @@ noexcept (false) {
         throw not_found(msg);
     }
     return std::distance(labels.begin(), itr);
+}
+
+void assure_cartesian_in_bounds(const std::vector<int>& labels,
+                                std::vector<int>& xs) noexcept(false) {
+    const auto in_bounds = [&labels](auto x) {
+        if (!(0 <= x && x < labels.size())) {
+            const auto msg = "coordinate (= {}) of type index is out of cube "
+                             "boundaries [0, {})";
+            throw not_found(fmt::format(msg, x, labels.size()));
+        }
+    };
+    std::for_each(xs.begin(), xs.end(), in_bounds);
 }
 
 gvt< 3 > geometry(const basic_query& query) noexcept (false) {
@@ -504,15 +520,22 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
     };
 
     const std::string& kind = args.at("kind");
+    const auto& line_numbers = query.manifest.line_numbers;
     if (kind == "index") {
-        /* no-op - already cartesian indices */
         extract_coords(
             [](int x, int y){return std::pair{x, y};},
             int()
         );
+        auto dim = -1;
+        try {
+            assure_cartesian_in_bounds(line_numbers[++dim], query.dim0s);
+            assure_cartesian_in_bounds(line_numbers[++dim], query.dim1s);
+        } catch (not_found& exc) {
+            const auto msg = "Failure while processing dimension {}: ";
+            throw not_found(fmt::format(msg, dim) + exc.what());
+        }
     }
     else if (kind == "lineno") {
-        const auto &line_numbers = query.manifest.line_numbers;
         assert(std::is_sorted(line_numbers[0].begin(), line_numbers[0].end()));
         assert(std::is_sorted(line_numbers[1].begin(), line_numbers[1].end()));
         extract_coords(
@@ -531,7 +554,6 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
                              " can not perform UTM query";
             throw not_found(msg);
         }
-        const auto &line_numbers = query.manifest.line_numbers;
         assert(std::is_sorted(line_numbers[0].begin(), line_numbers[0].end()));
         assert(std::is_sorted(line_numbers[1].begin(), line_numbers[1].end()));
         const auto utm_to_lino = query.manifest.utm_to_lineno.value();
