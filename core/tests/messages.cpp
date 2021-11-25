@@ -289,6 +289,21 @@ std::initializer_list<badjson> badcurtain = {
         "index",
         "dimension 0: coordinate (= 5) of type index is out of cube boundaries [0, 5)"
     },
+    {
+        "/args/coords",
+        std::vector<std::vector<int>>{{1}, {2}, {3}},
+        "bad coords arg: expected list-of-pairs"
+    },
+    {
+        "/args/coords",
+        std::vector<int>{1, 2, 3},
+        "bad coords arg: expected list-of-pairs"
+    },
+    {
+        "/args/coords",
+        std::vector<std::vector<int>>{{1, 2, 10}, {3, 4, 11}},
+        "bad coords arg: expected list-of-pairs"
+    },
 };
 
 TEMPLATE_TEST_CASE_SIG("unpacking a query with wrong key value fails", "",

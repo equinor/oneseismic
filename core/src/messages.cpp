@@ -502,20 +502,23 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
 
     const auto& args = doc.at("args");
 
-    auto extract_coords = [&]< typename T >(auto mapping, T) {
-        std::vector< std::vector< T > > coords;
-        args.at("coords").get_to(coords);
+    auto extract_coords = [&]<typename T>(auto mapping, T) {
+        std::vector<std::vector<T>> coords;
+        try {
+            args.at("coords").get_to(coords);
+        } catch (nlohmann::json::type_error&) {
+            throw bad_value("bad coords arg: expected list-of-pairs");
+        }
         query.dim0s.reserve(coords.size());
         query.dim1s.reserve(coords.size());
 
-        try {
-            for (const auto& pair : coords) {
-                const auto dims = mapping(pair.at(0), pair.at(1));
-                query.dim0s.push_back(dims.first);
-                query.dim1s.push_back(dims.second);
+        for (const auto& pair : coords) {
+            if (pair.size() != 2) {
+                throw bad_value("bad coords arg: expected list-of-pairs");
             }
-        } catch (std::out_of_range&) {
-            throw bad_value("bad coord arg; expected list-of-pairs");
+            const auto dims = mapping(pair.at(0), pair.at(1));
+            query.dim0s.push_back(dims.first);
+            query.dim1s.push_back(dims.second);
         }
     };
 
