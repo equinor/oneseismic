@@ -7,6 +7,7 @@
 #include <catch/catch.hpp>
 #include <nlohmann/json.hpp>
 #include <fmt/format.h>
+#include <fmt/printf.h>
 
 #include <oneseismic/messages.hpp>
 
@@ -92,9 +93,9 @@ std::string update_json(const std::string& qs, const std::string& keypath,
 }
 
 /***
- * All possible required basic query fields
+ * Template for main fields and manifest
  */
-const std::string query_required = R"(
+const std::string query_base_template = R"(
     "pid": "some-pid",
     "token": "on-behalf-of-token",
     "url-query": "original query",
@@ -118,10 +119,18 @@ const std::string query_required = R"(
                 "prefix": "attributes/cdpx"
             }
         ],
-        "line-numbers": [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 69], [12, 34, 560]],
+        "line-numbers": %s,
         "line-labels": ["dim-0", "dim-1", "dim-2"]
+        %s
     }
 )";
+
+/***
+ * All possible required basic query fields
+ */
+const std::string query_required =
+    fmt::sprintf(query_base_template,
+                 "[[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 69], [12, 34, 560]]", "");
 
 /***
  * All possible optional base query fields
@@ -151,8 +160,20 @@ const std::string query_slice_specific = R"(
     }
 )";
 
+/***
+ * All required query curtain fields
+ */
+const std::string query_curtain_specific = R"(
+    "function": "curtain",
+    "args": {
+        "kind": "lineno",
+        "coords": [[3, 9], [1, 7], [5, 9], [1, 9], [2, 7]]
+    }
+)";
+
 const std::vector<std::string> query_specific = {
     query_slice_specific,
+    query_curtain_specific
 };
 
 TEST_CASE("well-formed query is unpacked correctly") {
@@ -201,7 +222,8 @@ TEST_CASE("well-formed query is unpacked correctly") {
 
 TEMPLATE_TEST_CASE_SIG("unpacking a query with missing field fails", "",
                        ((typename T, int i), T, i),
-                       (one::slice_query, 0)) {
+                       (one::slice_query, 0),
+                       (one::curtain_query, 1)) {
     const auto qs =
         fmt::format("{{ {}, {} }}", query_required, query_specific[i]);
 
@@ -241,12 +263,22 @@ std::initializer_list<badjson> badslice = {
     },
 };
 
+std::initializer_list<badjson> badcurtain = {
+    {
+        "/function",
+        "dummy",
+        "expected query 'curtain', got dummy"
+    },
+};
+
 TEMPLATE_TEST_CASE_SIG("unpacking a query with wrong key value fails", "",
                        ((typename T, int i), T, i),
-                       (one::slice_query, 0)) {
+                       (one::slice_query, 0),
+                       (one::curtain_query, 1)) {
 
     const std::vector<std::initializer_list<badjson>> badquery = {
         badslice,
+        badcurtain
     };
 
     auto [keypath, value, error] = GENERATE_REF(values<badjson>(badquery[i]));
@@ -263,6 +295,100 @@ TEMPLATE_TEST_CASE_SIG("unpacking a query with wrong key value fails", "",
     }
 }
 
+SCENARIO("Requests of different kinds return the same result for slice") {
+    std::string query_specific = R"(
+            "function": "slice",
+    )";
+
+    one::slice_query query;
+    const auto verify = [&]() {
+        WHEN("Unpacking the request") {
+            const auto doc =
+                fmt::format("{{ {}, {} }}", query_required, query_specific);
+            query.unpack(doc.c_str(), doc.c_str() + doc.size());
+
+            THEN("The values are unpacked correctly") {
+                CHECK(query.dim == 2);
+                CHECK(query.idx == 1);
+            }
+        }
+    };
+
+    GIVEN("Index value") {
+        query_specific += R"(
+            "args": {
+                "kind": "index",
+                "dim": 2,
+                "val": 1
+            }
+        )";
+        verify();
+    }
+
+    GIVEN("Lineno value") {
+        query_specific += R"(
+            "args": {
+                "kind": "lineno",
+                "dim": 2,
+                "val": 34
+            }
+        )";
+        verify();
+    }
+}
+
+SCENARIO("Requests of different kinds return the same result for curtain") {
+    const std::string query_main =
+        fmt::sprintf(query_base_template, "[[10, 11], [1, 2], [0, 1]]",
+                     R"(,"utm-to-lineno": [[1, 0, 10], [0, 1, 1]])");
+    std::string query_specific = R"(
+            "function": "curtain",
+    )";
+
+    one::curtain_query query;
+    const auto verify = [&]() {
+        WHEN("Unpacking the request") {
+            const auto doc =
+                fmt::format("{{ {}, {} }}", query_main, query_specific);
+            query.unpack(doc.c_str(), doc.c_str() + doc.size());
+
+            THEN("The coordinates are unpacked correctly") {
+                CHECK(query.dim0s == std::vector{0, 1});
+                CHECK(query.dim1s == std::vector{1, 0});
+            }
+        }
+    };
+
+    GIVEN("Index coordinates") {
+        query_specific += R"(
+            "args": {
+                "kind": "index",
+                "coords": [[0, 1], [1, 0]]
+            }
+        )";
+        verify();
+    }
+
+    GIVEN("Lineno coordinates") {
+        query_specific += R"(
+            "args": {
+                "kind": "lineno",
+                "coords": [[10, 2], [11, 1]]
+            }
+        )";
+        verify();
+    }
+
+    GIVEN("UTM coordinates") {
+        query_specific += R"(
+            "args": {
+                "kind": "utm",
+                "coords": [[0.1, 1.1], [0.9, -0.1]]
+            }
+        )";
+        verify();
+    }
+}
 
 TEST_CASE("slice-task can round trip packing") {
     one::slice_task task;
@@ -349,87 +475,6 @@ SCENARIO("Converting from UTM coordinates to cartesian grid") {
             THEN("The cartesian coordinate for the nearest line is found"){
                 CHECK(result.first == 2);
                 CHECK(result.second == 4);
-            }
-        }
-    }
-}
-
-SCENARIO("Unpacking a curtain request") {
-    std::string doc = R"({
-        "pid": "some-pid",
-        "token": "on-behalf-of-token",
-        "url-query": "",
-        "guid": "object-id",
-        "storage_endpoint": "https://storage.com",
-        "manifest": {
-            "format-version": 1,
-            "data": [
-                {
-                    "file-extension": "f32",
-                    "shapes": [[2, 2, 2]],
-                    "prefix": "prefix",
-                    "resolution": "source"
-                }
-            ],
-            "attributes": [],
-            "line-numbers": [[10, 11], [1, 2], [0, 1]],
-            "line-labels": ["dim-0"],
-            "utm-to-lineno": [[1, 0, 10], [0, 1, 1]]
-        },
-        "function": "curtain",)";
-
-    one::curtain_query query;
-
-    GIVEN("Index coordinates") {
-        doc += R"(
-            "args": {
-                "kind": "index",
-                "coords": [[0, 1], [1, 0]]
-            }
-        })";
-
-        WHEN("Unpacking the request") {
-            query.unpack(doc.c_str(), doc.c_str() + doc.size());
-
-            THEN("The coordinates are unpacked correctly") {
-                CHECK(query.dim0s == std::vector{0, 1});
-                CHECK(query.dim1s == std::vector{1, 0});
-            }
-        }
-    }
-
-    GIVEN("Lineno coordinates") {
-        doc += R"(
-            "args": {
-                "kind": "lineno",
-                "coords": [[10, 2], [11, 1]]
-            }
-        })";
-
-        WHEN("Unpacking the request") {
-            query.unpack(doc.c_str(), doc.c_str() + doc.size());
-
-            THEN("The coordinates are unpacked correctly") {
-                CHECK(query.dim0s == std::vector{0, 1});
-                CHECK(query.dim1s == std::vector{1, 0});
-            }
-        }
-    }
-
-    GIVEN("UTM coordinates") {
-        doc += R"(
-            "args": {
-                "kind": "utm",
-                "coords": [[0.1, 1.1], [0.9, -0.1]]
-            }
-        })";
-
-        WHEN("Unpacking the request") {
-            query.unpack(doc.c_str(), doc.c_str() + doc.size());
-
-            THEN("The coordinates are unpacked correctly") {
-                CHECK(query.dim0s == std::vector{0, 1});
-                CHECK(query.dim1s == std::vector{1, 0});
             }
         }
     }
