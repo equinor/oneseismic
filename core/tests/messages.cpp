@@ -229,6 +229,16 @@ std::initializer_list<badjson> badslice = {
         "dummy",
         "expected query 'slice', got dummy"
     },
+    {
+        "/args/dim",
+        8,
+        "args.dim (= 8) not in [0, 3)"
+    },
+    {
+        "/args/val",
+        11,
+        "line (= 11) not found in index"
+    },
 };
 
 TEMPLATE_TEST_CASE_SIG("unpacking a query with wrong key value fails", "",
