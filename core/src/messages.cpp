@@ -352,7 +352,7 @@ namespace {
 int to_cartesian(const std::vector< int >& labels, int x)
 noexcept (false) {
     const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
-    if (*itr != x) {
+    if (itr == labels.end() || *itr != x) {
         const auto msg = fmt::format("lineno {} not in index");
         throw not_found(msg);
     }
