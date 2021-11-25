@@ -353,8 +353,8 @@ int to_cartesian(const std::vector< int >& labels, int x)
 noexcept (false) {
     const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
     if (itr == labels.end() || *itr != x) {
-        const auto msg = fmt::format("lineno {} not in index");
-        throw not_found(msg);
+        const auto msg = "coordinate (= {}) of type lineno is not found";
+        throw not_found(fmt::format(msg, x));
     }
     return std::distance(labels.begin(), itr);
 }
@@ -543,13 +543,17 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
         assert(std::is_sorted(line_numbers[1].begin(), line_numbers[1].end()));
         extract_coords(
             [&line_numbers](int x, int y) {
-                return std::pair(
-                    to_cartesian(line_numbers[0], x),
-                    to_cartesian(line_numbers[1], y)
-                );
+                auto dim = -1;
+                try {
+                    const auto first = to_cartesian(line_numbers[++dim], x);
+                    const auto second = to_cartesian(line_numbers[++dim], y);
+                    return std::pair(first, second);
+                } catch (not_found& exc) {
+                    const auto msg = "Failure while processing dimension {}: ";
+                    throw not_found(fmt::format(msg, dim) + exc.what());
+                }
             },
-            int()
-        );
+            int());
     }
     else if (kind == "utm") {
         if (query.manifest.utm_to_lineno == std::nullopt) {

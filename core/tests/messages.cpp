@@ -291,6 +291,11 @@ std::initializer_list<badjson> badcurtain = {
     },
     {
         "/args/coords",
+        std::vector<std::vector<int>>{{1, 6}, {3, 200}},
+        "dimension 1: coordinate (= 200) of type lineno is not found"
+    },
+    {
+        "/args/coords",
         std::vector<std::vector<int>>{{1}, {2}, {3}},
         "bad coords arg: expected list-of-pairs"
     },
