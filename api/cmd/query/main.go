@@ -17,7 +17,6 @@ type opts struct {
 	clientID     string
 	storageURL   string
 	redisURL     string
-	bind         string
 	signkey      string
 }
 
@@ -50,13 +49,6 @@ func parseopts() opts {
 		0,
 		"Redis URL",
 		"url",
-	)
-	getopt.FlagLong(
-		&opts.bind,
-		"bind",
-		0,
-		"Bind URL e.g. tcp://*:port",
-		"addr",
 	)
 	getopt.FlagLong(
 		&opts.signkey,
