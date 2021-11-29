@@ -183,11 +183,8 @@ class scanner:
         return dict(self.observed)
 
     def scan_trace_header(self, header):
-        """Add a new header to the index
-
-        This is mandatory to implement for scanners
-        """
-        raise NotImplementedError
+        """Scan a trace header and add it to the index """
+        pass
 
 class lineset(scanner):
     """Scan the lineset
