@@ -275,16 +275,10 @@ def scan(stream, action, endian):
     if extheader > 0:
         stream.seek(exthead * textheader_size, io.SEEK_CUR)
 
-    chunk = stream.read(header_size)
-    header = segyio.field.Field(buf = chunk, kind = 'trace')
-    action.scan_trace_header(header)
-
     tracelen  = samples * format_size[fmt]
     tracesize = header_size + tracelen
 
-    stream.seek(tracelen, io.SEEK_CUR)
-
-    trace_count = 1
+    trace_count = 0
     while True:
         chunk = stream.read(tracesize)
         if len(chunk) == 0:
