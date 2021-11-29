@@ -5,7 +5,7 @@ import sys
 from .scan import scan
 from .scan import resolve_endianness
 from .scan import hashio
-from .scan import lineset
+from .scanners import lineset
 from ..internal.argparse import add_auth_args
 from ..internal.argparse import blobfs_from_args
 from ..internal.argparse import localfs_from_args

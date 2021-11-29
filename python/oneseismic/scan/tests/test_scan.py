@@ -5,7 +5,7 @@ import sys
 from hypothesis import given
 from hypothesis.strategies import integers
 
-from ..scan import lineset
+from ..scanners import lineset
 
 def big_endian(i):
     """Convert int to a big-endian integer
