@@ -6,6 +6,8 @@ from .scan import scan
 from .scan import resolve_endianness
 from .scan import hashio
 from .scanners import lineset
+from .scanners import BasicScanner
+from .scanners import StatisticsScanner
 from ..internal.argparse import add_auth_args
 from ..internal.argparse import blobfs_from_args
 from ..internal.argparse import localfs_from_args
@@ -47,13 +49,17 @@ def main(argv):
 
     with inputfs.open(src, 'rb') as f:
         stream = hashio(f)
-        action = lineset(
+
+        basic = BasicScanner(endian = endian)
+        stats = StatisticsScanner(endian = endian)
+        lines = lineset(
             primary   = args.primary_word,
             secondary = args.secondary_word,
             endian    = endian,
         )
 
-        d = scan(stream, [action], endian)
+        scanners = [basic, lines, stats]
+        d = scan(stream, scanners, endian)
         d['guid'] = stream.hexdigest()
 
     if args.pretty:

@@ -8,7 +8,7 @@ import pytest
 from hypothesis import given
 from hypothesis.strategies import integers
 
-from ..scanners import scanner
+from ..scanners import BasicScanner
 
 def emptybinary():
     return bytearray(400)
@@ -41,7 +41,7 @@ def test_unsupported_format_raises(endian, fmt):
     chunk[fst:lst] = packed
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
     with pytest.raises(NotImplementedError):
-        scan = scanner(endian = endian)
+        scan = BasicScanner(endian = endian)
         _ = scan.scan_binary_header(binary)
 
 supported_formats = [
@@ -62,7 +62,7 @@ def test_supported_formats(endian, fmt):
     chunk[fst:lst] = packed
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
 
-    scan = scanner(endian = endian)
+    scan = BasicScanner(endian = endian)
     scan.scan_binary_header(binary)
     out = scan.report()
     assert out['format'] == fmt[1]
@@ -87,7 +87,7 @@ def test_get_sample_count(endian, val):
     chunk[fst:lst] = struct.pack(packfmt, 1)
 
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
-    scan = scanner(endian = endian)
+    scan = BasicScanner(endian = endian)
     scan.scan_binary_header(binary)
     out = scan.report()
     assert out['samples'] == val
@@ -112,7 +112,7 @@ def test_get_sample_interval(endian, val):
     chunk[fst:lst] = struct.pack(packfmt, 1)
 
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
-    scan = scanner(endian = endian)
+    scan = BasicScanner(endian = endian)
     scan.scan_binary_header(binary)
     out = scan.report()
     assert out['sampleinterval'] == val
