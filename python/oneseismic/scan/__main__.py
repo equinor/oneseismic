@@ -5,7 +5,7 @@ import sys
 from .scan import scan
 from .scan import resolve_endianness
 from .scan import hashio
-from .scanners import lineset
+from .scanners import LineScanner
 from .scanners import BasicScanner
 from .scanners import StatisticsScanner
 from ..internal.argparse import add_auth_args
@@ -52,7 +52,7 @@ def main(argv):
 
         basic = BasicScanner(endian = endian)
         stats = StatisticsScanner(endian = endian)
-        lines = lineset(
+        lines = LineScanner(
             primary   = args.primary_word,
             secondary = args.secondary_word,
             endian    = endian,

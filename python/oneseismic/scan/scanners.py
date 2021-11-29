@@ -115,7 +115,7 @@ class BasicScanner(Scanner):
         return dict(self.observed)
 
 
-class lineset(Scanner):
+class LineScanner(Scanner):
     """Scan the lineset
 
     Scan the set of lines in the survey, i.e. set of in- and crossline pairs.

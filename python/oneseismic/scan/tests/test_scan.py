@@ -5,7 +5,7 @@ import sys
 from hypothesis import given
 from hypothesis.strategies import integers
 
-from ..scanners import lineset
+from ..scanners import LineScanner
 
 def big_endian(i):
     """Convert int to a big-endian integer
@@ -30,7 +30,7 @@ def test_regular_intervals(inlines, crosslines):
         for x in range(1, crosslines + 1)
     ]
 
-    seg = lineset(
+    seg = LineScanner(
             primary = int(segyio.su.iline),
             secondary = int(segyio.su.xline),
             endian = sys.byteorder,
