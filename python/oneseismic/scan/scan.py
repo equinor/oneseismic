@@ -236,11 +236,11 @@ def tonative(trace, format, endian):
     if endian == 'little': trace.byteswap(inplace = True)
     return native(trace, format = format, copy = False)
 
-def scan(stream, action, endian):
+def scan(stream, scanners, endian):
     """Scan a file and build an index from action
 
     Scan a stream, and produce an index for building a job schedule in further
-    ingestion. The actual indexing is handled by the action interface, as it
+    ingestion. The actual indexing is handled by the scanner interface, as it
     turns out a lot of useful tasks boil down to scanning the headers of a
     SEG-Y file.
 
@@ -248,14 +248,20 @@ def scan(stream, action, endian):
     ----------
     stream
         io.IOBase compatible interface
-    action : scanner
-        An object with a scanner compatible interface
+    scanner : list of scanners
+        Objects with a scanner compatible interface
     endian : str
         endianness of segy-file
 
     Returns
     -------
     d : dict
+
+    Notes
+    -----
+    If multiple scanners include the same key in their report, the first
+    scanner will take precedence. Ideally this should not happen, and it's the
+    callers responsibility to pass compatible scanners.
     """
     stream.seek(textheader_size, io.SEEK_CUR)
     chunk = stream.read(binary_size)
@@ -267,7 +273,8 @@ def scan(stream, action, endian):
     fmt       = intp.parse(binary[segyio.su.format], length = 2)
     samples   = intp.parse(binary[segyio.su.hns],    length = 2, signed = False)
 
-    action.scan_binary_header(binary)
+    for scanner in scanners:
+        scanner.scan_binary_header(binary)
 
     if extheader > 0:
         stream.seek(exthead * textheader_size, io.SEEK_CUR)
@@ -285,13 +292,18 @@ def scan(stream, action, endian):
             msg = 'file truncated at trace {}'.format(trace_count)
             raise RuntimeError(msg)
 
-        header = segyio.field.Field(buf = chunk[:header_size], kind = 'trace')
-        action.scan_trace_header(header)
-
+        header  = segyio.field.Field(buf = chunk[:header_size], kind = 'trace')
         trace = np.frombuffer(chunk[header_size:])
-        trace = tonative(trace.copy(), action.observed['format'], endian)
-        action.scan_trace_samples(trace)
+        trace = tonative(trace.copy(), fmt, endian)
+
+        for scanner in scanners:
+            scanner.scan_trace_header(header)
+            scanner.scan_trace_samples(trace)
 
         trace_count += 1
 
-    return action.report()
+    report = {}
+    for scanner in reversed(scanners):
+        report.update(scanner.report())
+
+    return report
