@@ -170,9 +170,6 @@ class scanner:
         if prmax is None or trmax > prmax:
             self.observed['sample-value-max'] = trmax
 
-    def tracelen(self):
-        return self.observed['samples'] * format_size[self.observed['format']]
-
     def report(self):
         """Report the result of a scan
 
@@ -242,7 +239,7 @@ def tonative(trace, format, endian):
     if endian == 'little': trace.byteswap(inplace = True)
     return native(trace, format = format, copy = False)
 
-def scan(stream, action):
+def scan(stream, action, endian):
     """Scan a file and build an index from action
 
     Scan a stream, and produce an index for building a job schedule in further
@@ -256,6 +253,8 @@ def scan(stream, action):
         io.IOBase compatible interface
     action : scanner
         An object with a scanner compatible interface
+    endian : str
+        endianness of segy-file
 
     Returns
     -------
@@ -264,15 +263,23 @@ def scan(stream, action):
     stream.seek(textheader_size, io.SEEK_CUR)
     chunk = stream.read(binary_size)
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
-    skip = action.scan_binary_header(binary)
-    if skip > 0:
-        stream.seek(skip * textheader_size, io.SEEK_CUR)
+
+    # Information needed by the scan program
+    intp      = parseint(endian)
+    extheader = intp.parse(binary[segyio.su.exth],   length = 2)
+    fmt       = intp.parse(binary[segyio.su.format], length = 2)
+    samples   = intp.parse(binary[segyio.su.hns],    length = 2, signed = False)
+
+    action.scan_binary_header(binary)
+
+    if extheader > 0:
+        stream.seek(exthead * textheader_size, io.SEEK_CUR)
 
     chunk = stream.read(header_size)
     header = segyio.field.Field(buf = chunk, kind = 'trace')
     action.scan_trace_header(header)
 
-    tracelen  = action.tracelen()
+    tracelen  = samples * format_size[fmt]
     tracesize = header_size + tracelen
 
     stream.seek(tracelen, io.SEEK_CUR)
@@ -283,7 +290,7 @@ def scan(stream, action):
         if len(chunk) == 0:
             break
 
-        if len(chunk) != tracesize :
+        if len(chunk) != tracesize:
             msg = 'file truncated at trace {}'.format(trace_count)
             raise RuntimeError(msg)
 
@@ -291,7 +298,7 @@ def scan(stream, action):
         action.scan_trace_header(header)
 
         trace = np.frombuffer(chunk[header_size:])
-        trace = tonative(trace.copy(), action.observed['format'], action.endian)
+        trace = tonative(trace.copy(), action.observed['format'], endian)
         action.scan_trace_samples(trace)
 
         trace_count += 1
