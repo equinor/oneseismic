@@ -36,18 +36,17 @@ class parseint:
         return int.from_bytes(chunk, byteorder = self.endian, signed = signed)
 
 
-class scanner:
-    """Base class and interface for scanner
+class Scanner:
+    """Base class and interface for scanners
 
     A scanner can be plugged into the scan.__main__ logic and scan.scan
     function as an action, which implements the indexing and reporting logic
-    for a type of scan. All scans involve parsing the trace headers, and write
-    some report.
+    for a type of scan. All scans involve parsing the binary/trace headers - or
+    in some cases the trace itself, and write some report.
     """
     def __init__(self, endian):
         self.endian = endian
         self.intp = parseint(endian = endian, default_length = 4)
-        self.observed = {}
 
     def scan_binary_header(self, binary):
         """Scan a SEG-Y binary header
@@ -55,12 +54,43 @@ class scanner:
         Parameters
         ----------
         binary : segyio.Field or dict_like
+        """
+        pass
+
+    def scan_trace_header(self, header):
+        """Scan a SEG-Y trace header
+
+        Parameters
+        ----------
+        header : segyio.Field or dict_like
+        """
+        pass
+
+    def scan_trace_samples(self, trace):
+        """Scan a SEG-Y trace
+
+        Parameters
+        ----------
+        trace : segyio.Trace or array_like
+        """
+        pass
+
+    def report(self):
+        """Report the result of a scan
 
         Returns
         -------
-        skip : int
-            Number of external headers to skip
+        report : dict
         """
+        pass
+
+
+class BasicScanner(Scanner):
+    def __init__(self, endian):
+        super().__init__(endian)
+        self.observed = {}
+
+    def scan_binary_header(self, binary):
         skip = self.intp.parse(binary[segyio.su.exth], length = 2)
         fmt = self.intp.parse(binary[segyio.su.format], length = 2)
         if fmt not in [1, 5]:
@@ -80,50 +110,12 @@ class scanner:
             'sampleinterval': interval,
             'byteoffset-first-trace': 3600 + skip * 3200,
         })
-        return skip
-
-    def scan_trace_samples(self, trace):
-        """Update metadata with trace information
-
-        Record statisical metadata from the trace samples. This information is
-        not strictly necessary, but it can be quite handy for applications to
-        have it easily accessable through the manifest. This method assumes
-        that the trace is parsed as native floats.
-
-        Parameters
-        ----------
-        trace : segyio.trace or array_like
-            array_like trace
-        """
-        trmin = float(np.amin(trace))
-        trmax = float(np.amax(trace))
-
-        prmin = self.observed.get('sample-value-min')
-        prmax = self.observed.get('sample-value-max')
-
-        if prmin is None or trmin < prmin:
-            self.observed['sample-value-min'] = trmin
-
-        if prmax is None or trmax > prmax:
-            self.observed['sample-value-max'] = trmax
 
     def report(self):
-        """Report the result of a scan
-
-        The default implementation really only deals with file-specific
-        geometry. Implement this method for custom scanners.
-
-        Returns
-        -------
-        report : dict
-        """
         return dict(self.observed)
 
-    def scan_trace_header(self, header):
-        """Scan a trace header and add it to the index """
-        pass
 
-class lineset(scanner):
+class lineset(Scanner):
     """Scan the lineset
 
     Scan the set of lines in the survey, i.e. set of in- and crossline pairs.
@@ -145,6 +137,19 @@ class lineset(scanner):
         # been read, and buffers can be flushed
         self.last1s = {}
         self.traceno = 0
+        self.samples = None
+        self.interval = None
+
+    def scan_binary_header(self, header):
+        self.interval = self.intp.parse(
+                header[segyio.su.hdt],
+                length = 2
+        )
+        self.samples = self.intp.parse(
+            header[segyio.su.hns],
+            length = 2,
+            signed = False,
+        )
 
     def scan_trace_header(self, header):
         key1 = self.intp.parse(header[self.key1])
@@ -157,15 +162,47 @@ class lineset(scanner):
         # TODO: check that the sample-interval is consistent across the file?
 
     def report(self):
-        r = super().report()
-        interval = r['sampleinterval']
-        samples = map(int, np.arange(0, r['samples'] * interval, interval))
-        r['dimensions'] = [
-            sorted(self.key1s),
-            sorted(self.key2s),
-            list(samples),
-        ]
-        r['key1-last-trace'] = self.last1s
-        r['key-words'] = [self.key1, self.key2]
-        return r
+        key3s = map(int,
+            np.arange(0, self.samples * self.interval, self.interval)
+        )
+
+        return {
+            'key1-last-trace' : self.last1s,
+            'key-words'       : [self.key1, self.key2],
+            'dimensions'      : [
+                sorted(self.key1s),
+                sorted(self.key2s),
+                list(key3s)
+            ]
+        }
+
+
+class StatisticsScanner(Scanner):
+    """Gather statistical information from the traces
+
+    This information is not strictly necessary, but it can be quite handy
+    for applications to have it easily accessible through the manifest.
+    This method assumes that the trace is parsed as native floats.
+    """
+    def __init__(self, endian):
+        super().__init__(endian)
+
+        self.minsample = None
+        self.maxsample = None
+
+    def scan_trace_samples(self, trace):
+        trmin = float(np.amin(trace))
+        trmax = float(np.amax(trace))
+
+        if self.minsample is None or trmin < self.minsample:
+            self.minsample = trmin
+
+        if self.maxsample is None or trmax > self.maxsample:
+            self.maxsample = trmax
+
+    def report(self):
+        return {
+            'sample-value-min' : self.minsample,
+            'sample-value-max' : self.maxsample
+        }
 
