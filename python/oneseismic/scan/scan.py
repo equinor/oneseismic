@@ -185,7 +185,7 @@ class scanner:
         """
         return dict(self.observed)
 
-    def add(self, header):
+    def scan_trace_header(self, header):
         """Add a new header to the index
 
         This is mandatory to implement for scanners
@@ -215,7 +215,7 @@ class lineset(scanner):
         self.last1s = {}
         self.traceno = 0
 
-    def add(self, header):
+    def scan_trace_header(self, header):
         key1 = self.intp.parse(header[self.key1])
         key2 = self.intp.parse(header[self.key2])
         self.key1s.add(key1)
@@ -270,7 +270,7 @@ def scan(stream, action):
 
     chunk = stream.read(header_size)
     header = segyio.field.Field(buf = chunk, kind = 'trace')
-    action.add(header)
+    action.scan_trace_header(header)
 
     tracelen  = action.tracelen()
     tracesize = header_size + tracelen
@@ -288,7 +288,7 @@ def scan(stream, action):
             raise RuntimeError(msg)
 
         header = segyio.field.Field(buf = chunk[:header_size], kind = 'trace')
-        action.add(header)
+        action.scan_trace_header(header)
 
         trace = np.frombuffer(chunk[header_size:])
         trace = tonative(trace.copy(), action.observed['format'], action.endian)

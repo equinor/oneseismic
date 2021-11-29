@@ -37,6 +37,6 @@ def test_regular_intervals(inlines, crosslines):
         )
 
     for header in headers:
-        seg.add(header)
+        seg.scan_trace_header(header)
 
     assert len(seg.key2s) == crosslines
