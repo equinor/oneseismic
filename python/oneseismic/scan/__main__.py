@@ -53,7 +53,7 @@ def main(argv):
             endian    = endian,
         )
 
-        d = scan(stream, action, endian)
+        d = scan(stream, [action], endian)
         d['guid'] = stream.hexdigest()
 
     if args.pretty:
