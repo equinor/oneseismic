@@ -112,7 +112,7 @@ class scanner:
         self.intp = parseint(endian = endian, default_length = 4)
         self.observed = {}
 
-    def scan_binary(self, binary):
+    def scan_binary_header(self, binary):
         """Scan a SEG-Y binary header
 
         Parameters
@@ -264,7 +264,7 @@ def scan(stream, action):
     stream.seek(textheader_size, io.SEEK_CUR)
     chunk = stream.read(binary_size)
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
-    skip = action.scan_binary(binary)
+    skip = action.scan_binary_header(binary)
     if skip > 0:
         stream.seek(skip * textheader_size, io.SEEK_CUR)
 
