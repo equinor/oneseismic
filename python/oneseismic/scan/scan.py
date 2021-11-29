@@ -145,7 +145,7 @@ class scanner:
         })
         return skip
 
-    def scan_trace(self, trace):
+    def scan_trace_samples(self, trace):
         """Update metadata with trace information
 
         Record statisical metadata from the trace samples. This information is
@@ -292,7 +292,7 @@ def scan(stream, action):
 
         trace = np.frombuffer(chunk[header_size:])
         trace = tonative(trace.copy(), action.observed['format'], action.endian)
-        action.scan_trace(trace)
+        action.scan_trace_samples(trace)
 
         trace_count += 1
 
