@@ -42,7 +42,7 @@ def test_unsupported_format_raises(endian, fmt):
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
     with pytest.raises(NotImplementedError):
         scan = scanner(endian = endian)
-        _ = scan.scan_binary(binary)
+        _ = scan.scan_binary_header(binary)
 
 supported_formats = [
     ('ibm', 1),
@@ -63,7 +63,7 @@ def test_supported_formats(endian, fmt):
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
 
     scan = scanner(endian = endian)
-    scan.scan_binary(binary)
+    scan.scan_binary_header(binary)
     out = scan.report()
     assert out['format'] == fmt[1]
 
@@ -88,7 +88,7 @@ def test_get_sample_count(endian, val):
 
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
     scan = scanner(endian = endian)
-    scan.scan_binary(binary)
+    scan.scan_binary_header(binary)
     out = scan.report()
     assert out['samples'] == val
 
@@ -113,6 +113,6 @@ def test_get_sample_interval(endian, val):
 
     binary = segyio.field.Field(buf = chunk, kind = 'binary')
     scan = scanner(endian = endian)
-    scan.scan_binary(binary)
+    scan.scan_binary_header(binary)
     out = scan.report()
     assert out['sampleinterval'] == val
