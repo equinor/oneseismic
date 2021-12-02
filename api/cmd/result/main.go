@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"time"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -16,6 +17,7 @@ import (
 type opts struct {
 	broker  string
 	signkey string
+	port    string
 }
 
 func parseopts() opts {
@@ -40,6 +42,14 @@ func parseopts() opts {
 		0,
 		"Message broker (redis) URL",
 		"url",
+	)
+
+	opts.port = "8080"
+	getopt.FlagLong(
+		&opts.port,
+		"port",
+		0,
+		"Port to start server on. Defaults to 8080",
 	)
 
 	getopt.Parse()
@@ -71,5 +81,5 @@ func main() {
 	results.GET("/:pid", result.Get)
 	results.GET("/:pid/stream", result.Stream)
 	results.GET("/:pid/status", result.Status)
-	app.Run(":8080")
+	app.Run(fmt.Sprintf(":%s", opts.port))
 }
