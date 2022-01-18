@@ -7,6 +7,21 @@ on:
     branches: [master]
 
 jobs:
+  integration_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build and test server processes
+        run: docker-compose -f docker-compose.yml build
+
+      - name: Run local integration tests
+        env:
+          TARGET_BUILD: localtest
+        run: |
+          STORAGE_URL=http://filesystem:8112 docker-compose -f docker-compose.yml up -d
+          docker-compose --project-directory . -f tests/docker-compose.local.yml up --build --exit-code-from test
+
   build:
     name: Build and test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
