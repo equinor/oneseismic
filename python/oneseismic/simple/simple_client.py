@@ -248,7 +248,7 @@ class simple_client:
         query = gql.gql('''
             query curtainByIndex($id: ID!, $coords: [[Int!]!]!, $opts: Opts) {
                 cube(id: $id) {
-                    curtainByIndex(coords: $coords, opts: $Opts)
+                    curtainByIndex(coords: $coords, opts: $opts)
                 }
             }
         ''')
