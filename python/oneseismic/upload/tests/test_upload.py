@@ -3,6 +3,8 @@ import json
 
 import itertools
 import numpy as np
+import segyio
+import pytest
 
 from pathlib import Path
 
@@ -264,3 +266,32 @@ def test_upload_regression(tmp_path):
             result = np.fromfile(result, 'f4')
             reference = np.fromfile(reference, 'f4')
             np.testing.assert_allclose(result, reference, rtol=1e-10)
+
+
+def test_upload_little_endian(tmpdir, tmp_path):
+    path = str(tmpdir.join('little-endian.sgy'))
+
+    def create_segy():
+        spec = segyio.spec()
+        spec.format = 5
+        spec.samples = [0, 1]
+        spec.ilines = [1]
+        spec.xlines = [1]
+        spec.endian = "little"
+
+        s1 = 3
+        s2 = 5.5
+        with segyio.create(path, spec) as f:
+            f.header[0] = {segyio.su.iline: 1, segyio.su.xline: 1}
+            f.trace[0] = [s1, s2]
+
+    create_segy()
+
+    from ...scan.__main__ import main as scan_main
+    meta = json.loads(scan_main([path, "--little-endian"]))
+
+    filesys = localfs(tmp_path)
+    fragment_shape = (2, 4, 2)
+    with open(path, 'rb') as src:
+        with pytest.raises(NotImplementedError):
+            upload(meta, fragment_shape, src, path, filesys)
