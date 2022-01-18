@@ -128,7 +128,9 @@ def scan(stream, scanners, endian):
             raise RuntimeError(msg)
 
         header  = segyio.field.Field(buf = chunk[:header_size], kind = 'trace')
-        trace = np.frombuffer(chunk[header_size:])
+        # dtype must match fmt size. Endianess and data type are matched later
+        dt = "i{}".format(format_size[fmt])
+        trace = np.frombuffer(chunk[header_size:], dtype=dt)
         trace = tonative(trace.copy(), fmt, endian)
 
         for scanner in scanners:
