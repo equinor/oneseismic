@@ -1,3 +1,4 @@
+import math
 import segyio
 
 import numpy as np
@@ -206,3 +207,201 @@ class StatisticsScanner(Scanner):
             'sample-value-max' : self.maxsample
         }
 
+
+class GeoScanner(Scanner):
+    """ Find the mapping parameters from UTM coordinates to line numbers
+
+    This scanner finds the 3 points in the cube closest to the 3 corners
+    (il_min, xl_min), (il_max, xl_min) and (il_min, xl_max). This is done
+    because a spread in the line numbers gave considerably better precision
+    than taking adjacent traces. Since the actual corner traces might be missing
+    from the file, we find the nearest.
+
+    These points are used to compute the UTM-to-lineno affine matrix:
+
+        a b c     X     inline
+        k m n  *  Y  =  crossline
+                  1
+
+    Note that this assumes uniform inline and crossline positional increments.
+
+    Attributes
+    ----------
+        p0, p1, p2
+            UTM coordinates of points at 3 "corners" of system, with p0
+            being the point of trace0 and p1/p2 far enough from it to
+            achieve good calculation precision.
+        p0_linenos, p1_linenos, p2_linenos
+            iline/xline coordinates of corresponding points
+
+    """
+    def __init__(self, il_word, xl_word, endian):
+        super().__init__(endian)
+        self.xl_word = xl_word
+        self.il_word = il_word
+
+        self.iline_min = math.inf
+        self.iline_max = -math.inf
+        self.xline_min = math.inf
+        self.xline_max = -math.inf
+
+        self.p0_linenos = None
+        self.p1_linenos = None
+        self.p2_linenos = None
+
+        self.p0 = None
+        self.p1 = None
+        self.p2 = None
+
+    @staticmethod
+    def is_closer(target, point, other):
+        def manhattan(x, y): return sum(map(lambda i, j: abs(i - j), x, y))
+
+        return manhattan(other, target) > manhattan(point, target)
+
+    @staticmethod
+    def get_cdp(header, word):
+        scale = header[segyio.su.scalco]
+        # SEG-Y specifies that a scaling of 0 should be interpreted as identity
+        if scale == 0:
+            scale = 1
+
+        cdp = header[word]
+        if scale > 0:
+            return cdp * scale
+        else:
+            return cdp / -scale
+
+    def scan_trace_header(self, header):
+        iline = self.intp.parse(header[self.il_word])
+        xline = self.intp.parse(header[self.xl_word])
+        cdpx = self.get_cdp(header, segyio.su.cdpx)
+        cdpy = self.get_cdp(header, segyio.su.cdpy)
+
+        if self.iline_min > iline:
+            self.iline_min = iline
+
+        if self.iline_max < iline:
+            self.iline_max = iline
+
+        if self.xline_min > xline:
+            self.xline_min = xline
+
+        if self.xline_max < xline:
+            self.xline_max = xline
+
+        closer_to_origo = \
+            self.p0_linenos is not None and \
+            self.is_closer(
+                (self.iline_min, self.xline_min),
+                (iline, xline),
+                self.p0_linenos
+            )
+
+        if self.p0_linenos is None or closer_to_origo:
+            self.p0_linenos = (iline, xline)
+            self.p0 = (cdpx, cdpy)
+
+        closer_to_il_corner = \
+            self.p1_linenos is not None and \
+            self.is_closer(
+                (self.iline_max, self.xline_min),
+                (iline, xline),
+                self.p1_linenos
+            )
+
+        if self.p1_linenos is None or closer_to_il_corner:
+            self.p1_linenos = (iline, xline)
+            self.p1 = (cdpx, cdpy)
+
+        closer_to_xl_corner = \
+            self.p2_linenos is not None and \
+            self.is_closer(
+                (self.iline_min, self.xline_max),
+                (iline, xline),
+                self.p2_linenos
+            )
+
+        if self.p2_linenos is None or closer_to_xl_corner:
+            self.p2_linenos = (iline, xline)
+            self.p2 = (cdpx, cdpy)
+
+
+    def report(self):
+        # To represent a point UTM (x, y) as (xline, iline) coordinate only a
+        # combination of linear transformations is needed inside one UTM zone
+        # grid, because converting from one cartesian grid to another is always
+        # a linear transformation.
+        #
+        # Thus a problem of changing coordinate system from UTM to iline/xline
+        # coordinates presents a standard 2D affine transformation:
+        #   a b c     p.x     p.inline
+        #   k m n  x  p.y  =  p.xline
+        #   0 0 1     1       1
+        #
+        # As we have 3 variables for each equation we need to obtain 3 points
+        # with known coordinates in each of the coordinate systems. Then we can
+        # solve the system with regards to coefficient matrix.
+        #
+        # With 3 known points system can be represented as
+        #   a b c     p0.x  p1.x  p2.x     p0.iline  p1.iline  p2.iline
+        #   k m n  x  p0.y  p1.y  p2.y  =  p0.xline  p1.xline  p2.xline
+        #   0 0 1     1     1     1        1         1         1
+        #
+        # This can be transformed to the system M x = b, where
+        #
+        #       p0.x  p0.y  1       a k       p0.inline  p0.xline
+        #   M = p1.x  p1.y  1   x = b m   b = p1.inline  p1.xline
+        #       p2.x  p2.y  1 ,     c n,      p2.inline  p2.xline
+        #
+        # We solve this system using the inverse of M: x = M^-1 b
+
+        M = np.array([
+            [self.p0[0], self.p0[1], 1],
+            [self.p1[0], self.p1[1], 1],
+            [self.p2[0], self.p2[1], 1]
+        ])
+
+        try:
+            utm_to_inline = np.linalg.inv(M).dot(
+                np.array([
+                    self.p0_linenos[0],
+                    self.p1_linenos[0],
+                    self.p2_linenos[0]
+                ])
+            )
+            utm_to_crossline = np.linalg.inv(M).dot(
+                np.array([
+                    self.p0_linenos[1],
+                    self.p1_linenos[1],
+                    self.p2_linenos[1]
+                ])
+            )
+        except np.linalg.LinAlgError:
+            # This exception is raised if M is not invertible
+            # TODO: Raise exception? Log?
+            return {}
+
+        # Check that the lineno-to-utm mappings are not zero. This will for
+        # instance happen if the UTM coordinate headers are set to zero
+        # (happens if they are unset).
+        # TODO: Raise exception? Log?
+        if (utm_to_inline == 0).all() or (utm_to_crossline == 0).all():
+            return {}
+
+        # We expect inlines and crosslines to be perpendicular to each other.
+        # If that is the case, the vectors (a, b) and (k, m) will also be
+        # perpendicular, a, b, k and m being coefficients on the UTM-to-lineno
+        # affine matrix (see the comment at the beginning of function). We
+        # normalize the result to distinguish between floating point errors and
+        # small dot product due to small vectors
+        dot_product = utm_to_inline[:-1].dot(utm_to_crossline[:-1])
+        moduli_product = np.linalg.norm(utm_to_inline[:-1]) \
+                       * np.linalg.norm(utm_to_crossline[:-1])
+        if abs(dot_product / moduli_product) > 1e-4:
+            # TODO: Raise exception? Log?
+            return {}
+
+        return {
+            'utm-to-lineno': [utm_to_inline.tolist(), utm_to_crossline.tolist()]
+        }

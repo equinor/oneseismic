@@ -372,6 +372,12 @@ def upload(metadata, shape, src, origfname, filesys):
         'sample-value-max' : metadata['sample-value-max'],
     }
 
+    # Geographic information is only added if available
+    try:
+        manifest.update({'utm-to-lineno': metadata['utm-to-lineno']})
+    except KeyError:
+        pass
+
     for fset in files:
         key, entry = fset.manifest_entry()
         manifest[key].append(entry)

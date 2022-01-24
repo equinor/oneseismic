@@ -40,6 +40,7 @@ small_manifest = '''
         "4": 19,
         "5": 24
     },
+    "utm-to-lineno": [[1, 0, 0], [0, 1, 0]],
     "key-words": [189, 193],
     "guid": "86f5f8f783fabe2773531d5529226d37b6c9bdcf"
 }
@@ -65,6 +66,7 @@ def test_upload_manifest_all_keys(tmp_path):
     assert manifest['line-labels']      == ['inline', 'crossline', 'time']
     assert manifest['sample-value-min'] == 1.2100000381469727
     assert manifest['sample-value-max'] == 5.240489959716797
+    assert manifest['utm-to-lineno'] == [[1, 0, 0], [0, 1, 0]]
 
 def test_upload_proper_volume_expected_fragment_ids(tmp_path):
     filesys = localfs(tmp_path)
