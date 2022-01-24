@@ -2,6 +2,7 @@
 #define ONESEISMIC_MESSAGES_HPP
 
 #include <array>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -52,10 +53,11 @@ struct attributedesc {
 };
 
 struct manifestdoc {
-    std::vector< volumedesc >           vol;
-    std::vector< attributedesc >        attr;
-    std::vector< std::vector< int > >   line_numbers;
-    std::vector< std::string >          line_labels;
+    std::vector< volumedesc >                             vol;
+    std::vector< attributedesc >                          attr;
+    std::vector< std::vector< int > >                     line_numbers;
+    std::vector< std::string >                            line_labels;
+    std::optional< std::vector< std::vector< double > > > utm_to_lineno;
 };
 
 /*

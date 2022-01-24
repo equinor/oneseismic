@@ -203,6 +203,10 @@ void from_json(const nlohmann::json& doc, manifestdoc& m) noexcept (false) {
     doc.at("line-labels") .get_to(m.line_labels);
     doc.at("data")        .get_to(m.vol);
     doc.at("attributes")  .get_to(m.attr);
+    if (doc.count("utm-to-lineno") != 0) {
+        m.utm_to_lineno.emplace(std::vector< std::vector< double > >{});
+        doc.at("utm-to-lineno").get_to(m.utm_to_lineno.value());
+    }
 }
 
 void to_json(nlohmann::json& doc, const manifestdoc& m) noexcept (false) {
@@ -210,6 +214,9 @@ void to_json(nlohmann::json& doc, const manifestdoc& m) noexcept (false) {
     doc["line-labels"]  = m.line_labels;
     doc["data"]         = m.vol;
     doc["attributes"]   = m.attr;
+    if (m.utm_to_lineno != std::nullopt) {
+        doc["utm-to-lineno"] = m.utm_to_lineno.value();
+    }
 }
 
 void to_json(nlohmann::json& doc, const basic_query& query) noexcept (false) {
