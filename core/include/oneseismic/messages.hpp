@@ -303,6 +303,18 @@ struct curtain_bundle {
     void unpack(const char* fst, const char* lst) noexcept (false);
 };
 
+namespace detail {
+
+std::pair< int, int > utm_to_cartesian(
+    const std::vector< int >& inlines,
+    const std::vector< int >& crosslines,
+    const std::vector< std::vector< double > >& utm_to_lino,
+    float x,
+    float y
+) noexcept (false);
+
+}
+
 }
 
 #endif //ONESEISMIC_MESSAGES_HPP

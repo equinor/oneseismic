@@ -291,3 +291,60 @@ class simple_client:
             variables['opts'] = { 'attributes': attributes }
 
         return prepared_query(self.client, query, variables)
+
+
+    def curtainByUTM(self, guid, curtain, attributes = None):
+        """Get a curtain from a list of UTM coordinates
+
+        This returns the traces that are closest to each of the given
+        coordinates.
+
+        Notes:
+            - This assumes that the coordinates are encoded in the same UTM zone
+              as the cube.
+            - If two or more points in query parameter result in the same point
+              in the cube, the point is returned as many times as it was
+              requested.
+            - This will fail if any of the coordinates fall outside the cube
+            - This will fail if UTM-to-lineno mapping is unavailale for the cube
+
+        Parameters
+        ----------
+            guid : string
+            curtain : list
+                List of UTM coordinates [[x, y], ...]
+            attributes : list of string
+                List of attribbutes to include in the result. These will only be
+                available when unpacking the result as an xarray structure.
+
+        Returns
+        -------
+            A handle to the result of the curtain query.
+
+
+        Examples
+        --------
+        >>> sc = simple_client(url)
+        >>> curtain = [[472000.32, 6501690.2], [472009.32, 6501695.2]]
+        >>> proc = sc.curtainByUTM(guid, curtain)
+        >>> proc.numpy()
+        [[0.7283162   0.00633962  0.02923059 ...  1.3414259   0.39454985]
+        [ 2.471489    0.5148768  -0.28820574 ...  3.3378954   1.1355114 ]]
+        """
+        query = gql.gql('''
+            query curtainByUTM($id: ID!, $coords: [[Float!]!]!, $opts: Opts) {
+                cube(id: $id) {
+                    curtainByUTM(coords: $coords, opts: $opts)
+                }
+            }
+        ''')
+
+        variables = {
+            'id': guid,
+            'coords': check_curtain(curtain),
+        }
+
+        if attributes is not None:
+            variables['opts'] = {'attributes': attributes}
+
+        return prepared_query(self.client, query, variables)
