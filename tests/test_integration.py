@@ -64,6 +64,12 @@ def create_segy(path):
     | 10            | 100, 101, 102 | 106, 107, 108 | 112, 113, 114 |
     | 11            | 103, 104, 105 | 109, 110, 111 | 115, 116, 177 |
 
+    UTM coordinates for headers:
+
+    | xlines-ilines | 1           | 2             | 3             |
+    |---------------|-------------|---------------|---------------|
+    | 10            | x=1, y=3    | x=2.1, y=3    | x=3.2, y=3    |
+    | 11            | x=1, y=6.3  | x=2.1, y=6.3  | x=3.2, y=6.3  |
     """
     spec = segyio.spec()
 
@@ -73,12 +79,32 @@ def create_segy(path):
     spec.ilines = [1, 2, 3]
     spec.xlines = [10, 11]
 
+    # We use scaling constant of -10, meaning that values will be divided by 10
+    il_step_x = int(1.1 * 10)
+    il_step_y = int(0 * 10)
+    xl_step_x = int(0 * 10)
+    xl_step_y = int(3.3 * 10)
+    ori_x = int(1 * 10)
+    ori_y = int(3 * 10)
+
     with segyio.create(path, spec) as f:
         data = 100
         tr = 0
         for il in spec.ilines:
             for xl in spec.xlines:
-                f.header[tr] = {segyio.su.iline: il, segyio.su.xline: xl}
+                f.header[tr] = {
+                    segyio.su.iline: il,
+                    segyio.su.xline: xl,
+                    segyio.su.cdpx:
+                        (il - spec.ilines[0]) * il_step_x +
+                        (xl - spec.xlines[0]) * xl_step_x +
+                        ori_x,
+                    segyio.su.cdpy:
+                        (il - spec.ilines[0]) * il_step_y +
+                        (xl - spec.xlines[0]) * xl_step_y +
+                        ori_y,
+                    segyio.su.scalco: -10,
+                }
                 data = data + len(spec.samples)
                 f.trace[tr] = np.arange(start=data - len(spec.samples),
                                         stop=data, step=1, dtype=np.single)
@@ -141,12 +167,15 @@ def test_curtain(cube_guid):
         cube_guid, [[3, 11], [1, 10], [2, 11]])().numpy()
     res_index = client.curtainByIndex(
         cube_guid, [[2, 1], [0, 0], [1, 1]])().numpy()
+    res_utm = client.curtainByUTM(
+        cube_guid, [[3.2, 6.3], [1, 3], [2.1, 6.3]])().numpy()
 
     assert len(res_lineno) == 3
     np.testing.assert_array_equal(res_lineno[0], np.array([100, 101, 102]))
     np.testing.assert_array_equal(res_lineno[1], np.array([109, 110, 111]))
     np.testing.assert_array_equal(res_lineno[2], np.array([115, 116, 117]))
     np.testing.assert_array_equal(res_lineno, res_index)
+    np.testing.assert_array_equal(res_lineno, res_utm)
 
 # TODO: test error cases
 # TODO: test azure: re-upload with same guid

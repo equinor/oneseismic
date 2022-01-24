@@ -8,6 +8,7 @@ from .scan import hashio
 from .scanners import LineScanner
 from .scanners import BasicScanner
 from .scanners import StatisticsScanner
+from .scanners import GeoScanner
 from ..internal.argparse import add_auth_args
 from ..internal.argparse import blobfs_from_args
 from ..internal.argparse import localfs_from_args
@@ -57,8 +58,13 @@ def main(argv):
             secondary = args.secondary_word,
             endian    = endian,
         )
+        geo = GeoScanner(
+            il_word = args.primary_word,
+            xl_word = args.secondary_word,
+            endian  = endian,
+        )
 
-        scanners = [basic, lines, stats]
+        scanners = [basic, lines, stats, geo]
         d = scan(stream, scanners, endian)
         d['guid'] = stream.hexdigest()
 
