@@ -333,6 +333,11 @@ type curtainargs struct {
 	Coords [][]int32 `json:"coords"`
 }
 
+type curtainargsUTM struct {
+	Kind   string    `json:"kind"`
+	Coords [][]float64 `json:"coords"`
+}
+
 func (c *cube) SliceByLineno(
 	ctx  context.Context,
 	args struct {
@@ -409,6 +414,24 @@ func (c *cube) CurtainByLineno(
 	)
 }
 
+func (c *cube) CurtainByUTM(
+	ctx    context.Context,
+	args   struct {
+		Coords [][]float64
+		Opts   *opts
+	},
+) (*promise, error) {
+	return c.basicQuery(
+		ctx,
+		"curtain",
+		curtainargsUTM {
+			Kind: "utm",
+			Coords: args.Coords,
+		},
+		args.Opts,
+	)
+}
+
 func MakeGraphQL(
 	keyring   *auth.Keyring,
 	endpoint  string,
@@ -443,6 +466,7 @@ type Cube {
     sliceByIndex(dim: Int!, index: Int!, opts: Opts): Promise
     curtainByLineno(coords: [[Int!]!]!, opts: Opts): Promise
     curtainByIndex( coords: [[Int!]!]!, opts: Opts): Promise
+    curtainByUTM( coords: [[Float!]!]!, opts: Opts): Promise
 }
 	`
 	resolver := &resolver {}

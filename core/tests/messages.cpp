@@ -179,3 +179,150 @@ TEST_CASE("slice-task can round trip packing") {
 
     CHECK(task == unpacked);
 }
+
+SCENARIO("Converting from UTM coordinates to cartesian grid") {
+    const std::vector< int > inlines{1, 2, 3, 5, 6};
+    const std::vector< int > crosslines{11, 12, 13, 14, 16, 17};
+    float offsetx = 1;
+    float offsety = 10;
+    // We align the inline with the x-axis and crossline with the y-axis and add
+    // a rotation 0.52 radians (approx pi/5). Before adding rotation we have:
+    //
+    //    x = inline * ilinc, y = crossline * xlinc
+    //
+    // Applying the rotation matrix:
+    //
+    //    cos(rot) -sin(rot)  *  inline * ilinc
+    //    sin(rot) cos(rot)      crossline * xlinc
+    //
+    //    =  inline * ilinc * cos(rot) - crossline * xlinc * sin(rot)
+    //       inline * ilinc * sin(rot) + crossline * xlinc * cos(rot)
+    //
+    //    =  inline * ilincx + crossline * xlincx
+    //       inline * ilincy + crossline * xlincy
+    //
+    // Including the initial offset at (inline, crossline) = (0, 0) we get:
+    //
+    //    x = inline * ilincx + crossline * xlincx + offsetx,
+    //    y = inline * ilincy + crossline * xlincy + offsety
+
+    float ilincx = 1 * cos(0.52);
+    float ilincy = 1 * sin(0.52);
+    float xlincx = - 2 * sin(0.52);
+    float xlincy = 2 * cos(0.52);
+
+    // The above equations can be written in matrix notation:
+    //
+    //    ilincx xlincx offsetx     inline        x
+    //    ilincy xlincy offsety  x  crossline  =  y
+    //         0     0       1      1             1
+    //
+    // The utm_to_lineno transformation matrix is derived by computing the
+    // inverse of the matrix to the left in the above expression and removing
+    // the last row.
+    const std::vector< std::vector< double > > utm_to_lineno {
+        {0.86781918,  0.49688014, -5.83662056},
+        {-0.24844007, 0.43390959, -4.09065583}
+    };
+
+    GIVEN("A point that falls on a missing line") {
+        float x = 3.99 * ilincx + 15.01 * xlincx + offsetx;
+        float y = 3.99 * ilincy + 15.01 * xlincy + offsety;
+
+        WHEN("Converting to cartesian coordinate") {
+            auto result = one::detail::utm_to_cartesian(
+                inlines,
+                crosslines,
+                utm_to_lineno,
+                x,
+                y
+            );
+
+            THEN("The cartesian coordinate for the nearest line is found"){
+                CHECK(result.first == 2);
+                CHECK(result.second == 4);
+            }
+        }
+    }
+}
+
+SCENARIO("Unpacking a curtain request") {
+    std::string doc = R"({
+        "pid": "some-pid",
+        "token": "on-behalf-of-token",
+        "url-query": "",
+        "guid": "object-id",
+        "storage_endpoint": "https://storage.com",
+        "manifest": {
+            "format-version": 1,
+            "data": [
+                {
+                    "file-extension": "f32",
+                    "shapes": [[2, 2, 2]],
+                    "prefix": "prefix",
+                    "resolution": "source"
+                }
+            ],
+            "attributes": [],
+            "line-numbers": [[10, 11], [1, 2], [0, 1]],
+            "line-labels": ["dim-0"],
+            "utm-to-lineno": [[1, 0, 10], [0, 1, 1]]
+        },
+        "function": "curtain",)";
+
+    one::curtain_query query;
+
+    GIVEN("Index coordinates") {
+        doc += R"(
+            "args": {
+                "kind": "index",
+                "coords": [[0, 1], [1, 0]]
+            }
+        })";
+
+        WHEN("Unpacking the request") {
+            query.unpack(doc.c_str(), doc.c_str() + doc.size());
+
+            THEN("The coordinates are unpacked correctly") {
+                CHECK(query.dim0s == std::vector{0, 1});
+                CHECK(query.dim1s == std::vector{1, 0});
+            }
+        }
+    }
+
+    GIVEN("Lineno coordinates") {
+        doc += R"(
+            "args": {
+                "kind": "lineno",
+                "coords": [[10, 2], [11, 1]]
+            }
+        })";
+
+        WHEN("Unpacking the request") {
+            query.unpack(doc.c_str(), doc.c_str() + doc.size());
+
+            THEN("The coordinates are unpacked correctly") {
+                CHECK(query.dim0s == std::vector{0, 1});
+                CHECK(query.dim1s == std::vector{1, 0});
+            }
+        }
+    }
+
+    GIVEN("UTM coordinates") {
+        doc += R"(
+            "args": {
+                "kind": "utm",
+                "coords": [[0.1, 1.1], [0.9, -0.1]]
+            }
+        })";
+
+        WHEN("Unpacking the request") {
+            query.unpack(doc.c_str(), doc.c_str() + doc.size());
+
+            THEN("The coordinates are unpacked correctly") {
+                CHECK(query.dim0s == std::vector{0, 1});
+                CHECK(query.dim1s == std::vector{1, 0});
+            }
+        }
+    }
+}

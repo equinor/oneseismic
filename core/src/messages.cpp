@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <math.h>
 #include <string>
 #include <tuple>
 
@@ -347,25 +348,14 @@ namespace {
  * used for lookup directly. Past this point, oneseismic only works in the
  * cartesian grid and no longer cares about line numbers.
  */
-void to_cartesian_inplace(
-    const std::vector< int >& labels,
-    std::vector< int >& xs)
+int to_cartesian(const std::vector< int >& labels, int x)
 noexcept (false) {
-    assert(std::is_sorted(labels.begin(), labels.end()));
-
-    auto fst = xs.begin();
-    auto lst = xs.end();
-
-    const auto indexof = [&labels](auto x) {
-        const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
-        if (*itr != x) {
-            const auto msg = fmt::format("lineno {} not in index");
-            throw not_found(msg);
-        }
-        return std::distance(labels.begin(), itr);
-    };
-
-    std::transform(fst, lst, fst, indexof);
+    const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
+    if (*itr != x) {
+        const auto msg = fmt::format("lineno {} not in index");
+        throw not_found(msg);
+    }
+    return std::distance(labels.begin(), itr);
 }
 
 gvt< 3 > geometry(const basic_query& query) noexcept (false) {
@@ -432,6 +422,61 @@ void group_by_fragment_inplace(curtain_query& query) {
         std::tie(dim0s[i], dim1s[i]) = pairs[i];
 }
 
+/*
+ * Finds the closets inline and crossline for a coordinate x, y. This does not
+ * account for missing line numbers. Applies the utm-to-lineno affine matrix:
+ *
+ *     a b c     x     inline
+ *     k m n  *  y  =  crossline
+ *               1
+ */
+std::pair< float, float > utm_to_lineno(
+        const std::vector< std::vector< double > >& utm_to_lino,
+        float x,
+        float y
+) noexcept (false) {
+
+    const float iline =
+            utm_to_lino[0][0] * x + utm_to_lino[0][1] * y + utm_to_lino[0][2];
+
+    const float xline =
+            utm_to_lino[1][0] * x + utm_to_lino[1][1] * y + utm_to_lino[1][2];
+
+    return std::pair{iline, xline};
+}
+}
+
+namespace detail {
+
+std::pair< int, int > utm_to_cartesian(
+        const std::vector< int >& inlines,
+        const std::vector< int >& crosslines,
+        const std::vector< std::vector< double > >& utm_to_lino,
+        float x,
+        float y
+) noexcept (false) {
+    const auto linenos = utm_to_lineno(utm_to_lino, x, y);
+
+    const auto indexof_nearest = [&](auto v, const auto& labels) {
+        int lineno = std::round(v);
+        auto itr = std::lower_bound(labels.begin(), labels.end(), lineno);
+        if ((itr == labels.end()) or (itr == labels.begin() and *itr != lineno)) {
+            const auto msg = fmt::format("Point ({}, {}) not in cube", x, y);
+            throw not_found(msg);
+        }
+
+        if (itr != labels.begin() and abs(v - *itr) > abs(v - *(itr - 1)))
+            itr--;
+
+        return std::distance(labels.begin(), itr);
+    };
+
+    return {
+        indexof_nearest(linenos.first, inlines),
+        indexof_nearest(linenos.second, crosslines)
+    };
+}
+
 }
 
 void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false) {
@@ -444,28 +489,67 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
 
     const auto& args = doc.at("args");
 
-    std::vector< std::vector< int > > coords;
-    args.at("coords").get_to(coords);
-    query.dim0s.reserve(coords.size());
-    query.dim1s.reserve(coords.size());
+    auto extract_coords = [&]< typename T >(auto mapping, T) {
+        std::vector< std::vector< T > > coords;
+        args.at("coords").get_to(coords);
+        query.dim0s.reserve(coords.size());
+        query.dim1s.reserve(coords.size());
 
-    try {
-        for (const auto& pair : coords) {
-            query.dim0s.push_back(pair.at(0));
-            query.dim1s.push_back(pair.at(1));
+        try {
+            for (const auto& pair : coords) {
+                const auto dims = mapping(pair.at(0), pair.at(1));
+                query.dim0s.push_back(dims.first);
+                query.dim1s.push_back(dims.second);
+            }
+        } catch (std::out_of_range&) {
+            throw bad_value("bad coord arg; expected list-of-pairs");
         }
-    } catch (std::out_of_range&) {
-        throw bad_value("bad coord arg; expected list-of-pairs");
-    }
+    };
 
     const std::string& kind = args.at("kind");
     if (kind == "index") {
         /* no-op - already cartesian indices */
+        extract_coords(
+            [](int x, int y){return std::pair{x, y};},
+            int()
+        );
     }
     else if (kind == "lineno") {
-        const auto& line_numbers = query.manifest.line_numbers;
-        to_cartesian_inplace(line_numbers[0], query.dim0s);
-        to_cartesian_inplace(line_numbers[1], query.dim1s);
+        const auto &line_numbers = query.manifest.line_numbers;
+        assert(std::is_sorted(line_numbers[0].begin(), line_numbers[0].end()));
+        assert(std::is_sorted(line_numbers[1].begin(), line_numbers[1].end()));
+        extract_coords(
+            [&line_numbers](int x, int y) {
+                return std::pair(
+                    to_cartesian(line_numbers[0], x),
+                    to_cartesian(line_numbers[1], y)
+                );
+            },
+            int()
+        );
+    }
+    else if (kind == "utm") {
+        if (query.manifest.utm_to_lineno == std::nullopt) {
+            const auto msg = "Manifest does not contain geographic information,"
+                             " can not perform UTM query";
+            throw not_found(msg);
+        }
+        const auto &line_numbers = query.manifest.line_numbers;
+        assert(std::is_sorted(line_numbers[0].begin(), line_numbers[0].end()));
+        assert(std::is_sorted(line_numbers[1].begin(), line_numbers[1].end()));
+        const auto utm_to_lino = query.manifest.utm_to_lineno.value();
+        extract_coords(
+            [&utm_to_lino, &line_numbers](float x, float y) {
+                return detail::utm_to_cartesian(
+                        line_numbers[0],
+                        line_numbers[1],
+                        utm_to_lino,
+                        x,
+                        y
+                );
+            },
+            float()
+        );
     }
 
     group_by_fragment_inplace(query);
