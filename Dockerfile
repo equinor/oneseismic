@@ -47,6 +47,7 @@ RUN make -j4 install
 
 FROM golang:1.16-buster as gobuilder
 COPY --from=cppbuilder /usr/local /usr/local
+ENV CGO_CXXFLAGS="-std=c++17"
 
 WORKDIR /src
 COPY api/go.mod .
