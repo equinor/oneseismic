@@ -10,7 +10,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-redis/redis/v8 v8.6.0
 	github.com/google/uuid v1.2.0
-	github.com/graph-gophers/graphql-go v1.1.0
+	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/pborman/getopt/v2 v2.1.0
 	github.com/stretchr/testify v1.7.0
 	github.com/vmihailenco/msgpack/v5 v5.2.3
