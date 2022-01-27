@@ -1,6 +1,6 @@
 azure-storage-blob
 azure-identity
-gql
+gql[requests]
 hypothesis
 importlib-metadata >= '1.0'; python_version < '3.8'
 numpy
