@@ -51,7 +51,7 @@ services:
   storage:
     image: redis
 
-  nginx:
+  server:
     image: nginx:latest
     ports:
       - 8080:8080

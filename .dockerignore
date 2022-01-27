@@ -3,3 +3,4 @@ tmp/*
 **/.dockerignore
 **/.env
 .git
+**/_skbuild

@@ -1,5 +1,7 @@
 import os
 import json
+import segyio
+import numpy as np
 
 from ..__main__ import main
 
@@ -197,3 +199,34 @@ def test_outline_missing_line_numbers():
         [20, 21, 23, 24, 25],
     ]
     assert result['dimensions'][:2] == expected_line_numbers
+
+
+def test_odd_samples_x_fmtlength(tmpdir):
+    """Testing bug which caused error on buffer conversion.
+    dtype was incorrectly expecting 8 bytes, but per item size = 4 bytes
+    and odd number of items, last read was incomplete.
+    May be updated with other formats once supported
+    """
+    path = str(tmpdir.join('1samples-x-4bytes.sgy'))
+
+    samples = [0]
+    fmt = 1
+
+    def create_segy():
+        spec = segyio.spec()
+        spec.format = fmt
+        spec.samples = samples
+        spec.tracecount = 1
+
+        with segyio.create(path, spec) as f:
+            f.header[0] = {segyio.su.iline: 1, segyio.su.xline: 1}
+            f.trace[0] = [1, 2]
+            f.bin.update(hdt=10)
+
+    create_segy()
+
+    s = main([path])
+    run = json.loads(s)
+
+    assert run['samples'] == len(samples)
+    assert run['dimensions'][2] == samples

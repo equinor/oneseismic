@@ -1,0 +1,30 @@
+version: '3.4'
+services:
+  # any simple server that supports etags
+  filesystem:
+    image: ruby:latest
+    command:  bash -c "gem install webrick && ruby -run -e httpd -- --bind-address 0.0.0.0 --port 8112 /blob"
+    volumes:
+      - ${STORAGE_LOCATION:-blob}:/blob
+    ports:
+     - 8112:8112
+
+  test:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile
+      target: $TARGET_BUILD
+      args:
+        - UPLOAD_WITH_CLIENT_VERSION
+        - FETCH_WITH_CLIENT_VERSION
+    volumes:
+      - ${STORAGE_LOCATION:-blob}:/blob
+    environment:
+      - SERVER_URL=${SERVER_URL:-http://server:8080}
+      - BLOB_URL=${BLOB_URL:-http://filesystem:8112}
+      # direct access to data storage, including write access
+      - STORAGE_LOCATION=/blob
+
+# default "blob" location, unless overridden
+volumes:
+ blob:

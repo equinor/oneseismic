@@ -299,6 +299,9 @@ def upload(metadata, shape, src, origfname, filesys):
     fmt    = metadata['format']
     endian = metadata['byteorder']
 
+    if endian == "little":
+        raise NotImplementedError
+
     files = [dataset(fmt, endian, key1s, key2s, key3s, shape, prefix = 'src')]
     files.extend([
         cdpset(
