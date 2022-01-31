@@ -8,6 +8,7 @@ on:
 
 jobs:
   integration_tests:
+    name: Integration tests on local server
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -23,15 +24,16 @@ jobs:
           docker-compose --project-directory . -f tests/docker-compose.local.yml up --build --exit-code-from test
 
   version_tests:
+    name: Version compatibility testing
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - desc: "0.3.1-ish client"
-            client_version: "1aae0329b2494a569f790912146cdfc42510b36f"
-            data_version: ""
-            server_version: ""
+          # - desc: "0.3.2 client (corresponding git tag needed)"
+          #   client_version: "0.3.2"
+          #   data_version: ""
+          #   server_version: ""
           - desc: "0.3.0 data version"
             client_version: ""
             data_version: "0.3.0"
@@ -57,6 +59,7 @@ jobs:
           docker-compose -f server/oneseismic/docker-compose.yml build
       - name: Build tests
         env:
+          FETCH_WITH_CLIENT_VERSION: ${{ matrix.client_version }}
           UPLOAD_WITH_CLIENT_VERSION: ${{ matrix.data_version }}
           TARGET_BUILD: versiontest
         run: |
