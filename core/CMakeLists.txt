@@ -31,7 +31,7 @@ if (NOT MSVC)
 endif ()
 
 add_library(oneseismic)
-target_compile_features(oneseismic PUBLIC cxx_std_17)
+target_compile_features(oneseismic PUBLIC cxx_std_20)
 add_library(oneseismic::oneseismic ALIAS oneseismic)
 target_include_directories(oneseismic
     PUBLIC

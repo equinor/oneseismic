@@ -77,7 +77,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-2016]
+        os: [ubuntu-latest, macOS-latest, windows-2019]
 
     steps:
       - uses: actions/checkout@v2
@@ -106,7 +106,7 @@ jobs:
             cmake -S core/ -B build/
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
             -DVCPKG_TARGET_TRIPLET=x64-windows
-            -G "Visual Studio 15 2017"
+            -G "Visual Studio 16 2019"
             -A x64
 
       - name: Configure
