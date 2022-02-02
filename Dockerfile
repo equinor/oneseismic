@@ -45,7 +45,7 @@ RUN cmake \
     /src/core
 RUN make -j4 install
 
-FROM golang:1.15-buster as gobuilder
+FROM golang:1.16-buster as gobuilder
 COPY --from=cppbuilder /usr/local /usr/local
 
 WORKDIR /src
