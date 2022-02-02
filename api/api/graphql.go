@@ -472,40 +472,23 @@ func (g *gql) Get(ctx *gin.Context) {
 	delete(query, "variables")
 
 	ctx.Request.URL.RawQuery = query.Encode()
-	ctx.JSON(200, g.execQuery(
-		ctx,
-		q.Query,
-		q.OperationName,
-		q.Variables,
-	))
+	ctx.JSON(200, g.execQuery(ctx, q))
 }
 
 func (g *gql) Post(ctx *gin.Context) {
-	type body struct {
-		Query         string                 `json:"query"`
-		OperationName string                 `json:"operationName"`
-		Variables     map[string]interface{} `json:"variables"`
-	}
-	b := body {}
-	err := ctx.BindJSON(&b)
+	body := util.GraphQLQuery {}
+	err := ctx.BindJSON(&body)
 	if err != nil {
 		log.Printf("pid=%s %v", ctx.GetString("pid"), err)
 		return
 	}
 
-	ctx.JSON(200, g.execQuery(
-		ctx,
-		b.Query,
-		b.OperationName,
-		b.Variables,
-	))
+	ctx.JSON(200, g.execQuery(ctx, &body))
 }
 
 func (g *gql) execQuery(
-	ctx    *gin.Context,
-	query  string,
-	opName string,
-	variables map[string]interface{},
+	ctx   *gin.Context,
+	query *util.GraphQLQuery,
 ) *graphql.Response {
 	// The Query object is constructed here in order to have a single
 	// entry/exit point for the QuerySession objects, to make sure they get put
@@ -522,5 +505,5 @@ func (g *gql) execQuery(
 		scheduler: g.scheduler,
 	}
 	c := setQueryContext(ctx, &qctx)
-	return g.schema.Exec(c, query, opName, variables)
+	return g.schema.Exec(c, query.Query, query.OperationName, query.Variables)
 }
