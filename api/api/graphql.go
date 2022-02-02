@@ -494,11 +494,11 @@ func (g *gql) Get(ctx *gin.Context) {
 
 	variables := make(map[string]interface{})
 	variablesargs := query["variables"]
-	if len(variables) > 1 {
+	if len(variablesargs) > 1 {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	if len(opnameargs) == 1 {
+	if len(variablesargs) == 1 {
 		err := json.Unmarshal([]byte(variablesargs[0]), &variables)
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusBadRequest)
