@@ -1,13 +1,20 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/gin-gonic/gin"
+
+	"github.com/auth0/go-jwt-middleware/v2"
+	jwkeyset "github.com/auth0/go-jwt-middleware/v2/jwks"
+	"github.com/auth0/go-jwt-middleware/v2/validator"
 )
 
 /*
@@ -177,6 +184,90 @@ func ResultAuth(keyring *Keyring) gin.HandlerFunc {
 		if err != nil {
 			log.Printf("%s %v", pid, err)
 			ctx.AbortWithStatus(http.StatusForbidden)
+		}
+	}
+}
+
+/*
+ * Custom claims that we expect to be in the JWT
+ */
+type CustomClaims struct {
+	Roles []string `json:"roles"`
+}
+
+/*
+ * Validate custom claims
+ */
+func (c *CustomClaims) Validate(ctx context.Context) error {
+	/* Check if array/slice contains an element */
+	contains := func (slice []string, element string) bool {
+		for _, x := range slice {
+			if x == element {
+				return true
+			}
+		}
+		return false
+	}
+
+	readRole := contains(c.Roles, "Read")
+	if !readRole {
+		return errors.New("Invalid Roles Claim, expected to find: 'Read'")
+	}
+	return nil
+}
+
+func GetJwksProvider(issuer string) *jwkeyset.CachingProvider {
+	issuerURL, err := url.Parse(issuer)
+	if err != nil {
+		log.Fatalf("failed to parse the issuer url: %v", err)
+	}
+	return jwkeyset.NewCachingProvider(issuerURL, 60*time.Minute)
+}
+
+/*
+ * Authentication middleware
+ *
+ * Check for and validate access_token in the authorization header on all
+ * incoming requests.
+ */
+func JWTvalidation(
+	issuer   string,
+	audience string,
+	keyFunc  func(context.Context) (interface{}, error),
+) gin.HandlerFunc {
+	customClaims := func() validator.CustomClaims {
+		return &CustomClaims{}
+	}
+
+	jwtValidator, err := validator.New(
+		keyFunc,
+		validator.RS256,
+		issuer,
+		[]string{audience},
+		validator.WithCustomClaims(customClaims),
+	)
+
+	if err != nil {
+		log.Fatalf("failed to setup JWT validator: %v", err)
+	}
+
+	return func (ctx *gin.Context) {
+		token, err := jwtmiddleware.AuthHeaderTokenExtractor(ctx.Request)
+		if err != nil {
+			log.Println(err)
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		if token == "" {
+			log.Println("Request without JWT in authorization header")
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		_, err = jwtValidator.ValidateToken(ctx.Request.Context(), token)
+		if err != nil {
+			log.Println(err)
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
 		}
 	}
 }

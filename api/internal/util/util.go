@@ -118,7 +118,7 @@ func AzblobCredential(authorization string) azblob.Credential {
 }
 
 type GraphQLQuery struct {
-	Query         string                 `json;"query"`
+	Query         string                 `json:"query"`
 	OperationName string                 `json:"operationName"`
 	Variables     map[string]interface{} `json:"variables"`
 }

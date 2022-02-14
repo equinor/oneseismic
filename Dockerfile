@@ -68,7 +68,8 @@ RUN    apt-get update \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists
 
-COPY --from=gobuilder /go/bin/query  /bin/oneseismic-query
-COPY --from=gobuilder /go/bin/result /bin/oneseismic-result
-COPY --from=gobuilder /go/bin/fetch  /bin/oneseismic-fetch
-COPY --from=gobuilder /go/bin/gc     /bin/oneseismic-gc
+COPY --from=gobuilder /go/bin/query     /bin/oneseismic-query
+COPY --from=gobuilder /go/bin/result    /bin/oneseismic-result
+COPY --from=gobuilder /go/bin/fetch     /bin/oneseismic-fetch
+COPY --from=gobuilder /go/bin/gc        /bin/oneseismic-gc
+COPY --from=gobuilder /go/bin/catalogue /bin/oneseismic-catalogue
