@@ -8,7 +8,10 @@ import random
 import tempfile
 import numpy as np
 from oneseismic import simple
+from urllib.parse import urlsplit
 import segyio
+import azure
+import datetime
 
 # required
 SERVER_URL = os.getenv("SERVER_URL")
@@ -19,6 +22,9 @@ UPLOAD_WITH_PYTHON = os.getenv("UPLOAD_WITH_PYTHON")
 # optional
 UPLOAD_WITH_CLIENT_VERSION = os.getenv("UPLOAD_WITH_CLIENT_VERSION")
 FETCH_WITH_CLIENT_VERSION = os.getenv("FETCH_WITH_CLIENT_VERSION")
+
+# azure
+AZURE_STORAGE_ACCOUNT_KEY = os.getenv("AZURE_STORAGE_ACCOUNT_KEY")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -43,7 +49,7 @@ def scan(path):
     return json.loads(scan.stdout)
 
 
-def upload(path, scan_meta=None):
+def upload(path, storage_location=STORAGE_LOCATION, scan_meta=None):
     if not scan_meta:
         scan_meta = scan(path)
     scan_insights = tempfile.mktemp('scan_insights.json')
@@ -51,8 +57,9 @@ def upload(path, scan_meta=None):
         f.write(json.dumps(scan_meta))
 
     subprocess.run([UPLOAD_WITH_PYTHON, "-m", "oneseismic", "upload",
-                   scan_insights, path,  STORAGE_LOCATION], encoding="utf-8",
-                   check=True)
+                   scan_insights, path, storage_location], encoding="utf-8",
+                   capture_output=True, check=True)
+
     return scan_meta["guid"]
 
 
@@ -113,7 +120,7 @@ def create_segy(path):
         f.bin.update(tsort=segyio.TraceSortingFormat.INLINE_SORTING)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture
 def cube_guid(tmpdir_factory):
     custom = str(tmpdir_factory.mktemp('files').join('custom.sgy'))
     create_segy(custom)
@@ -177,5 +184,136 @@ def test_curtain(cube_guid):
     np.testing.assert_array_equal(res_lineno, res_index)
     np.testing.assert_array_equal(res_lineno, res_utm)
 
+
+def sign_azure_request(
+    account_name=urlsplit(STORAGE_LOCATION).netloc.split('.')[0],
+    container_name=None,
+    account_key=AZURE_STORAGE_ACCOUNT_KEY,
+    resource_types=azure.storage.blob.ResourceTypes(
+        container=True, object=True),
+    permission=None,
+    expiry=None,
+):
+    if not expiry:
+        expiry = datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
+    if not permission:
+        if container_name:
+            permission = azure.storage.blob.ContainerSasPermissions(
+                read=True, list=True)
+        else:
+            permission = azure.storage.blob.AccountSasPermissions(
+                read=True, write=True, list=True)
+
+    if container_name:
+        return azure.storage.blob.generate_account_sas(
+            account_name=account_name,
+            account_key=account_key,
+            resource_types=resource_types,
+            permission=permission,
+            expiry=expiry)
+    else:
+        return azure.storage.blob.generate_account_sas(
+            account_name=account_name,
+            account_key=account_key,
+            resource_types=resource_types,
+            permission=permission,
+            expiry=expiry)
+
+
+@pytest.mark.parametrize('token', [
+    (""),
+    ("bad_token"),
+])
+@pytest.mark.cloud
+def test_upload_fails_with_bad_credentials(token, tmpdir):
+    """ Tests that cloud resources can't be accessed without good credentials
+    Details are considered to be covered by azure itself, as well as any incorrect
+    parameters users might provide (e.g. insufficient permissions)
+    """
+    path = str(tmpdir.join('noupload.segy'))
+    data = np.array(
+        [
+            [1.25, 1.5],
+            [random.uniform(2.5, 2.75), random.uniform(2.75, 3)]
+        ], dtype=np.float32)
+    segyio.tools.from_array(path, data)
+
+    with pytest.raises(Exception) as exc:
+        upload(path, storage_location=STORAGE_LOCATION+"?"+token)
+    assert "Server failed to authenticate the request" in str(exc.value.stderr)
+
+    client = simple.simple_client(SERVER_URL)
+    with pytest.raises(Exception) as exc:
+        client.sliceByIndex("whicheverguid", dim=0, index=0)(sas=token).numpy()
+    assert "Unauthorized" in str(exc)
+
+
+@pytest.fixture
+def azure_upload():
+    guid = ""
+
+    def create_file(path, data):
+        nonlocal guid
+        segyio.tools.from_array(path, data)
+        scan_meta = scan(path)
+        guid = scan_meta["guid"]
+
+        return scan_meta
+
+    yield create_file
+
+    # random data, delete
+    token = sign_azure_request(
+        permission=azure.storage.blob.AccountSasPermissions(delete=True))
+    container_client = azure.storage.blob.ContainerClient(
+        STORAGE_LOCATION, guid, token)
+    container_client.delete_container()
+
+
+@pytest.mark.cloud
+def test_azure_flow(tmpdir, azure_upload):
+    path = str(tmpdir.join('upload.segy'))
+    data = np.array(
+        [
+            [1.75, 1.5],
+            [random.uniform(2.5, 2.75), random.uniform(2.75, 3)]
+        ], dtype=np.float32)
+
+    scan_meta = azure_upload(path, data)
+    upload_token = sign_azure_request()
+    upload(path, storage_location=STORAGE_LOCATION +
+           "?"+upload_token, scan_meta=scan_meta)
+
+    guid = scan_meta["guid"]
+    client = simple.simple_client(SERVER_URL)
+    token = sign_azure_request(container_name=guid)
+    res = client.sliceByIndex(guid, dim=0, index=0)(sas=token).numpy()
+    np.testing.assert_array_equal(res, data)
+
+
+@pytest.mark.cloud
+def test_azure_reupload_forbidden(tmpdir, azure_upload):
+    """
+    Current implementation assumes that once cube has been uploaded to storage,
+    it won't be modified any more.
+
+    Test assures that accidental reupload doesn't cause issues (delete followed
+    by reupload will, but this is assumed to never happen)
+    """
+    path = str(tmpdir.join('upload.segy'))
+    data = np.array(
+        [
+            [random.uniform(2.5, 2.75), random.uniform(2.75, 3)]
+        ], dtype=np.float32)
+
+    scan_meta = azure_upload(path, data)
+    upload_token = sign_azure_request()
+    upload(path, storage_location=STORAGE_LOCATION +
+           "?"+upload_token, scan_meta=scan_meta)
+    with pytest.raises(Exception) as exc:
+        upload(path, storage_location=STORAGE_LOCATION +
+               "?"+upload_token, scan_meta=scan_meta)
+    assert "The specified blob already exists" in str(exc.value.stderr)
+
+
 # TODO: test error cases
-# TODO: test azure: re-upload with same guid
