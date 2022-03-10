@@ -7,9 +7,9 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.13.0
 	github.com/auth0/go-jwt-middleware/v2 v2.0.0
 	github.com/dgraph-io/ristretto v0.1.0
-	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-redis/redis/v8 v8.6.0
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/google/uuid v1.2.0
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/jackc/pgx/v4 v4.15.0

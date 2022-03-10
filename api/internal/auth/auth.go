@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/gin-gonic/gin"
 
 	"github.com/auth0/go-jwt-middleware/v2"

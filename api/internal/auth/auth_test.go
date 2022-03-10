@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 	
-	"github.com/form3tech-oss/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/gin-gonic/gin"
 )
 
