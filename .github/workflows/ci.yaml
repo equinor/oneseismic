@@ -22,6 +22,11 @@ jobs:
         run: |
           STORAGE_URL=http://filesystem:8112 docker-compose -f docker-compose.yml up -d
           docker-compose --project-directory . -f tests/docker-compose.local.yml up --build --exit-code-from test
+      - name: Print logs
+        continue-on-error: true
+        if: always()
+        run: |
+          docker-compose logs -t
 
   version_tests:
     name: Version compatibility testing
@@ -70,6 +75,12 @@ jobs:
         run: |
           STORAGE_URL=http://filesystem:8112 docker-compose -f server/oneseismic/docker-compose.yml up -d
           docker-compose --project-directory client/oneseismic -f client/oneseismic/tests/docker-compose.local.yml up --exit-code-from test
+      - name: Print logs
+        continue-on-error: true
+        if: always()
+        working-directory: server/oneseismic
+        run: |
+          docker-compose logs -t
 
   build:
     name: Build and test on ${{ matrix.os }}
