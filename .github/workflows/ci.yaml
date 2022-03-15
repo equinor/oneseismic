@@ -103,8 +103,8 @@ jobs:
       - name: Install dependencies on ubuntu
         if: startsWith(matrix.os, 'ubuntu')
         run: |
-            sudo apt-get install libfmt-dev
-            sudo apt-get install libmsgpack-dev
+            sudo apt-get update
+            sudo apt-get install -y libfmt-dev libmsgpack-dev valgrind
 
       - name: Install dependencies on macos
         if: startsWith(matrix.os, 'mac')
@@ -133,6 +133,12 @@ jobs:
       - name: Run tests
         working-directory: build
         run: ctest -C Release --output-on-failure
+
+      - name: Run valgrind
+        if: startsWith(matrix.os, 'ubuntu')
+        working-directory: build
+        run: |
+            valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 ./core-tests
 
       - name: Install python dependencies
         run: python -m pip install -r python/requirements-dev.txt
