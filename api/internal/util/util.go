@@ -3,6 +3,7 @@ package util
 import (
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/equinor/oneseismic/api/internal"
 	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
@@ -113,6 +115,63 @@ func AzblobCredential(authorization string) azblob.Credential {
 		return azblob.NewTokenCredential(authorization, nil)
 	}
 	return azblob.NewAnonymousCredential()
+}
+
+type GraphQLQuery struct {
+	Query         string                 `json:"query"`
+	OperationName string                 `json:"operationName"`
+	Variables     map[string]interface{} `json:"variables"`
+}
+
+/*
+ * Parse the the url?... parameters that graphql cares about (query,
+ * operationName and variables), and forward the remaining parameters with
+ * the graphql query. This enables users to pass query params to the blob
+ * store effectively, which means SAS or other URL encoded auth can be used
+ * with oneseismic.
+ *
+ * If a param is passed multiple times, e.g. graphql?query=...,query=... it
+ * would be made into a list by net/url, but oneseismic considers this an
+ * error to make it harder to make ambiguous requests. This makes for some
+ * really ugly request parsing code.
+ *
+ * Only the query=... parameter is mandatory for GET requests.
+ */
+func GraphQLQueryFromGet(query url.Values) (*GraphQLQuery, error) {
+	graphqueryargs := query["query"]
+	if len(graphqueryargs) != 1 {
+		return nil, internal.QueryError("Bad Request")
+	}
+	graphquery := graphqueryargs[0]
+
+	opname := ""
+	opnameargs := query["operationName"]
+	if len(opnameargs) > 1 {
+		return nil, internal.QueryError("Bad Request")
+	}
+	if len(opnameargs) == 1 {
+		opname = opnameargs[0]
+	}
+
+	variables := make(map[string]interface{})
+	variablesargs := query["variables"]
+	if len(variablesargs) > 1 {
+		return nil, internal.QueryError("Bad Request")
+	}
+	if len(variablesargs) == 1 {
+		err := json.Unmarshal([]byte(variablesargs[0]), &variables)
+		if err != nil {
+			return nil, internal.QueryError("Bad Request")
+		}
+	}
+
+	params := GraphQLQuery {
+		Query:         graphquery,
+		OperationName: opname,
+		Variables:     variables,
+	}
+
+	return &params, nil
 }
 
 /*

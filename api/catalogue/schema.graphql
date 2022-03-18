@@ -1,0 +1,549 @@
+"""
+## The oneseismic catalogue API
+
+This API provides fast access to the oneseismic manifests (metadata) of each
+cube stored in oneseismic. Its main purpose is to provide a way to quickly find
+cubes of interest. It does so by providing powerful filtering capabilities on
+the manifests. Cubes can be found by matching on arbitrary fields in the
+manifest and by intersections of geographical areas.
+
+### The oneseismic manifest
+
+Each cube that is uploaded to oneseismic has a `manifest.json` accompanying
+the data. The main purpose of the manifest and its content is to provide
+context to the internals of oneseismic, aiding it in resolving cube queries
+effectively. However, it turns out a lot of the information stored in it is
+also useful for discoverability across large sets of cubes. Please refer to the
+`manifest` type for a full overview of its fields.
+
+### A motivating example
+
+Return the guid and original filename for all cubes that intersect with the
+lines spanning from `(100, 100)` to `(200, 100)`, and where the format version
+is 1:
+```
+manifests(
+  intersects: { linestring: { coords : [
+    { x: 100, y: 100 },
+    { x: 200, y: 100 }
+  ] } }
+  where: { eq: { formatVersion: 1 } }
+) {
+    guid
+    uploadFilename
+}
+```
+
+It may be a bit daunting at first. Especially if you are new to GraphQL. Let's
+step through it. `manifests` is the query-name. Currently, this is the only
+query available. We then specify 2 arguments `intersects` and `where`. These
+are filters that help narrow down the result. `intersects` can be read as:
+return me all manifests that intersect with the `linestring` defined by the
+following list of coordinates. The `where`-argument can be read as: return me
+all the manifests where the manifest field `formatVersion` equals `1`. The
+conditions from `intersects` and `where` both have to match to get a result.
+Finally, we say that for each manifest that matches the above conditions,
+return the guid and uploadfilename.
+ 
+Now let's say that the `linestring` in the above query describes `l1` below and
+there exists 2 cubes, `c1` and `c2`, in the oneseismic database. The above
+query will return the guid and uploadfilename for these 2 cubes.
+
+```
+c1
++-----------+
+|           | c2
+|     l1    +---------------+
+|     +----------------+    |
++-----------+               |
+            |               |
+            +---------------+
+```
+
+The real power comes when you combine this with the main oneseismic API.
+Passing the guid's of `c1` and `c2` to the main API with the same
+coordinates, will yield you 2 seismic slices, one for each guid. Merge the
+results together and you have yourself a multi-survey slice. In a matter of
+seconds.
+
+This is of course just _one_ way on how to use this API. The filter
+capabilities go far beyond this example.
+
+### Authentication and authorization
+
+In order to access this API you need to attach a valid access token to
+the request's authorization header.
+"""
+type Query {
+  """
+  ### Query the manifests in your oneseismic instance
+
+  This is the only query in this API. It implements filtering on manifest
+  fields and geometry intersection and supports pagination through `first` and
+  `offset`.
+
+  #### Examples
+
+  Restrict the number of results using `first` and `offset`:
+  ```
+  query manifest($first: Int, $offset: Int) {
+    manifests(first: $first, $offset: offset) {
+        guid
+    }
+  }
+  ```
+
+  Refer to the Filter and Geometry input-types for more examples on how to use
+  these.
+  """
+  manifests(
+    """
+    Filter based on matching field values. See `Filters` for example use
+    """
+    where : Filter,
+
+    """
+    Filter based on intersecting geometries. See `Geometry` for example use
+    """
+    intersects: Geometry
+
+    """Return the first `n` elements matching the query"""
+    first: Int = 100,
+
+    """Skip the first `m` elements matching the query"""
+    offset: Int = 0
+  ): [Manifest]!
+}
+
+input Point {
+  x: Float!
+  y: Float!
+}
+
+input Linestring {
+  coords: [Point!]!
+}
+
+input Polygon {
+  coords: [Point!]!
+}
+
+"""
+### Geometry
+
+Define some geometry to use for intersection queries. Geometry can be either
+a single Point, a Linestring, or a Polygon.
+
+Typically, only one of these is specified for an intersection query. However,
+it's perfectly possible to intersect against multiple geometries at once. In that
+case they form an OR operation.
+"""
+input Geometry {
+  """
+  ### Point
+
+  A single point in the `cdpx` / `cdpy` plane
+
+  #### Examples
+
+  Query for all cubes intersecting point `(100, 100)`
+
+  ```
+  manifests(
+    intersects: { point: { x: 100, y: 100 } }
+  ) {
+    guid
+  }
+  ```
+  """
+  point: Point
+
+  """
+  ### Linestring
+
+  A linestring is a finite number of connected straight lines described by a
+  list of points. In its simplest form it's defined by 2 points, which
+  express a single line from point 1 to point 2.
+
+  A linestring defined by the 3 points `(100, 100)`, `(100, 200)`, `(300, 300)`
+  defines 2 straight lines. The first between `(100, 100)` and `(100, 200)` and
+  the second between `(100, 200)` and `(300, 300)`. This is an example of an
+  open linestring, where the end doesn't connect with the start.
+
+  In a closed linestring the line segments form a closed loop. Note that a
+  closed linestring still differs from a polygon in that it only defines points
+  on the line, while a polygon defines all points within it as well.
+
+  #### Examples
+
+  Query for all cubes intersecting with an open linestring defined by 2
+  points:
+  ```
+  manifests(
+    intersects: { linestring: { coords : [
+      { x: 100, y: 100 },
+      { x: 200, y: 100 }
+    ] } }
+    ) {
+      guid
+  }
+  ```
+
+  Query for all cubes intersecting with a closed linestring defining the
+  perimeter of some rectangle
+  ```
+  manifests(
+    intersects: { linestring: { coords : [
+      { x: 100, y: 100 },
+      { x: 100, y: 200 },
+      { x: 200, y: 200 },
+      { x: 200, y: 100 },
+      { x: 100, y: 100 }
+    ] } }
+    ) {
+      guid
+  }
+  ```
+  """
+  linestring: Linestring
+
+  """
+  ### Polygon
+
+  A polygon is a 2D figure described by a finite number of straight line
+  segments, similar to a linestring, but with the requirement that the line
+  segments form a closed loop and the interior (body) of the polygon is
+  part of the geometry.
+
+  #### Examples
+
+  Query for all cubes intersecting with a rectangle shaped polygon:
+  ```
+  manifests(
+    intersects: { polygon: { coords : [
+      { x: 100, y: 100 },
+      { x: 100, y: 200 },
+      { x: 200, y: 200 },
+      { x: 200, y: 100 },
+      { x: 100, y: 100 }
+    ] } }
+    ) {
+      guid
+  }
+  """
+  polygon: Polygon
+}
+
+
+"""
+### Filter manifests based on their content
+
+Define some expected value for an arbitrary number of manifest-fields. The
+`and` and `or` filters are recursive, meaning you can nest them in order to
+create complicated boolean expressions.
+
+#### Notes
+
+Defining multiple top-level filters implies an `and`-operation. Although
+perfectly legal, it can lead to some confusion. This can always be avoided by
+explicitly starting out with an `and` filter. I.e:
+```
+manifests(where: {
+  eq: { ... },
+  or: [ ... ],
+} ) {
+  guid
+}
+```
+
+implicitly means, and can also be written as,:
+```
+manifests(where: {
+  and: {
+    eq: { ... },
+    or: [ ... ],
+  }
+} ) {
+  guid
+}
+```
+"""
+input Filter {
+  """
+  ### Equality filter
+
+  Return manifests where some field contains some value. Multiple fields can be
+  filtered on at once, which implicitly creates an `and`-filter.
+
+  #### Examples
+
+  Return all manifests where the value of `uploadFilename` is `some-file.sgy`:
+  ```
+  manifests(where: {
+    eq: { uploadFilename: "some-file.sgy" }
+  } ) {
+    guid
+  }
+  ```
+
+  Return all manifests where the value of `uploadFilename` is `some-file.sgy` _and_
+  the value of field `formatVersion` is 1:
+  ```
+  manifests(where: {
+      eq: { uploadFilename: "some-file.sgy", formatVersion: 1 }
+  } ) {
+    guid
+  }
+  ```
+  """
+  eq:  ManfestInput
+
+  """
+  ### Boolean 'AND' filter
+
+  This recursive filter will `and` together all expressions given to it
+
+  ### Examples
+
+  Return all manifests where the value of `uploadFilename` is `some-file.sgy`
+  _and_ the value of `formatVersion` is `1`, by defining two separate `eq`
+  filters:
+  ```
+  manifests(where: {
+    and: [
+      { eq: { uploadFilename: "some-file.sgy" } },
+      { eq: { formatVersion: 1 } }
+    ]
+  } ) {
+    guid
+  }
+  ```
+
+  This is exactly the same as defining both fields at once in the `eq`-filter.
+  It's a bit more to type, but the `and`-operation is more explicit.
+  """
+  and: [Filter!]
+
+  """
+  ### Boolean 'OR' filter
+
+  This recursive filter will `or` together all expressions given to it
+
+  ### Examples
+
+  Return all manifests where the value of `uploadFilename` is `some-file.sgy`
+  _or_ `some-file-2`, by combining two `eq` filters:
+  ```
+  manifests(where: {
+    or: [
+      { eq: { uploadFilename: "some-file.sgy" } },
+      { eq: { uploadFilename: "some-file-2.sgy" } }
+    ]
+  } ) {
+    guid
+  }
+  ```
+
+  By utilizing the recursive property of the `or` filter, we can define the
+  following query, which returns manifests where the value of `uploadFilename`
+  is `some-file.sgy` and `formatVersion` is `1`, or manifests where the value
+  `uploadFilename` is `some-file-2.sgy`
+  ```
+  manifests(where: {
+    or: [
+      { and: [
+        { eq: { uploadFilename: "some-file.sgy" } },
+        { eq: { formatVersion: 1 } }
+      ] },
+      { eq: { uploadFilename: "some-file-2.sgy" } },
+    ]
+  } ) {
+    guid
+  }
+  ```
+  """
+  or:  [Filter!]
+  #TODO implement not, lt, le, gt & ge
+}
+
+"""
+The input-version of the `Manifest`-type
+"""
+
+input ManfestInput {
+  formatVersion: Int
+  uploadFilename: String
+  guid: String
+  data: [DataInput!]
+  attributes: [AttributeInput!]
+  lineNumbers: [[Int!]!]
+  lineLabels: [String!]
+  sampleValueMin: Float
+  sampleValueMax: Float
+}
+
+"""
+The input-version of the `Data`-type
+"""
+input DataInput {
+  fileExtension: String
+  filters: [String!]
+  shapes: [[Int!]!]
+  prefix: String
+  resolution: String
+}
+
+"""
+The input-version of the `Attribute`-type
+"""
+input AttributeInput {
+  type: String
+  layout: String
+  fileExtension: String
+  labels: [String!]
+  shapes: [[Int!]!]
+  prefix: String
+}
+
+"""
+### Manifest
+
+This is the GraphQL representation of the oneseismic `manifest.json`, which is
+stored with each uploaded cube.
+"""
+type Manifest {
+  """
+  Versioning of the manifest itself
+  """
+  formatVersion: Int
+
+  """
+  Original filename of the input SEGY
+  """
+  uploadFilename: String
+
+  """
+  A Globally Unique Identifier for a oneseismic cube
+
+  The guid is used to query the main oneseimic API
+  """
+  guid: String
+
+  """
+  Storage information about the data
+  """
+  data: [Data!]
+
+  """
+  Storage information about additional attributes such as cdpx and cdpy
+  """
+  attributes: [Attribute!]
+
+  """
+  Linenumbers for each dimension of the cube. The labels for each dimension are
+  recorded in `lineLabels`
+  """
+  lineNumbers: [[Int!]!]
+
+  """
+  Labels for each of the linenumber-arrays in `lineNumbers`. Typically
+  'inline', 'crossline' and 'time'
+  """
+  lineLabels: [String!]
+
+  """
+  The minimal sample value in the cube
+  """
+  sampleValueMin: Float
+
+  """
+  The maximal sample value in the cube
+  """
+  sampleValueMax: Float
+  # corners : [Corners!]
+}
+
+"""
+### Fragment metadata
+
+Defines how the oneseismic fragments are stored. This information is designed
+for and used by the oneseismic internals, and is likely of little use to the
+outside world.
+"""
+type Data {
+
+  """
+  The file extension for all stored fragments
+  """
+  fileExtension: String
+
+  """
+  TODO
+  """
+  filters: [String!]
+
+  """
+  The number of samples in each data-fragment, by dimension
+  """
+  shapes: [[Int!]!]
+
+  """
+  A prefix used to locate the fragments, relative to the `manifest.json`
+  """
+  prefix: String
+
+  """
+  The resolution of the cube. Currently the only supported option is `source`,
+  which means that the cube is stored with the same resolution as the source
+  file in which it was created from.
+  """
+  resolution: String
+}
+
+"""
+### Attribute metadata
+
+Defines how the oneseismic attributes, such as cdpx, cdpy are stored. This
+information is designed for- and used by the oneseismic internals, and is
+likely of little use to the outside world.
+"""
+type Attribute {
+
+  """
+  Type- or name of the attribute, e.g. `cdpx`
+  """
+  type: String
+
+  """
+  The layout of the attribute-fragments, only 'tiled' is supported
+  """
+  layout: String
+
+  """
+  The file extension for all stored attribute-fragments
+  """
+  fileExtension: String
+
+  """
+  Attribute labels
+  """
+  labels: [String!]
+
+  """
+  The number of traces in each attribute-fragment, by dimension
+  """
+  shapes: [[Int!]!]
+
+  """
+  A prefix used to locate the attribute-fragments, relative to the `manifest.json`
+  """
+  prefix: String
+}
+#
+# type Corners {
+#   # Should all be non-nullable.
+#   inline: Int
+#   crossline: Int
+#   cdpx: Float
+#   cdpy: Float
+# }
