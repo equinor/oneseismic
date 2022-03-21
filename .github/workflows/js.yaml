@@ -26,8 +26,11 @@ jobs:
             javascript/build.sh /src/js
             -DONESEISMIC_MODULARIZE=ON
             -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+      - name: Run setup
+        working-directory: javascript
+        run: npm install
       - name: Run tests
-        working-directory: javascript/tests/
+        working-directory: javascript
         env:
           NODE_PATH: ${{ github.workspace}}/js/javascript/
-        run: node streaming.js
+        run: npm run testnode
