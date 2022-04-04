@@ -227,7 +227,6 @@ void to_json(nlohmann::json& doc, const basic_query& query) noexcept(false) {
 
 void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
     doc.at("pid")             .get_to(query.pid);
-    doc.at("token")           .get_to(query.token);
     doc.at("url-query")       .get_to(query.url_query);
     doc.at("guid")            .get_to(query.guid);
     doc.at("manifest")        .get_to(query.manifest);
@@ -246,7 +245,6 @@ void from_json(const nlohmann::json& doc, basic_query& query) noexcept (false) {
 
 void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
     doc["pid"]              = task.pid;
-    doc["token"]            = task.token;
     doc["url-query"]        = task.url_query;
     doc["guid"]             = task.guid;
     doc["storage_endpoint"] = task.storage_endpoint;
@@ -261,7 +259,6 @@ void to_json(nlohmann::json& doc, const basic_task& task) noexcept (false) {
 
 void from_json(const nlohmann::json& doc, basic_task& task) noexcept (false) {
     doc.at("pid")             .get_to(task.pid);
-    doc.at("token")           .get_to(task.token);
     doc.at("url-query")       .get_to(task.url_query);
     doc.at("guid")            .get_to(task.guid);
     doc.at("storage_endpoint").get_to(task.storage_endpoint);

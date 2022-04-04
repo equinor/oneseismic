@@ -97,26 +97,6 @@ func Compression() gin.HandlerFunc {
 	}
 }
 
-/*
- * Make an azblob.Credential object for constructing azblob.Pipelines. This is
- * just automation so that query resolvers don't have to check the content of
- * the HTTP authorization header (which is just taken at face value from users
- * and forwarded to the blob store).
- *
- * This function is useful because azblob needs AnonymousCredentials for
- * anonymous/public access, or when authorization happens with SAS or some
- * other url encoded scheme.
- *
- * The TokenCredential might not be valid, in which case any attempted *use*
- * should fail, and any errors should be handled there.
- */
-func AzblobCredential(authorization string) azblob.Credential {
-	if authorization != "" {
-		return azblob.NewTokenCredential(authorization, nil)
-	}
-	return azblob.NewAnonymousCredential()
-}
-
 type GraphQLQuery struct {
 	Query         string                 `json:"query"`
 	OperationName string                 `json:"operationName"`
@@ -185,12 +165,12 @@ func GraphQLQueryFromGet(query url.Values) (*GraphQLQuery, error) {
  */
 func FetchManifest(
 	ctx          context.Context,
-	credentials  azblob.Credential,
 	containerURL *url.URL,
 ) ([]byte, error) {
-	pipeline  := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	container := azblob.NewContainerURL(*containerURL, pipeline)
-	blob      := container.NewBlobURL("manifest.json")
+	credentials := azblob.NewAnonymousCredential()
+	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
+	container   := azblob.NewContainerURL(*containerURL, pipeline)
+	blob        := container.NewBlobURL("manifest.json")
 	dl, err := blob.Download(
 		ctx,
 		0, /* offset */

@@ -30,7 +30,6 @@ import (
  */
 type queryContext struct {
 	pid           string
-	authorization string
 	urlQuery      string
 	session       *QuerySession
 	endpoint      string
@@ -246,8 +245,7 @@ func getManifest(
 	// stuff out of the caller body, and it is called once, but it should be
 	// considered if this function should restore the rawQuery.
 	url.RawQuery = qctx.urlQuery
-	cred := util.AzblobCredential(qctx.authorization)
-	manifest, err := util.FetchManifest(ctx, cred, url)
+	manifest, err := util.FetchManifest(ctx, url)
 	if err == nil {
 		return manifest, nil
 	}
@@ -283,7 +281,6 @@ func (c *cube) basicQuery(
 	pid  := qctx.pid
 	msg  := message.Query {
 		Pid:             pid,
-		Token:           qctx.authorization,
 		UrlQuery:        qctx.urlQuery,
 		Guid:            string(c.id),
 		Manifest:        c.manifest,
@@ -521,7 +518,6 @@ func (g *gql) execQuery(
 	defer g.queryEngine.Put(session)
 	qctx := queryContext {
 		pid: ctx.GetString("pid"),
-		authorization: ctx.GetHeader("Authorization"),
 		urlQuery:  ctx.Request.URL.RawQuery,
 		session:   session,
 		endpoint:  g.endpoint,
