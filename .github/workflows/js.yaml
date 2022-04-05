@@ -19,19 +19,16 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
-      - name: Build oneseismic/emscripten image
-        run: docker build -t oneseismic/emscripten - < javascript/emscripten.dockerfile
-      - name: Build js library
-        run: >
-            docker run -v $(pwd):/src oneseismic/emscripten
-            javascript/build.sh /src/js
-            -DONESEISMIC_MODULARIZE=ON
-            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+      - name: Build oneseismic/emscripten image and library
+        env:
+          DOCKER_BUILDKIT: 1
+        run: docker build -t oneseismic/emscripten --output type=local,dest=build -f javascript/emscripten.dockerfile .
+
       - name: Run setup
         working-directory: javascript
         run: npm install
       - name: Run tests
         working-directory: javascript
         env:
-          NODE_PATH: ${{ github.workspace}}/js/javascript/
+          NODE_PATH: ${{ github.workspace}}/build/wasm/
         run: npm run testnode
