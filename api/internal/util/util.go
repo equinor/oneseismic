@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"sync"
 	"time"
@@ -185,48 +184,6 @@ func FetchManifest(
 	body := dl.Body(azblob.RetryReaderOptions{})
 	defer body.Close()
 	return ioutil.ReadAll(body)
-}
-
-/*
- * Centralize the understanding of error conditions of azblob.download.
- *
- * There are two classes of errors:
- * 1. A hard failure, i.e. the request itself failed, such as network
- *    conditions.
- * 2. A soft failure, i.e. the request itself suceeded, but was without
- *    sufficient permissions, wrong syntax or similar. azblob probably handles
- *    this by parsing the status code and maybe the response body.
- *
- * Most calls to FetchManifest() should probably immediately call this function
- * on error and exit, but it's moved into its own function so that error paths
- * can be emulated and tested independently. An added benefit is that should a
- * function, for some reason, need FetchManifest() but want custom error+abort
- * handling, it is sufficient to implement bespoke error handling and simply
- * not call this.
- */
-func AbortOnManifestError(ctx *gin.Context, err error) {
-	switch e := err.(type) {
-	case azblob.StorageError:
-		/*
-		 * Request successful, but the service returned some error e.g. a
-		 * non-existing cube, unauthorized request.
-		 *
-		 * For now, just write the status-text into the body, which should be
-		 * slightly more accurate than just the status code. Once the interface
-		 * matures, this should probably be a more structured error message.
-		 */
-		sc := e.Response()
-		ctx.String(sc.StatusCode, sc.Status)
-		ctx.Abort()
-	default:
-		/*
-		 * We don't care if the error occured is a networking error, faulty
-		 * logic or something else - from the user side this is an
-		 * InternalServerError regardless. At some point in the future, we might
-		 * want to deal with particular errors here.
-		 */
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-	}
 }
 
 /*
