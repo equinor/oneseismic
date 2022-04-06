@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal"
-	"github.com/equinor/oneseismic/api/internal/message"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -228,11 +227,6 @@ func AbortOnManifestError(ctx *gin.Context, err error) {
 		 */
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 	}
-}
-
-func ParseManifest(doc []byte) (*message.Manifest, error) {
-	m := message.Manifest{}
-	return m.Unpack(doc)
 }
 
 /*
