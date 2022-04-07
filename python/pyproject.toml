@@ -18,6 +18,7 @@ before-all = [
         -B msgpack-3.3.0/build \
         -DMSGPACK_CXX_ONLY=ON \
         -DMSGPACK_BUILD_EXAMPLES=OFF \
+        -DMSGPACK_BUILD_DOCS=OFF \
         -DCMAKE_INSTALL_PREFIX=core/ \
     """,
     """cmake \
