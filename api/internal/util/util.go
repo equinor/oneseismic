@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -11,7 +12,7 @@ import (
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal"
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -153,6 +154,27 @@ func GraphQLQueryFromGet(query url.Values) (*GraphQLQuery, error) {
 }
 
 /*
+ * Automate unwrapping of azblob.StorageError
+ *
+ * azblob methods such as azblob.BlobClient.Download will wrap any error in
+ * azblob.InternalError before returning to the caller. This is rather annoying
+ * if we want to switch on error type, or in the case of azblob.StorageError, the
+ * StorageErrorCode.
+ *
+ * This function undoes the work of azblob by attempting to unpack the wrapped
+ * StorageError. If the underlying error is not a azblob.StorageError, this is
+ * a no-op and the original error is returned.
+ */
+func UnpackAzStorageError(err error) error {
+	var stgErr *azblob.StorageError
+	if errors.As(err, &stgErr) {
+		return *stgErr
+	}
+
+	return err
+}
+
+/*
  * Get the manifest for the cube from the blob store.
  *
  * It's important that this is a blocking read, since this is the first
@@ -165,23 +187,21 @@ func FetchManifest(
 	ctx          context.Context,
 	containerURL *url.URL,
 ) ([]byte, error) {
-	credentials := azblob.NewAnonymousCredential()
-	pipeline    := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	container   := azblob.NewContainerURL(*containerURL, pipeline)
-	blob        := container.NewBlobURL("manifest.json")
-	dl, err := blob.Download(
-		ctx,
-		0, /* offset */
-		azblob.CountToEnd,
-		azblob.BlobAccessConditions {},
-		false, /* content-get-md5 */
-		azblob.ClientProvidedKeyOptions {},
+	container, err := azblob.NewContainerClientWithNoCredential(
+		containerURL.String(),
+		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	body := dl.Body(azblob.RetryReaderOptions{})
+	blob    := container.NewBlobClient("manifest.json")
+	dl, err := blob.Download(ctx, &azblob.DownloadBlobOptions{})
+	if err != nil {
+		return nil, UnpackAzStorageError(err)
+	}
+
+	body := dl.Body(&azblob.RetryReaderOptions{})
 	defer body.Close()
 	return ioutil.ReadAll(body)
 }

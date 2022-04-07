@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"

@@ -1,13 +1,16 @@
 package main
+
 import (
 	"context"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"net/http"
 
 	"github.com/equinor/oneseismic/api/internal"
+	"github.com/equinor/oneseismic/api/internal/util"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/dgraph-io/ristretto"
 )
 
@@ -36,7 +39,7 @@ type fragmentcache interface {
 
 type cacheEntry struct {
 	chunk []byte
-	etag  azblob.ETag
+	etag  *string
 }
 
 type ristrettocache struct {
@@ -80,7 +83,7 @@ type fragment struct {
  */
 type request struct {
 	index     int
-	blob      azblob.BlobURL
+	blob      *url.URL
 	fragments chan fragment
 	errors    chan error
 	ctx       context.Context
@@ -146,7 +149,7 @@ func (f *fetch) mkqueue() fetchQueue {
 func (f *fetch) enqueue(
 	ctx   context.Context,
 	queue fetchQueue,
-	urls  []azblob.BlobURL,
+	urls  []*url.URL,
 ) {
 	for i, url := range urls {
 		f.requests <- request {
@@ -160,43 +163,51 @@ func (f *fetch) enqueue(
 }
 
 func downloadBlob(
-	ctx  context.Context,
-	blob azblob.BlobURL,
-	cond azblob.BlobAccessConditions,
+	ctx    context.Context,
+	blob   azblob.BlobClient,
+	dlopts *azblob.DownloadBlobOptions,
 ) (cacheEntry, error) {
-	dl, err := blob.Download(
-		ctx,
-		0,
-		azblob.CountToEnd,
-		cond,
-		false,
-		azblob.ClientProvidedKeyOptions{},
-	)
+	dl, err := blob.Download(ctx, dlopts)
 	if err != nil {
-		return cacheEntry{}, err
+		return cacheEntry{}, util.UnpackAzStorageError(err)
 	}
-	body := dl.Body(azblob.RetryReaderOptions{})
+	body := dl.Body(&azblob.RetryReaderOptions{})
 	defer body.Close()
 	chunk, err := ioutil.ReadAll(body)
-	return cacheEntry { chunk: chunk, etag: dl.ETag() }, err
+	return cacheEntry { chunk: chunk, etag: dl.ETag }, err
 }
 
 func fetchblob(
 	ctx   context.Context,
-	blob  azblob.BlobURL,
+	blob  *url.URL,
 	cache fragmentcache,
 ) ([]byte, error) {
-	key := blob.URL().Path
-	cached, hit := cache.get(key)
-
-	cond := azblob.BlobAccessConditions{}
-	if hit {
-		cond.ModifiedAccessConditions = azblob.ModifiedAccessConditions {
-			IfNoneMatch: cached.etag,
-		}
+	if blob == nil  {
+		log.Printf("Empty bloburl")
+		return nil, internal.NewInternalError()
 	}
 
-	cold, err := downloadBlob(ctx, blob, cond)
+	key := blob.Path
+	cached, hit := cache.get(key)
+
+	options := &azblob.DownloadBlobOptions{
+		BlobAccessConditions: &azblob.BlobAccessConditions{
+			ModifiedAccessConditions : &azblob.ModifiedAccessConditions{
+				IfNoneMatch: cached.etag,
+			},
+		},
+	}
+
+	client, err := azblob.NewBlobClientWithNoCredential(
+		blob.String(),
+		&azblob.ClientOptions{},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	cold, err := downloadBlob(ctx, client, options)
 	if err == nil {
 		/* nil means the azblob.Download succeeded *and* was not etag match */
 		if hit {
@@ -206,7 +217,7 @@ func fetchblob(
 			 */
 			log.Printf(
 				"ETag (= %s) expired for %v; investigate immediately",
-				cached.etag,
+				*cached.etag,
 				blob,
 			)
 			return nil, internal.NewInternalError()
@@ -219,7 +230,8 @@ func fetchblob(
 
 	switch e := err.(type) {
 	case azblob.StorageError:
-		if e.Response().StatusCode == http.StatusNotModified {
+		status := e.Response().StatusCode
+		if status == http.StatusNotModified {
 			return cached.chunk, nil
 		}
 		// TODO: what other codes can actually show up here? Forbidden? No such

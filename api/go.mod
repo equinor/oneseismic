@@ -3,8 +3,7 @@ module github.com/equinor/oneseismic/api
 go 1.16
 
 require (
-	github.com/Azure/azure-pipeline-go v0.2.3
-	github.com/Azure/azure-storage-blob-go v0.13.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
 	github.com/auth0/go-jwt-middleware/v2 v2.0.0
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gin-gonic/gin v1.7.0
