@@ -15,6 +15,7 @@ import (
 
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
+	"github.com/equinor/oneseismic/api/internal/storage"
 	"github.com/equinor/oneseismic/api/internal/util"
 	"github.com/equinor/oneseismic/api/internal"
 )
@@ -29,12 +30,13 @@ import (
  * argument.
  */
 type queryContext struct {
-	pid           string
-	urlQuery      string
-	session       *QuerySession
-	endpoint      string
-	keyring       *auth.Keyring
-	scheduler     scheduler
+	pid       string
+	urlQuery  string
+	session   *QuerySession
+	endpoint  string
+	keyring   *auth.Keyring
+	scheduler scheduler
+	storage   storage.StorageClient
 }
 
 /*
@@ -54,11 +56,12 @@ func setQueryContext(ctx context.Context, qctx *queryContext) context.Context {
 }
 
 type gql struct {
-	schema *graphql.Schema
+	schema      *graphql.Schema
 	queryEngine QueryEngine
-	endpoint  string // e.g. https://oneseismic-storage.blob.windows.net
-	keyring   *auth.Keyring
-	scheduler scheduler
+	endpoint    string // e.g. https://oneseismic-storage.blob.windows.net
+	keyring     *auth.Keyring
+	scheduler   scheduler
+	storage     storage.StorageClient
 }
 
 type resolver struct {
@@ -98,7 +101,7 @@ func (r *resolver) Cube(
 ) (*cube, error) {
 	qctx := getQueryContext(ctx)
 	pid  := qctx.pid
-	urls := fmt.Sprintf("%s/%s", qctx.endpoint, args.Id)
+	urls := fmt.Sprintf("%s/%s/manifest.json", qctx.endpoint, args.Id)
 	log.Printf("Getting URL %s", urls)
 	url, err := url.Parse(urls)
 	if err != nil {
@@ -112,12 +115,13 @@ func (r *resolver) Cube(
 		return nil, internal.NewInternalError()
 	}
 
-	doc, err := getManifest(ctx, qctx, url)
+	url.RawQuery = qctx.urlQuery
+	blob, err := qctx.storage.Get(ctx, url.String())
 	if err != nil {
 		return nil, err
 	}
 
-	err = qctx.session.InitWithManifest(doc)
+	err = qctx.session.InitWithManifest(blob.Data)
 	if err != nil {
 		// errors here probably mean the document itself is broken
 		// the URL gets recorded, but maybe the content (or digested content
@@ -133,7 +137,7 @@ func (r *resolver) Cube(
 
 	return &cube {
 		id:       args.Id,
-		manifest: doc,
+		manifest: blob.Data,
 	}, nil
 }
 
@@ -468,6 +472,10 @@ type Cube {
 	`
 	resolver := &resolver {}
 	s := graphql.MustParseSchema(schema, resolver)
+
+	cache := storage.NewNoCache()
+	azstorage := storage.NewAzStorage(cache)
+
 	return &gql {
 		schema: s,
 		queryEngine: QueryEngine {
@@ -477,6 +485,7 @@ type Cube {
 		endpoint:  endpoint,
 		keyring:   keyring,
 		scheduler: scheduler,
+		storage:   azstorage,
 	}
 }
 
@@ -523,6 +532,7 @@ func (g *gql) execQuery(
 		endpoint:  g.endpoint,
 		keyring:   g.keyring,
 		scheduler: g.scheduler,
+		storage:   g.storage,
 	}
 	c := setQueryContext(ctx, &qctx)
 	return g.schema.Exec(c, query.Query, query.OperationName, query.Variables)
