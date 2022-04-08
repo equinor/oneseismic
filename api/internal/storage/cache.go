@@ -56,3 +56,7 @@ func (c *noCache) set(key string, val entity) {}
 func (c *noCache) get(key string) (entity, bool) {
 	return entity{}, false
 }
+
+func NewNoCache() *noCache {
+	return &noCache{}
+}

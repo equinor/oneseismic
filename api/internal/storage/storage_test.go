@@ -11,7 +11,7 @@ func TestCancelledAzStorageGetErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	cache := &noCache{}
+	cache := NewNoCache()
 	azstorage := NewAzStorage(cache)
 
 	_, err := azstorage.Get(ctx, "https://example.com")
