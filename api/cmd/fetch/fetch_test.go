@@ -5,30 +5,11 @@ import (
 	"fmt"
 	"net/url"
 	"testing"
-
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/stretchr/testify/assert"
 )
 
 func testurl() *url.URL {
 	addr, _ := url.Parse("https://example.com")
 	return addr
-}
-
-func TestCancelledDownloadErrors(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	blob, err := azblob.NewBlobClientWithNoCredential(testurl().String(), nil)
-	if err != nil {
-		t.Error(err)
-	}
-	_, err = downloadBlob(ctx, blob, &azblob.DownloadBlobOptions{})
-	if err == nil {
-		t.Errorf("expected downloadBlob() to fail; err was nil")
-	}
-
-	msg := "context canceled"
-	assert.Containsf(t, err.Error(), msg, "want err =~ '%s'; was %v", msg, err)
 }
 
 func TestCancelledDownloadPostsOnErrorChannel(t *testing.T) {

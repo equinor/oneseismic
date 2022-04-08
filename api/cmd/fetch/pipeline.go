@@ -2,15 +2,10 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
-	"log"
 	"net/url"
-	"net/http"
 
-	"github.com/equinor/oneseismic/api/internal"
-	"github.com/equinor/oneseismic/api/internal/util"
+	"github.com/equinor/oneseismic/api/internal/storage"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/dgraph-io/ristretto"
 )
 
@@ -108,21 +103,19 @@ type fetchQueue struct {
 
 type fetch struct {
 	requests chan request
-	cache    fragmentcache
+	storage  storage.StorageClient
 }
 
 func newFetch(jobs int) *fetch {
-	cache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1e7, // 100M
-		MaxCost:     10 * (1 << 30), // 1 << 30 == 1G
-		BufferItems: 64,
-	})
+	cache, err := storage.NewRistrettoCache()
 	if err != nil {
 		panic(err)
 	}
+
+	storage := storage.NewAzStorage(cache)
 	return &fetch {
 		requests: make(chan request, jobs),
-		cache:    &ristrettocache { Cache: *cache },
+		storage:  storage,
 	}
 }
 
@@ -162,99 +155,15 @@ func (f *fetch) enqueue(
 	}
 }
 
-func downloadBlob(
-	ctx    context.Context,
-	blob   azblob.BlobClient,
-	dlopts *azblob.DownloadBlobOptions,
-) (cacheEntry, error) {
-	dl, err := blob.Download(ctx, dlopts)
-	if err != nil {
-		return cacheEntry{}, util.UnpackAzStorageError(err)
-	}
-	body := dl.Body(&azblob.RetryReaderOptions{})
-	defer body.Close()
-	chunk, err := ioutil.ReadAll(body)
-	return cacheEntry { chunk: chunk, etag: dl.ETag }, err
-}
-
-func fetchblob(
-	ctx   context.Context,
-	blob  *url.URL,
-	cache fragmentcache,
-) ([]byte, error) {
-	if blob == nil  {
-		log.Printf("Empty bloburl")
-		return nil, internal.NewInternalError()
-	}
-
-	key := blob.Path
-	cached, hit := cache.get(key)
-
-	options := &azblob.DownloadBlobOptions{
-		BlobAccessConditions: &azblob.BlobAccessConditions{
-			ModifiedAccessConditions : &azblob.ModifiedAccessConditions{
-				IfNoneMatch: cached.etag,
-			},
-		},
-	}
-
-	client, err := azblob.NewBlobClientWithNoCredential(
-		blob.String(),
-		&azblob.ClientOptions{},
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	cold, err := downloadBlob(ctx, client, options)
-	if err == nil {
-		/* nil means the azblob.Download succeeded *and* was not etag match */
-		if hit {
-			/* This probably means expired ETag, which again means a fragment
-			* has been updated since cached. This should not happen in a
-			* healthy system and must be investigated immediately.
-			 */
-			log.Printf(
-				"ETag (= %s) expired for %v; investigate immediately",
-				*cached.etag,
-				blob,
-			)
-			return nil, internal.NewInternalError()
-		} else {
-			// This is good; not in cache, so clean fetch was expected.
-			go cache.set(key, cold)
-			return cold.chunk, nil
-		}
-	}
-
-	switch e := err.(type) {
-	case azblob.StorageError:
-		status := e.Response().StatusCode
-		if status == http.StatusNotModified {
-			return cached.chunk, nil
-		}
-		// TODO: what other codes can actually show up here? Forbidden? No such
-		// resource? For now, don't leak anything back, but log and add
-		// case-by-case
-		log.Printf("Unhandled azblob.StorageError: %v", err)
-		return nil, internal.NewInternalError()
-
-	default:
-		log.Printf("Unhandled error type %T (= %v)", e, e)
-		return nil, internal.NewInternalError()
-	}
-}
-
 func (f *fetch) run() {
 	for request := range f.requests {
-		b, err := fetchblob(request.ctx, request.blob, f.cache)
+		blob, err := f.storage.Get(request.ctx, request.blob.String())
 		if err != nil {
 			request.errors <- err
 		} else {
 			request.fragments <- fragment {
 				index: request.index,
-				chunk: b,
+				chunk: blob.Data,
 			}
 		}
 	}
