@@ -17,8 +17,8 @@ type opts struct {
 	clientID     string
 	storageURL   string
 	redisURL     string
-	bind         string
 	signkey      string
+	port         string
 }
 
 func parseopts() opts {
@@ -52,18 +52,18 @@ func parseopts() opts {
 		"url",
 	)
 	getopt.FlagLong(
-		&opts.bind,
-		"bind",
-		0,
-		"Bind URL e.g. tcp://*:port",
-		"addr",
-	)
-	getopt.FlagLong(
 		&opts.signkey,
 		"sign-key",
 		0,
 		"Signing key used for response authorization tokens",
 		"key",
+	)
+	opts.port = "8080"
+	getopt.FlagLong(
+		&opts.port,
+		"port",
+		0,
+		"Port to start server on. Defaults to 8080",
 	)
 
 	getopt.Parse()
@@ -148,5 +148,5 @@ func main() {
 	graphql.POST("", gql.Post)
 
 	app.GET("/config", cfg.Get)
-	app.Run(":8080")
+	app.Run(fmt.Sprintf(":%s", opts.port))
 }

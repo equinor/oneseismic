@@ -1,25 +1,73 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <!--
+    To run this demo:
+      1. Build the oneseismic library in non-module mode (aka ONESEISMIC_MODULARIZE=OFF)
+      2. Copy the artifacts (oneseismic.js and oneseismic.wasm) to the demo directory
+      3. Assure correct CORS in the server config
+      4. Update server, guid and sas_token.
+         For demo purpose container must be small as there is no wait
+      5. Serve the directory (for example on localhost)
+      6. Navigate in browser to <directory>/demo.html
+      7. Open browser Console and see results
+  -->
   <script>
     var Module = {
-      onRuntimeInitialized: function() {
-          fetch("http://host:port/result/<pid>/stream", {
-              headers: {
-                  'Authorization': 'Bearer <token>'
-              }
-         })
-        .then(response => response.arrayBuffer())
-        .then(function (chunk) {
-              console.log(chunk);
-              let dec = Module.stream_decoder();
-              var x = dec(chunk);
-              x = dec(null);
-              const a = x[1]['data']['data'];
-              console.log(a.reduce((acc, v) => acc +v ));
-        })
-      }
+      onRuntimeInitialized: function () {
+        server = "<oneseismic-endpoint>";
+        guid = "<guid>";
+        sas_token = "<sas_token>";
+
+        url = `${server}/graphql?${sas_token}`;
+        const query = `{ cube (id: "${guid}") { sliceByIndex(dim: 0, index: 0) } }`;
+
+        fetch(url, {
+          method: "post",
+          headers: {
+            "Content-type": "application/json",
+          },
+          body: JSON.stringify({
+            query: query,
+          }),
+        }).then(function (response) {
+          if (!response.ok) {
+            throw new Error("Fetch failed with status " + response.statusText);
+          }
+          response
+            .json()
+            .then(function (data) {
+              return data.data.cube.sliceByIndex;
+            })
+            .then((promise) => {
+              fetch(`${server}/${promise.url}/stream`, {
+                headers: {
+                  Authorization: `Bearer ${promise.key}`,
+                },
+              })
+                .then((response) => {
+                  if (response.ok) {
+                    return response.arrayBuffer();
+                  } else {
+                    throw new Error(
+                      "Fetch failed with status " + response.statusText
+                    );
+                  }
+                })
+                .then(function (chunk) {
+                  console.log(chunk);
+                  let dec = Module.stream_decoder();
+                  var x = dec(chunk);
+                  x = dec(null);
+                  const a = x[1]["data"]["data"];
+                  console.log(a.reduce((acc, v) => acc + v));
+                });
+            });
+        });
+      },
     };
   </script>
   <script src="oneseismic.js"></script>
 </html>
-
