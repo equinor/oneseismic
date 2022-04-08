@@ -49,6 +49,11 @@ func (qe *QueryE) Error() string {
 }
 
 type NotFoundE struct {
+	msg string
+}
+
+func NotFound(msg string) *NotFoundE {
+	return &NotFoundE{ msg: msg }
 }
 
 func NewNotFoundError() *NotFoundE {
@@ -56,5 +61,5 @@ func NewNotFoundError() *NotFoundE {
 }
 
 func (nf *NotFoundE) Error() string {
-	return "Not found"
+	return nf.msg
 }
