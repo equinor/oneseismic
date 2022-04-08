@@ -73,13 +73,15 @@ func (c *AzStorage) Get(ctx context.Context, blob string) (*entity, error) {
 
 	switch e := err.(type) {
 	case azblob.StorageError:
-		switch e.Response().StatusCode {
+		status := e.Response().StatusCode
+		switch status {
 		case http.StatusNotModified:
 			return &cached, nil
+		case http.StatusForbidden:
+			return nil, internal.PermissionDeniedFromStatus(status)
+		case http.StatusUnauthorized:
+			return nil, internal.PermissionDeniedFromStatus(status)
 		default:
-			// TODO: what other codes can actually show up here? Forbidden? No such
-			// resource? For now, don't leak anything back, but log and add
-			// case-by-case
 			log.Printf("Unhandled azblob.StorageError: %v", err)
 			return nil, internal.InternalError(err.Error())
 		}
