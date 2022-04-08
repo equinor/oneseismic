@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 
 	"github.com/equinor/oneseismic/api/internal/auth"
 	"github.com/equinor/oneseismic/api/internal/message"
@@ -231,48 +230,6 @@ func (c *cube) FilenameOnUpload(ctx context.Context) (*string, error) {
 		}
 	}
 	return &out, err
-}
-
-/*
- * This is the util.GetManifest function, but tuned for graphql and with
- * gin-specifics removed. Its purpose is to make for a quick migration to a
- * working graphql interface to oneseismic. Expect this function to be removed
- * or drastically change soon.
- */
-func getManifest(
-	ctx      context.Context,
-	qctx     *queryContext,
-	url      *url.URL,
-) ([]byte, error) {
-	// This is arguably bad; the passed url gets modified in-place. It's
-	// probably ok since this is a helper function to pull the azure handling
-	// stuff out of the caller body, and it is called once, but it should be
-	// considered if this function should restore the rawQuery.
-	url.RawQuery = qctx.urlQuery
-	manifest, err := util.FetchManifest(ctx, url)
-	if err == nil {
-		return manifest, nil
-	}
-
-	log.Printf("pid=%s, %v", qctx.pid, err)
-	switch e := err.(type) {
-	case azblob.StorageError:
-		status := e.Response().StatusCode
-		switch status {
-		case http.StatusNotFound:
-			// TODO: add guid as a part of the error message?
-			return nil, internal.QueryError("Not found")
-
-		case http.StatusForbidden:
-			return nil, internal.PermissionDeniedFromStatus(status)
-		case http.StatusUnauthorized:
-			return nil, internal.PermissionDeniedFromStatus(status)
-
-		default:
-			return nil, internal.NewInternalError()
-		}
-	}
-	return nil, err
 }
 
 func (c *cube) basicQuery(

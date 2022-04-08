@@ -2,7 +2,6 @@ package util
 
 import (
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -172,38 +171,6 @@ func UnpackAzStorageError(err error) error {
 	}
 
 	return err
-}
-
-/*
- * Get the manifest for the cube from the blob store.
- *
- * It's important that this is a blocking read, since this is the first
- * authorization mechanism in oneseismic. If the user (through the
- * on-behalf-token) does not have permissions to read the manifest, it
- * shouldn't be able to read the cube either. If so, no more processing should
- * be done, and the request discarded.
- */
-func FetchManifest(
-	ctx          context.Context,
-	containerURL *url.URL,
-) ([]byte, error) {
-	container, err := azblob.NewContainerClientWithNoCredential(
-		containerURL.String(),
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	blob    := container.NewBlobClient("manifest.json")
-	dl, err := blob.Download(ctx, &azblob.DownloadBlobOptions{})
-	if err != nil {
-		return nil, UnpackAzStorageError(err)
-	}
-
-	body := dl.Body(&azblob.RetryReaderOptions{})
-	defer body.Close()
-	return ioutil.ReadAll(body)
 }
 
 /*
