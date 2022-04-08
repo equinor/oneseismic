@@ -33,6 +33,19 @@ func (c *ristrettoCache) get(key string) (val entity, hit bool) {
 	return
 }
 
+func NewRistrettoCache() (*ristrettoCache, error) {
+	cache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7, // 100M
+		MaxCost:     10 * (1 << 30), // 1 << 30 == 1G
+		BufferItems: 64,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ristrettoCache{Cache: *cache}, nil
+}
+
 /*
  * The nocache isn't really used per now, but serves as a useful reference and
  * available information for tests runs or test cases that wants to disable
