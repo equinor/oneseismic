@@ -17,7 +17,6 @@ type Message interface {
  */
 type Query struct {
 	Pid             string          `json:"pid"`
-	Token           string          `json:"token"`
 	UrlQuery        string          `json:"url-query"`
 	Guid            string          `json:"guid"`
 	Manifest        json.RawMessage `json:"manifest"`

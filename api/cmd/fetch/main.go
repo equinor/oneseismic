@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"net/url"
 
 	"github.com/equinor/oneseismic/api/internal/util"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
 )
@@ -129,10 +129,16 @@ func run(
 	}
 
 	fragments := proc.fragments()
-	blobs := make([]azblob.BlobURL, len(fragments))
+	blobs := make([]*url.URL, len(fragments))
 	for i, id := range fragments {
-		blobs[i] = container.NewBlobURL(id)
+		blob, err := proc.blob(container, id)
+		if err != nil {
+			log.Printf("%s dropping bad process %v", proc.logpid(), err)
+			return
+		}
+		blobs[i] = blob
 	}
+
 	fq := fetch.mkqueue()
 	go proc.gather(storage, len(fragments), fq)
 	fetch.enqueue(proc.ctx, fq, blobs)

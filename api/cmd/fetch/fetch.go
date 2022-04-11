@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/equinor/oneseismic/api/internal"
 	"github.com/equinor/oneseismic/api/internal/message"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -221,25 +221,36 @@ func (p *process) pack() []byte {
  * and it is somewhat inflexible by reading endpoint + guid from the input
  * task.
  */
-func (p *process) container() (azblob.ContainerURL, error) {
+func (p *process) container() (*url.URL, error) {
 	endpoint := p.task.StorageEndpoint
 	guid     := p.task.Guid
 	container, err := url.Parse(fmt.Sprintf("%s/%s", endpoint, guid))
 	if err != nil {
 		err = fmt.Errorf("Container URL would be malformed: %w", err)
-		return azblob.ContainerURL{}, err
+		return nil, err
 	}
 
 	container.RawQuery = p.task.UrlQuery
+	return container, nil
+}
 
-	var credentials azblob.Credential
-	if p.task.Token != "" {
-		credentials = azblob.NewTokenCredential(p.task.Token, nil)
-	} else {
-		credentials = azblob.NewAnonymousCredential()
+/*
+ * Automate the creation of a blob URL from a container URL, by appending the
+ * blob id to url.URL.Path. Like container() this is just a simple helper to
+ * make calling prettier.
+ */
+func (p *process) blob(container *url.URL, blob string) (*url.URL, error) {
+	if container == nil {
+		return nil, internal.InternalError("Container URL is nil")
 	}
-	pipeline := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	return azblob.NewContainerURL(*container, pipeline), nil
+	blobpath := fmt.Sprintf("%s/%s", container.Path, blob)
+	bloburl, err := container.Parse(blobpath)
+	if err != nil {
+		return nil, err
+	}
+
+	bloburl.RawQuery = container.RawQuery
+	return bloburl, nil
 }
 
 /*

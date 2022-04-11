@@ -4,16 +4,15 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal"
-	"github.com/equinor/oneseismic/api/internal/message"
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -97,26 +96,6 @@ func Compression() gin.HandlerFunc {
 	}
 }
 
-/*
- * Make an azblob.Credential object for constructing azblob.Pipelines. This is
- * just automation so that query resolvers don't have to check the content of
- * the HTTP authorization header (which is just taken at face value from users
- * and forwarded to the blob store).
- *
- * This function is useful because azblob needs AnonymousCredentials for
- * anonymous/public access, or when authorization happens with SAS or some
- * other url encoded scheme.
- *
- * The TokenCredential might not be valid, in which case any attempted *use*
- * should fail, and any errors should be handled there.
- */
-func AzblobCredential(authorization string) azblob.Credential {
-	if authorization != "" {
-		return azblob.NewTokenCredential(authorization, nil)
-	}
-	return azblob.NewAnonymousCredential()
-}
-
 type GraphQLQuery struct {
 	Query         string                 `json:"query"`
 	OperationName string                 `json:"operationName"`
@@ -175,6 +154,27 @@ func GraphQLQueryFromGet(query url.Values) (*GraphQLQuery, error) {
 }
 
 /*
+ * Automate unwrapping of azblob.StorageError
+ *
+ * azblob methods such as azblob.BlobClient.Download will wrap any error in
+ * azblob.InternalError before returning to the caller. This is rather annoying
+ * if we want to switch on error type, or in the case of azblob.StorageError, the
+ * StorageErrorCode.
+ *
+ * This function undoes the work of azblob by attempting to unpack the wrapped
+ * StorageError. If the underlying error is not a azblob.StorageError, this is
+ * a no-op and the original error is returned.
+ */
+func UnpackAzStorageError(err error) error {
+	var stgErr *azblob.StorageError
+	if errors.As(err, &stgErr) {
+		return *stgErr
+	}
+
+	return err
+}
+
+/*
  * Get the manifest for the cube from the blob store.
  *
  * It's important that this is a blocking read, since this is the first
@@ -185,74 +185,25 @@ func GraphQLQueryFromGet(query url.Values) (*GraphQLQuery, error) {
  */
 func FetchManifest(
 	ctx          context.Context,
-	credentials  azblob.Credential,
 	containerURL *url.URL,
 ) ([]byte, error) {
-	pipeline  := azblob.NewPipeline(credentials, azblob.PipelineOptions{})
-	container := azblob.NewContainerURL(*containerURL, pipeline)
-	blob      := container.NewBlobURL("manifest.json")
-	dl, err := blob.Download(
-		ctx,
-		0, /* offset */
-		azblob.CountToEnd,
-		azblob.BlobAccessConditions {},
-		false, /* content-get-md5 */
-		azblob.ClientProvidedKeyOptions {},
+	container, err := azblob.NewContainerClientWithNoCredential(
+		containerURL.String(),
+		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	body := dl.Body(azblob.RetryReaderOptions{})
+	blob    := container.NewBlobClient("manifest.json")
+	dl, err := blob.Download(ctx, &azblob.DownloadBlobOptions{})
+	if err != nil {
+		return nil, UnpackAzStorageError(err)
+	}
+
+	body := dl.Body(&azblob.RetryReaderOptions{})
 	defer body.Close()
 	return ioutil.ReadAll(body)
-}
-
-/*
- * Centralize the understanding of error conditions of azblob.download.
- *
- * There are two classes of errors:
- * 1. A hard failure, i.e. the request itself failed, such as network
- *    conditions.
- * 2. A soft failure, i.e. the request itself suceeded, but was without
- *    sufficient permissions, wrong syntax or similar. azblob probably handles
- *    this by parsing the status code and maybe the response body.
- *
- * Most calls to FetchManifest() should probably immediately call this function
- * on error and exit, but it's moved into its own function so that error paths
- * can be emulated and tested independently. An added benefit is that should a
- * function, for some reason, need FetchManifest() but want custom error+abort
- * handling, it is sufficient to implement bespoke error handling and simply
- * not call this.
- */
-func AbortOnManifestError(ctx *gin.Context, err error) {
-	switch e := err.(type) {
-	case azblob.StorageError:
-		/*
-		 * Request successful, but the service returned some error e.g. a
-		 * non-existing cube, unauthorized request.
-		 *
-		 * For now, just write the status-text into the body, which should be
-		 * slightly more accurate than just the status code. Once the interface
-		 * matures, this should probably be a more structured error message.
-		 */
-		sc := e.Response()
-		ctx.String(sc.StatusCode, sc.Status)
-		ctx.Abort()
-	default:
-		/*
-		 * We don't care if the error occured is a networking error, faulty
-		 * logic or something else - from the user side this is an
-		 * InternalServerError regardless. At some point in the future, we might
-		 * want to deal with particular errors here.
-		 */
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-	}
-}
-
-func ParseManifest(doc []byte) (*message.Manifest, error) {
-	m := message.Manifest{}
-	return m.Unpack(doc)
 }
 
 /*

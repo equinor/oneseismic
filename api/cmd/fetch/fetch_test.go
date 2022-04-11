@@ -6,28 +6,23 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/Azure/azure-pipeline-go/pipeline"
-	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/stretchr/testify/assert"
 )
 
-func testpipeline() pipeline.Pipeline {
-	return azblob.NewPipeline(
-		azblob.NewAnonymousCredential(),
-		azblob.PipelineOptions{},
-	)
-}
-
-func testurl() url.URL {
+func testurl() *url.URL {
 	addr, _ := url.Parse("https://example.com")
-	return *addr
+	return addr
 }
 
 func TestCancelledDownloadErrors(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	blob := azblob.NewBlobURL(testurl(), testpipeline())
-	_, err := downloadBlob(ctx, blob, azblob.BlobAccessConditions{})
+	blob, err := azblob.NewBlobClientWithNoCredential(testurl().String(), nil)
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = downloadBlob(ctx, blob, &azblob.DownloadBlobOptions{})
 	if err == nil {
 		t.Errorf("expected downloadBlob() to fail; err was nil")
 	}
@@ -47,7 +42,7 @@ func TestCancelledDownloadPostsOnErrorChannel(t *testing.T) {
 	cancel()
 
 	fetch := newFetch(1)
-	blobs := []azblob.BlobURL{azblob.NewBlobURL(testurl(), testpipeline())}
+	blobs := []*url.URL{testurl()}
 
 	fq := fetch.mkqueue()
 	fetch.enqueue(ctx, fq, blobs)

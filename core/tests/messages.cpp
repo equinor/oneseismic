@@ -17,7 +17,6 @@ namespace one {
 
 bool operator == (const one::basic_task& lhs, const one::basic_task& rhs) {
     return lhs.pid              == rhs.pid
-        && lhs.token            == rhs.token
         && lhs.guid             == rhs.guid
         && lhs.storage_endpoint == rhs.storage_endpoint
         && lhs.shape            == rhs.shape
@@ -97,7 +96,6 @@ std::string update_json(const std::string& qs, const std::string& keypath,
  */
 const std::string query_base_template = R"(
     "pid": "some-pid",
-    "token": "on-behalf-of-token",
     "url-query": "original query",
     "guid": "object-id",
     "storage_endpoint": "https://storage.com",
@@ -207,7 +205,6 @@ TEST_CASE("well-formed query is unpacked correctly") {
     const std::vector<std::string> attributes = {"attribute1", "attribute2"};
 
     CHECK(query.pid   == "some-pid");
-    CHECK(query.token == "on-behalf-of-token");
     CHECK(query.url_query == "original query");
     CHECK(query.guid  == "object-id");
     CHECK(query.manifest == manifest);
@@ -218,7 +215,6 @@ TEST_CASE("well-formed query is unpacked correctly") {
     CHECK(query.dim == 1);
     CHECK(query.idx == 3);
 }
-
 
 TEMPLATE_TEST_CASE_SIG("unpacking a query with missing field fails", "",
                        ((typename T, int i), T, i),
@@ -453,7 +449,6 @@ TEST_CASE("packing a query is not supported") {
 TEST_CASE("slice-task can round trip packing") {
     one::slice_task task;
     task.pid = "pid";
-    task.token = "token";
     task.guid = "guid";
     task.storage_endpoint = "https://storage.com";
     task.shape = { 64, 64, 64 };
