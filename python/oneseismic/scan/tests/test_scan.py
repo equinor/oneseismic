@@ -17,8 +17,8 @@ def big_endian(i):
     return int.from_bytes(struct.pack('>i', i), byteorder = sys.byteorder)
 
 @given(
-    integers(min_value = 1, max_value = 15),
-    integers(min_value = 1, max_value = 15),
+    integers(min_value = 1, max_value = 8),
+    integers(min_value = 1, max_value = 8),
 )
 def test_regular_intervals(inlines, crosslines):
     headers = [
@@ -46,8 +46,8 @@ def test_regular_intervals(inlines, crosslines):
     assert len(seg.key2s) == crosslines
 
 @given(
-    integers(min_value = 2, max_value = 15),
-    integers(min_value = 2, max_value = 15),
+    integers(min_value = 2, max_value = 8),
+    integers(min_value = 2, max_value = 8),
     one_of(
         floats(min_value = -10, max_value = -1),
         floats(min_value = 1, max_value = 10)
@@ -157,8 +157,8 @@ def test_geo_scanner(
 
 
 @given(
-    integers(min_value = 2, max_value = 15),
-    integers(min_value = 2, max_value = 15),
+    integers(min_value = 2, max_value = 8),
+    integers(min_value = 2, max_value = 8),
     one_of(
         floats(min_value = -10, max_value = -1),
         floats(min_value = 1, max_value = 10)
@@ -230,8 +230,8 @@ def test_geo_scanner_lines_not_perpendicular(
 
 
 @given(
-    integers(min_value = 4, max_value = 15),
-    integers(min_value = 4, max_value = 15),
+    integers(min_value = 4, max_value = 8),
+    integers(min_value = 4, max_value = 8),
     one_of(
         floats(min_value = -10, max_value = -1),
         floats(min_value = 1, max_value = 10)
