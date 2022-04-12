@@ -61,9 +61,7 @@ ENV UPLOAD_WITH_PYTHON /pyenv/upload_with/bin/python
 WORKDIR /tests
 
 
-FROM pythontest AS localtest
-ENTRYPOINT ["/pyenv/fetch_with/bin/python","-m", "pytest", "-s", "-m", "local"]
-
-
-FROM pythontest AS versiontest
-ENTRYPOINT ["/pyenv/fetch_with/bin/python","-m", "pytest", "-s", "-m", "version"]
+FROM pythontest AS test
+ARG TEST_ARGS
+ENV TEST_ARGS=$TEST_ARGS
+ENTRYPOINT /pyenv/fetch_with/bin/python -m pytest -s -rA $TEST_ARGS

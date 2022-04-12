@@ -17,6 +17,7 @@ services:
       args:
         - UPLOAD_WITH_CLIENT_VERSION
         - FETCH_WITH_CLIENT_VERSION
+        - TEST_ARGS
     volumes:
       - ${STORAGE_LOCATION:-blob}:/blob
     environment:

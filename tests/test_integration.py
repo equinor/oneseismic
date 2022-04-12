@@ -147,7 +147,7 @@ def test_upload(tmpdir):
 
 
 @pytest.mark.local
-@pytest.mark.version
+@pytest.mark.client_version("0.3.0")
 def test_slice(cube_guid):
     client = simple.simple_client(SERVER_URL)
     res_lineno = client.sliceByLineno(cube_guid, dim=0, lineno=2)().numpy()
@@ -160,7 +160,9 @@ def test_slice(cube_guid):
 
 
 @pytest.mark.local
-@pytest.mark.version
+@pytest.mark.client_version("0.4.0")
+@pytest.mark.server_version("0.0.2") # fake version corresponding to client 0.4.0
+@pytest.mark.data_version("0.4.0")
 def test_curtain(cube_guid):
     client = simple.simple_client(SERVER_URL)
     res_lineno = client.curtainByLineno(
@@ -176,6 +178,44 @@ def test_curtain(cube_guid):
     np.testing.assert_array_equal(res_lineno[2], np.array([115, 116, 117]))
     np.testing.assert_array_equal(res_lineno, res_index)
     np.testing.assert_array_equal(res_lineno, res_utm)
+
+@pytest.mark.local
+@pytest.mark.client_version("0.4.0")
+@pytest.mark.server_version("0.0.2")
+def test_curtain_no_UTM(tmpdir):
+    # that also is not really a UTM E2E test - that would be one big error Test
+    # Error message should be tested somewhere different place
+    # Maybe this could be updated every time something like that happens? Lets see?
+    path = str(tmpdir.join('simple.segy'))
+    data = np.array(
+        [
+            [1.25, 1.5],
+            [random.uniform(2.5, 2.75), random.uniform(2.75, 3)]
+        ], dtype=np.float32)
+    segyio.tools.from_array(path, data)
+
+    guid = upload(path)
+
+    client = simple.simple_client(SERVER_URL)
+    with pytest.raises(Exception) as exc:
+        client.curtainByUTM(
+            guid, [[3.2, 6.3], [1, 3], [2.1, 6.3]])().numpy()
+    assert "'dict' object has no attribute 'numpy'" in str(exc.value) # bad message
+
+
+@pytest.mark.server_version("", "0.0.2") # fake version before client 0.4.0
+def test_curtain_old_server(cube_guid):
+    # possibly this could be one test for all situations like that (if they are unifiable)?
+    # Could be updated every time.
+    # Or could be used for manual testing "lets run this once"
+    # Also lets see
+    client = simple.simple_client(SERVER_URL)
+    with pytest.raises(Exception) as exc:
+        client.curtainByUTM(
+            cube_guid, [[3.2, 6.3], [1, 3], [2.1, 6.3]])().numpy()
+    assert "Cannot query field 'curtainByUTM'" in str(exc.value) #yep, not nice message
+
+
 
 # TODO: test error cases
 # TODO: test azure: re-upload with same guid

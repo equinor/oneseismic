@@ -18,7 +18,8 @@ jobs:
 
       - name: Run local integration tests
         env:
-          TARGET_BUILD: localtest
+          TARGET_BUILD: test
+          TEST_ARGS: "-m local"
         run: |
           STORAGE_URL=http://filesystem:8112 docker-compose -f docker-compose.yml up -d
           docker-compose --project-directory . -f tests/docker-compose.local.yml up --build --exit-code-from test
@@ -35,25 +36,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - desc: "0.3.2 client (corresponding git tag needed)"
-          #   client_version: "0.3.2"
-          #   data_version: ""
-          #   server_version: ""
+          - desc: "0.3.1"
+            client_version: "0.3.1"
+            data_version: ""
+            server_version: ""
+            TEST_ARGS: "--client_version=0.3.1"
           - desc: "0.3.0 data version"
             client_version: ""
             data_version: "0.3.0"
             server_version: ""
+            TEST_ARGS: "--data_version=0.3.0"
           - desc: "before Result has been introduced to server"
             client_version: ""
             data_version: ""
             server_version: "73fc4cd0dedb83ab16562186c14332530e1407d7"
+            TEST_ARGS: "--server_version=0.0.0"
             SERVER_URL: "http://api:8080"
     steps:
       - name: Checkout python client version
         uses: actions/checkout@v2
         with:
           path: client/oneseismic
-          ref: ${{ matrix.client_version }}
       - name: Checkout the server version
         uses: actions/checkout@v2
         with:
@@ -66,7 +69,8 @@ jobs:
         env:
           FETCH_WITH_CLIENT_VERSION: ${{ matrix.client_version }}
           UPLOAD_WITH_CLIENT_VERSION: ${{ matrix.data_version }}
-          TARGET_BUILD: versiontest
+          TARGET_BUILD: test
+          TEST_ARGS: ${{ matrix.TEST_ARGS }}
         run: |
           docker-compose --project-directory client/oneseismic -f client/oneseismic/tests/docker-compose.local.yml build
       - name: Run version tests
