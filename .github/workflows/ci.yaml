@@ -165,4 +165,4 @@ jobs:
 
       - name: Run python tests
         working-directory: python
-        run: python setup.py test
+        run: pytest --hypothesis-profile=no-deadline
