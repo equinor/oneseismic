@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     command: [
         "oneseismic-fetch",
-        "--redis",  "storage:6379",
+        "--redis-url",  "storage:6379",
         "--retries",  "1",
     ]
     depends_on:
@@ -22,7 +22,7 @@ services:
       - '8080'
     command: [
         "oneseismic-result",
-        "--broker", "storage:6379",
+        "--redis-url", "storage:6379",
     ]
     depends_on:
       - storage

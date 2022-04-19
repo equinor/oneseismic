@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"os"
 	"time"
 	"fmt"
@@ -15,16 +16,19 @@ import (
 )
 
 type opts struct {
-	broker  string
-	signkey string
-	port    string
+	redisURL          string
+	redisPassword     string
+	secureConnections bool
+	signkey           string
+	port              string
 }
 
 func parseopts() opts {
 	help := getopt.BoolLong("help", 0, "print this help text")
-	opts := opts {
-		broker:  os.Getenv("BROKER"),
-		signkey: os.Getenv("SIGN_KEY"),
+	opts := opts{
+		redisURL:      os.Getenv("REDIS_URL"),
+		redisPassword: os.Getenv("REDIS_PASSWORD"),
+		signkey:       os.Getenv("SIGN_KEY"),
 	}
 
 	getopt.FlagLong(
@@ -33,15 +37,27 @@ func parseopts() opts {
 		0,
 		"Signing key used for response authorization tokens. " +
 			"Must match signing key in api/query",
-		"key",
+		"string",
 	)
 
 	getopt.FlagLong(
-		&opts.broker,
-		"broker",
+		&opts.redisURL,
+		"redis-url",
 		0,
-		"Message broker (redis) URL",
-		"url",
+		"Redis URL (host:port)",
+		"string",
+	)
+	getopt.FlagLong(
+		&opts.redisPassword,
+		"redis-password",
+		'P',
+		"Redis password. Empty by default",
+		"string",
+	)
+	secureConnections := getopt.BoolLong(
+		"secureConnections",
+		0,
+		"Connect to Redis securely",
 	)
 
 	opts.port = "8080"
@@ -58,6 +74,7 @@ func parseopts() opts {
 		os.Exit(0)
 	}
 
+	opts.secureConnections = *secureConnections
 	return opts
 }
 
@@ -65,12 +82,22 @@ func main() {
 	opts := parseopts()
 
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
-	result  := api.Result {
+
+	redisOptions := &redis.Options{
+		Addr:     opts.redisURL,
+		Password: opts.redisPassword,
+		DB:       0,
+	}
+
+	if opts.secureConnections {
+		redisOptions.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
+	result := api.Result{
 		Timeout: time.Second * 15,
-		Storage: redis.NewClient(&redis.Options {
-			Addr: opts.broker,
-			DB: 0,
-		}),
+		Storage: redis.NewClient(redisOptions),
 		Keyring: &keyring,
 	}
 
