@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/jackc/pgx/v4/pgxpool"
 
 	psql "github.com/equinor/oneseismic/api/internal/postgres"
 	"github.com/equinor/oneseismic/api/internal/util"
@@ -18,12 +17,11 @@ import (
 var schema string
 
 type gql struct {
-	schema   *graphql.Schema
-	connpool *pgxpool.Pool
-	dbschema *psql.Schema
+	schema *graphql.Schema
+	client psql.IndexClient
 }
 
-func MakeGraphQL(connpool *pgxpool.Pool, dbschema *psql.Schema) *gql {
+func MakeGraphQL(client psql.IndexClient) *gql {
 	resolver := &resolver {}
 
 	opts := []graphql.SchemaOpt{
@@ -33,15 +31,13 @@ func MakeGraphQL(connpool *pgxpool.Pool, dbschema *psql.Schema) *gql {
 	_schema := graphql.MustParseSchema(schema, resolver, opts...)
 
 	return &gql {
-		schema   : _schema,
-		connpool : connpool,
-		dbschema : dbschema,
+		schema : _schema,
+		client : client,
 	}
 }
 
 type queryContext struct {
-	connpool *pgxpool.Pool
-	dbschema *psql.Schema
+	client psql.IndexClient
 }
 
 func (g *gql) Get(ctx *gin.Context) {
@@ -76,8 +72,7 @@ func (g *gql) execQuery(
 	query *util.GraphQLQuery,
 ) *graphql.Response {
 	qctx := queryContext {
-		connpool: g.connpool,
-		dbschema: g.dbschema,
+		client: g.client,
 	}
 
 	c := context.WithValue(ctx, "queryctx", &qctx)
@@ -98,16 +93,11 @@ func (r *resolver) Manifests(
 	},
 ) ([]*psql.Manifest, error) {
 	qctx := ctx.Value("queryctx").(*queryContext)
+	client := qctx.client
 
-	query := psql.FilteredManifestQuery(
-		qctx.dbschema,
+	return client.GetManifests(
 		args.Where,
 		args.Intersects,
-	)
-
-	return psql.ExecQuery(
-		qctx.connpool,
-		query,
 		args.First,
 		args.Offset,
 	)

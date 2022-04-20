@@ -93,7 +93,9 @@ func main() {
 		},
 	}
 
-	gql := catalogue.MakeGraphQL(pool, dbschema)
+	client := postgres.NewPgClient(pool, dbschema)
+
+	gql := catalogue.MakeGraphQL(client)
 
 	provider := auth.GetJwksProvider(opts.authserver)
 	tokenvalidator := auth.JWTvalidation(

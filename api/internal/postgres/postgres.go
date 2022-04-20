@@ -363,15 +363,22 @@ func FilteredManifestQuery(
 }
 
 /*
- * Execute a prepared query and scan the resulting rows into manifest objects
+ * A postgres-specific implemententation of the IndexClient
  */
-func ExecQuery(
-	connPool *pgxpool.Pool,
-	query    string,
-	args     ...interface{},
-) ([]*Manifest, error) {
-	rows, err := connPool.Query(context.Background(), query, args...)
+type PgClient struct {
+	connPool *pgxpool.Pool
+	schema   *Schema
+}
 
+func (c *PgClient) GetManifests(
+	jsonFilter *ManifestFilter,
+	geomFilter *Geometry,
+	limit      int32,
+	offset     int32,
+) ([]*Manifest, error) {
+	query := FilteredManifestQuery(c.schema, jsonFilter, geomFilter)
+
+	rows, err := c.connPool.Query(context.Background(), query, limit, offset)
 	if err != nil {
 		msg := fmt.Sprintf("Query failed with: %v", err)
 		log.Println(msg)
@@ -391,4 +398,8 @@ func ExecQuery(
 	}
 
 	return manifests, nil
+}
+
+func NewPgClient(connPool *pgxpool.Pool, schema *Schema) *PgClient {
+	return &PgClient{ connPool: connPool, schema: schema }
 }
