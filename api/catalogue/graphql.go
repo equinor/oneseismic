@@ -25,7 +25,6 @@ type gql struct {
 }
 
 type dbSchema struct {
-	query string
 	table string
 	cols  Columns
 }
@@ -56,15 +55,7 @@ func MakeDBSchema(
 	manifestColumn string,
 	geometryColumn string,
 ) (*dbSchema) {
-	query := fmt.Sprintf(
-		"SELECT %s FROM %s %s LIMIT $1 OFFSET $2",
-		manifestColumn,
-		table,
-		"%s",
-	)
-
 	return &dbSchema{
-		query: query,
 		table: table,
 		cols:  Columns {
 			manifest: manifestColumn,
@@ -142,7 +133,12 @@ func (r *resolver) Manifests(
 		dbschema.cols.geometry,
 	)
 
-	query := fmt.Sprintf(dbschema.query, where)
+	query := fmt.Sprintf(
+		"SELECT %s FROM %s %s LIMIT $1 OFFSET $2",
+		dbschema.cols.manifest,
+		dbschema.table,
+		where,
+	)
 
 	return psql.ExecQuery(
 		connpool,
