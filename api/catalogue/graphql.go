@@ -3,7 +3,6 @@ package catalogue
 import (
 	"context"
 	_ "embed"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -99,25 +98,15 @@ func (r *resolver) Manifests(
 	},
 ) ([]*psql.Manifest, error) {
 	qctx := ctx.Value("queryctx").(*queryContext)
-	connpool := qctx.connpool
-	dbschema := qctx.dbschema
 
-	where := psql.Where(
+	query := psql.FilteredManifestQuery(
+		qctx.dbschema,
 		args.Where,
 		args.Intersects,
-		dbschema.Cols.Manifest,
-		dbschema.Cols.Geometry,
-	)
-
-	query := fmt.Sprintf(
-		"SELECT %s FROM %s %s LIMIT $1 OFFSET $2",
-		dbschema.Cols.Manifest,
-		dbschema.Table,
-		where,
 	)
 
 	return psql.ExecQuery(
-		connpool,
+		qctx.connpool,
 		query,
 		args.First,
 		args.Offset,

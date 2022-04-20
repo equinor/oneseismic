@@ -321,6 +321,34 @@ func Where(
 }
 
 /*
+ * Construct SQL query-string from manifest- and geometry-filters on the form:
+ *
+ * > SELECT manifest FROM table WHERE ... LIMIT $1 OFFSET $2
+ *
+ * Note that the WHERE clause does not use any query-arguments. I.e. all
+ * arguments from the filters are inlined in the query string. This due to the
+ * recursive nature of our filters, making it rather cumbersome and error-prune
+ * to keep track of the argument order. Additionally there is an upper limit on
+ * SQL query arguments (10), which we could easily exceed.
+ */
+func FilteredManifestQuery(
+	schema     *Schema,
+	jsonFilter *ManifestFilter,
+	geomFilter *Geometry,
+) string {
+	manifestCol := schema.Cols.Manifest
+	geometryCol := schema.Cols.Geometry
+
+	where := Where(jsonFilter, geomFilter, manifestCol, geometryCol)
+	return fmt.Sprintf(
+		`SELECT %s FROM %s %s LIMIT $1 OFFSET $2`,
+		manifestCol,
+		schema.Table,
+		where,
+	)
+}
+
+/*
  * Execute a prepared query and scan the resulting rows into manifest objects
  */
 func ExecQuery(
