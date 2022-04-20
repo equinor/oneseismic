@@ -25,10 +25,14 @@ type gql struct {
 }
 
 type dbSchema struct {
-	query          string
-	table          string
-	manifestColumn string
-	geometryColumn string
+	query string
+	table string
+	cols  Columns
+}
+
+type Columns struct {
+	manifest string
+	geometry string
 }
 
 func MakeGraphQL(connpool *pgxpool.Pool, dbschema *dbSchema) *gql {
@@ -60,10 +64,12 @@ func MakeDBSchema(
 	)
 
 	return &dbSchema{
-		query:          query,
-		table:          table,
-		manifestColumn: manifestColumn,
-		geometryColumn: geometryColumn,
+		query: query,
+		table: table,
+		cols:  Columns {
+			manifest: manifestColumn,
+			geometry: geometryColumn,
+		},
 	}
 }
 
@@ -132,8 +138,8 @@ func (r *resolver) Manifests(
 	where := psql.Where(
 		args.Where,
 		args.Intersects,
-		dbschema.manifestColumn,
-		dbschema.geometryColumn,
+		dbschema.cols.manifest,
+		dbschema.cols.geometry,
 	)
 
 	query := fmt.Sprintf(dbschema.query, where)
