@@ -26,6 +26,7 @@ type gql struct {
 
 type dbSchema struct {
 	query          string
+	table          string
 	manifestColumn string
 	geometryColumn string
 }
@@ -60,6 +61,7 @@ func MakeDBSchema(
 
 	return &dbSchema{
 		query:          query,
+		table:          table,
 		manifestColumn: manifestColumn,
 		geometryColumn: geometryColumn,
 	}
