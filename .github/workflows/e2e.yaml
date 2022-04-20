@@ -1,13 +1,14 @@
 name: E2E
 
 on:
-  push:
-    branches: [master]
-  pull_request:
-    branches: [master]
+  workflow_dispatch:
+  schedule:
+    # Run at 10.52 UTC every day
+    - cron: '52 10 * * *'
 
 jobs:
-  integration_tests:
+  e2e_tests:
+    if: github.repository == 'equinor/oneseismic'
     name: Integration tests on local server
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +28,9 @@ jobs:
         if: always()
         run: |
           docker-compose logs -t
+
   version_tests:
+    if: github.repository == 'equinor/oneseismic'
     name: Version compatibility testing
     runs-on: ubuntu-latest
     strategy:
@@ -80,3 +83,15 @@ jobs:
         working-directory: server/oneseismic
         run: |
           docker-compose logs -t
+
+  notify:
+    name: Report on failure
+    needs: [e2e_tests, version_tests]
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name == 'schedule'
+    steps:
+    - name: Send GitHub Action trigger data to Slack workflow
+      id: slack
+      uses: slackapi/slack-github-action@v1.18.0
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_E2E_WEBHOOK_URL }}
