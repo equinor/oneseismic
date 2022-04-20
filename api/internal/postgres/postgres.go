@@ -13,6 +13,20 @@ import (
 	"github.com/equinor/oneseismic/api/internal"
 )
 
+/*
+ * A catalogue specific database connection wrapper that automates the few
+ * database queries used by the oneseismic catalogue. It's defined as an
+ * interface such that it can easily be mocked in tests.
+ */
+type IndexClient interface {
+	GetManifests(
+		jsonFilter *ManifestFilter,
+		geomFilter *Geometry,
+		limit      int32,
+		offset     int32,
+	) ([]*Manifest, error)
+}
+
 type Schema struct {
 	Table string
 	Cols  Columns
