@@ -13,6 +13,16 @@ import (
 	"github.com/equinor/oneseismic/api/internal"
 )
 
+type Schema struct {
+	Table string
+	Cols  Columns
+}
+
+type Columns struct {
+	Manifest string
+	Geometry string
+}
+
 type coordinate struct {
 	X float64
 	Y float64

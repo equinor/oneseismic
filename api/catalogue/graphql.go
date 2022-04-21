@@ -21,20 +21,10 @@ var schema string
 type gql struct {
 	schema   *graphql.Schema
 	connpool *pgxpool.Pool
-	dbschema *dbSchema
+	dbschema *psql.Schema
 }
 
-type dbSchema struct {
-	table string
-	cols  Columns
-}
-
-type Columns struct {
-	manifest string
-	geometry string
-}
-
-func MakeGraphQL(connpool *pgxpool.Pool, dbschema *dbSchema) *gql {
+func MakeGraphQL(connpool *pgxpool.Pool, dbschema *psql.Schema) *gql {
 	resolver := &resolver {}
 
 	opts := []graphql.SchemaOpt{
@@ -54,19 +44,19 @@ func MakeDBSchema(
 	table          string,
 	manifestColumn string,
 	geometryColumn string,
-) (*dbSchema) {
-	return &dbSchema{
-		table: table,
-		cols:  Columns {
-			manifest: manifestColumn,
-			geometry: geometryColumn,
+) (*psql.Schema) {
+	return &psql.Schema{
+		Table: table,
+		Cols:  psql.Columns {
+			Manifest: manifestColumn,
+			Geometry: geometryColumn,
 		},
 	}
 }
 
 type queryContext struct {
 	connpool *pgxpool.Pool
-	dbschema *dbSchema
+	dbschema *psql.Schema
 }
 
 func (g *gql) Get(ctx *gin.Context) {
@@ -129,14 +119,14 @@ func (r *resolver) Manifests(
 	where := psql.Where(
 		args.Where,
 		args.Intersects,
-		dbschema.cols.manifest,
-		dbschema.cols.geometry,
+		dbschema.Cols.Manifest,
+		dbschema.Cols.Geometry,
 	)
 
 	query := fmt.Sprintf(
 		"SELECT %s FROM %s %s LIMIT $1 OFFSET $2",
-		dbschema.cols.manifest,
-		dbschema.table,
+		dbschema.Cols.Manifest,
+		dbschema.Table,
 		where,
 	)
 
