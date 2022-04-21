@@ -40,20 +40,6 @@ func MakeGraphQL(connpool *pgxpool.Pool, dbschema *psql.Schema) *gql {
 	}
 }
 
-func MakeDBSchema(
-	table          string,
-	manifestColumn string,
-	geometryColumn string,
-) (*psql.Schema) {
-	return &psql.Schema{
-		Table: table,
-		Cols:  psql.Columns {
-			Manifest: manifestColumn,
-			Geometry: geometryColumn,
-		},
-	}
-}
-
 type queryContext struct {
 	connpool *pgxpool.Pool
 	dbschema *psql.Schema

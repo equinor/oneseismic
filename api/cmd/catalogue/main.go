@@ -85,7 +85,14 @@ func main() {
 	}
 	defer pool.Close()
 
-	dbschema := catalogue.MakeDBSchema("oneseismic.catalogue", "manifest", "geometry")
+	dbschema := &postgres.Schema{
+		Table: "oneseismic.catalogue",
+		Cols: postgres.Columns {
+			Manifest: "manifest",
+			Geometry: "geometry",
+		},
+	}
+
 	gql := catalogue.MakeGraphQL(pool, dbschema)
 
 	provider := auth.GetJwksProvider(opts.authserver)
