@@ -3,7 +3,6 @@ package util
 import (
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/equinor/oneseismic/api/internal"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -150,27 +148,6 @@ func GraphQLQueryFromGet(query url.Values) (*GraphQLQuery, error) {
 	}
 
 	return &params, nil
-}
-
-/*
- * Automate unwrapping of azblob.StorageError
- *
- * azblob methods such as azblob.BlobClient.Download will wrap any error in
- * azblob.InternalError before returning to the caller. This is rather annoying
- * if we want to switch on error type, or in the case of azblob.StorageError, the
- * StorageErrorCode.
- *
- * This function undoes the work of azblob by attempting to unpack the wrapped
- * StorageError. If the underlying error is not a azblob.StorageError, this is
- * a no-op and the original error is returned.
- */
-func UnpackAzStorageError(err error) error {
-	var stgErr *azblob.StorageError
-	if errors.As(err, &stgErr) {
-		return *stgErr
-	}
-
-	return err
 }
 
 /*
