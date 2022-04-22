@@ -3,13 +3,11 @@ package catalogue
 import (
 	"context"
 	_ "embed"
-	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	graphql "github.com/graph-gophers/graphql-go"
-	"github.com/jackc/pgx/v4/pgxpool"
 
 	psql "github.com/equinor/oneseismic/api/internal/postgres"
 	"github.com/equinor/oneseismic/api/internal/util"
@@ -19,18 +17,11 @@ import (
 var schema string
 
 type gql struct {
-	schema   *graphql.Schema
-	connpool *pgxpool.Pool
-	dbschema *dbSchema
+	schema *graphql.Schema
+	client psql.IndexClient
 }
 
-type dbSchema struct {
-	query          string
-	manifestColumn string
-	geometryColumn string
-}
-
-func MakeGraphQL(connpool *pgxpool.Pool, dbschema *dbSchema) *gql {
+func MakeGraphQL(client psql.IndexClient) *gql {
 	resolver := &resolver {}
 
 	opts := []graphql.SchemaOpt{
@@ -40,34 +31,13 @@ func MakeGraphQL(connpool *pgxpool.Pool, dbschema *dbSchema) *gql {
 	_schema := graphql.MustParseSchema(schema, resolver, opts...)
 
 	return &gql {
-		schema   : _schema,
-		connpool : connpool,
-		dbschema : dbschema,
-	}
-}
-
-func MakeDBSchema(
-	table          string,
-	manifestColumn string,
-	geometryColumn string,
-) (*dbSchema) {
-	query := fmt.Sprintf(
-		"SELECT %s FROM %s %s LIMIT $1 OFFSET $2",
-		manifestColumn,
-		table,
-		"%s",
-	)
-
-	return &dbSchema{
-		query:          query,
-		manifestColumn: manifestColumn,
-		geometryColumn: geometryColumn,
+		schema : _schema,
+		client : client,
 	}
 }
 
 type queryContext struct {
-	connpool *pgxpool.Pool
-	dbschema *dbSchema
+	client psql.IndexClient
 }
 
 func (g *gql) Get(ctx *gin.Context) {
@@ -102,8 +72,7 @@ func (g *gql) execQuery(
 	query *util.GraphQLQuery,
 ) *graphql.Response {
 	qctx := queryContext {
-		connpool: g.connpool,
-		dbschema: g.dbschema,
+		client: g.client,
 	}
 
 	c := context.WithValue(ctx, "queryctx", &qctx)
@@ -124,21 +93,11 @@ func (r *resolver) Manifests(
 	},
 ) ([]*psql.Manifest, error) {
 	qctx := ctx.Value("queryctx").(*queryContext)
-	connpool := qctx.connpool
-	dbschema := qctx.dbschema
+	client := qctx.client
 
-	where := psql.Where(
+	return client.GetManifests(
 		args.Where,
 		args.Intersects,
-		dbschema.manifestColumn,
-		dbschema.geometryColumn,
-	)
-
-	query := fmt.Sprintf(dbschema.query, where)
-
-	return psql.ExecQuery(
-		connpool,
-		query,
 		args.First,
 		args.Offset,
 	)

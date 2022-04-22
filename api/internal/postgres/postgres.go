@@ -13,6 +13,30 @@ import (
 	"github.com/equinor/oneseismic/api/internal"
 )
 
+/*
+ * A catalogue specific database connection wrapper that automates the few
+ * database queries used by the oneseismic catalogue. It's defined as an
+ * interface such that it can easily be mocked in tests.
+ */
+type IndexClient interface {
+	GetManifests(
+		jsonFilter *ManifestFilter,
+		geomFilter *Geometry,
+		limit      int32,
+		offset     int32,
+	) ([]*Manifest, error)
+}
+
+type Schema struct {
+	Table string
+	Cols  Columns
+}
+
+type Columns struct {
+	Manifest string
+	Geometry string
+}
+
 type coordinate struct {
 	X float64
 	Y float64
@@ -311,15 +335,50 @@ func Where(
 }
 
 /*
- * Execute a prepared query and scan the resulting rows into manifest objects
+ * Construct SQL query-string from manifest- and geometry-filters on the form:
+ *
+ * > SELECT manifest FROM table WHERE ... LIMIT $1 OFFSET $2
+ *
+ * Note that the WHERE clause does not use any query-arguments. I.e. all
+ * arguments from the filters are inlined in the query string. This due to the
+ * recursive nature of our filters, making it rather cumbersome and error-prune
+ * to keep track of the argument order. Additionally there is an upper limit on
+ * SQL query arguments (10), which we could easily exceed.
  */
-func ExecQuery(
-	connPool *pgxpool.Pool,
-	query    string,
-	args     ...interface{},
-) ([]*Manifest, error) {
-	rows, err := connPool.Query(context.Background(), query, args...)
+func FilteredManifestQuery(
+	schema     *Schema,
+	jsonFilter *ManifestFilter,
+	geomFilter *Geometry,
+) string {
+	manifestCol := schema.Cols.Manifest
+	geometryCol := schema.Cols.Geometry
 
+	where := Where(jsonFilter, geomFilter, manifestCol, geometryCol)
+	return fmt.Sprintf(
+		`SELECT %s FROM %s %s LIMIT $1 OFFSET $2`,
+		manifestCol,
+		schema.Table,
+		where,
+	)
+}
+
+/*
+ * A postgres-specific implemententation of the IndexClient
+ */
+type PgClient struct {
+	connPool *pgxpool.Pool
+	schema   *Schema
+}
+
+func (c *PgClient) GetManifests(
+	jsonFilter *ManifestFilter,
+	geomFilter *Geometry,
+	limit      int32,
+	offset     int32,
+) ([]*Manifest, error) {
+	query := FilteredManifestQuery(c.schema, jsonFilter, geomFilter)
+
+	rows, err := c.connPool.Query(context.Background(), query, limit, offset)
 	if err != nil {
 		msg := fmt.Sprintf("Query failed with: %v", err)
 		log.Println(msg)
@@ -339,4 +398,8 @@ func ExecQuery(
 	}
 
 	return manifests, nil
+}
+
+func NewPgClient(connPool *pgxpool.Pool, schema *Schema) *PgClient {
+	return &PgClient{ connPool: connPool, schema: schema }
 }
