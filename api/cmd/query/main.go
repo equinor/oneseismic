@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,20 +15,23 @@ import (
 )
 
 type opts struct {
-	clientID     string
-	storageURL   string
-	redisURL     string
-	signkey      string
-	port         string
+	clientID          string
+	storageURL        string
+	redisURL          string
+	redisPassword     string
+	secureConnections bool
+	signkey           string
+	port              string
 }
 
 func parseopts() opts {
 	help := getopt.BoolLong("help", 0, "print this help text")
-	opts := opts {
-		clientID:     os.Getenv("CLIENT_ID"),
-		storageURL:   os.Getenv("STORAGE_URL"),
-		redisURL:     os.Getenv("REDIS_URL"),
-		signkey:      os.Getenv("SIGN_KEY"),
+	opts := opts{
+		clientID:      os.Getenv("CLIENT_ID"),
+		storageURL:    os.Getenv("STORAGE_URL"),
+		redisURL:      os.Getenv("REDIS_URL"),
+		redisPassword: os.Getenv("REDIS_PASSWORD"),
+		signkey:       os.Getenv("SIGN_KEY"),
 	}
 
 	getopt.FlagLong(
@@ -35,28 +39,40 @@ func parseopts() opts {
 		"client-id",
 		0,
 		"Client ID for on-behalf tokens",
-		"id",
+		"string",
 	)
 	getopt.FlagLong(
 		&opts.storageURL,
 		"storage-url",
 		0,
 		"Storage URL, e.g. https://<account>.blob.core.windows.net",
-		"url",
+		"string",
 	)
 	getopt.FlagLong(
 		&opts.redisURL,
 		"redis-url",
 		0,
-		"Redis URL",
-		"url",
+		"Redis URL (host:port)",
+		"string",
+	)
+	getopt.FlagLong(
+		&opts.redisPassword,
+		"redis-password",
+		0,
+		"Redis password. Empty by default",
+		"int",
+	)
+	secureConnections := getopt.BoolLong(
+		"secureConnections",
+		0,
+		"Connect to Redis securely",
 	)
 	getopt.FlagLong(
 		&opts.signkey,
 		"sign-key",
 		0,
 		"Signing key used for response authorization tokens",
-		"key",
+		"string",
 	)
 	opts.port = "8080"
 	getopt.FlagLong(
@@ -72,6 +88,7 @@ func parseopts() opts {
 		os.Exit(0)
 	}
 
+	opts.secureConnections = *secureConnections
 	return opts
 }
 
@@ -123,12 +140,19 @@ func main() {
 	opts := parseopts()
 
 	keyring := auth.MakeKeyring([]byte(opts.signkey))
-	cmdable := redis.NewClient(
-		&redis.Options {
-			Addr: opts.redisURL,
-			DB: 0,
-		},
-	)
+	redisOptions := &redis.Options{
+		Addr:     opts.redisURL,
+		Password: opts.redisPassword,
+		DB:       0,
+	}
+
+	if opts.secureConnections {
+		redisOptions.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+	cmdable := redis.NewClient(redisOptions)
+
 	scheduler := api.NewScheduler(cmdable)
 	gql := api.MakeGraphQL(&keyring, opts.storageURL, scheduler)
 

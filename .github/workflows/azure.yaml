@@ -1,0 +1,86 @@
+name: CI-Azure
+
+# job requires secrets thus can't be run on PRs
+# but it will be run on push to master and can be run on own forks if secrets are supplied
+# to do so create environment Test and supply secrets described below
+on: [push]
+
+jobs:
+  azure_tests:
+    # Note: as job uses just one set of resources, so concurrent PRs and merges might cause trouble
+    # due to currently low number of PRs this is acceptable for now
+    #
+    # Service Principal should have access to Resource group and "push" privileges to the container registry
+    #
+    # The following secrets are required:
+    # SETUP_PREFIX: prefix for all created resources
+    # RESOURCE_GROUP : name of the resource group used for deployment
+    # AZURE_CLIENT_ID : client (application) id of the Service principal
+    # AZURE_CLIENT_SECRET : client secret of the Service Principal
+    # AZURE_CREDENTIALS : {"clientId": "<>","clientSecret": "<>","subscriptionId": "<>","tenantId": "<>"}
+    # STORAGE_ACCOUNT_KEY : key used to access storage
+    # SIGN_KEY : string used for secure exchange of information between services
+    name: Integration tests on Azure
+    runs-on: ubuntu-latest
+    environment: Test
+    env:
+      ENVIRONMENT: test
+      REVISION_ID: ${{ github.sha }} # or "latest"
+      DEPLOYMENT_NAME: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set missing docker parameters
+        run: |
+          echo "CONTAINER_REGISTRY=${{ secrets.SETUP_PREFIX }}0containerRegistry.azurecr.io" >> $GITHUB_ENV
+
+      - name: Login to Docker Registry with Service Principal
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.CONTAINER_REGISTRY }}
+          username: ${{ secrets.AZURE_CLIENT_ID }}
+          password: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Build and push server code with Docker
+        run: |
+          tag=${{ env.CONTAINER_REGISTRY }}/apps/oneseismic:$REVISION_ID
+          docker build -t $tag .
+          docker push $tag
+
+      - name: Login to Azure with Service Principal
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy server code
+        uses: azure/arm-deploy@v1
+        with:
+          deploymentName: ${{ env.DEPLOYMENT_NAME }}
+          resourceGroupName: ${{ secrets.RESOURCE_GROUP }}
+          template: deploy/main.bicep
+          parameters: environment=${{ env.ENVIRONMENT }} setupPrefix=${{ secrets.SETUP_PREFIX }} revisionId=${{ env.REVISION_ID }} signKey=${{ secrets.SIGN_KEY }}
+
+      - name: Set missing test parameters
+        run: |
+          serverURL=$(az deployment group show \
+            -g ${{ secrets.RESOURCE_GROUP }} \
+            -n ${{ env.DEPLOYMENT_NAME }} \
+            --query properties.outputs.serverURL.value \
+            -o tsv
+          )
+          echo "SERVER_URL=$serverURL" >> $GITHUB_ENV
+          echo "STORAGE_URL=https://${{ secrets.SETUP_PREFIX }}0storage.blob.core.windows.net" >> $GITHUB_ENV
+
+      - name: Run azure tests
+        env:
+          SERVER_URL: ${{ env.SERVER_URL }}
+          STORAGE_LOCATION: ${{ env.STORAGE_URL }}
+          AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
+        run: |
+          tag=local/test/oneseismic
+          docker build -f tests/Dockerfile --target cloudtest -t $tag .
+          docker run \
+            -e AZURE_STORAGE_ACCOUNT_KEY \
+            -e STORAGE_LOCATION \
+            -e SERVER_URL \
+            $tag

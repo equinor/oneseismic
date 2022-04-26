@@ -5,17 +5,20 @@ import (
 	"log"
 	"os"
 	"time"
+	"crypto/tls"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/pborman/getopt/v2"
 )
 
 type opts struct {
-	redis     string
-	stream    string
-	group     string
-	threshold time.Duration
-	dryrun    bool
+	redisURL          string
+	redisPassword     string
+	secureConnections bool
+	stream            string
+	group             string
+	threshold         time.Duration
+	dryrun            bool
 }
 
 func parseopts() opts {
@@ -24,34 +27,49 @@ func parseopts() opts {
 		stream: "jobs",
 		group:  "fetch",
 		threshold: 30 * time.Minute,
+		redisURL:      os.Getenv("REDIS_URL"),
+		redisPassword: os.Getenv("REDIS_PASSWORD"),
 	}
+
 	getopt.FlagLong(
-		&opts.redis,
-		"redis",
-		'R',
-		"Address to redis, e.g. host[:port]",
-		"addr",
+		&opts.redisURL,
+		"redis-url",
+		0,
+		"Redis URL (host:port)",
+		"string",
 	).Mandatory()
+	getopt.FlagLong(
+		&opts.redisPassword,
+		"redis-password",
+		'P',
+		"Redis password. Empty by default",
+		"string",
+	)
+	secureConnections := getopt.BoolLong(
+		"secureConnections",
+		0,
+		"Connect to Redis securely",
+	)
 	getopt.FlagLong(
 		&opts.stream,
 		"stream",
 		'S',
 		"Stream to garbage collect",
-		"key",
+		"string",
 	)
 	getopt.FlagLong(
 		&opts.group,
 		"group",
 		'G',
 		"Consumer group to garbage collect",
-		"group",
+		"string",
 	)
 	getopt.FlagLong(
 		&opts.threshold,
 		"threshold",
 		't',
 		"Idle duration before consumer is a candidate for garbage collection",
-		"duration",
+		"int",
 	)
 	getopt.FlagLong(
 		&opts.dryrun,
@@ -66,6 +84,7 @@ func parseopts() opts {
 		os.Exit(0)
 	}
 
+	opts.secureConnections = *secureConnections
 	return opts
 }
 
@@ -86,9 +105,18 @@ func parseopts() opts {
 func main() {
 	opts := parseopts()
 
-	storage := redis.NewClient(&redis.Options {
-		Addr: opts.redis,
-	})
+	redisOptions := &redis.Options{
+		Addr:     opts.redisURL,
+		Password: opts.redisPassword,
+	}
+
+	if opts.secureConnections {
+		redisOptions.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
+	storage := redis.NewClient(redisOptions)
 	defer storage.Close()
 	ctx := context.Background()
 

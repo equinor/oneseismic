@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"os"
@@ -14,27 +15,43 @@ import (
 )
 
 type opts struct {
-	redis      string
-	group      string
-	stream     string
-	consumerid string
-	jobs       int
-	retries    int
+	redisURL          string
+	redisPassword     string
+	secureConnections bool
+	group             string
+	stream            string
+	consumerid        string
+	jobs              int
+	retries           int
 }
 
 func parseopts() opts {
 	help := getopt.BoolLong("help", 0, "print this help text")
-	opts := opts {
-		group:  "fetch",
-		stream: "jobs",
+	opts := opts{
+		redisURL:      os.Getenv("REDIS_URL"),
+		redisPassword: os.Getenv("REDIS_PASSWORD"),
+		group:         "fetch",
+		stream:        "jobs",
 	}
 	getopt.FlagLong(
-		&opts.redis,
-		"redis",
-		'R',
-		"Address to redis, e.g. host[:port]",
-		"addr",
-	).Mandatory()
+		&opts.redisURL,
+		"redis-url",
+		0,
+		"Redis URL (host:port)",
+		"string",
+	)
+	getopt.FlagLong(
+		&opts.redisPassword,
+		"redis-password",
+		0,
+		"Redis password. Empty by default",
+		"string",
+	)
+	secureConnections := getopt.BoolLong(
+		"secureConnections",
+		0,
+		"Connect to Redis securely",
+	)
 	getopt.FlagLong(
 		&opts.group,
 		"group",
@@ -43,7 +60,7 @@ func parseopts() opts {
 		    "All workers should belong to the same group for " +
 		    "fair distribution of work. " +
 		    "You should normally not need to change this.",
-		"name",
+		"string",
 	)
 	getopt.FlagLong(
 		&opts.stream,
@@ -51,7 +68,7 @@ func parseopts() opts {
 		'S',
 		"Stream ID to read tasks from. Must be consistent with the producer. " +
 		    "You should normally not need to change this.",
-		"name",
+		"string",
 	)
 	getopt.FlagLong(
 		&opts.consumerid,
@@ -61,21 +78,21 @@ func parseopts() opts {
 			"workers in the consumer group. If no name is specified, " +
 			"a random ID will be generated. You should normally not need " +
 			"to specify a consumer ID.",
-		"id",
+		"string",
 	)
 	jobs := getopt.IntLong(
 		"jobs",
 		'j',
 		30,
 		"Allow N concurrent connections at once. Defaults to 30",
-		"N",
+		"int",
 	)
 	retries := getopt.IntLong(
 		"retries",
 		'r',
 		0,
 		"Max attempted retries when fetching from blobstore. Defaults to 0",
-		"N",
+		"int",
 	)
 	getopt.Parse()
 
@@ -89,6 +106,8 @@ func parseopts() opts {
 	}
 	opts.jobs = *jobs
 	opts.retries = *retries
+	opts.secureConnections = *secureConnections
+
 	return opts
 }
 
@@ -147,10 +166,18 @@ func run(
 func main() {
 	opts := parseopts()
 
-	storage := redis.NewClient(&redis.Options {
-		Addr: opts.redis,
-		DB: 0,
-	})
+	redisOptions := &redis.Options{
+		Addr:     opts.redisURL,
+		Password: opts.redisPassword,
+		DB:       0,
+	}
+
+	if opts.secureConnections {
+		redisOptions.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+	storage := redis.NewClient(redisOptions)
 	// TODO: err?
 	defer storage.Close()
 

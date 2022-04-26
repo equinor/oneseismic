@@ -67,3 +67,7 @@ ENTRYPOINT ["/pyenv/fetch_with/bin/python","-m", "pytest", "-s", "-m", "local"]
 
 FROM pythontest AS versiontest
 ENTRYPOINT ["/pyenv/fetch_with/bin/python","-m", "pytest", "-s", "-m", "version"]
+
+
+FROM pythontest AS cloudtest
+ENTRYPOINT ["/pyenv/fetch_with/bin/python","-m", "pytest", "-s", "-m", "cloud"]
