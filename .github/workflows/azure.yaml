@@ -1,9 +1,10 @@
 name: CI-Azure
 
-# job requires secrets thus can't be run on PRs
-# but it will be run on push to master and can be run on own forks if secrets are supplied
-# to do so create environment Test and supply secrets described below
-on: [push]
+on:
+  workflow_dispatch:
+  schedule:
+    # Run at 15.52 UTC every day
+    - cron: '52 15 * * *'
 
 jobs:
   azure_tests:
@@ -84,3 +85,15 @@ jobs:
             -e STORAGE_LOCATION \
             -e SERVER_URL \
             $tag
+
+  notify:
+    name: Report on failure
+    needs: [azure_tests]
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name == 'schedule'
+    steps:
+    - name: Send GitHub Action trigger data to Slack workflow
+      id: slack
+      uses: slackapi/slack-github-action@v1.18.0
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_AZURE_WEBHOOK_URL }}

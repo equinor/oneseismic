@@ -1,0 +1,97 @@
+name: E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run at 10.52 UTC every day
+    - cron: '52 10 * * *'
+
+jobs:
+  e2e_tests:
+    if: github.repository == 'equinor/oneseismic'
+    name: Integration tests on local server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build and test server processes
+        run: docker-compose -f docker-compose.yml build
+
+      - name: Run local integration tests
+        env:
+          TARGET_BUILD: localtest
+        run: |
+          STORAGE_URL=http://filesystem:8112 docker-compose -f docker-compose.yml up -d
+          docker-compose --project-directory . -f tests/docker-compose.local.yml up --build --exit-code-from test
+      - name: Print logs
+        continue-on-error: true
+        if: always()
+        run: |
+          docker-compose logs -t
+
+  version_tests:
+    if: github.repository == 'equinor/oneseismic'
+    name: Version compatibility testing
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - desc: "0.3.2 client (corresponding git tag needed)"
+          #   client_version: "0.3.2"
+          #   data_version: ""
+          #   server_version: ""
+          - desc: "0.3.0 data version"
+            client_version: ""
+            data_version: "0.3.0"
+            server_version: ""
+          - desc: "before Result has been introduced to server"
+            client_version: ""
+            data_version: ""
+            server_version: "73fc4cd0dedb83ab16562186c14332530e1407d7"
+            SERVER_URL: "http://api:8080"
+    steps:
+      - name: Checkout python client version
+        uses: actions/checkout@v2
+        with:
+          path: client/oneseismic
+          ref: ${{ matrix.client_version }}
+      - name: Checkout the server version
+        uses: actions/checkout@v2
+        with:
+          path: server/oneseismic
+          ref: ${{ matrix.server_version }}
+      - name: Build server
+        run: |
+          docker-compose -f server/oneseismic/docker-compose.yml build
+      - name: Build tests
+        env:
+          FETCH_WITH_CLIENT_VERSION: ${{ matrix.client_version }}
+          UPLOAD_WITH_CLIENT_VERSION: ${{ matrix.data_version }}
+          TARGET_BUILD: versiontest
+        run: |
+          docker-compose --project-directory client/oneseismic -f client/oneseismic/tests/docker-compose.local.yml build
+      - name: Run version tests
+        env:
+          SERVER_URL: ${{ matrix.SERVER_URL }}
+        run: |
+          STORAGE_URL=http://filesystem:8112 docker-compose -f server/oneseismic/docker-compose.yml up -d
+          docker-compose --project-directory client/oneseismic -f client/oneseismic/tests/docker-compose.local.yml up --exit-code-from test
+      - name: Print logs
+        continue-on-error: true
+        if: always()
+        working-directory: server/oneseismic
+        run: |
+          docker-compose logs -t
+
+  notify:
+    name: Report on failure
+    needs: [e2e_tests, version_tests]
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name == 'schedule'
+    steps:
+    - name: Send GitHub Action trigger data to Slack workflow
+      id: slack
+      uses: slackapi/slack-github-action@v1.18.0
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_E2E_WEBHOOK_URL }}
