@@ -31,17 +31,16 @@ RUN python setup.py test
 
 FROM pythonbuild AS pythontest
 COPY ./tests /tests
-RUN python -m pip install -r /tests/requirements.txt
 RUN python -m venv /pyenv/upload_with
 RUN python -m venv /pyenv/fetch_with
 
 RUN /pyenv/upload_with/bin/python -m pip install --upgrade pip
 RUN /pyenv/upload_with/bin/pip install -r /python/requirements-dev.txt
-RUN /pyenv/upload_with/bin/pip install -r /tests/requirements.txt
+RUN /pyenv/upload_with/bin/pip install -r /tests/python/requirements.txt
 
 RUN /pyenv/fetch_with/bin/python -m pip install --upgrade pip
 RUN /pyenv/fetch_with/bin/pip install -r /python/requirements-dev.txt
-RUN /pyenv/fetch_with/bin/pip install -r /tests/requirements.txt
+RUN /pyenv/fetch_with/bin/pip install -r /tests/python/requirements.txt
 
 ARG UPLOAD_WITH_CLIENT_VERSION
 ENV UPLOAD_WITH_CLIENT_VERSION=$UPLOAD_WITH_CLIENT_VERSION
@@ -58,7 +57,7 @@ RUN if test -z "$FETCH_WITH_CLIENT_VERSION"; \
     fi
 
 ENV UPLOAD_WITH_PYTHON /pyenv/upload_with/bin/python
-WORKDIR /tests
+WORKDIR /tests/python
 
 
 FROM pythontest AS localtest

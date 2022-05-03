@@ -4,7 +4,6 @@ import json
 from urllib.request import urlopen
 from urllib.parse import urljoin
 import pytest
-import random
 import tempfile
 import numpy as np
 from oneseismic import simple
@@ -12,6 +11,7 @@ from urllib.parse import urlsplit
 import segyio
 import azure
 import datetime
+from data.create import *
 
 # required
 SERVER_URL = os.getenv("SERVER_URL")
@@ -62,68 +62,10 @@ def upload(path, storage_location=STORAGE_LOCATION, scan_meta=None):
 
     return scan_meta["guid"]
 
-
-def create_segy(path):
-    """ Create file with data suitable for relevant tests.
-
-    | xlines-ilines | 1             | 2             | 3             |
-    |---------------|---------------|---------------|---------------|
-    | 10            | 100, 101, 102 | 106, 107, 108 | 112, 113, 114 |
-    | 11            | 103, 104, 105 | 109, 110, 111 | 115, 116, 177 |
-
-    UTM coordinates for headers:
-
-    | xlines-ilines | 1           | 2             | 3             |
-    |---------------|-------------|---------------|---------------|
-    | 10            | x=1, y=3    | x=2.1, y=3    | x=3.2, y=3    |
-    | 11            | x=1, y=6.3  | x=2.1, y=6.3  | x=3.2, y=6.3  |
-    """
-    spec = segyio.spec()
-
-    spec.sorting = 2
-    spec.format = 1
-    spec.samples = [0, 1, 2]
-    spec.ilines = [1, 2, 3]
-    spec.xlines = [10, 11]
-
-    # We use scaling constant of -10, meaning that values will be divided by 10
-    il_step_x = int(1.1 * 10)
-    il_step_y = int(0 * 10)
-    xl_step_x = int(0 * 10)
-    xl_step_y = int(3.3 * 10)
-    ori_x = int(1 * 10)
-    ori_y = int(3 * 10)
-
-    with segyio.create(path, spec) as f:
-        data = 100
-        tr = 0
-        for il in spec.ilines:
-            for xl in spec.xlines:
-                f.header[tr] = {
-                    segyio.su.iline: il,
-                    segyio.su.xline: xl,
-                    segyio.su.cdpx:
-                        (il - spec.ilines[0]) * il_step_x +
-                        (xl - spec.xlines[0]) * xl_step_x +
-                        ori_x,
-                    segyio.su.cdpy:
-                        (il - spec.ilines[0]) * il_step_y +
-                        (xl - spec.xlines[0]) * xl_step_y +
-                        ori_y,
-                    segyio.su.scalco: -10,
-                }
-                data = data + len(spec.samples)
-                f.trace[tr] = np.arange(start=data - len(spec.samples),
-                                        stop=data, step=1, dtype=np.single)
-                tr += 1
-
-        f.bin.update(tsort=segyio.TraceSortingFormat.INLINE_SORTING)
-
-
 @pytest.fixture
 def cube_guid(tmpdir_factory):
     custom = str(tmpdir_factory.mktemp('files').join('custom.sgy'))
-    create_segy(custom)
+    create_custom(custom)
     guid = scan(custom)["guid"]
     # no file reupload must happen, so safeguard
     try:
@@ -140,12 +82,7 @@ def cube_guid(tmpdir_factory):
 def test_upload(tmpdir):
     path = str(tmpdir.join('simple.segy'))
     # random number assures random guid
-    data = np.array(
-        [
-            [1.25, 1.5],
-            [random.uniform(2.5, 2.75), random.uniform(2.75, 3)]
-        ], dtype=np.float32)
-    segyio.tools.from_array(path, data)
+    create_random(path)
 
     guid = upload(path)
     client = simple.simple_client(SERVER_URL)
