@@ -16,6 +16,8 @@ jobs:
         include:
           - desc: Python integration tests
             dockerfile: tests/python/docker-compose.python.yml
+          - desc: Javascript integration tests
+            dockerfile: tests/javascript/docker-compose.javascript.yml
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
