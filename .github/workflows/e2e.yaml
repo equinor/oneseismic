@@ -8,7 +8,7 @@ on:
 
 jobs:
   e2e_tests:
-    if: github.repository == 'equinor/oneseismic'
+    if: github.repository == 'equinor/oneseismic' || github.event_name == 'workflow_dispatch'
     name: Integration tests on local server
     strategy:
       fail-fast: false
@@ -39,7 +39,7 @@ jobs:
           docker-compose logs -t
 
   version_tests:
-    if: github.repository == 'equinor/oneseismic'
+    if: github.repository == 'equinor/oneseismic' || github.event_name == 'workflow_dispatch'
     name: Version compatibility testing
     runs-on: ubuntu-latest
     strategy:
