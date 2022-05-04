@@ -23,6 +23,12 @@ jobs:
     # SIGN_KEY : string used for secure exchange of information between services
     name: Integration tests on Azure
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - desc: Azure tests with python client
+            dockerfile: tests/python/Dockerfile
     environment: Test
     env:
       ENVIRONMENT: test
@@ -79,7 +85,7 @@ jobs:
           AZURE_STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
         run: |
           tag=local/test/oneseismic
-          docker build -f tests/Dockerfile --target cloudtest -t $tag .
+          docker build -f ${{ matrix.dockerfile }} --target cloudtest -t $tag .
           docker run \
             -e AZURE_STORAGE_ACCOUNT_KEY \
             -e STORAGE_LOCATION \
