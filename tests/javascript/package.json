@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "testintegration": "jasmine --config=jasmine.json"
+  },
+  "devDependencies": {
+    "jasmine": "^4.0.2"
+  }
+}

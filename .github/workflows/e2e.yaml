@@ -10,6 +10,14 @@ jobs:
   e2e_tests:
     if: github.repository == 'equinor/oneseismic'
     name: Integration tests on local server
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - desc: Python integration tests
+            dockerfile: tests/python/docker-compose.python.yml
+          - desc: Javascript integration tests
+            dockerfile: tests/javascript/docker-compose.javascript.yml
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -22,7 +30,8 @@ jobs:
           TARGET_BUILD: localtest
         run: |
           STORAGE_URL=http://filesystem:8112 docker-compose -f docker-compose.yml up -d
-          docker-compose --project-directory . -f tests/docker-compose.local.yml up --build --exit-code-from test
+          docker-compose --project-directory . -f tests/docker-compose.local.yml -f ${{ matrix.dockerfile }} up --build --exit-code-from test
+
       - name: Print logs
         continue-on-error: true
         if: always()

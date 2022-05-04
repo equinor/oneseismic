@@ -4,3 +4,4 @@ tmp/*
 **/.env
 .git
 **/_skbuild
+**/node_modules

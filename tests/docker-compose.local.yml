@@ -12,7 +12,7 @@ services:
   test:
     build:
       context: .
-      dockerfile: tests/Dockerfile
+      dockerfile: tests/javascript/Dockerfile
       target: $TARGET_BUILD
       args:
         - UPLOAD_WITH_CLIENT_VERSION
