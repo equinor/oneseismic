@@ -296,7 +296,7 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
     from_json(doc, static_cast< basic_query& >(query));
 
     if (query.function != "slice") {
-        const auto msg = "expected query 'slice', got {}";
+        constexpr auto msg = "expected query 'slice', got {}";
         throw bad_message(fmt::format(msg, query.function));
     }
 
@@ -317,7 +317,7 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
     const int val = args.at("val");
     if (kind == "index") {
         if (!(0 <= val && val < lines[query.dim].size())) {
-            const auto msg = "index (= {}) not in [0, {})";
+            constexpr auto msg = "index (= {}) not in [0, {})";
             throw not_found(fmt::format(msg, val, lines[query.dim].size()));
         }
         query.idx = val;
@@ -326,12 +326,12 @@ void from_json(const nlohmann::json& doc, slice_query& query) noexcept (false) {
         const auto& index = lines[query.dim];
         const auto itr = std::find(index.begin(), index.end(), val);
         if (itr == index.end()) {
-            const auto msg = "line (= {}) not found in index";
+            constexpr auto msg = "line (= {}) not found in index";
             throw not_found(fmt::format(msg, val));
         }
         query.idx = std::distance(index.begin(), itr);
     } else {
-        const auto msg = "expected kind 'index' or 'lineno', got {}";
+        constexpr auto msg = "expected kind 'index' or 'lineno', got {}";
         throw bad_message(fmt::format(msg, kind));
     }
 }
@@ -350,7 +350,7 @@ int to_cartesian(const std::vector< int >& labels, int x)
 noexcept (false) {
     const auto itr = std::lower_bound(labels.begin(), labels.end(), x);
     if (itr == labels.end() || *itr != x) {
-        const auto msg = "coordinate (= {}) of type lineno is not found";
+        constexpr auto msg = "coordinate (= {}) of type lineno is not found";
         throw not_found(fmt::format(msg, x));
     }
     return std::distance(labels.begin(), itr);
@@ -360,7 +360,7 @@ void assure_cartesian_in_bounds(const std::vector<int>& labels,
                                 std::vector<int>& xs) noexcept(false) {
     const auto in_bounds = [&labels](auto x) {
         if (!(0 <= x && x < labels.size())) {
-            const auto msg = "coordinate (= {}) of type index is out of cube "
+            constexpr auto msg = "coordinate (= {}) of type index is out of cube "
                              "boundaries [0, {})";
             throw not_found(fmt::format(msg, x, labels.size()));
         }
@@ -371,13 +371,13 @@ void assure_cartesian_in_bounds(const std::vector<int>& labels,
 gvt< 3 > geometry(const basic_query& query) noexcept (false) {
     const auto& dimensions = query.manifest.line_numbers;
     if (dimensions.size() != 3) {
-        const auto msg =
+        constexpr auto msg =
             "operation requires 3-dimensional cube, but dimension was {}";
         throw not_found(fmt::format(msg, dimensions.size()));
     }
     const auto& shape = query.shape();
     if (shape.size() != 3) {
-        const auto msg =
+        constexpr auto msg =
             "operation requires 3-dimensional fragments, but dimension was {}";
         throw not_found(fmt::format(msg, shape.size()));
     }
@@ -503,7 +503,7 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
     from_json(doc, static_cast< basic_query& >(query));
 
     if (query.function != "curtain") {
-        const auto msg = "expected query 'curtain', got {}";
+        constexpr auto msg = "expected query 'curtain', got {}";
         throw bad_message(fmt::format(msg, query.function));
     }
 
@@ -541,7 +541,7 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
             assure_cartesian_in_bounds(line_numbers[++dim], query.dim0s);
             assure_cartesian_in_bounds(line_numbers[++dim], query.dim1s);
         } catch (not_found& exc) {
-            const auto msg = "Failure while processing dimension {}: ";
+            constexpr auto msg = "Failure while processing dimension {}: ";
             throw not_found(fmt::format(msg, dim) + exc.what());
         }
     }
@@ -556,7 +556,7 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
                     const auto second = to_cartesian(line_numbers[++dim], y);
                     return std::pair(first, second);
                 } catch (not_found& exc) {
-                    const auto msg = "Failure while processing dimension {}: ";
+                    constexpr auto msg = "Failure while processing dimension {}: ";
                     throw not_found(fmt::format(msg, dim) + exc.what());
                 }
             },
@@ -584,7 +584,7 @@ void from_json(const nlohmann::json& doc, curtain_query& query) noexcept (false)
             float()
         );
     } else {
-        const auto msg = "expected kind 'index' or 'lineno' or 'utm', got {}";
+        constexpr auto msg = "expected kind 'index' or 'lineno' or 'utm', got {}";
         throw bad_message(fmt::format(msg, kind));
     }
 

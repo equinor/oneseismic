@@ -175,7 +175,7 @@ const std::vector<std::string> query_specific = {
 };
 
 TEST_CASE("well-formed query is unpacked correctly") {
-    const auto templ = "{{ {}, {}, {}, {} }}";
+    constexpr auto templ = "{{ {}, {}, {}, {} }}";
     const auto qs = fmt::format(templ, query_required, query_slice_specific,
                                 query_optional, query_unexpected);
 
