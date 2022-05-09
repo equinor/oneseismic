@@ -48,18 +48,50 @@ jobs:
           username: ${{ secrets.AZURE_CLIENT_ID }}
           password: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-      - name: Build and push server code with Docker
+      - name: Build and push server code with Docker if image doesn't exist
         run: |
-          tag=${{ env.CONTAINER_REGISTRY }}/apps/oneseismic:$REVISION_ID
-          docker build -t $tag .
-          docker push $tag
+          image=${{ env.CONTAINER_REGISTRY }}/apps/oneseismic:$REVISION_ID
+          if ! docker manifest inspect $image > /dev/null ; then
+            docker build -t $image .
+            docker push $image
+          fi
 
       - name: Login to Azure with Service Principal
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy server code
+      - name: Activate revision if it already exists
+        run: |
+          fetch_app_name=${{ secrets.SETUP_PREFIX }}-fetch
+          nginx_app_name=${{ secrets.SETUP_PREFIX }}-nginx
+          fetch_revision=$fetch_app_name--${{ env.REVISION_ID }}
+          nginx_revision=$nginx_app_name--${{ env.REVISION_ID }}
+          fetch_exists=false
+          nginx_exists=false
+
+          az extension add --name containerapp
+
+          if az containerapp revision activate -n $fetch_app_name -g ${{ secrets.RESOURCE_GROUP }} --revision $fetch_revision > /dev/null ; then
+            echo "Fetch revision exists and is activated"
+            fetch_exists=true
+          fi
+
+          if az containerapp revision activate -n $nginx_app_name -g ${{ secrets.RESOURCE_GROUP }} --revision $nginx_revision > /dev/null ; then
+            echo "Nginx revision exists and is activated"
+            az containerapp ingress traffic set -n $nginx_app_name -g ${{ secrets.RESOURCE_GROUP }} --revision-weight $nginx_revision=100
+            nginx_exists=true
+          fi
+
+          if [[ $fetch_exists != $nginx_exists ]] ; then
+            echo "Unexpected situation: fetch and nginx apps have different status"
+            (exit 1)
+          fi
+
+          echo "REVISION_ALREADY_EXISTS=$fetch_exists" >> $GITHUB_ENV
+
+      - name: Deploy server code if not already deployed
+        if: ${{ env.REVISION_ALREADY_EXISTS == 'false' }}
         uses: azure/arm-deploy@v1
         with:
           deploymentName: ${{ env.DEPLOYMENT_NAME }}
@@ -75,6 +107,10 @@ jobs:
             --query properties.outputs.serverURL.value \
             -o tsv
           )
+          if [[ -z $serverURL ]] ; then
+            echo "Server URL is not found in deployment"
+            (exit 1)
+          fi
           echo "SERVER_URL=$serverURL" >> $GITHUB_ENV
           echo "STORAGE_URL=https://${{ secrets.SETUP_PREFIX }}0storage.blob.core.windows.net" >> $GITHUB_ENV
 
