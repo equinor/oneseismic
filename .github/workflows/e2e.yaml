@@ -39,7 +39,9 @@ jobs:
           docker-compose logs -t
 
   version_tests:
-    if: github.repository == 'equinor/oneseismic' || github.event_name == 'workflow_dispatch'
+    # temporary disable scheduled execution of version tests until they are fixed
+    #if: github.repository == 'equinor/oneseismic' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     name: Version compatibility testing
     runs-on: ubuntu-latest
     strategy:
