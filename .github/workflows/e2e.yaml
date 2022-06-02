@@ -8,7 +8,7 @@ on:
 
 jobs:
   e2e_tests:
-    if: github.repository == 'equinor/oneseismic'
+    if: github.repository == 'equinor/oneseismic' || github.event_name == 'workflow_dispatch'
     name: Integration tests on local server
     strategy:
       fail-fast: false
@@ -39,7 +39,9 @@ jobs:
           docker-compose logs -t
 
   version_tests:
-    if: github.repository == 'equinor/oneseismic'
+    # temporary disable scheduled execution of version tests until they are fixed
+    #if: github.repository == 'equinor/oneseismic' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     name: Version compatibility testing
     runs-on: ubuntu-latest
     strategy:
@@ -79,13 +81,22 @@ jobs:
           UPLOAD_WITH_CLIENT_VERSION: ${{ matrix.data_version }}
           TARGET_BUILD: versiontest
         run: |
-          docker-compose --project-directory client/oneseismic -f client/oneseismic/tests/docker-compose.local.yml build
+          docker-compose \
+          --project-directory client/oneseismic \
+          -f client/oneseismic/tests/docker-compose.local.yml \
+          -f client/oneseismic/tests/python/docker-compose.python.yml \
+          build
       - name: Run version tests
         env:
           SERVER_URL: ${{ matrix.SERVER_URL }}
         run: |
           STORAGE_URL=http://filesystem:8112 docker-compose -f server/oneseismic/docker-compose.yml up -d
-          docker-compose --project-directory client/oneseismic -f client/oneseismic/tests/docker-compose.local.yml up --exit-code-from test
+          docker-compose \
+          --project-directory client/oneseismic \
+          -f client/oneseismic/tests/docker-compose.local.yml \
+          -f client/oneseismic/tests/python/docker-compose.python.yml \
+          up \
+          --exit-code-from test
       - name: Print logs
         continue-on-error: true
         if: always()
