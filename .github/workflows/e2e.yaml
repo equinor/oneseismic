@@ -2,9 +2,6 @@ name: E2E
 
 on:
   workflow_dispatch:
-  schedule:
-    # Run at 10.52 UTC every day
-    - cron: '52 10 * * *'
 
 jobs:
   e2e_tests:

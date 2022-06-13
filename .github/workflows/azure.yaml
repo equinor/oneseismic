@@ -2,9 +2,6 @@ name: CI-Azure
 
 on:
   workflow_dispatch:
-  schedule:
-    # Run at 15.52 UTC every day
-    - cron: '52 15 * * *'
 
 jobs:
   azure_tests:
