@@ -32,14 +32,14 @@ jobs:
     environment: Test
     env:
       ENVIRONMENT: test
-      REVISION_ID: ${{ github.sha }} # or "latest"
       DEPLOYMENT_NAME: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v2
 
-      - name: Set missing docker parameters
+      - name: Set needed parameters
         run: |
           echo "CONTAINER_REGISTRY=${{ secrets.SETUP_PREFIX }}0containerRegistry.azurecr.io" >> $GITHUB_ENV
+          echo "REVISION_ID"=${{ github.sha }}$RANDOM >> $GITHUB_ENV
 
       - name: Login to Docker Registry with Service Principal
         uses: docker/login-action@v1
@@ -48,50 +48,18 @@ jobs:
           username: ${{ secrets.AZURE_CLIENT_ID }}
           password: ${{ secrets.AZURE_CLIENT_SECRET }}
 
-      - name: Build and push server code with Docker if image doesn't exist
+      - name: Build and push server code with Docker
         run: |
-          image=${{ env.CONTAINER_REGISTRY }}/apps/oneseismic:$REVISION_ID
-          if ! docker manifest inspect $image > /dev/null ; then
-            docker build -t $image .
-            docker push $image
-          fi
+          image=${{ env.CONTAINER_REGISTRY }}/apps/oneseismic:${{ env.REVISION_ID }}
+          docker build -t $image .
+          docker push $image
 
       - name: Login to Azure with Service Principal
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Activate revision if it already exists
-        run: |
-          fetch_app_name=${{ secrets.SETUP_PREFIX }}-fetch
-          nginx_app_name=${{ secrets.SETUP_PREFIX }}-nginx
-          fetch_revision=$fetch_app_name--${{ env.REVISION_ID }}
-          nginx_revision=$nginx_app_name--${{ env.REVISION_ID }}
-          fetch_exists=false
-          nginx_exists=false
-
-          az extension add --name containerapp
-
-          if az containerapp revision activate -n $fetch_app_name -g ${{ secrets.RESOURCE_GROUP }} --revision $fetch_revision > /dev/null ; then
-            echo "Fetch revision exists and is activated"
-            fetch_exists=true
-          fi
-
-          if az containerapp revision activate -n $nginx_app_name -g ${{ secrets.RESOURCE_GROUP }} --revision $nginx_revision > /dev/null ; then
-            echo "Nginx revision exists and is activated"
-            az containerapp ingress traffic set -n $nginx_app_name -g ${{ secrets.RESOURCE_GROUP }} --revision-weight $nginx_revision=100
-            nginx_exists=true
-          fi
-
-          if [[ $fetch_exists != $nginx_exists ]] ; then
-            echo "Unexpected situation: fetch and nginx apps have different status"
-            (exit 1)
-          fi
-
-          echo "REVISION_ALREADY_EXISTS=$fetch_exists" >> $GITHUB_ENV
-
-      - name: Deploy server code if not already deployed
-        if: ${{ env.REVISION_ALREADY_EXISTS == 'false' }}
+      - name: Deploy server code
         uses: azure/arm-deploy@v1
         with:
           deploymentName: ${{ env.DEPLOYMENT_NAME }}
