@@ -1,13 +1,17 @@
-version: '3.4'
 services:
   # any simple server that supports etags
   filesystem:
     image: ruby:latest
-    command:  bash -c "gem install webrick && ruby -run -e httpd -- --bind-address 0.0.0.0 --port 8112 /blob"
+    command: bash -c "gem install webrick && ruby -run -e httpd -- --bind-address 0.0.0.0 --port 8112 /blob"
     volumes:
       - ${STORAGE_LOCATION:-blob}:/blob
     ports:
      - 8112:8112
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:8112"]
+        interval: 10s
+        timeout: 10s
+        retries: 5
 
   test:
     build:
@@ -17,7 +21,8 @@ services:
         - UPLOAD_WITH_CLIENT_VERSION
         - FETCH_WITH_CLIENT_VERSION
     depends_on:
-      - filesystem
+      filesystem:
+        condition: service_healthy
     volumes:
       - ${STORAGE_LOCATION:-blob}:/blob
     environment:
