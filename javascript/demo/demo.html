@@ -58,7 +58,7 @@
               })
               .then(function (chunk) {
                 console.log(chunk);
-                let dec = Module.stream_decoder();
+                let dec = oneSeismic.stream_decoder();
                 var x = dec(chunk);
                 x = dec(null);
                 const a = x[1]["data"]["data"];
