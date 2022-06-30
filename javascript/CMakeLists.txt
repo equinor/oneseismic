@@ -17,7 +17,8 @@ target_link_options    (oneseismic
 )
 
 if (ONESEISMIC_MODULARIZE)
-    target_link_options(oneseismic PRIVATE "SHELL:-s MODULARIZE=1")
+  target_link_options(oneseismic PRIVATE "SHELL:-s MODULARIZE=1 ")
+  target_link_options(oneseismic PRIVATE "SHELL:-s EXPORT_NAME='CreateOneSeismic' ") 
 endif ()
 
 if (ONESEISMIC_ASMJS_ONLY)
