@@ -132,3 +132,10 @@ License
 =======
 The server is licensed under AGPL v3+, while the connector and python libraries
 are licensed under the LGPL v3+.
+
+
+
+Contributing
+============
+
+We welcome all kinds of contributions; please see [CONTRIBUTING.md](CONTRIBUTING.md).
