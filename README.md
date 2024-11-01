@@ -2,8 +2,17 @@ oneseismic
 ==========
 Next-generation seismic in the cloud.
 
-Please note that oneseismic is under heavy development, and parts of this
-document may be outdated.
+🚩 Deprecation 🚩
+===========
+
+This is original version of oneseismic product which was based on internal
+storage format.
+
+With time this solution was abandoned as product switched to already established
+formats. Next version of oneseismic is developed under
+[oneseismic-api](https://github.com/equinor/oneseismic-api).
+
+Repository is archived in November 2024.
 
 What is oneseismic?
 ===================
